@@ -25,7 +25,7 @@
 
 		PUBLIC get_bathymetry
 
-#		define _GT_NAME							t_swe_init_traversal
+#		define _GT_NAME t_swe_init_traversal
 
 #		define _GT_EDGES
 #		define _GT_EDGES_TEMP
@@ -122,15 +122,15 @@
                 end do
 
 #               if defined (_ASAGI)
-                    centroid_square = 0.5_GRID_SR * [grid_min_x(cfg%afh_displacement) + grid_max_x(cfg%afh_displacement), grid_min_y(cfg%afh_displacement) + grid_max_y(cfg%afh_displacement)]
+                    centroid_square = 0.5_GRID_SR * [asagi_grid_min(cfg%afh_displacement,0) + asagi_grid_max(cfg%afh_displacement,0), asagi_grid_min(cfg%afh_displacement,1) + asagi_grid_max(cfg%afh_displacement,1)]
                     centroid_square = 1.0_GRID_SR / cfg%scaling * (centroid_square - cfg%offset)
                     centroid_square = samoa_world_to_barycentric_point(element%transform_data, centroid_square)
 
                     centroid_triangle = [1.0_GRID_SR/3.0_GRID_SR, 1.0_GRID_SR/3.0_GRID_SR]
                     centroid_triangle = cfg%scaling * samoa_barycentric_to_world_point(element%transform_data, centroid_triangle) + cfg%offset
                     centroid_triangle = [ &
-                        (centroid_triangle(1) - grid_min_x(cfg%afh_displacement)) / (grid_max_x(cfg%afh_displacement) - grid_min_x(cfg%afh_displacement)), &
-                        (centroid_triangle(2) - grid_min_y(cfg%afh_displacement)) / (grid_max_y(cfg%afh_displacement) - grid_min_y(cfg%afh_displacement)) &
+                        (centroid_triangle(1) - asagi_grid_min(cfg%afh_displacement,0)) / (asagi_grid_max(cfg%afh_displacement,0) - asagi_grid_min(cfg%afh_displacement,0)), &
+                        (centroid_triangle(2) - asagi_grid_min(cfg%afh_displacement,1)) / (asagi_grid_max(cfg%afh_displacement,1) - asagi_grid_min(cfg%afh_displacement,1)) &
                     ]
 
                     if (maxval(Q_test%h - Q_test%b) > 0.0 .and. minval(Q_test%h - Q_test%b) <= 0.0) then
@@ -211,7 +211,7 @@
 			integer (kind = GRID_SI), intent(in)				:: lod						!< level of detail
             real (kind = GRID_SR)								:: bathymetry				!< bathymetry
 
-            real (kind = GRID_SR)                               :: xs(2), ts
+            real (kind = GRID_SR)                               :: xs(3), ts
 
 
 
@@ -222,21 +222,23 @@
                     section%stats%r_asagi_time = section%stats%r_asagi_time - get_wtime()
 #               endif
 
-				if (grid_min_x(cfg%afh_bathymetry) <= xs(1) .and. grid_min_y(cfg%afh_bathymetry) <= xs(2) &
-                        .and. xs(1) <= grid_max_x(cfg%afh_bathymetry) .and. xs(2) <= grid_max_y(cfg%afh_bathymetry)) then
+		if (asagi_grid_min(cfg%afh_bathymetry,0) <= xs(1) .and. asagi_grid_min(cfg%afh_bathymetry,1) <= xs(2) &
+                        .and. xs(1) <= asagi_grid_max(cfg%afh_bathymetry,0) .and. xs(2) <= asagi_grid_max(cfg%afh_bathymetry,1)) then
 
-                    bathymetry = asagi_get_float(cfg%afh_bathymetry, dble(xs(1)), dble(xs(2)), 0)
+                    bathymetry = asagi_get_float(cfg%afh_bathymetry, x)
                 else
                     bathymetry = -5000.0 !we assume that the sea floor is constant here
                 end if
 
-                if (grid_min_x(cfg%afh_displacement) <= xs(1) .and. grid_min_y(cfg%afh_displacement) <= xs(2) &
-                        .and. xs(1) <= grid_max_x(cfg%afh_displacement) .and. xs(2) <= grid_max_y(cfg%afh_displacement) &
-                        .and. grid_min_z(cfg%afh_displacement) < t) then
+                if (asagi_grid_min(cfg%afh_displacement,0) <= xs(1) .and. asagi_grid_min(cfg%afh_displacement,1) <= xs(2) &
+                        .and. xs(1) <= asagi_grid_max(cfg%afh_displacement,0) .and. xs(2) <= asagi_grid_max(cfg%afh_displacement,1) &
+                        .and. asagi_grid_min(cfg%afh_displacement,2) < t) then
 
-                    ts = min(t, grid_max_z(cfg%afh_displacement))
+                    ts = min(t, asagi_grid_max(cfg%afh_displacement,2))
+                    
+                    xs(3) = ts
 
-                    bathymetry = bathymetry + asagi_get_float(cfg%afh_displacement, dble(xs(1)), dble(xs(2)), dble(ts), 0)
+                    bathymetry = bathymetry + asagi_get_float(cfg%afh_displacement, xs, 0)
                 end if
 
 #               if defined(_ASAGI_TIMING)
@@ -249,7 +251,7 @@
                 real (kind = GRID_SR), parameter					:: inner_height = -5.0
 
                 xs = cfg%scaling * x + cfg%offset
-				bathymetry = 0.5_GRID_SR * (inner_height + outer_height) + (inner_height - outer_height) * sign(0.5_GRID_SR, (dam_radius ** 2) - dot_product(xs - dam_center, xs - dam_center))
+				bathymetry = 0.5_GRID_SR * (inner_height + outer_height) + (inner_height - outer_height) * sign(0.5_GRID_SR, (dam_radius ** 2) - dot_product(xs(1:2) - dam_center, xs(1:2) - dam_center))
 #			endif
 		end function
 	END MODULE

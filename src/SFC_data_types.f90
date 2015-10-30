@@ -29,7 +29,7 @@ MODULE SFC_data_types
     use Tools_parallel_operators
 
 #	if defined(_ASAGI)
-		use asagi, asagi_create => grid_create, asagi_open => grid_open, asagi_close => grid_close, asagi_get_float => grid_get_float
+		use asagi, asagi_create => asagi_grid_create, asagi_open => asagi_grid_open, asagi_close => asagi_grid_close, asagi_get_float => asagi_grid_get_float
 #	endif
 
     implicit none
@@ -82,13 +82,13 @@ MODULE SFC_data_types
 	!********************************
 
 	type fine_triangle
-		integer (kind = BYTE)									:: i_entity_types		! encodes the types of edges and nodes (old/new, inner/boundary)							max. 8 bit
-		integer (kind = BYTE)									:: i_depth				! grid depth (0 to MAX_DEPTH)																max. 6? bit
-		integer (kind = BYTE)									:: refinement			! refinement info (-1: coarsen, 0: keep, 1-4: refine once or multiple times)				max. 3 bit
-		integer (kind = BYTE)									:: i_plotter_type		! plotter grammar type for cell orientation (-8 to 8)										max. 3 bit
-		integer (kind = BYTE)									:: i_turtle_type		! turtle grammar type for edge/node indexing) (K = 1, V = 2, H = 3)							max. 2 bit
+		integer (kind = BYTE) :: i_entity_types ! encodes the types of edges and nodes (old/new, inner/boundary) max. 8 bit
+		integer (kind = BYTE) :: i_depth 	! grid depth (0 to MAX_DEPTH) max. 6? bit
+		integer (kind = BYTE) :: refinement 	! refinement info (-1: coarsen, 0: keep, 1-4: refine once or multiple times) max. 3 bit
+		integer (kind = BYTE) :: i_plotter_type ! plotter grammar type for cell orientation (-8 to 8) max. 3 bit
+		integer (kind = BYTE) :: i_turtle_type 	! turtle grammar type for edge/node indexing) (K = 1, V = 2, H = 3) max. 2 bit
 
-        integer (kind = BYTE)							        :: i_color_edge_color	! color of the color_edge (in -1:0)																	max. 1 bit
+		integer (kind = BYTE) :: i_color_edge_color	! color of the color_edge (in -1:0) max. 1 bit
 
 		contains
 
@@ -120,17 +120,17 @@ MODULE SFC_data_types
 	!stack & stream data types
 
 	type, extends(num_global_data) :: t_global_data
-        integer (kind = GRID_DI), dimension(RED : GREEN)	:: start_distance, min_distance, end_distance
+	    integer (kind = GRID_DI), dimension(RED : GREEN)	:: start_distance, min_distance, end_distance
 
-        integer (kind = GRID_SI), dimension(RED : GREEN)	:: start_dest_stack, end_dest_stack, min_dest_stack, max_dest_stack
-        integer (kind = GRID_DI)	                        :: dest_cells, last_dest_cell
-        integer (kind = GRID_DI)                            :: load, partial_load
-        logical	                                            :: l_conform
+	    integer (kind = GRID_SI), dimension(RED : GREEN)	:: start_dest_stack, end_dest_stack, min_dest_stack, max_dest_stack
+	    integer (kind = GRID_DI)	                        :: dest_cells, last_dest_cell
+	    integer (kind = GRID_DI)                            :: load, partial_load
+	    logical	                                        :: l_conform
 
-        contains
+	    contains
 
-        procedure, pass :: to_string => t_global_data_to_string
-    end type
+	    procedure, pass :: to_string => t_global_data_to_string
+	end type
 
 	!cell storage
 
@@ -238,11 +238,11 @@ MODULE SFC_data_types
 	!> Reference edge transformation data
 	type t_edge_transform_data
 #		if defined(_USE_SKELETON_OP)
-			real (kind = GRID_SR), dimension(2)				:: normal					!< local edge normal in cartesian coordinates
+			real (kind = GRID_SR), dimension(2) :: normal					!< local edge normal in cartesian coordinates
 #		endif
 
-		integer (kind = BYTE)									:: index					!< local edge index
-		integer (kind = BYTE)									:: orientation				!< local edge orientation: -1: backward 1: forward
+		integer (kind = BYTE)	:: index					!< local edge index
+		integer (kind = BYTE)	:: orientation				!< local edge orientation: -1: backward 1: forward
 	end type
 
 	!> Reference cell transformation data for all
@@ -273,7 +273,7 @@ MODULE SFC_data_types
 
 	type(t_cell_transform_data), target	                    :: ref_plotter_data(-8 : 8)			!< Reference plotter grammar data for the 16 possible triangle orientations
 
-	interface get_c_pointer
+    interface get_c_pointer
         module procedure t_node_data_get_c_pointer
         module procedure t_edge_data_get_c_pointer
     end interface
@@ -601,7 +601,7 @@ MODULE SFC_data_types
 		real (kind = GRID_SR)				                :: edge_vectors(2, 3), edge_normals(2, 3)
 		type(t_global_data)                                 :: global_data
 
-		!set transformation matrices for the 8 different plotter grammar patterns
+	!set transformation matrices for the 8 different plotter grammar patterns
 
         do i_plotter_type = -8, 8
             if (i_plotter_type .ne. 0) then

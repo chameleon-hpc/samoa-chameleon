@@ -37,33 +37,33 @@ MODULE SFC_traversal
 
 	subroutine sfc_generic()
 
-		! local variables
-		type(t_grid)														:: grid
+		! local variles
+		type(t_grid) :: grid
 
 #       if defined(_HEAT_EQ)
 
 #	    elif defined(_TESTS)
 
 #	    elif defined(_DARCY)
-            type(t_darcy)                                                   :: darcy
+            type(t_darcy) :: darcy
 #	    elif defined(_SWE)
-           type(t_swe)          											:: swe
+           type(t_swe) :: swe
 #	    elif defined(_FLASH)
-           type(t_flash)          											:: flash
+           type(t_flash) :: flash
 #	    elif defined(_NUMA)
-           type(t_numa)                                               		:: numa
+           type(t_numa) :: numa
 #	    elif defined(_GENERIC)
-           type(t_generic)                                                  :: generic
+           type(t_generic) :: generic
 #	    endif
 
-		!create, run and destroy scenario
+	  !create, run and destroy scenario
 
-#		if defined(_TESTS)
+#	if defined(_TESTS)
             !TODO: tests should be able to execute in addition to one of the scenarios!
-
+            
             !create initial grid
             call init_grid(grid)
-			call tests_create(grid, cfg%l_log, cfg%i_asagi_mode)
+	    call tests_create(grid, cfg%l_log, cfg%i_asagi_mode)
 
 			!$omp parallel copyin(cfg)
 			call tests_run(grid, cfg%i_max_time_steps)
@@ -94,10 +94,13 @@ MODULE SFC_traversal
 
 			call darcy%destroy(grid, cfg%l_log)
 #		elif defined(_SWE)
+			
+ 
             !create initial grid
             call init_grid(grid)
-			call swe%create(grid, cfg%l_log, cfg%i_asagi_mode)
-
+	    
+	    call swe%create(grid, cfg%l_log, cfg%i_asagi_mode)
+	    
             !$omp parallel copyin(cfg)
 			call swe%run(grid)
             call grid%destroy()

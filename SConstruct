@@ -197,13 +197,15 @@ if env['asagi'] != 'noasagi':
   env.Append(F90PATH = os.path.abspath(env['asagi_dir'] + '/include'))
   env['F90FLAGS'] += ' -D_ASAGI'
   env['LINKFLAGS'] += ' -Wl,--rpath,' + os.path.abspath(env['asagi_dir'])
-  env.Append(LIBPATH = env['asagi_dir'])
+  env.Append(LIBPATH = env['asagi_dir']  + '/lib' )
 
   if env['asagi'] == 'numa':
     env['F90FLAGS'] += ' -D_ASAGI_NUMA'
 
   if env['openmp'] == 'noomp':
     env.Append(LIBS = ['asagi_nomt'])
+  elif env['mpi'] == 'nompi':
+    env.Append(LIBS = ['asagi_nompi'])
   else:
     env.Append(LIBS = ['asagi'])
 

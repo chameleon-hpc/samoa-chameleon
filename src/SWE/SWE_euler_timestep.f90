@@ -135,8 +135,11 @@
 			type(t_element_base), intent(in)						:: element
 			type(t_edge_data), intent(in)						    :: edge
 			type(num_cell_rep)										:: rep
-
+#if defined(_SWE_SIMD)
+			type(t_state), dimension(_SWE_SIMD_SIZE)				:: Q
+#else
 			type(t_state), dimension(_SWE_CELL_SIZE)				:: Q
+#endif
 			integer(kind = GRID_SI)									:: i, j, i_edge
 			real(kind = GRID_SR), dimension(2, _SWE_EDGE_SIZE)		:: dof_pos
 			real(kind = GRID_SR), dimension(2, 3), parameter		:: edge_offsets = reshape([0.0, 0.0, 0.0, 1.0, 1.0, 0.0], [2, 3])
@@ -147,9 +150,9 @@
 			_log_write(6, '(3X, A)') "swe cell to edge op:"
 			_log_write(6, '(4X, A, F0.3, 1X, F0.3, 1X, F0.3, 1X, F0.3)') "Q in: ", Q
             _log_write(6, '(4X, A, F0.3, 1X, F0.3)') "normal in : ", edge%transform_data%normal
-
+			
+			i_edge = edge%transform_data%index
 #           if (_SWE_CELL_SIZE > 1)
-                i_edge = edge%transform_data%index
                 _log_write(6, '(4X, A, I0)') "edge ", i_edge
 
 				forall (i = 1 : _SWE_EDGE_SIZE)
@@ -164,7 +167,29 @@
 					rep%Q(i)%p(1) = t_basis_Q_eval(dof_pos(:, i), Q%p(1))
 					rep%Q(i)%p(2) = t_basis_Q_eval(dof_pos(:, i), Q%p(2))
 				end forall
-#           else
+#           elif defined(_SWE_SIMD)
+				! copy boundary values to respective edges
+				! left leg cells go to edge 1
+				! hypotenuse cells go to edge 2
+				! right leg cells go to edge 3
+				
+				select case (i_edge)
+				case (1) !cells with id i*i+1 (left leg)
+					do i=0,_SWE_SIMD_ORDER-1
+						rep%Q(i+1) = Q(i*i+1)
+					end do
+				case (2) ! hypotenuse
+					j = 1
+					do i=(_SWE_SIMD_ORDER-1)*(_SWE_SIMD_ORDER-1) + 1, (_SWE_SIMD_ORDER)*(_SWE_SIMD_ORDER)
+						rep%Q(j) = Q(i)
+						j = j + 1
+					end do
+				case (3) !cells with id i*i (right leg)
+					do i=1, _SWE_SIMD_ORDER
+						rep%Q(i) = Q(i*i)
+					end do
+				end select
+#			else
 				rep%Q(1) = Q(1)
 #           endif
 

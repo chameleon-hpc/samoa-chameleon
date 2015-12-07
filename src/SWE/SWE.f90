@@ -63,7 +63,7 @@
 			call date_and_time(s_date, s_time)
 			
 #if defined (_SWE_SIMD)
-			call SWE_SIMD_geometry%init(8)
+			call SWE_SIMD_geometry%init(_SWE_SIMD_ORDER)
 #endif
 
 #           if defined(_MPI)
@@ -345,8 +345,10 @@
 				if ((cfg%r_max_time >= 0.0 .and. grid%r_time > cfg%r_max_time) .or. (cfg%i_max_time_steps >= 0 .and. i_time_step >= cfg%i_max_time_steps)) then
 					exit
 				end if
-
+! TODO : correct adaption operators for SWE_SIMD
+#ifndef _SWE_SIMD
 				call swe%adaption%traverse(grid)
+#endif
 
 				!do a time step
 				call swe%euler%traverse(grid)
@@ -399,6 +401,7 @@
                 call grid_info%print()
             end if
             !$omp end master
+
 		end subroutine
 
         subroutine update_stats(swe, grid)

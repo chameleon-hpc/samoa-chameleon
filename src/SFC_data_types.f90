@@ -668,6 +668,7 @@ MODULE SFC_data_types
                             p_edge_data%normal = edge_normals(:, i)
 #	    			    endif
 
+						_log_write(7, '(X, A, I0)') "plotter_type: ", i_plotter_type
                         _log_write(7, '(X, A, I0)') "edge: ", p_edge_data%index
                         _log_write(7, '(2X, A, I0)') "orientation: ", p_edge_data%orientation
                         _log_write(7, '(2X, A, 2(F0.4, 1X))') "vector: ", edge_vectors(:, i)

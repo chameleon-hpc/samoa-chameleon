@@ -83,7 +83,7 @@
 		!> persistent scenario data on a cell
 		type num_cell_data_pers
 #if defined(_SWE_SIMD)
-			type(t_state), DIMENSION(_SWE_SIMD_ORDER*(_SWE_SIMD_ORDER+3))				:: Q !< triangular mesh + ghost cells
+			type(t_state), DIMENSION(_SWE_SIMD_SIZE)				:: Q !< triangular mesh + ghost cells
 #else
 			type(t_state), DIMENSION(_SWE_CELL_SIZE)									:: Q						!< cell status vector
 #endif
@@ -92,7 +92,7 @@
 		!> Cell representation on an edge, this would typically be everything required from a cell to compute the flux function on an edge
 		type num_cell_rep
 #if defined(_SWE_SIMD)
-			type(t_state), DIMENSION(_SWE_SIMD_ORDER*(_SWE_SIMD_ORDER+3))				:: Q !< edge stores ghost cells for communication
+			type(t_state), DIMENSION(_SWE_SIMD_SIZE)				:: Q !< edge stores ghost cells for communication
 #else
 			type(t_state), DIMENSION(_SWE_EDGE_SIZE)									:: Q						!< cell representation
 #endif

@@ -46,6 +46,8 @@ vars.AddVariables(
                 allowed_values=('lf', 'lfbath', 'llf', 'llfbath', 'fwave', 'aug_riemann')
               ),
 
+  ( 'swe_simd_order', 'order of vectorized triangular mesh, 1=no_vectorization', 1),
+
   EnumVariable( 'compiler', 'choice of compiler', 'intel',
                 allowed_values=('intel', 'gnu')
               ),
@@ -230,6 +232,11 @@ elif env['swe_solver'] == 'fwave':
   env['F90FLAGS'] += ' -D_SWE_FWAVE'
 elif env['swe_solver'] == 'aug_riemann':
   env['F90FLAGS'] += ' -D_SWE_AUG_RIEMANN'
+
+#vectorization options for SWE scenario
+if (int(env['swe_simd_order'])) > 1:
+  env['F90FLAGS'] += ' -D_SWE_SIMD'
+  env['F90FLAGS'] += ' -D_SWE_SIMD_ORDER=' + env['swe_simd_order']
 
 #Choose a floating point precision
 if env['precision'] == 'single':

@@ -18,6 +18,9 @@
 		use SWE_ascii_output
 		use SWE_point_output
 		use SWE_euler_timestep
+#if defined(_SWE_SIMD)
+		use SWE_SIMD
+#endif
 
 		use Samoa_swe
 
@@ -58,6 +61,10 @@
 			integer                                         :: i_error
 
 			call date_and_time(s_date, s_time)
+			
+#if defined (_SWE_SIMD)
+			call SWE_SIMD_geometry%init(8)
+#endif
 
 #           if defined(_MPI)
                 call mpi_bcast(s_date, len(s_date), MPI_CHARACTER, 0, MPI_COMM_WORLD, i_error); assert_eq(i_error, 0)

@@ -41,6 +41,7 @@
 		! for each edge, the left/right values are copied to these arrays 
 		! before computation takes place. 
 		type(t_state), dimension(:), pointer	:: edges_a, edges_b
+		!$omp threadprivate(edges_a, edges_b)
 #endif
 
 #		define _GT_NAME							t_swe_euler_timestep_traversal

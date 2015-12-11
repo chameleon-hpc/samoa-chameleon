@@ -11,7 +11,9 @@
 
 		use Samoa_swe
 		use c_bind_riemannsolvers
-
+#		if defined(_SWE_SIMD)
+			use SWE_SIMD
+#		endif
 		implicit none
 
         type num_traversal_data
@@ -32,6 +34,14 @@
 
 		type(t_gv_Q)							:: gv_Q
 		type(t_lfs_flux)						:: lfs_flux
+		
+		
+#if defined (_SWE_SIMD)
+		! arrays used to compute updates within each triangular patch.
+		! for each edge, the left/right values are copied to these arrays 
+		! before computation takes place. 
+		type(t_state), dimension(:), pointer	:: edges_a, edges_b
+#endif
 
 #		define _GT_NAME							t_swe_euler_timestep_traversal
 
@@ -86,8 +96,8 @@
 			type(t_swe_euler_timestep_traversal), intent(inout)		:: traversal
 			type(t_grid), intent(inout)							    :: grid
 
-            grid%r_dt = cfg%courant_number * cfg%scaling * get_edge_size(grid%d_max) / ((2.0_GRID_SR + sqrt(2.0_GRID_SR)) * grid%u_max)
-
+			grid%r_dt = cfg%courant_number * cfg%scaling * get_edge_size(grid%d_max) / ((2.0_GRID_SR + sqrt(2.0_GRID_SR)) * grid%u_max)
+		
 #           if defined(_ASAGI)
                 if (grid%r_time < asagi_grid_max(cfg%afh_displacement,2)) then
                     grid%r_dt = min(grid%r_dt, asagi_grid_delta(cfg%afh_displacement,2))
@@ -126,25 +136,36 @@
 			type(t_swe_euler_timestep_traversal), intent(inout)				:: traversal
 			type(t_grid_section), intent(inout)							:: section
 
+			
 			!this variable will be incremented for each cell with a refinement request
 			traversal%i_refinements_issued = 0_GRID_DI
 			section%u_max = 0.0_GRID_SR
+			
+#			if defined(_SWE_SIMD)
+				if (associated(edges_a) .eqv. .false.) then
+					allocate(edges_a(SWE_SIMD_geometry%num_edges))
+					allocate(edges_b(SWE_SIMD_geometry%num_edges))
+				end if
+				!TODO: delete this when wave speeds are properly computed
+				section%u_max = 1
+#			endif
 		end subroutine
 
 		function cell_to_edge_op(element, edge) result(rep)
 			type(t_element_base), intent(in)						:: element
 			type(t_edge_data), intent(in)						    :: edge
 			type(num_cell_rep)										:: rep
-#if defined(_SWE_SIMD)
-			type(t_state), dimension(_SWE_SIMD_SIZE)				:: Q
-#else
-			type(t_state), dimension(_SWE_CELL_SIZE)				:: Q
-#endif
 			integer(kind = GRID_SI)									:: i, j, i_edge
 			real(kind = GRID_SR), dimension(2, _SWE_EDGE_SIZE)		:: dof_pos
 			real(kind = GRID_SR), dimension(2, 3), parameter		:: edge_offsets = reshape([0.0, 0.0, 0.0, 1.0, 1.0, 0.0], [2, 3])
 			real(kind = GRID_SR), dimension(2, 3), parameter		:: edge_vectors = reshape([0.0, 1.0, 1.0, -1.0, -1.0, 0.0], [2, 3])
-
+#			if defined(_SWE_SIMD)
+				type(t_state), dimension(_SWE_SIMD_SIZE)			:: Q
+				integer												:: edge_type !1=left, 2=hypotenuse, 3=right
+#			else
+				type(t_state), dimension(_SWE_CELL_SIZE)			:: Q
+#			endif
+			
 			call gv_Q%read(element, Q)
 
 			_log_write(6, '(3X, A)') "swe cell to edge op:"
@@ -168,27 +189,37 @@
 					rep%Q(i)%p(2) = t_basis_Q_eval(dof_pos(:, i), Q%p(2))
 				end forall
 #           elif defined(_SWE_SIMD)
+				!find out which edge it is comparing its normal with cell normals
+				! obs.: negative plotter_types describe triangles in desired order: left, hypotenuse, right
+				associate(cell_edge => ref_plotter_data(- abs(element%cell%geometry%i_plotter_type))%edges, normal => edge%transform_data%normal)
+					do i=1,3
+						if ((normal(1) == cell_edge(i)%normal(1) .and. normal(2) == cell_edge(i)%normal(2))   &
+								.or. (normal(1) == -cell_edge(i)%normal(1) .and. normal(2) == -cell_edge(i)%normal(2))) then
+							edge_type = i
+						end if
+					end do
+				end associate
+				
 				! copy boundary values to respective edges
 				! left leg cells go to edge 1
 				! hypotenuse cells go to edge 2
 				! right leg cells go to edge 3
-				
-				select case (i_edge)
+				select case (edge_type)
 				case (1) !cells with id i*i+1 (left leg)
-					do i=0,_SWE_SIMD_ORDER-1
-						rep%Q(i+1) = Q(i*i+1)
+					do i=0, _SWE_SIMD_ORDER - 1
+						rep%Q(i+1) = Q(i*i + 1)
 					end do
 				case (2) ! hypotenuse
-					j = 1
-					do i=(_SWE_SIMD_ORDER-1)*(_SWE_SIMD_ORDER-1) + 1, (_SWE_SIMD_ORDER)*(_SWE_SIMD_ORDER)
-						rep%Q(j) = Q(i)
-						j = j + 1
+					do i=1, _SWE_SIMD_ORDER
+						rep%Q(i) = Q((_SWE_SIMD_ORDER-1)*(_SWE_SIMD_ORDER-1) + 2*i - 1)
 					end do
 				case (3) !cells with id i*i (right leg)
 					do i=1, _SWE_SIMD_ORDER
-						rep%Q(i) = Q(i*i)
+						rep%Q(_SWE_SIMD_ORDER + 1 - i) = Q(i*i)
 					end do
 				end select
+			
+				
 #			else
 				rep%Q(1) = Q(1)
 #           endif
@@ -216,6 +247,7 @@
 			type(t_edge_data), intent(in)								    :: edge
 			type(num_cell_rep), intent(in)									:: rep1, rep2
 			type(num_cell_update), intent(out)								:: update1, update2
+			integer 														:: i
 
 			_log_write(6, '(3X, A)') "swe skeleton op:"
 			_log_write(6, '(4X, A, F0.3, 1X, F0.3, 1X, F0.3, 1X, F0.3)') "Q 1 in: ", rep1%Q
@@ -223,12 +255,26 @@
 
 #			if defined (_SWE_LF) || defined (_SWE_LF_BATH) || defined (_SWE_LLF) || defined (_SWE_LLF_BATH)
 				call compute_lf_flux(edge%transform_data%normal, rep1%Q(1), rep2%Q(1), update1%flux(1), update2%flux(1))
+#			elif defined (_SWE_SIMD)
+				! invert values in edges
+				! cells are copied in inverse order because the neighbor 
+				! ghost cells will have a mirrored numbering! See a (poorly-drawn) example:
+				!         ___
+				!  /\3   1\  |
+				! /  \2   2\ |
+				!/____\1   3\|
+				
+				do i=1, _SWE_SIMD_ORDER
+					update1%Q(i) = rep2%Q(_SWE_SIMD_ORDER + 1 - i)
+					update2%Q(i) = rep1%Q(_SWE_SIMD_ORDER + 1 - i)
+				end do
 #			else
 				call compute_geoclaw_flux(edge%transform_data%normal, rep1%Q(1), rep2%Q(1), update1%flux(1), update2%flux(1))
+				_log_write(6, '(4X, A, F0.3, 1X, F0.3, 1X, F0.3, 1X, F0.3)') "flux 1 out: ", update1%flux
+				_log_write(6, '(4X, A, F0.3, 1X, F0.3, 1X, F0.3, 1X, F0.3)') "flux 2 out: ", update2%flux
 #			endif
 
-			_log_write(6, '(4X, A, F0.3, 1X, F0.3, 1X, F0.3, 1X, F0.3)') "flux 1 out: ", update1%flux
-			_log_write(6, '(4X, A, F0.3, 1X, F0.3, 1X, F0.3, 1X, F0.3)') "flux 2 out: ", update2%flux
+
 		end subroutine
 
 		subroutine bnd_skeleton_array_op(traversal, grid, edges, rep, update)
@@ -254,7 +300,7 @@
 
 			type(t_state)													:: bnd_rep
 			type(t_update)													:: bnd_flux
-
+			integer 														:: i
             !SLIP: reflect momentum at normal
 			!bnd_rep = t_state(rep%Q(1)%h, rep%Q(1)%p - dot_product(rep%Q(1)%p, edge%transform_data%normal) * edge%transform_data%normal, rep%Q(1)%b)
 
@@ -266,6 +312,9 @@
 
 #			if defined (_SWE_LF) || defined (_SWE_LF_BATH) || defined (_SWE_LLF) || defined (_SWE_LLF_BATH)
 				call compute_lf_flux(edge%transform_data%normal, rep%Q(1), bnd_rep, update%flux(1), bnd_flux)
+#			elif defined (_SWE_SIMD)
+				! TODO: decide what to do on the boundary! maybe this is enough... maybe should invert momentum
+				update%Q = rep%Q
 #			else
 				call compute_geoclaw_flux(edge%transform_data%normal, rep%Q(1), bnd_rep, update%flux(1), bnd_flux)
 #			endif
@@ -273,31 +322,82 @@
 
 		subroutine cell_update_op(traversal, section, element, update1, update2, update3)
 			type(t_swe_euler_timestep_traversal), intent(inout)				:: traversal
-			type(t_grid_section), intent(inout)							:: section
-			type(t_element_base), intent(inout)						:: element
-			type(num_cell_update), intent(in)						:: update1, update2, update3
+			type(t_grid_section), intent(inout)								:: section
+			type(t_element_base), intent(inout)								:: element
+			type(num_cell_update), intent(inout)							:: update1, update2, update3
+		
+#			if defined (_SWE_SIMD)
+				integer 														:: i
+				type(num_cell_update)											:: tmp !> ghost cells in correct order 
+				
+				if (element%cell%geometry%i_plotter_type > 0) then ! if orientation = forward, reverse updates
+					tmp=update1
+					update1=update3
+					update3=tmp
+				end if
+				
+				associate(Q => element%cell%data_pers%Q, geom => SWE_SIMD_geometry)
+				
+					! copy from edge to ghost cells
+					! left leg ghost layer = update1
+					do i = 1,_SWE_SIMD_ORDER 
+						Q(_SWE_SIMD_ORDER*_SWE_SIMD_ORDER + i) = update1%Q(i)
+					end do
+					! hypotenuse ghost layer = update2 
+					do i = 1, _SWE_SIMD_ORDER 
+						Q(_SWE_SIMD_ORDER*(_SWE_SIMD_ORDER+1) + i) = update2%Q(i)
+					end do
+					! right leg ghost layer = update3
+					do i = 1, _SWE_SIMD_ORDER 
+						Q(_SWE_SIMD_ORDER*(_SWE_SIMD_ORDER+2) + i) = update3%Q(i)
+					end do
+					
+					! copy cell values to arrays edges_a and edges_b
+					!...
+					do i=1, geom%num_edges
+						edges_a(i) = Q(geom%edges_a(i))
+						edges_b(i) = Q(geom%edges_b(i))
+					end do
 
-			!local variables
+				
+					! compute net_updates
+					! dummy solver, just uses the max h and does not consider momentum
+					! TODO: use real solver
+					do i=1, geom%num_edges
+						edges_a(i)%h = max (edges_a(i)%h, edges_b(i)%h)
+					end do
+					
+					! update unknowns
+					!...
+					do i=1, geom%num_edges
+						Q(geom%edges_a(i))%h = max(Q(geom%edges_a(i))%h, edges_a(i)%h)
+						Q(geom%edges_b(i))%h = max(Q(geom%edges_b(i))%h, edges_a(i)%h)
+					end do
 
-			type(t_state)   :: dQ(_SWE_CELL_SIZE)
+				end associate
+#			else
+				!local variables
 
-			call volume_op(element%cell%geometry, traversal%i_refinements_issued, element%cell%geometry%i_depth, &
-                element%cell%geometry%refinement, section%u_max, dQ, [update1%flux, update2%flux, update3%flux], section%r_dt)
+				type(t_state)   :: dQ(_SWE_CELL_SIZE)
 
-			!if land is flooded, init water height to dry tolerance and velocity to 0
-			if (element%cell%data_pers%Q(1)%h < element%cell%data_pers%Q(1)%b + cfg%dry_tolerance .and. dQ(1)%h > 0.0_GRID_SR) then
-                element%cell%data_pers%Q(1)%h = element%cell%data_pers%Q(1)%b + cfg%dry_tolerance
-                element%cell%data_pers%Q(1)%p = [0.0_GRID_SR, 0.0_GRID_SR]
-                !print '("Wetting:", 2(X, F0.0))', cfg%scaling * element%transform_data%custom_data%offset + cfg%offset
-            end if
+				call volume_op(element%cell%geometry, traversal%i_refinements_issued, element%cell%geometry%i_depth, &
+					element%cell%geometry%refinement, section%u_max, dQ, [update1%flux, update2%flux, update3%flux], section%r_dt)
 
-            call gv_Q%add(element, dQ)
+				!if land is flooded, init water height to dry tolerance and velocity to 0
+				if (element%cell%data_pers%Q(1)%h < element%cell%data_pers%Q(1)%b + cfg%dry_tolerance .and. dQ(1)%h > 0.0_GRID_SR) then
+					element%cell%data_pers%Q(1)%h = element%cell%data_pers%Q(1)%b + cfg%dry_tolerance
+					element%cell%data_pers%Q(1)%p = [0.0_GRID_SR, 0.0_GRID_SR]
+					!print '("Wetting:", 2(X, F0.0))', cfg%scaling * element%transform_data%custom_data%offset + cfg%offset
+				end if
 
-			!if the water level falls below the dry tolerance, set water surface to 0 and velocity to 0
-			if (element%cell%data_pers%Q(1)%h < element%cell%data_pers%Q(1)%b + cfg%dry_tolerance) then
-                element%cell%data_pers%Q(1)%h = min(element%cell%data_pers%Q(1)%b, 0.0_GRID_SR)
-                element%cell%data_pers%Q(1)%p = [0.0_GRID_SR, 0.0_GRID_SR]
-           end if
+				call gv_Q%add(element, dQ)
+
+				!if the water level falls below the dry tolerance, set water surface to 0 and velocity to 0
+				if (element%cell%data_pers%Q(1)%h < element%cell%data_pers%Q(1)%b + cfg%dry_tolerance) then
+					element%cell%data_pers%Q(1)%h = min(element%cell%data_pers%Q(1)%b, 0.0_GRID_SR)
+					element%cell%data_pers%Q(1)%p = [0.0_GRID_SR, 0.0_GRID_SR]
+				end if
+#			endif
 		end subroutine
 
 		subroutine cell_last_touch_op(traversal, section, cell)

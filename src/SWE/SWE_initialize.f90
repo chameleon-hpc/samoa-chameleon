@@ -13,9 +13,9 @@
 		use SWE_euler_timestep
 
 		use Samoa_swe
-#if defined(_SWE_SIMD)
-		use SWE_SIMD
-#endif
+#		if defined(_SWE_SIMD)
+			use SWE_SIMD
+#		endif
 		implicit none
 
         type num_traversal_data
@@ -77,15 +77,15 @@
 		!******************
 
 		subroutine element_op(traversal, section, element)
-			type(t_swe_init_traversal), intent(inout)				    :: traversal
-			type(t_grid_section), intent(inout)							:: section
-			type(t_element_base), intent(inout)					:: element
-
-#if defined(_SWE_SIMD)
-			type(t_state), dimension(_SWE_SIMD_SIZE)			:: Q
-#else
-			type(t_state), dimension(_SWE_CELL_SIZE)			:: Q
-#endif
+			type(t_swe_init_traversal), intent(inout)				:: traversal
+			type(t_grid_section), intent(inout)						:: section
+			type(t_element_base), intent(inout)						:: element
+			
+#			if defined(_SWE_SIMD)
+				type(t_state), dimension(_SWE_SIMD_SIZE)			:: Q
+#			else
+				type(t_state), dimension(_SWE_CELL_SIZE)			:: Q
+#			endif
 
 			call alpha_volume_op(traversal, section, element, Q)
 
@@ -100,20 +100,20 @@
 		subroutine alpha_volume_op(traversal, section, element, Q)
 			type(t_swe_init_traversal), intent(inout)				    :: traversal
 			type(t_grid_section), intent(inout)							:: section
-			type(t_element_base), intent(inout)						:: element
-#if defined(_SWE_SIMD)
-			type(t_state), dimension(_SWE_SIMD_SIZE), intent(out)	:: Q
-			real (kind = GRID_SR), dimension(_SWE_SIMD_SIZE)		:: lambda
-#else
-			type(t_state), dimension(_SWE_CELL_SIZE), intent(out)	:: Q
-			real (kind = GRID_SR), dimension(_SWE_CELL_SIZE)		:: lambda
-#endif
+			type(t_element_base), intent(inout)							:: element
+#			if defined(_SWE_SIMD)
+				type(t_state), dimension(_SWE_SIMD_SIZE), intent(out)	:: Q
+				real (kind = GRID_SR), dimension(_SWE_SIMD_SIZE)		:: lambda
+#			else
+				type(t_state), dimension(_SWE_CELL_SIZE), intent(out)	:: Q
+				real (kind = GRID_SR), dimension(_SWE_CELL_SIZE)		:: lambda
+#			endif
 
-			real (kind = GRID_SR), dimension(2)						:: pos
-			integer (kind = GRID_SI)								:: i
-			real (kind = GRID_SR), parameter		                :: r_test_points(2, 3) = reshape([1.0, 0.0, 0.0, 0.0, 0.0, 1.0], [2, 3])
-			real (kind = GRID_SR)                                   :: centroid_square(2), centroid_triangle(2)
-			type(t_state), dimension(3)								:: Q_test
+			real (kind = GRID_SR), dimension(2)							:: pos
+			integer (kind = GRID_SI)									:: i
+			real (kind = GRID_SR), parameter		                	:: r_test_points(2, 3) = reshape([1.0, 0.0, 0.0, 0.0, 0.0, 1.0], [2, 3])
+			real (kind = GRID_SR)                                   	:: centroid_square(2), centroid_triangle(2)
+			type(t_state), dimension(3)									:: Q_test
 			
 
 			!evaluate initial function values at dof positions and compute DoFs
@@ -122,14 +122,14 @@
 				Q(i) = get_initial_state(section, samoa_barycentric_to_world_point(element%transform_data, t_basis_Q_get_dof_coords(i)), element%cell%geometry%i_depth / 2_GRID_SI)
 			end do
 			
-#if defined(_SWE_SIMD)
-			! TODO: This should be able to initialize each cell in the mesh with different values,
-			! depending on their position. Using the function get_initial_state with appropriate
-			! geometric calculations should be enough
-			do i=1, SWE_SIMD_geometry%n
-				Q(i) = Q(1)
-			end do
-#endif
+#			if defined(_SWE_SIMD)
+				! TODO: This should be able to initialize each cell in the patch with different values,
+				! depending on their position. Using the function get_initial_state with appropriate
+				! geometric calculations should be enough
+				do i=1, _SWE_SIMD_SIZE
+					Q(i) = Q(1)
+				end do
+#			endif
 			element%cell%geometry%refinement = 0
 
 			if (element%cell%geometry%i_depth < cfg%i_min_depth) then

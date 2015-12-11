@@ -18,9 +18,9 @@
 		use SWE_ascii_output
 		use SWE_point_output
 		use SWE_euler_timestep
-#if defined(_SWE_SIMD)
-		use SWE_SIMD
-#endif
+#		if defined(_SWE_SIMD)
+			use SWE_SIMD
+#		endif
 
 		use Samoa_swe
 
@@ -346,9 +346,9 @@
 					exit
 				end if
 ! TODO : correct adaption operators for SWE_SIMD
-#ifndef _SWE_SIMD
-				call swe%adaption%traverse(grid)
-#endif
+#				ifndef _SWE_SIMD
+					call swe%adaption%traverse(grid)
+#				endif
 
 				!do a time step
 				call swe%euler%traverse(grid)

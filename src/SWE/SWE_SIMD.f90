@@ -6,7 +6,7 @@ MODULE SWE_SIMD
 	TYPE t_SWE_SIMD_geometry
 	
 		INTEGER :: d ! number of divisions on each edge of the triangular domain (input)
-		INTEGER :: n ! number of triangular cells in the mesh --> d^2 + 3*d (INCLUDES GHOST CELLS!!)
+		INTEGER :: n ! number of triangular cells in the patch --> d^2 + 3*d (INCLUDES GHOST CELLS!!)
 		! first d*d cells are normal cells. Edges from (d*d+1) to (d*d+3*d) are ghost cells, which are numbered 
 		! in counterclockwise order: first d ghost cells belong to the left leg, d+1 to 2*d belong to the hypotenuse,
 		! and 2*d+1 to 3d belong to the right leg.

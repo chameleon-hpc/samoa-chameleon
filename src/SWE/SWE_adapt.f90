@@ -97,11 +97,11 @@
 			type(t_grid_section), intent(inout)											:: section
 			type(t_traversal_element), intent(inout)									:: src_element
 			type(t_traversal_element), intent(inout)									:: dest_element
-#if defined(_SWE_SIMD)
-			type(t_state), dimension(_SWE_SIMD_SIZE)									:: Q
-#else
-			type(t_state), dimension(_SWE_CELL_SIZE)									:: Q
-#endif
+#			if defined(_SWE_SIMD)
+				type(t_state), dimension(_SWE_SIMD_SIZE)								:: Q
+#			else
+				type(t_state), dimension(_SWE_CELL_SIZE)								:: Q
+#			endif
 
 			call gv_Q%read( src_element%t_element_base, Q)
 			call gv_Q%write( dest_element%t_element_base, Q)
@@ -113,13 +113,13 @@
 			type(t_traversal_element), intent(inout)									:: src_element
 			type(t_traversal_element), intent(inout)									:: dest_element
 			integer, dimension(:), intent(in)											:: refinement_path
-#if defined(_SWE_SIMD)
-			type(t_state), dimension(_SWE_SIMD_SIZE)									:: Q_in
-			type(t_state), dimension(_SWE_SIMD_SIZE, 2)									:: Q_out
-#else
-			type(t_state), dimension(_SWE_CELL_SIZE)									:: Q_in
-			type(t_state), dimension(_SWE_CELL_SIZE, 2)									:: Q_out
-#endif
+#			if defined(_SWE_SIMD)
+				type(t_state), dimension(_SWE_SIMD_SIZE)									:: Q_in
+				type(t_state), dimension(_SWE_SIMD_SIZE, 2)									:: Q_out
+#			else
+				type(t_state), dimension(_SWE_CELL_SIZE)									:: Q_in
+				type(t_state), dimension(_SWE_CELL_SIZE, 2)									:: Q_out
+#			endif
 
 			integer																		:: i
 			!state vector
@@ -146,17 +146,18 @@
 		end subroutine
 
 		subroutine coarsen_op(traversal, section, src_element, dest_element, refinement_path)
- 			type(t_swe_adaption_traversal), intent(inout)	                :: traversal
-			type(t_grid_section), intent(inout)													:: section
+ 			type(t_swe_adaption_traversal), intent(inout)	                			:: traversal
+			type(t_grid_section), intent(inout)											:: section
 			type(t_traversal_element), intent(inout)									:: src_element
 			type(t_traversal_element), intent(inout)									:: dest_element
 			integer, dimension(:), intent(in)											:: refinement_path
-#if defined(_SWE_SIMD)
-			type(t_state), dimension(_SWE_SIMD_SIZE)									:: Q_out
-#else
-			type(t_state), dimension(_SWE_CELL_SIZE)									:: Q_out
-#endif
 			integer																		:: i
+#			if defined(_SWE_SIMD)
+				type(t_state), dimension(_SWE_SIMD_SIZE)								:: Q_out
+#			else
+				type(t_state), dimension(_SWE_CELL_SIZE)								:: Q_out
+#			endif
+
 
 			!state vector
 

@@ -486,14 +486,6 @@ module Grid_section
 
 		type(t_neighbor_list), dimension(RED : GREEN)						 		:: comms				                        !< red/green communication info (will be filled during adaptive refinement)
 		type(t_neighbor_list), dimension(OLD : NEW, RED : GREEN)					:: comms_type				                    !< red/green and old/new communication info (will be filled during adaptive refinement)
-		
-#if defined (_SWE_SIMD)
-		! arrays used to compute updates within each triangular mesh.
-		! for each edge, the left/right values are copied to these arrays 
-		! before computation takes place. They are declared inside each section
-		! so that they can be reused in order to use less memory.
-		type(t_state), dimension(_SWE_SIMD_SIZE)									:: edges_a, edges_b
-#endif
 
 		contains
 

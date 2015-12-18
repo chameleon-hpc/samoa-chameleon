@@ -98,7 +98,7 @@
 			type(t_traversal_element), intent(inout)									:: src_element
 			type(t_traversal_element), intent(inout)									:: dest_element
 #			if defined(_SWE_SIMD)
-				type(t_state), dimension(_SWE_SIMD_SIZE)								:: Q
+				type(t_state), dimension(_SWE_SIMD_ORDER_SQUARE)						:: Q
 #			else
 				type(t_state), dimension(_SWE_CELL_SIZE)								:: Q
 #			endif
@@ -114,8 +114,8 @@
 			type(t_traversal_element), intent(inout)									:: dest_element
 			integer, dimension(:), intent(in)											:: refinement_path
 #			if defined(_SWE_SIMD)
-				type(t_state), dimension(_SWE_SIMD_SIZE)									:: Q_in
-				type(t_state), dimension(_SWE_SIMD_SIZE, 2)									:: Q_out
+				type(t_state), dimension(_SWE_SIMD_ORDER_SQUARE)						:: Q_in
+				type(t_state), dimension(_SWE_SIMD_ORDER_SQUARE, 2)						:: Q_out
 #			else
 				type(t_state), dimension(_SWE_CELL_SIZE)									:: Q_in
 				type(t_state), dimension(_SWE_CELL_SIZE, 2)									:: Q_out
@@ -153,7 +153,7 @@
 			integer, dimension(:), intent(in)											:: refinement_path
 			integer																		:: i
 #			if defined(_SWE_SIMD)
-				type(t_state), dimension(_SWE_SIMD_SIZE)								:: Q_out
+				type(t_state), dimension(_SWE_SIMD_ORDER_SQUARE)						:: Q_out
 #			else
 				type(t_state), dimension(_SWE_CELL_SIZE)								:: Q_out
 #			endif

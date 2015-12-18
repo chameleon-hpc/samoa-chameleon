@@ -83,7 +83,7 @@
 		!> persistent scenario data on a cell
 		type num_cell_data_pers
 #		if defined(_SWE_SIMD)
-			type(t_state), DIMENSION(_SWE_SIMD_SIZE)				:: Q !< triangular patch + ghost cells
+			type(t_state), DIMENSION(_SWE_SIMD_ORDER_SQUARE)			:: Q !< triangular patch
 #		else
 			type(t_state), DIMENSION(_SWE_CELL_SIZE)				:: Q						!< cell status vector
 #		endif

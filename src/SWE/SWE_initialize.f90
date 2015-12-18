@@ -82,7 +82,7 @@
 			type(t_element_base), intent(inout)						:: element
 			
 #			if defined(_SWE_SIMD)
-				type(t_state), dimension(_SWE_SIMD_SIZE)			:: Q
+				type(t_state), dimension(_SWE_SIMD_ORDER_SQUARE)	:: Q
 #			else
 				type(t_state), dimension(_SWE_CELL_SIZE)			:: Q
 #			endif
@@ -102,8 +102,8 @@
 			type(t_grid_section), intent(inout)							:: section
 			type(t_element_base), intent(inout)							:: element
 #			if defined(_SWE_SIMD)
-				type(t_state), dimension(_SWE_SIMD_SIZE), intent(out)	:: Q
-				real (kind = GRID_SR), dimension(_SWE_SIMD_SIZE)		:: lambda
+				type(t_state), dimension(_SWE_SIMD_ORDER_SQUARE), intent(out)	:: Q
+				real (kind = GRID_SR), dimension(_SWE_SIMD_ORDER_SQUARE)		:: lambda
 #			else
 				type(t_state), dimension(_SWE_CELL_SIZE), intent(out)	:: Q
 				real (kind = GRID_SR), dimension(_SWE_CELL_SIZE)		:: lambda
@@ -126,7 +126,7 @@
 				! TODO: This should be able to initialize each cell in the patch with different values,
 				! depending on their position. Using the function get_initial_state with appropriate
 				! geometric calculations should be enough
-				do i=1, _SWE_SIMD_SIZE
+				do i=1, _SWE_SIMD_ORDER_SQUARE
 					Q(i) = Q(1)
 				end do
 #			endif
@@ -271,7 +271,7 @@
                 real (kind = GRID_SR), parameter					:: outer_height = -100.0
                 real (kind = GRID_SR), parameter					:: inner_height = -5.0
 
-                xs = cfg%scaling * x + cfg%offset
+                xs(1:2) = cfg%scaling * x + cfg%offset
 				bathymetry = 0.5_GRID_SR * (inner_height + outer_height) + (inner_height - outer_height) * sign(0.5_GRID_SR, (dam_radius ** 2) - dot_product(xs(1:2) - dam_center, xs(1:2) - dam_center))
 #			endif
 		end function

@@ -10,7 +10,7 @@
 	!temperature space
 	!*****************
 #if defined(_SWE_SIMD)
-#	define _GV_CELL_SIZE		(_SWE_SIMD_ORDER*(_SWE_SIMD_ORDER+3))
+#	define _GV_CELL_SIZE		_SWE_SIMD_ORDER_SQUARE
 #else
 #	define _GV_CELL_SIZE		_SWE_CELL_SIZE
 #endif

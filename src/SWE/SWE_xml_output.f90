@@ -301,7 +301,7 @@
 			real (kind = GRID_SR), parameter, dimension(2, 6)	:: r_test_points = reshape([1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.5, 0.5, 0.0, 0.5, 0.5 ], [2, 6 ])
 			real (kind = GRID_SR), parameter, dimension(2)		:: r_test_point0 = [1.0_GRID_SR/3.0_GRID_SR, 1.0_GRID_SR/3.0_GRID_SR]
 #			if defined(_SWE_SIMD)
-				type(t_state), dimension(_SWE_SIMD_SIZE)		:: Q
+				type(t_state), dimension(_SWE_SIMD_ORDER_SQUARE):: Q
 				integer											:: j, row, col, cell_id
 				
 				call gv_Q%read(element, Q)

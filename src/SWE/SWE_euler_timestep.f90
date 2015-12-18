@@ -161,7 +161,7 @@
 			real(kind = GRID_SR), dimension(2, 3), parameter		:: edge_offsets = reshape([0.0, 0.0, 0.0, 1.0, 1.0, 0.0], [2, 3])
 			real(kind = GRID_SR), dimension(2, 3), parameter		:: edge_vectors = reshape([0.0, 1.0, 1.0, -1.0, -1.0, 0.0], [2, 3])
 #			if defined(_SWE_SIMD)
-				type(t_state), dimension(_SWE_SIMD_SIZE)			:: Q
+				type(t_state), dimension(_SWE_SIMD_ORDER_SQUARE)	:: Q
 				integer												:: edge_type !1=left, 2=hypotenuse, 3=right
 #			else
 				type(t_state), dimension(_SWE_CELL_SIZE)			:: Q
@@ -339,25 +339,31 @@
 				
 				associate(Q => element%cell%data_pers%Q, geom => SWE_SIMD_geometry)
 				
-					! copy from edge to ghost cells
-					! left leg ghost layer = update1
-					do i = 1,_SWE_SIMD_ORDER 
-						Q(_SWE_SIMD_ORDER*_SWE_SIMD_ORDER + i) = update1%Q(i)
-					end do
-					! hypotenuse ghost layer = update2 
-					do i = 1, _SWE_SIMD_ORDER 
-						Q(_SWE_SIMD_ORDER*(_SWE_SIMD_ORDER+1) + i) = update2%Q(i)
-					end do
-					! right leg ghost layer = update3
-					do i = 1, _SWE_SIMD_ORDER 
-						Q(_SWE_SIMD_ORDER*(_SWE_SIMD_ORDER+2) + i) = update3%Q(i)
-					end do
-					
 					! copy cell values to arrays edges_a and edges_b
-					!...
+					! obs: cells with id > number of cells are actually ghost cells and come from edges "updates"
+					! see t_SWE_SIMD_geometry for an explanation about ghost cell ordering
 					do i=1, geom%num_edges
-						edges_a(i) = Q(geom%edges_a(i))
-						edges_b(i) = Q(geom%edges_b(i))
+						! edges_a
+						if (geom%edges_a(i) <= _SWE_SIMD_ORDER_SQUARE) then
+							edges_a(i) = Q(geom%edges_a(i))
+						else if (geom%edges_a(i) <= _SWE_SIMD_ORDER_SQUARE + _SWE_SIMD_ORDER) then
+							edges_a(i) = update1%Q(geom%edges_a(i) - _SWE_SIMD_ORDER_SQUARE)
+						else if (geom%edges_a(i) <= _SWE_SIMD_ORDER_SQUARE + 2*_SWE_SIMD_ORDER) then
+							edges_a(i) = update2%Q(geom%edges_a(i) - _SWE_SIMD_ORDER_SQUARE - _SWE_SIMD_ORDER)
+						else 
+							edges_a(i) = update3%Q(geom%edges_a(i) - _SWE_SIMD_ORDER_SQUARE - 2*_SWE_SIMD_ORDER)
+						end if
+						
+						! edges_b
+						if (geom%edges_b(i) <= _SWE_SIMD_ORDER_SQUARE) then
+							edges_b(i) = Q(geom%edges_b(i))
+						else if (geom%edges_b(i) <= _SWE_SIMD_ORDER_SQUARE + _SWE_SIMD_ORDER) then
+							edges_b(i) = update1%Q(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE)
+						else if (geom%edges_b(i) <= _SWE_SIMD_ORDER_SQUARE + 2*_SWE_SIMD_ORDER) then
+							edges_b(i) = update2%Q(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE - _SWE_SIMD_ORDER)
+						else 
+							edges_b(i) = update3%Q(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE - 2*_SWE_SIMD_ORDER)
+						end if
 					end do
 
 				
@@ -371,8 +377,12 @@
 					! update unknowns
 					!...
 					do i=1, geom%num_edges
-						Q(geom%edges_a(i))%h = max(Q(geom%edges_a(i))%h, edges_a(i)%h)
-						Q(geom%edges_b(i))%h = max(Q(geom%edges_b(i))%h, edges_a(i)%h)
+						if (geom%edges_a(i) <= _SWE_SIMD_ORDER_SQUARE) then
+							Q(geom%edges_a(i))%h = max(Q(geom%edges_a(i))%h, edges_a(i)%h)
+						end if
+						if (geom%edges_b(i) <= _SWE_SIMD_ORDER_SQUARE) then
+							Q(geom%edges_b(i))%h = max(Q(geom%edges_b(i))%h, edges_a(i)%h)
+						end if
 					end do
 
 				end associate

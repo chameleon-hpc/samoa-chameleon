@@ -197,42 +197,26 @@ MODULE SWE_SIMD
 		col=1
 		
 		! first cell
-		r_points(1,1) = 0.0
-		r_points(2,1) = 0.0
-		r_points(1,2) = 0.0
-		r_points(2,2) = d
-		r_points(1,3) = d
-		r_points(2,3) = 0.0
+		r_points(:,1) = [0.0_GRID_SR, 	0.0_GRID_SR	]
+		r_points(:,2) = [0.0_GRID_SR, 	d			]
+		r_points(:,3) = [d, 			0.0_GRID_SR	]
 		
 		do i=1,_SWE_SIMD_ORDER * _SWE_SIMD_ORDER
 			
 			! copy coordinates to array
-			geom%coords(1,1,i) = r_points(1,1)
-			geom%coords(2,1,i) = r_points(2,1)
-			geom%coords(1,2,i) = r_points(1,2)
-			geom%coords(2,2,i) = r_points(2,2)
-			geom%coords(1,3,i) = r_points(1,3)
-			geom%coords(2,3,i) = r_points(2,3)
-			
-			print *, ".", i, geom%coords(:,:,i)
+			geom%coords(:,:,i) = r_points
 			
 			!compute next points
 			col = col + 1
 			if (col == 2*row) then
 				col = 1
 				row = row + 1
-				r_points(1,1) = d*(row-1)
-				r_points(2,1) = 0.0
-				r_points(1,2) = d*(row-1)
-				r_points(2,2) = d
-				r_points(1,3) = d*row
-				r_points(2,3) = 0.0
+				r_points(:,1) = [d*(row-1), 	0.0_GRID_SR	]
+				r_points(:,2) = [d*(row-1), 	d	 		]
+				r_points(:,3) = [ d*row, 		0.0_GRID_SR ]
 			else
-				r_points(1,3) = r_points(1,1)
-				r_points(2,3) = r_points(2,1)
-				r_points(1,1) = r_points(1,2)
-				r_points(2,1) = r_points(2,2)
-				
+				r_points(:,3) = r_points(:,1)
+				r_points(:,1) = r_points(:,2)
 				if (mod(col,2) == 0) then
 					r_points(1,2) = r_points(1,2) - d
 				else

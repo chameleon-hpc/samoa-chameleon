@@ -1,6 +1,8 @@
 
 MODULE SWE_SIMD
 
+	use SFC_edge_traversal
+
 	PUBLIC SWE_SIMD_geometry
 
 	TYPE t_SWE_SIMD_geometry
@@ -17,6 +19,10 @@ MODULE SWE_SIMD
 		
 		! arrays describing edges. This means that triangles with ids edges_a[i] and edges_b[i] are neighbors, and edge number i is between them.
 		INTEGER, DIMENSION(:), POINTER :: edges_a, edges_b
+		
+		! coordinates of cells vertices, used for producing visual output.
+		REAL (kind = GRID_SR), DIMENSION(2,3,_SWE_SIMD_ORDER*_SWE_SIMD_ORDER) :: coords
+		
 
 		contains
 		
@@ -24,6 +30,7 @@ MODULE SWE_SIMD
 		procedure, pass :: compute_horizontal_internal_edges => SWE_SIMD_compute_horizontal_internal_edges
 		procedure, pass :: compute_diagonal_internal_edges => SWE_SIMD_compute_diagonal_internal_edges
 		procedure, pass :: compute_ghost_edges => SWE_SIMD_compute_ghost_edges
+		procedure, pass :: compute_coords => SWE_SIMD_compute_coords
 
 	END TYPE
 
@@ -68,6 +75,10 @@ MODULE SWE_SIMD
 		call geom%compute_ghost_edges(edges_computed)
 		
 		! TODO: (or TOTEST): maybe it would be better to sort the list of edges, might lead to a better memory access pattern
+		
+		
+		! compute cells' vertices' coordinates 
+		call geom%compute_coords()
 	
 	
 	END SUBROUTINE	
@@ -167,6 +178,69 @@ MODULE SWE_SIMD
  		END DO
 		
 		
+	END SUBROUTINE
+	
+	! computes the coordinates of the vertices in a local [0,1]x[0,1] representation. 
+	! The (patch) triangle legs lie on the x and y axes. 
+	! The output traversals typically apply transformations on these coordinates.
+	SUBROUTINE SWE_SIMD_compute_coords(geom)
+		IMPLICIT NONE
+		CLASS(t_SWE_SIMD_geometry), INTENT(INOUT) :: geom
+
+		integer											:: i, row, col
+		real (kind = GRID_SR), dimension(2,3)			:: r_points
+		real (kind = GRID_SR)							:: d
+		
+		! length of each leg edge
+		d = 1.0_GRID_SR/_SWE_SIMD_ORDER
+		row=1
+		col=1
+		
+		! first cell
+		r_points(1,1) = 0.0
+		r_points(2,1) = 0.0
+		r_points(1,2) = 0.0
+		r_points(2,2) = d
+		r_points(1,3) = d
+		r_points(2,3) = 0.0
+		
+		do i=1,_SWE_SIMD_ORDER * _SWE_SIMD_ORDER
+			
+			! copy coordinates to array
+			geom%coords(1,1,i) = r_points(1,1)
+			geom%coords(2,1,i) = r_points(2,1)
+			geom%coords(1,2,i) = r_points(1,2)
+			geom%coords(2,2,i) = r_points(2,2)
+			geom%coords(1,3,i) = r_points(1,3)
+			geom%coords(2,3,i) = r_points(2,3)
+			
+			print *, ".", i, geom%coords(:,:,i)
+			
+			!compute next points
+			col = col + 1
+			if (col == 2*row) then
+				col = 1
+				row = row + 1
+				r_points(1,1) = d*(row-1)
+				r_points(2,1) = 0.0
+				r_points(1,2) = d*(row-1)
+				r_points(2,2) = d
+				r_points(1,3) = d*row
+				r_points(2,3) = 0.0
+			else
+				r_points(1,3) = r_points(1,1)
+				r_points(2,3) = r_points(2,1)
+				r_points(1,1) = r_points(1,2)
+				r_points(2,1) = r_points(2,2)
+				
+				if (mod(col,2) == 0) then
+					r_points(1,2) = r_points(1,2) - d
+				else
+					r_points(2,2) = r_points(2,2) + d
+				end if
+			end if
+		end do
+	
 	END SUBROUTINE
 	
 END MODULE

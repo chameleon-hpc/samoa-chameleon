@@ -13,6 +13,10 @@
 
 		use Samoa_swe
 		use SWE_euler_timestep
+		
+#		if defined(_SWE_SIMD)
+			use SWE_SIMD
+#		endif
 
 		implicit none
 
@@ -299,36 +303,21 @@
 #			if defined(_SWE_SIMD)
 				type(t_state), dimension(_SWE_SIMD_SIZE)		:: Q
 				integer											:: j, row, col, cell_id
-				real (kind = GRID_SR), dimension(2,3)			:: r_points
-				real (kind = GRID_SR)							:: d
 				
 				call gv_Q%read(element, Q)
 				
-				d = 1.0_GRID_SR/_SWE_SIMD_ORDER
 				row=1
 				col=1
-				
-				! TODO: these coordinates should be computed only once and stored globally...
-				r_points(1,1) = 0.0
-				r_points(2,1) = 0.0
-				r_points(1,2) = 0.0
-				r_points(2,2) = d
-				r_points(1,3) = d
-				r_points(2,3) = 0.0
+
 				do j=1,_SWE_SIMD_ORDER * _SWE_SIMD_ORDER
-					!print *, "j = ", j, row, col
-					!print *, "1st point = ", r_points(1,1), r_points(2,1)
-					!print *, "2nd point = ", r_points(1,2), r_points(2,2)
-					!print *, "3rd point = ", r_points(1,3), r_points(2,3)
 					traversal%cell_data(traversal%i_cell_data_index)%rank = rank_MPI
 					traversal%cell_data(traversal%i_cell_data_index)%section_index = section%index
 					traversal%cell_data(traversal%i_cell_data_index)%depth = element%cell%geometry%i_depth
 					traversal%cell_data(traversal%i_cell_data_index)%i_plotter_type = element%cell%geometry%i_plotter_type
 					traversal%cell_data(traversal%i_cell_data_index)%refinement = element%cell%geometry%refinement
 
-
 					forall (i = 1 : 3)
-						traversal%point_data(traversal%i_point_data_index + i - 1)%coords = cfg%scaling * samoa_barycentric_to_world_point(element%transform_data, r_points(:, i)) + cfg%offset
+						traversal%point_data(traversal%i_point_data_index + i - 1)%coords = cfg%scaling * samoa_barycentric_to_world_point(element%transform_data, SWE_SIMD_geometry%coords(:,i, j)) + cfg%offset
 					end forall
 
 					traversal%i_point_data_index = traversal%i_point_data_index + 3
@@ -353,25 +342,7 @@
 					if (col == 2*row) then
 						col = 1
 						row = row + 1
-						r_points(1,1) = d*(row-1)
-						r_points(2,1) = 0.0
-						r_points(1,2) = d*(row-1)
-						r_points(2,2) = d
-						r_points(1,3) = d*row
-						r_points(2,3) = 0.0
-					else
-						r_points(1,3) = r_points(1,1)
-						r_points(2,3) = r_points(2,1)
-						r_points(1,1) = r_points(1,2)
-						r_points(2,1) = r_points(2,2)
-						
-						if (mod(col,2) == 0) then
-							r_points(1,2) = r_points(1,2) - d
-						else
-							r_points(2,2) = r_points(2,2) + d
-						end if
 					end if
-					
 				end do
 
 #			else

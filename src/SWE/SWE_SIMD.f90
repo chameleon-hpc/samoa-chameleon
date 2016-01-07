@@ -17,11 +17,14 @@ MODULE SWE_SIMD
 		INTEGER :: num_boundary_edges ! number of edges on the boundary --> d*3 (ghost edges)
 		INTEGER :: num_edges ! number of edges (sum of both above)
 		
-		! arrays describing edges. This means that triangles with ids edges_a[i] and edges_b[i] are neighbors, and edge number i is between them.
+		! arrays describing edges. 
+		! This means that triangles with ids edges_a[i] and edges_b[i] are neighbors, and edge number i is between them.
 		INTEGER, DIMENSION(:), POINTER :: edges_a, edges_b
+		! Describes edge orientation: 1 = parallel to left leg, 2 = to hypotenuse, 3 = to right leg
+		INTEGER, DIMENSION(:), POINTER :: edges_orientation
 		
 		! coordinates of cells vertices, used for producing visual output.
-		REAL (kind = GRID_SR), DIMENSION(2,3,_SWE_SIMD_ORDER_SQUARE) :: coords
+		REAL (kind = GRID_SR), DIMENSION(2,3,(_SWE_SIMD_ORDER*_SWE_SIMD_ORDER)) :: coords
 		
 
 		contains
@@ -66,6 +69,7 @@ MODULE SWE_SIMD
 		! allocate arrays for list of edges
 		allocate(geom%edges_a(geom%num_edges))
 		allocate(geom%edges_b(geom%num_edges))
+		allocate(geom%edges_orientation(geom%num_edges))
 
 		
 		! compute edges --> they are divided into horizontal, diagonal and ghost edges, but all go into the same arrays
@@ -79,7 +83,6 @@ MODULE SWE_SIMD
 		
 		! compute cells' vertices' coordinates 
 		call geom%compute_coords()
-	
 	
 	END SUBROUTINE	
 
@@ -98,6 +101,7 @@ MODULE SWE_SIMD
 			!print *, "edge: ", i, " - ", i+step
 			geom%edges_a(edges_computed) = i
 			geom%edges_b(edges_computed) = i+step
+			geom%edges_orientation(edges_computed) = 2 ! these edges are always parallel to the hypotenuse
 			IF (i == last_of_row) THEN
 				last_of_row = last_of_row + step + 1
 				step = step + 2
@@ -112,13 +116,16 @@ MODULE SWE_SIMD
 		IMPLICIT NONE
 		CLASS(t_SWE_SIMD_geometry), INTENT(INOUT) :: geom
 		INTEGER, INTENT (INOUT) :: edges_computed
-		INTEGER :: i
+		INTEGER :: i, edge_type
 		
+		edge_type = 3 ! these edges' orientation will be 1 or 3, alternatedly
  		DO i=1,geom%d * geom%d
  			IF (isPerfectSquare(i) == 0) THEN
 				edges_computed = edges_computed + 1
 				geom%edges_a(edges_computed) = i
 				geom%edges_b(edges_computed) = i+1
+				geom%edges_orientation(edges_computed) = edge_type
+				edge_type = mod(edge_type+2, 4) ! 1 becomes 3, 3 becomes 1
  			END IF
  		END DO
 		
@@ -153,8 +160,9 @@ MODULE SWE_SIMD
 		DO i=1,d ! i means row here
 			cell = (i-1)*(i-1)+1
 			edges_computed = edges_computed + 1
-			geom%edges_a(edges_computed) = cell
-			geom%edges_b(edges_computed) = d*d+i
+			geom%edges_a(edges_computed) = d*d+i
+			geom%edges_b(edges_computed) = cell
+			geom%edges_orientation(edges_computed) = 1
  		END DO
  		
  		! hypotenuse (bottom) boundary
@@ -164,6 +172,7 @@ MODULE SWE_SIMD
 			edges_computed = edges_computed + 1
 			geom%edges_a(edges_computed) = i
 			geom%edges_b(edges_computed) = j
+			geom%edges_orientation(edges_computed) = 2
  		
 			i = i + 2
 			j = j + 1
@@ -175,6 +184,7 @@ MODULE SWE_SIMD
 			edges_computed = edges_computed + 1
 			geom%edges_a(edges_computed) = cell
 			geom%edges_b(edges_computed) = d*d + 3*d + 1 - i
+			geom%edges_orientation(edges_computed) = 3
  		END DO
 		
 		

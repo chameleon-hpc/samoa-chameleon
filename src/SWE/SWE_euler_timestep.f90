@@ -370,8 +370,11 @@
 					! compute net_updates
 					! dummy solver, just uses the max h and does not consider momentum
 					! TODO: use real solver
+					! call compute_geoclaw_flux(edge%transform_data%normal, rep1%Q(1), rep2%Q(1), update1%flux(1), update2%flux(1))
+					
 					do i=1, geom%num_edges
 						edges_a(i)%h = max (edges_a(i)%h, edges_b(i)%h)
+						!call compute_geoclaw_flux(edge%transform_data%normal, edges_a(i), edges_b(i), edges_a(i), edges_b(i))
 					end do
 					
 					! update unknowns

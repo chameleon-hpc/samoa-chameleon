@@ -330,6 +330,23 @@
 #			if defined (_SWE_SIMD)
 				integer 														:: i
 				type(num_cell_update)											:: tmp !> ghost cells in correct order 
+				real(kind = GRID_SR)									 	    :: normals(2,3)
+				real(kind = GRID_SR)									 	    :: rotation(2,2)
+				type(t_update)											:: update_a, update_b
+				
+				! copy/compute normal vectors
+				! normal for type 2 edges is equal to the 2nd edge's normal
+				normals(:,2) = element%edges(2)%ptr%transform_data%normal 
+				! normal for types 1 and 3 depend on cell orientation.
+				! notice that normal for type 1 points inwards. That's why it is multiplied by -1.
+				if (element%cell%geometry%i_plotter_type < 0) then ! orientation = backward
+					normals(:,1) = - element%edges(1)%ptr%transform_data%normal 
+					normals(:,3) = element%edges(3)%ptr%transform_data%normal 
+				else ! orientation = forward, so reverse edge order
+					normals(:,1) = - element%edges(3)%ptr%transform_data%normal 
+					normals(:,3) = element%edges(1)%ptr%transform_data%normal 				
+				end if
+
 				
 				if (element%cell%geometry%i_plotter_type > 0) then ! if orientation = forward, reverse updates
 					tmp=update1
@@ -368,23 +385,22 @@
 
 				
 					! compute net_updates
-					! dummy solver, just uses the max h and does not consider momentum
-					! TODO: use real solver
-					! call compute_geoclaw_flux(edge%transform_data%normal, rep1%Q(1), rep2%Q(1), update1%flux(1), update2%flux(1))
-					
 					do i=1, geom%num_edges
-						edges_a(i)%h = max (edges_a(i)%h, edges_b(i)%h)
-						!call compute_geoclaw_flux(edge%transform_data%normal, edges_a(i), edges_b(i), edges_a(i), edges_b(i))
+						call compute_geoclaw_flux(normals(:,geom%edges_orientation(i)), edges_a(i), edges_b(i), update_a, update_b)
+						edges_a(i)%h = update_a%h
+						edges_a(i)%p = update_a%p
+						edges_b(i)%h = update_b%h
+						edges_b(i)%p = update_b%p
 					end do
 					
 					! update unknowns
 					!...
 					do i=1, geom%num_edges
 						if (geom%edges_a(i) <= _SWE_SIMD_ORDER_SQUARE) then
-							Q(geom%edges_a(i))%h = max(Q(geom%edges_a(i))%h, edges_a(i)%h)
+							!Q(geom%edges_a(i)) = Q(geom%edges_a(i)) - edges_a(i)
 						end if
 						if (geom%edges_b(i) <= _SWE_SIMD_ORDER_SQUARE) then
-							Q(geom%edges_b(i))%h = max(Q(geom%edges_b(i))%h, edges_a(i)%h)
+							!Q(geom%edges_b(i)) = Q(geom%edges_b(i)) - edges_b(i)
 						end if
 					end do
 

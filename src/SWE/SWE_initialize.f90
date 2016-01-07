@@ -104,6 +104,8 @@
 #			if defined(_SWE_SIMD)
 				type(t_state), dimension(_SWE_SIMD_ORDER_SQUARE), intent(out)	:: Q
 				real (kind = GRID_SR), dimension(_SWE_SIMD_ORDER_SQUARE)		:: lambda
+				real (kind = GRID_SR), DIMENSION(2)								:: r_coords		!< cell coords within patch
+				integer (kind = GRID_SI)										:: j, row, col, cell_id
 #			else
 				type(t_state), dimension(_SWE_CELL_SIZE), intent(out)	:: Q
 				real (kind = GRID_SR), dimension(_SWE_CELL_SIZE)		:: lambda
@@ -121,13 +123,35 @@
 			do i = 1, _SWE_CELL_SIZE
 				Q(i) = get_initial_state(section, samoa_barycentric_to_world_point(element%transform_data, t_basis_Q_get_dof_coords(i)), element%cell%geometry%i_depth / 2_GRID_SI)
 			end do
-			
+		
 #			if defined(_SWE_SIMD)
 				! TODO: This should be able to initialize each cell in the patch with different values,
 				! depending on their position. Using the function get_initial_state with appropriate
 				! geometric calculations should be enough
+				row = 1
+				col = 1
 				do i=1, _SWE_SIMD_ORDER_SQUARE
-					Q(i) = Q(1)
+				
+					! if orientation is backwards, the plotter uses a transformation that mirrors the cell...
+					! this simple change solves the problem :)
+					if (element%cell%geometry%i_plotter_type > 0) then 
+						cell_id = i
+					else
+						cell_id = (row-1)*(row-1) + 2 * row - col
+					end if
+				
+					r_coords = [0_GRID_SR, 0_GRID_SR]
+					do j=1,3
+						r_coords(:) = r_coords(:) + SWE_SIMD_geometry%coords(:,j,cell_id) 
+					end do
+					r_coords = r_coords / 3
+					Q(i) = get_initial_state(section, samoa_barycentric_to_world_point(element%transform_data, r_coords), element%cell%geometry%i_depth / 2_GRID_SI)
+
+					col = col + 1
+					if (col == 2*row) then
+						col = 1
+						row = row + 1
+					end if
 				end do
 #			endif
 			element%cell%geometry%refinement = 0

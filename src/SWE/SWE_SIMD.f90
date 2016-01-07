@@ -1,4 +1,4 @@
-
+#if defined(_SWE_SIMD)
 MODULE SWE_SIMD
 
 	use SFC_edge_traversal
@@ -21,7 +21,7 @@ MODULE SWE_SIMD
 		INTEGER, DIMENSION(:), POINTER :: edges_a, edges_b
 		
 		! coordinates of cells vertices, used for producing visual output.
-		REAL (kind = GRID_SR), DIMENSION(2,3,_SWE_SIMD_ORDER*_SWE_SIMD_ORDER) :: coords
+		REAL (kind = GRID_SR), DIMENSION(2,3,_SWE_SIMD_ORDER_SQUARE) :: coords
 		
 
 		contains
@@ -228,3 +228,4 @@ MODULE SWE_SIMD
 	END SUBROUTINE
 	
 END MODULE
+#endif

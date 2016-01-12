@@ -125,9 +125,6 @@
 			end do
 		
 #			if defined(_SWE_SIMD)
-				! TODO: This should be able to initialize each cell in the patch with different values,
-				! depending on their position. Using the function get_initial_state with appropriate
-				! geometric calculations should be enough
 				row = 1
 				col = 1
 				do i=1, _SWE_SIMD_ORDER_SQUARE

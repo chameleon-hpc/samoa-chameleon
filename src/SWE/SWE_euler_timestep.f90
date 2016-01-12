@@ -98,6 +98,9 @@
 			type(t_grid), intent(inout)							    :: grid
 
 			grid%r_dt = cfg%courant_number * cfg%scaling * get_edge_size(grid%d_max) / ((2.0_GRID_SR + sqrt(2.0_GRID_SR)) * grid%u_max)
+#			if defined(_SWE_SIMD)
+				grid%r_dt = grid%r_dt / _SWE_SIMD_ORDER
+#			endif
 		
 #           if defined(_ASAGI)
                 if (grid%r_time < asagi_grid_max(cfg%afh_displacement,2)) then
@@ -121,6 +124,9 @@
 			grid%r_time = grid%r_time + grid%r_dt
 
             r_dt_cfl = cfg%scaling * get_edge_size(grid%d_max) / ((2.0_GRID_SR + sqrt(2.0_GRID_SR)) * grid%u_max)
+#			if defined(_SWE_SIMD)
+				r_dt_cfl = r_dt_cfl / _SWE_SIMD_ORDER
+#			endif
 
             if (grid%r_dt > r_dt_cfl) then
                 r_courant_cfl = r_dt_cfl * cfg%courant_number / grid%r_dt
@@ -147,8 +153,6 @@
 					allocate(edges_a(SWE_SIMD_geometry%num_edges))
 					allocate(edges_b(SWE_SIMD_geometry%num_edges))
 				end if
-				!TODO: delete this when wave speeds are properly computed
-				section%u_max = 1
 #			endif
 		end subroutine
 
@@ -331,8 +335,8 @@
 				integer 														:: i
 				type(num_cell_update)											:: tmp !> ghost cells in correct order 
 				real(kind = GRID_SR)									 	    :: normals(2,3)
-				real(kind = GRID_SR)									 	    :: rotation(2,2)
-				type(t_update)											:: update_a, update_b
+				type(t_update)													:: update_a, update_b
+				real(kind = GRID_SR)										    :: volume, edge_lengths(3), dt_div_volume
 				
 				! copy/compute normal vectors
 				! normal for type 2 edges is equal to the 2nd edge's normal
@@ -391,16 +395,23 @@
 						edges_a(i)%p = update_a%p
 						edges_b(i)%h = update_b%h
 						edges_b(i)%p = update_b%p
+						section%u_max = max(section%u_max, update_a%max_wave_speed)
 					end do
 					
 					! update unknowns
-					!...
+					volume = cfg%scaling * cfg%scaling * element%cell%geometry%get_volume() / (_SWE_SIMD_ORDER_SQUARE)
+					edge_lengths = cfg%scaling * element%cell%geometry%get_edge_sizes() / _SWE_SIMD_ORDER
+					dt_div_volume = section%r_dt / volume
 					do i=1, geom%num_edges
 						if (geom%edges_a(i) <= _SWE_SIMD_ORDER_SQUARE) then
-							!Q(geom%edges_a(i)) = Q(geom%edges_a(i)) - edges_a(i)
+							Q(geom%edges_a(i))%h = Q(geom%edges_a(i))%h - edges_a(i)%h * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
+							Q(geom%edges_a(i))%p(1) = Q(geom%edges_a(i))%p(1) - edges_a(i)%p(1) * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
+							Q(geom%edges_a(i))%p(2) = Q(geom%edges_a(i))%p(2) - edges_a(i)%p(2) * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
 						end if
 						if (geom%edges_b(i) <= _SWE_SIMD_ORDER_SQUARE) then
-							!Q(geom%edges_b(i)) = Q(geom%edges_b(i)) - edges_b(i)
+							Q(geom%edges_b(i))%h = Q(geom%edges_b(i))%h - edges_b(i)%h * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
+							Q(geom%edges_b(i))%p(1) = Q(geom%edges_b(i))%p(1) - edges_b(i)%p(1) * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
+							Q(geom%edges_b(i))%p(2) = Q(geom%edges_b(i))%p(2) - edges_b(i)%p(2) * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
 						end if
 					end do
 

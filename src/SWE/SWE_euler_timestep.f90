@@ -318,8 +318,7 @@
 #			if defined (_SWE_LF) || defined (_SWE_LF_BATH) || defined (_SWE_LLF) || defined (_SWE_LLF_BATH)
 				call compute_lf_flux(edge%transform_data%normal, rep%Q(1), bnd_rep, update%flux(1), bnd_flux)
 #			elif defined (_SWE_SIMD)
-				! TODO: decide what to do on the boundary! maybe this is enough... maybe should invert momentum
-				update%Q = rep%Q
+				update%Q = bnd_rep
 #			else
 				call compute_geoclaw_flux(edge%transform_data%normal, rep%Q(1), bnd_rep, update%flux(1), bnd_flux)
 #			endif

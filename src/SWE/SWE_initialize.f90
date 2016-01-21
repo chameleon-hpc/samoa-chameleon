@@ -230,7 +230,7 @@
 			type(t_dof_state)									:: Q						!< initial state
 
 			real (kind = GRID_SR), dimension(2), parameter		:: dam_center = [0.5, 0.5]
-			real (kind = GRID_SR), parameter					:: dam_radius = 0.02
+			real (kind = GRID_SR), parameter					:: dam_radius = 0.2
 			real (kind = GRID_SR), parameter					:: outer_height = 0.0
 			real (kind = GRID_SR), parameter					:: inner_height = 10.0
             real (kind = GRID_SR)                               :: xs(2)

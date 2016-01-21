@@ -42,6 +42,20 @@
 		! before computation takes place. 
 		type(t_state), dimension(:), pointer	:: edges_a, edges_b
 		!$omp threadprivate(edges_a, edges_b)
+		
+		! arrays used by the FWave SIMD solver
+		real(kind = GRID_SR), dimension(:), pointer				:: hL, hR, huL, huR, hvL, hvR, uL, uR, vL, vR, bL, bR
+		!$omp threadprivate(hL, hR, huL, huR, hvL, hvR, uL, uR, vL, vR, bL, bR)
+		real(kind = GRID_SR), dimension(:,:), pointer			:: waveSpeeds
+		real(kind = GRID_SR), dimension(:,:,:), pointer			:: fwaves
+		real(kind = GRID_SR), dimension(:,:), pointer			:: wall
+		real(kind = GRID_SR), dimension(:), pointer				:: delphi
+		!$omp threadprivate(waveSpeeds, fwaves, wall, delphi)
+		real(kind = GRID_SR), dimension(:), pointer				:: sL, sR, uhat, chat, sRoe1, sRoe2, sE1, sE2
+		!$omp threadprivate(sL, sR, uhat, chat, sRoe1, sRoe2, sE1, sE2)
+		real(kind = GRID_SR), dimension(:), pointer				:: delh, delhu, delb, deldelphi, delphidecomp, beta1, beta2
+		!$omp threadprivate(delh, delhu, delb, deldelphi, delphidecomp, beta1, beta2)
+		
 #endif
 
 #		define _GT_NAME							t_swe_euler_timestep_traversal
@@ -150,8 +164,40 @@
 			
 #			if defined(_SWE_SIMD)
 				if (associated(edges_a) .eqv. .false.) then
+					! arrays for solver --> vectorization
 					allocate(edges_a(SWE_SIMD_geometry%num_edges))
 					allocate(edges_b(SWE_SIMD_geometry%num_edges))
+					allocate(hL(SWE_SIMD_geometry%num_edges))
+					allocate(hR(SWE_SIMD_geometry%num_edges))
+					allocate(huL(SWE_SIMD_geometry%num_edges))
+					allocate(huR(SWE_SIMD_geometry%num_edges))
+					allocate(hvL(SWE_SIMD_geometry%num_edges))
+					allocate(hvR(SWE_SIMD_geometry%num_edges))
+					allocate(uL(SWE_SIMD_geometry%num_edges))
+					allocate(uR(SWE_SIMD_geometry%num_edges))
+					allocate(vL(SWE_SIMD_geometry%num_edges))
+					allocate(vR(SWE_SIMD_geometry%num_edges))
+					allocate(bL(SWE_SIMD_geometry%num_edges))
+					allocate(bR(SWE_SIMD_geometry%num_edges))
+					allocate(waveSpeeds(SWE_SIMD_geometry%num_edges,3))
+					allocate(fwaves(SWE_SIMD_geometry%num_edges,3,3))
+					allocate(wall(SWE_SIMD_geometry%num_edges,3))
+					allocate(delphi(SWE_SIMD_geometry%num_edges))
+					allocate(sL(SWE_SIMD_geometry%num_edges))
+					allocate(sR(SWE_SIMD_geometry%num_edges))
+					allocate(uhat(SWE_SIMD_geometry%num_edges))
+					allocate(chat(SWE_SIMD_geometry%num_edges))
+					allocate(sRoe1(SWE_SIMD_geometry%num_edges))
+					allocate(sRoe2(SWE_SIMD_geometry%num_edges))
+					allocate(sE1(SWE_SIMD_geometry%num_edges))
+					allocate(sE2(SWE_SIMD_geometry%num_edges))
+					allocate(delh(SWE_SIMD_geometry%num_edges))
+					allocate(delhu(SWE_SIMD_geometry%num_edges))
+					allocate(delb(SWE_SIMD_geometry%num_edges))
+					allocate(deldelphi(SWE_SIMD_geometry%num_edges))
+					allocate(delphidecomp(SWE_SIMD_geometry%num_edges))
+					allocate(beta1(SWE_SIMD_geometry%num_edges))
+					allocate(beta2(SWE_SIMD_geometry%num_edges))
 				end if
 #			endif
 		end subroutine
@@ -385,24 +431,40 @@
 							edges_b(i) = update3%Q(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE - 2*_SWE_SIMD_ORDER)
 						end if
 					end do
-
-				
-					! compute net_updates
-					do i=1, geom%num_edges
-						call compute_geoclaw_flux(normals(:,geom%edges_orientation(i)), edges_a(i), edges_b(i), update_a, update_b)
-						edges_a(i)%h = update_a%h
-						edges_a(i)%p = update_a%p
-						edges_b(i)%h = update_b%h
-						edges_b(i)%p = update_b%p
-						section%u_max = max(section%u_max, update_a%max_wave_speed)
-					end do
 					
+					! compute net_updates
+					call compute_updates_fwave_simd(section, normals)
+					
+					! NO-SIMD version
+ 					!do i=1, geom%num_edges
+ 						!call compute_geoclaw_flux(normals(:,geom%edges_orientation(i)), edges_a(i), edges_b(i), update_a, update_b)
+ 						!edges_a(i)%h = update_a%h
+ 						!edges_a(i)%p = update_a%p
+ 						!edges_b(i)%h = update_b%h
+ 						!edges_b(i)%p = update_b%p
+ 						!section%u_max = max(section%u_max, update_a%max_wave_speed)
+ 					!end do
+ 					
+					! if land is flooded, init water height to dry tolerance and
+					! velocity to zero
+					do i=1,geom%num_edges
+						if (geom%edges_a(i) <= _SWE_SIMD_ORDER_SQUARE .and. edges_a(i)%h > 0 .and. Q(geom%edges_a(i))%h < Q(geom%edges_a(i))%b + cfg%dry_tolerance) then
+							Q(geom%edges_a(i))%h = Q(geom%edges_a(i))%b + cfg%dry_tolerance
+							Q(geom%edges_a(i))%p = [0.0_GRID_SR, 0.0_GRID_SR]
+						endif
+					
+						if (geom%edges_b(i) <= _SWE_SIMD_ORDER_SQUARE .and. edges_b(i)%h > 0 .and. Q(geom%edges_b(i))%h < Q(geom%edges_b(i))%b + cfg%dry_tolerance) then
+							Q(geom%edges_b(i))%h = Q(geom%edges_b(i))%b + cfg%dry_tolerance
+							Q(geom%edges_b(i))%p = [0.0_GRID_SR, 0.0_GRID_SR]
+						endif
+					end do
+
 					! update unknowns
 					volume = cfg%scaling * cfg%scaling * element%cell%geometry%get_volume() / (_SWE_SIMD_ORDER_SQUARE)
 					edge_lengths = cfg%scaling * element%cell%geometry%get_edge_sizes() / _SWE_SIMD_ORDER
 					dt_div_volume = section%r_dt / volume
 					do i=1, geom%num_edges
-						if (geom%edges_a(i) <= _SWE_SIMD_ORDER_SQUARE) then
+						if (geom%edges_a(i) <= _SWE_SIMD_ORDER_SQUARE) then !ignore ghost cells
 							Q(geom%edges_a(i))%h = Q(geom%edges_a(i))%h - edges_a(i)%h * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
 							Q(geom%edges_a(i))%p(1) = Q(geom%edges_a(i))%p(1) - edges_a(i)%p(1) * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
 							Q(geom%edges_a(i))%p(2) = Q(geom%edges_a(i))%p(2) - edges_a(i)%p(2) * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
@@ -413,6 +475,13 @@
 							Q(geom%edges_b(i))%p(2) = Q(geom%edges_b(i))%p(2) - edges_b(i)%p(2) * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
 						end if
 					end do
+					
+					! if the water level falls below the dry tolerance, set water surface to 0 and velocity to 0
+					where (Q(:)%h < Q(:)%b + cfg%dry_tolerance) 
+						Q(:)%h = min(Q%b, 0.0_GRID_SR)
+						Q(:)%p(1) = 0.0_GRID_SR
+						Q(:)%p(2) = 0.0_GRID_SR
+					end where
 
 				end associate
 #			else
@@ -606,5 +675,223 @@
 			fluxR%p = matmul(net_updatesR(2:3), transform_matrix)
 			fluxR%max_wave_speed = max_wave_speed
 		end subroutine
+
+	
+#		if defined (_SWE_SIMD)
+			subroutine compute_updates_fwave_simd(section, normals)
+				type(t_grid_section), intent(inout)		:: section
+				real(kind = GRID_SR), intent(in)    	:: normals(2,3)
+				
+				!local
+				real(kind = GRID_SR)					:: transform_matrices(2,2,3) ! one matrix for each edge orientation
+				integer									:: i, j
+				real(kind = GRID_SR)											:: hstar, s1m, s2m, rare1, rare2
+				
+				associate(geom => SWE_SIMD_geometry)
+				
+					! STEP 1 = transformations
+						do i=1,3 
+							transform_matrices(1,:,i) = normals(:,i)
+							transform_matrices(2,:,i) = [ - normals(2,i), normals(1,i) ]
+						end do
+						
+						do i=1, geom%num_edges
+							edges_a(i)%h = edges_a(i)%h - edges_a(i)%b
+							edges_b(i)%h = edges_b(i)%h - edges_b(i)%b
+							
+							edges_a(i)%p = matmul(transform_matrices(:,:,geom%edges_orientation(i)), edges_a(i)%p)
+							edges_b(i)%p = matmul(transform_matrices(:,:,geom%edges_orientation(i)), edges_b(i)%p)
+						end do
+					
+					
+					
+					! STEP 2 = solve riemann problems
+					! *** F-Wave solver *** (based on geoclaw implementation)
+						! copy hL, hR, etc.;
+						do i=1, geom%num_edges
+							hL(i) = edges_a(i)%h
+							hR(i) = edges_b(i)%h
+							huL(i) = edges_a(i)%p(1)
+							huR(i) = edges_b(i)%p(1)
+							hvL(i) = edges_a(i)%p(2)
+							hvR(i) = edges_b(i)%p(2)
+							bL(i) = edges_a(i)%b
+							bR(i) = edges_b(i)%b
+						end do
+					
+						
+						! initialize Riemann problem for grid interfaces
+						waveSpeeds=0
+						fWaves=0
+						
+						! check for wet/dry boundary
+						where (hR > cfg%dry_tolerance) 
+							uR = huR / hR
+							vR = hvR / hR
+						elsewhere
+							hR = 0
+							huR = 0
+							hvR = 0
+							uR = 0
+							vR = 0
+						end where
+						
+						where (hL > cfg%dry_tolerance)
+							uL = huL / hL
+							vL = hvL / hL
+						elsewhere
+							hL = 0
+							huL = 0
+							hvL = 0
+							uL = 0
+							vL = 0
+						end where
+						
+						! per default there is no wall
+						wall = 1
+						do i=1,geom%num_edges
+							if (hR(i) <= cfg%dry_tolerance) then
+								call riemanntype(hL(i), hL(i), uL(i), -uL(i), hstar, s1m, s2m, rare1, rare2, 1, cfg%dry_tolerance, g)
+								hstar = max(hL(i), hstar)
+								if (hstar + bL(i) < bR(i)) then !right state should become ghost values that mirror left for wall problem
+									wall(i,2) = 0
+									wall(i,3) = 0
+									hR(i) = hL(i)
+									huR(i) = - huL(i)
+									bR(i) = bL(i)
+									uR(i) = -uL(i)
+									vR(i) = vL(i)
+								else if (hL(i) + bL(i) < bR(i)) then
+									bR(i) = hL(i)+bL(i)
+								end if
+							else if (hL(i) <= cfg%dry_tolerance) then ! right surface is lower than left topo
+								call riemanntype(hR(i), hR(i), -uR(i), uR(i), hstar, s1m, s2m, rare1, rare2, 1, cfg%dry_tolerance, g)
+								hstar = max (hR(i), hstar)
+								if (hstar + bR(i) < bL(i)) then !left state should become ghost values that mirror right
+									wall(i,1) = 0
+									wall(i,2) = 0
+									hL(i) = hR(i)
+									huL(i) = -huR(i)
+									bL(i) = bR(i)
+									uL(i) = -uR(i)
+									vL(i) = vR(i)
+								else if (hR(i) + bR(i) < bL(i)) then
+									bL(i) = hR(i) + bR(i)
+								end if
+							end if
+						end do
+						
+						! BUGFIX:
+						! Problem: loss of significance may occur in phiR-phiL, causing divergence of the steady state.
+						! Action:  Compute delphi=phiR-phiL explicitly. delphi is arithmetically equivalent to phiR-phiL, but with far smaller numerical loss.
+						delphi = (huR - huL)*(uL + uR) - uL*uR*(hR-hL) + (0.5 * g *(bR +hR - bL - hL)*(hR + hL)) - 0.5*g*(hR + hL)*(bR - bL)
+						
+						! determine wave speeds
+						sL=uL-sqrt(g*hL) ! 1 wave speed of left state
+						sR=uR+sqrt(g*hR) ! 2 wave speed of right state
+
+						uhat=(sqrt(g*hL)*uL + sqrt(g*hR)*uR)/(sqrt(g*hR)+sqrt(g*hL)) ! Roe average
+						chat=sqrt(g*0.5d0*(hR+hL)) ! Roe average
+						sRoe1=uhat-chat ! Roe wave speed 1 wave
+						sRoe2=uhat+chat ! Roe wave speed 2 wave
+
+						sE1 = min(sL,sRoe1) ! Eindfeldt speed 1 wave
+						sE2 = max(sR,sRoe2) ! Eindfeldt speed 2 wave
+						
+						!*******************
+						!* call the solver *
+						!*******************
+							
+							!determine del vectors
+							delh = hR - hL
+							delhu = huR - huL
+							delb = bR - bL
+							
+							deldelphi = -g * 0.5 * (hR + hL) * delb
+							delphidecomp = delphi - deldelphi
+							
+							!flux decomposition
+							beta1 = (sE2*delhu - delphidecomp) / (sE2 - sE1)
+							beta2 = (delphidecomp - sE1*delhu) / (sE2 - sE1)
+							
+							waveSpeeds(:,1) = sE1
+							waveSpeeds(:,2) = 0.5 * (sE1+sE2)
+							waveSpeeds(:,3) = sE2
+							! 1st nonlinear wave
+							fwaves(:,1,1) = beta1
+							fwaves(:,2,1) = beta1*sE1
+							fwaves(:,3,1) = beta1*vL
+							! 2nd nonlinear wave
+							fwaves(:,1,3) = beta2
+							fwaves(:,2,3) = beta2*sE2
+							fwaves(:,3,3) = beta2*vR
+							! advection of transverse wave
+							fwaves(:,1,2) = 0
+							fwaves(:,2,2) = 0
+							fwaves(:,3,2) = huR*vR - huL*vL - fwaves(:,3,1)-fwaves(:,3,3)
+							
+						!*****************
+						!* end of solver *
+						!*****************
+
+						! eliminate ghost fluxes for wall
+						do i=1, 3 !waveNumber
+							waveSpeeds(:,i) = waveSpeeds(:,i) * wall(:,i)
+							do j=1,3 !equationNumber
+								fwaves(:,j,i) = fwaves(:,j,i) * wall(:,i)
+							end do
+						end do
+						
+						! compute net updates
+						do i=1, geom%num_edges
+							! these arrays will be used to store the computed net updates! the input data is not necessary anymore.
+							edges_a(i)%h = 0
+							edges_a(i)%p = 0
+							edges_b(i)%h = 0
+							edges_b(i)%p = 0
+						end do
+						do i=1,3 ! waveNumber
+							where (waveSpeeds(:,i) < 0)
+								edges_a(:)%h = edges_a(:)%h + fwaves(:,1,i)
+								edges_a(:)%p(1) = edges_a(:)%p(1) + fwaves(:,2,i)
+								edges_a(:)%p(2) = edges_a(:)%p(2) + fwaves(:,3,i)
+							elsewhere (waveSpeeds(:,i) > 0)
+								edges_b(:)%h = edges_b(:)%h + fwaves(:,1,i)
+								edges_b(:)%p(1) = edges_b(:)%p(1) + fwaves(:,2,i)
+								edges_b(:)%p(2) = edges_b(:)%p(2) + fwaves(:,3,i)
+							elsewhere
+								edges_a(:)%h = edges_a(:)%h + 0.5 * fwaves(:,1,i)
+								edges_a(:)%p(1) = edges_a(:)%p(1) + 0.5 * fwaves(:,2,i)
+								edges_a(:)%p(2) = edges_a(:)%p(2) + 0.5 * fwaves(:,3,i)
+								edges_b(:)%h = edges_b(:)%h + 0.5 * fwaves(:,1,i)
+								edges_b(:)%p(1) = edges_b(:)%p(1) + 0.5 * fwaves(:,2,i)
+								edges_b(:)%p(2) = edges_b(:)%p(2) + 0.5 * fwaves(:,3,i)
+							end where
+						end do
+						
+						! compute maximum wave speed
+						waveSpeeds = abs(waveSpeeds)
+						section%u_max = maxVal(waveSpeeds)
+						
+						! skip problem if in a completely dry area
+						where (hL(:) < cfg%dry_tolerance .and. hR(:) < cfg%dry_tolerance)
+							edges_a(:)%h = 0
+							edges_a(:)%p(1) = 0
+							edges_a(:)%p(2) = 0
+							edges_b(:)%h = 0
+							edges_b(:)%p(1) = 0
+							edges_b(:)%p(2) = 0
+						end where
+						
+					! STEP 3 = (inverse) transformations
+						do i=1, geom%num_edges
+							edges_a(i)%p = matmul(edges_a(i)%p,transform_matrices(:,:,geom%edges_orientation(i)))
+							edges_b(i)%p = matmul(edges_b(i)%p,transform_matrices(:,:,geom%edges_orientation(i)))
+						end do	
+					
+				end associate
+			end subroutine
+#		endif
+
 	END MODULE
 #endif

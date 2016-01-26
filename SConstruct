@@ -80,6 +80,7 @@ vars.AddVariables(
                 allowed_values=('single', 'double', 'quad')
               ),
 
+  BoolVariable( 'no_vec', 'turn vectorization off', False),
   EnumVariable( 'vec_report', 'vectorization report', '0',
                 allowed_values=('0', '1', '2', '3', '4', '5', '6', '7')
               ),
@@ -234,6 +235,10 @@ elif env['swe_solver'] == 'aug_riemann':
   env['F90FLAGS'] += ' -D_SWE_AUG_RIEMANN'
 
 #vectorization options for SWE scenario
+if env['no_vec']: 
+  env['LINKFLAGS'] += ' -no-vec -no-simd'
+  env['F90FLAGS']  += ' -no-vec -no-simd'
+  
 if (int(env['swe_simd_order'])) > 1:
   env['F90FLAGS'] += ' -D_SWE_SIMD'
   env['F90FLAGS'] += ' -D_SWE_SIMD_ORDER=' + env['swe_simd_order']
@@ -280,7 +285,7 @@ elif env['target'] == 'release':
 
 #In case the Intel compiler is active, add a vectorization report (can gnu do this too?)
 if env['compiler'] == 'intel':
-  env['LINKFLAGS'] += ' -vec-report' + env['vec_report']
+  env['LINKFLAGS'] += ' -qopt-report=' + env['vec_report']
 
 #Set target machine (currently Intel only. Feel free to add GNU options if needed)
 if env['compiler'] == 'intel':

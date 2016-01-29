@@ -47,6 +47,7 @@ vars.AddVariables(
               ),
 
   ( 'swe_simd_order', 'order of vectorized triangular mesh, 1=no_vectorization', 1),
+  BoolVariable( 'simd', 'use simd solver? no = original geoclaw implementation', False),
 
   EnumVariable( 'compiler', 'choice of compiler', 'intel',
                 allowed_values=('intel', 'gnu')
@@ -242,6 +243,9 @@ if env['no_vec']:
 if (int(env['swe_simd_order'])) > 1:
   env['F90FLAGS'] += ' -D_SWE_SIMD'
   env['F90FLAGS'] += ' -D_SWE_SIMD_ORDER=' + env['swe_simd_order']
+  
+if env['simd']:
+  env['F90FLAGS'] += ' -D_USE_SIMD'
 
 #Choose a floating point precision
 if env['precision'] == 'single':

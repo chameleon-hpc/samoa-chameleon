@@ -433,17 +433,19 @@
 					end do
 					
 					! compute net_updates
-					call compute_updates_fwave_simd(section, normals)
-					
+#					if defined (_USE_SIMD)
+						call compute_updates_fwave_simd(section, normals)
+#					else					
 					! NO-SIMD version
- 					!do i=1, geom%num_edges
- 						!call compute_geoclaw_flux(normals(:,geom%edges_orientation(i)), edges_a(i), edges_b(i), update_a, update_b)
- 						!edges_a(i)%h = update_a%h
- 						!edges_a(i)%p = update_a%p
- 						!edges_b(i)%h = update_b%h
- 						!edges_b(i)%p = update_b%p
- 						!section%u_max = max(section%u_max, update_a%max_wave_speed)
- 					!end do
+ 					do i=1, geom%num_edges
+ 						call compute_geoclaw_flux(normals(:,geom%edges_orientation(i)), edges_a(i), edges_b(i), update_a, update_b)
+ 						edges_a(i)%h = update_a%h
+ 						edges_a(i)%p = update_a%p
+ 						edges_b(i)%h = update_b%h
+ 						edges_b(i)%p = update_b%p
+ 						section%u_max = max(section%u_max, update_a%max_wave_speed)
+ 					end do
+#					endif
  					
 					! if land is flooded, init water height to dry tolerance and
 					! velocity to zero

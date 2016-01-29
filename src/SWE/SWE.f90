@@ -430,10 +430,20 @@
                         _log_write(0, '(A, T34, A)') " Time steps: ", trim(swe%euler%stats%to_string())
                         _log_write(0, '(A, T34, A)') " Adaptions: ", trim(swe%adaption%stats%to_string())
                         _log_write(0, '(A, T34, A)') " Grid: ", trim(grid%stats%to_string())
-                        _log_write(0, '(A, T34, F12.4, A)') " Element throughput: ", 1.0d-6 * dble(grid%stats%i_traversed_cells) / t_phase, " M/s"
-                        _log_write(0, '(A, T34, F12.4, A)') " Memory throughput: ", dble(grid%stats%i_traversed_memory) / ((1024 * 1024 * 1024) * t_phase), " GB/s"
-                        _log_write(0, '(A, T34, F12.4, A)') " Cell update throughput: ", 1.0d-6 * dble(swe%euler%stats%i_traversed_cells) / t_phase, " M/s"
-                        _log_write(0, '(A, T34, F12.4, A)') " Flux solver throughput: ", 1.0d-6 * dble(swe%euler%stats%i_traversed_edges) / t_phase, " M/s"
+                        ! throughput calculations are a bit different if using patches
+#						if defined(_SWE_SIMD)
+							_log_write(0, '(A, T34, F12.4, A)') " Element throughput: ", 1.0d-6 * dble(grid%stats%i_traversed_cells) * (_SWE_SIMD_ORDER_SQUARE) / t_phase, " M/s"
+							_log_write(0, '(A, T34, F12.4, A)') " Memory throughput: ", dble(grid%stats%i_traversed_memory) * (_SWE_SIMD_ORDER_SQUARE) / ((1024 * 1024 * 1024) * t_phase), " GB/s"
+							_log_write(0, '(A, T34, F12.4, A)') " Cell update throughput: ", 1.0d-6 * dble(swe%euler%stats%i_traversed_cells) * (_SWE_SIMD_ORDER_SQUARE) / t_phase, " M/s"
+							! this is the most different one! it considers every grid edge once, even those beloging to ghost cells. So we subtract half of the ghost edges for each patch.
+							_log_write(0, '(A, T34, F12.4, A)') " Flux solver throughput: ", 1.0d-6 * dble(swe%euler%stats%i_traversed_cells) * (SWE_SIMD_geometry%num_edges - _SWE_SIMD_ORDER * 1.5 )  / t_phase, " M/s"
+
+#						else
+							_log_write(0, '(A, T34, F12.4, A)') " Element throughput: ", 1.0d-6 * dble(grid%stats%i_traversed_cells) / t_phase, " M/s"
+							_log_write(0, '(A, T34, F12.4, A)') " Memory throughput: ", dble(grid%stats%i_traversed_memory) / ((1024 * 1024 * 1024) * t_phase), " GB/s"
+							_log_write(0, '(A, T34, F12.4, A)') " Cell update throughput: ", 1.0d-6 * dble(swe%euler%stats%i_traversed_cells) / t_phase, " M/s"
+							_log_write(0, '(A, T34, F12.4, A)') " Flux solver throughput: ", 1.0d-6 * dble(swe%euler%stats%i_traversed_edges) / t_phase, " M/s"
+#						endif
                         _log_write(0, '(A, T34, F12.4, A)') " Asagi time:", grid%stats%r_asagi_time, " s"
                         _log_write(0, '(A, T34, F12.4, A)') " Phase time:", t_phase, " s"
                         _log_write(0, *) ""

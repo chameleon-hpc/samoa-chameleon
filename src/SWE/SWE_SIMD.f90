@@ -1,4 +1,7 @@
 #if defined(_SWE_SIMD)
+
+#include "Compilation_control.f90"
+
 MODULE SWE_SIMD
 
 	use SFC_edge_traversal
@@ -17,7 +20,7 @@ MODULE SWE_SIMD
 		! This means that triangles with ids edges_a[i] and edges_b[i] are neighbors, and edge number i is between them.
 		INTEGER, DIMENSION(_SWE_SIMD_NUM_EDGES) :: edges_a, edges_b
 		! Describes edge orientation: 1 = parallel to left leg, 2 = to hypotenuse, 3 = to right leg
-		INTEGER, DIMENSION(:), POINTER :: edges_orientation
+		INTEGER, DIMENSION(_SWE_SIMD_NUM_EDGES)	:: edges_orientation
 		
 		! coordinates of cells vertices, used for producing visual output.
 		REAL (kind = GRID_SR), DIMENSION(2,3,(_SWE_SIMD_ORDER*_SWE_SIMD_ORDER)) :: coords
@@ -55,6 +58,7 @@ MODULE SWE_SIMD
 		
 		! compute edges --> they are divided into horizontal, diagonal and ghost edges, but all go into the same arrays
 		edges_computed = 0
+
 		call geom%compute_horizontal_internal_edges(edges_computed)
 		call geom%compute_diagonal_internal_edges(edges_computed)
 		call geom%compute_ghost_edges(edges_computed)

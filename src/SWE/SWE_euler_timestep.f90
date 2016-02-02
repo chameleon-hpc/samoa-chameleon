@@ -399,7 +399,7 @@
 						call compute_updates_fwave_simd(section, normals)
 #					else					
 					! NO-SIMD version
- 					do i=1, geom%num_edges
+ 					do i=1, _SWE_SIMD_NUM_EDGES
  						call compute_geoclaw_flux(normals(:,geom%edges_orientation(i)), edges_a(i), edges_b(i), update_a, update_b)
  						edges_a(i)%h = update_a%h
  						edges_a(i)%p = update_a%p
@@ -411,7 +411,7 @@
  					
 					! if land is flooded, init water height to dry tolerance and
 					! velocity to zero
-					do i=1,geom%num_edges
+					do i=1,_SWE_SIMD_NUM_EDGES
 						if (geom%edges_a(i) <= _SWE_SIMD_ORDER_SQUARE .and. edges_a(i)%h > 0 .and. Q(geom%edges_a(i))%h < Q(geom%edges_a(i))%b + cfg%dry_tolerance) then
 							Q(geom%edges_a(i))%h = Q(geom%edges_a(i))%b + cfg%dry_tolerance
 							Q(geom%edges_a(i))%p = [0.0_GRID_SR, 0.0_GRID_SR]
@@ -427,7 +427,7 @@
 					volume = cfg%scaling * cfg%scaling * element%cell%geometry%get_volume() / (_SWE_SIMD_ORDER_SQUARE)
 					edge_lengths = cfg%scaling * element%cell%geometry%get_edge_sizes() / _SWE_SIMD_ORDER
 					dt_div_volume = section%r_dt / volume
-					do i=1, geom%num_edges
+					do i=1, _SWE_SIMD_NUM_EDGES
 						if (geom%edges_a(i) <= _SWE_SIMD_ORDER_SQUARE) then !ignore ghost cells
 							Q(geom%edges_a(i))%h = Q(geom%edges_a(i))%h - edges_a(i)%h * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
 							Q(geom%edges_a(i))%p(1) = Q(geom%edges_a(i))%p(1) - edges_a(i)%p(1) * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
@@ -659,7 +659,7 @@
 							transform_matrices(2,:,i) = [ - normals(2,i), normals(1,i) ]
 						end do
 						
-						do i=1, geom%num_edges
+						do i=1, _SWE_SIMD_NUM_EDGES
 							edges_a(i)%h = edges_a(i)%h - edges_a(i)%b
 							edges_b(i)%h = edges_b(i)%h - edges_b(i)%b
 							
@@ -672,7 +672,7 @@
 					! STEP 2 = solve riemann problems
 					! *** F-Wave solver *** (based on geoclaw implementation)
 						! copy hL, hR, etc.;
-						do i=1, geom%num_edges
+						do i=1, _SWE_SIMD_NUM_EDGES
 							hL(i) = edges_a(i)%h
 							hR(i) = edges_b(i)%h
 							huL(i) = edges_a(i)%p(1)
@@ -713,7 +713,7 @@
 						
 						! per default there is no wall
 						wall = 1
-						do i=1,geom%num_edges
+						do i=1,_SWE_SIMD_NUM_EDGES
 							if (hR(i) <= cfg%dry_tolerance) then
 								call riemanntype(hL(i), hL(i), uL(i), -uL(i), hstar, s1m, s2m, rare1, rare2, 1, cfg%dry_tolerance, g)
 								hstar = max(hL(i), hstar)
@@ -807,7 +807,7 @@
 						end do
 						
 						! compute net updates
-						do i=1, geom%num_edges
+						do i=1, _SWE_SIMD_NUM_EDGES
 							! these arrays will be used to store the computed net updates! the input data is not necessary anymore.
 							edges_a(i)%h = 0
 							edges_a(i)%p = 0
@@ -848,7 +848,7 @@
 						end where
 						
 					! STEP 3 = (inverse) transformations
-						do i=1, geom%num_edges
+						do i=1, _SWE_SIMD_NUM_EDGES
 							edges_a(i)%p = matmul(edges_a(i)%p,transform_matrices(:,:,geom%edges_orientation(i)))
 							edges_b(i)%p = matmul(edges_b(i)%p,transform_matrices(:,:,geom%edges_orientation(i)))
 						end do	

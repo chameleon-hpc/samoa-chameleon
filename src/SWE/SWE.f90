@@ -63,7 +63,9 @@
 			call date_and_time(s_date, s_time)
 			
 #if defined (_SWE_SIMD)
+			print *, "VAI INICIAR"
 			call SWE_SIMD_geometry%init(_SWE_SIMD_ORDER)
+			print *, "INICIOU"
 #endif
 
 #           if defined(_MPI)

@@ -436,7 +436,7 @@
 							_log_write(0, '(A, T34, F12.4, A)') " Memory throughput: ", dble(grid%stats%i_traversed_memory) * (_SWE_SIMD_ORDER_SQUARE) / ((1024 * 1024 * 1024) * t_phase), " GB/s"
 							_log_write(0, '(A, T34, F12.4, A)') " Cell update throughput: ", 1.0d-6 * dble(swe%euler%stats%i_traversed_cells) * (_SWE_SIMD_ORDER_SQUARE) / t_phase, " M/s"
 							! this is the most different one! it considers every grid edge once, even those beloging to ghost cells. So we subtract half of the ghost edges for each patch.
-							_log_write(0, '(A, T34, F12.4, A)') " Flux solver throughput: ", 1.0d-6 * dble(swe%euler%stats%i_traversed_cells) * (SWE_SIMD_geometry%num_edges - _SWE_SIMD_ORDER * 1.5 )  / t_phase, " M/s"
+							_log_write(0, '(A, T34, F12.4, A)') " Flux solver throughput: ", 1.0d-6 * dble(swe%euler%stats%i_traversed_cells) * (_SWE_SIMD_NUM_EDGES - _SWE_SIMD_ORDER * 1.5 )  / t_phase, " M/s"
 
 #						else
 							_log_write(0, '(A, T34, F12.4, A)') " Element throughput: ", 1.0d-6 * dble(grid%stats%i_traversed_cells) / t_phase, " M/s"

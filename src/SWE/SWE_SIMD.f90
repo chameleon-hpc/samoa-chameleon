@@ -12,14 +12,10 @@ MODULE SWE_SIMD
 		! first d*d cells are normal cells. Edges from (d*d+1) to (d*d+3*d) are ghost cells, which are numbered 
 		! in counterclockwise order: first d ghost cells belong to the left leg, d+1 to 2*d belong to the hypotenuse,
 		! and 2*d+1 to 3d belong to the right leg.
-	
-		INTEGER :: num_internal_edges ! number of internal edges --> f(d) is given by the recurrence: f(2) = 3, f(d+1) = f(d) + 3*d
-		INTEGER :: num_boundary_edges ! number of edges on the boundary --> d*3 (ghost edges)
-		INTEGER :: num_edges ! number of edges (sum of both above)
 		
 		! arrays describing edges. 
 		! This means that triangles with ids edges_a[i] and edges_b[i] are neighbors, and edge number i is between them.
-		INTEGER, DIMENSION(:), POINTER :: edges_a, edges_b
+		INTEGER, DIMENSION(_SWE_SIMD_NUM_EDGES) :: edges_a, edges_b
 		! Describes edge orientation: 1 = parallel to left leg, 2 = to hypotenuse, 3 = to right leg
 		INTEGER, DIMENSION(:), POINTER :: edges_orientation
 		
@@ -56,21 +52,6 @@ MODULE SWE_SIMD
 		! compute number of nodes/triangles (including ghost cells), internal, boundary (ghost) and total edges
 		geom%d = d
 		geom%n = d*d + 3*d
-		geom%num_boundary_edges = 3*d
-		
-		geom%num_internal_edges=3
-		DO i=3,d
-			geom%num_internal_edges = geom%num_internal_edges +  3*(i-1)
-		END DO
-		
-		geom%num_edges = geom%num_internal_edges + geom%num_boundary_edges
-		
-	
-		! allocate arrays for list of edges
-		allocate(geom%edges_a(geom%num_edges))
-		allocate(geom%edges_b(geom%num_edges))
-		allocate(geom%edges_orientation(geom%num_edges))
-
 		
 		! compute edges --> they are divided into horizontal, diagonal and ghost edges, but all go into the same arrays
 		edges_computed = 0

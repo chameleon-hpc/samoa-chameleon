@@ -31,6 +31,7 @@
 #define _SWE_EDGE_SIZE 				(_SWE_ORDER + 1)
 
 #define _SWE_SIMD_ORDER_SQUARE		(_SWE_SIMD_ORDER*_SWE_SIMD_ORDER)
+#define _SWE_SIMD_NUM_EDGES			(3*_SWE_SIMD_ORDER*(_SWE_SIMD_ORDER+1)/2)
 
 #define _NUMA_ORDER 					0
 #define _NUMA_CELL_SIZE				((_NUMA_ORDER + 1) * (_NUMA_ORDER + 2)) / 2

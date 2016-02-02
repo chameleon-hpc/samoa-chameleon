@@ -40,20 +40,20 @@
 		! arrays used to compute updates within each triangular patch.
 		! for each edge, the left/right values are copied to these arrays 
 		! before computation takes place. 
-		type(t_state), dimension(:), pointer	:: edges_a, edges_b
+		type(t_state), dimension(_SWE_SIMD_NUM_EDGES)								:: edges_a, edges_b
 		!$omp threadprivate(edges_a, edges_b)
 		
 		! arrays used by the FWave SIMD solver
-		real(kind = GRID_SR), dimension(:), pointer				:: hL, hR, huL, huR, hvL, hvR, uL, uR, vL, vR, bL, bR
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: hL, hR, huL, huR, hvL, hvR, uL, uR, vL, vR, bL, bR
 		!$omp threadprivate(hL, hR, huL, huR, hvL, hvR, uL, uR, vL, vR, bL, bR)
-		real(kind = GRID_SR), dimension(:,:), pointer			:: waveSpeeds
-		real(kind = GRID_SR), dimension(:,:,:), pointer			:: fwaves
-		real(kind = GRID_SR), dimension(:,:), pointer			:: wall
-		real(kind = GRID_SR), dimension(:), pointer				:: delphi
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,3)		:: waveSpeeds
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,3,3)	:: fwaves
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,3)		:: wall
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: delphi
 		!$omp threadprivate(waveSpeeds, fwaves, wall, delphi)
-		real(kind = GRID_SR), dimension(:), pointer				:: sL, sR, uhat, chat, sRoe1, sRoe2, sE1, sE2
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: sL, sR, uhat, chat, sRoe1, sRoe2, sE1, sE2
 		!$omp threadprivate(sL, sR, uhat, chat, sRoe1, sRoe2, sE1, sE2)
-		real(kind = GRID_SR), dimension(:), pointer				:: delh, delhu, delb, deldelphi, delphidecomp, beta1, beta2
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: delh, delhu, delb, deldelphi, delphidecomp, beta1, beta2
 		!$omp threadprivate(delh, delhu, delb, deldelphi, delphidecomp, beta1, beta2)
 		
 #endif
@@ -162,44 +162,6 @@
 			traversal%i_refinements_issued = 0_GRID_DI
 			section%u_max = 0.0_GRID_SR
 			
-#			if defined(_SWE_SIMD)
-				if (associated(edges_a) .eqv. .false.) then
-					! arrays for solver --> vectorization
-					allocate(edges_a(SWE_SIMD_geometry%num_edges))
-					allocate(edges_b(SWE_SIMD_geometry%num_edges))
-					allocate(hL(SWE_SIMD_geometry%num_edges))
-					allocate(hR(SWE_SIMD_geometry%num_edges))
-					allocate(huL(SWE_SIMD_geometry%num_edges))
-					allocate(huR(SWE_SIMD_geometry%num_edges))
-					allocate(hvL(SWE_SIMD_geometry%num_edges))
-					allocate(hvR(SWE_SIMD_geometry%num_edges))
-					allocate(uL(SWE_SIMD_geometry%num_edges))
-					allocate(uR(SWE_SIMD_geometry%num_edges))
-					allocate(vL(SWE_SIMD_geometry%num_edges))
-					allocate(vR(SWE_SIMD_geometry%num_edges))
-					allocate(bL(SWE_SIMD_geometry%num_edges))
-					allocate(bR(SWE_SIMD_geometry%num_edges))
-					allocate(waveSpeeds(SWE_SIMD_geometry%num_edges,3))
-					allocate(fwaves(SWE_SIMD_geometry%num_edges,3,3))
-					allocate(wall(SWE_SIMD_geometry%num_edges,3))
-					allocate(delphi(SWE_SIMD_geometry%num_edges))
-					allocate(sL(SWE_SIMD_geometry%num_edges))
-					allocate(sR(SWE_SIMD_geometry%num_edges))
-					allocate(uhat(SWE_SIMD_geometry%num_edges))
-					allocate(chat(SWE_SIMD_geometry%num_edges))
-					allocate(sRoe1(SWE_SIMD_geometry%num_edges))
-					allocate(sRoe2(SWE_SIMD_geometry%num_edges))
-					allocate(sE1(SWE_SIMD_geometry%num_edges))
-					allocate(sE2(SWE_SIMD_geometry%num_edges))
-					allocate(delh(SWE_SIMD_geometry%num_edges))
-					allocate(delhu(SWE_SIMD_geometry%num_edges))
-					allocate(delb(SWE_SIMD_geometry%num_edges))
-					allocate(deldelphi(SWE_SIMD_geometry%num_edges))
-					allocate(delphidecomp(SWE_SIMD_geometry%num_edges))
-					allocate(beta1(SWE_SIMD_geometry%num_edges))
-					allocate(beta2(SWE_SIMD_geometry%num_edges))
-				end if
-#			endif
 		end subroutine
 
 		function cell_to_edge_op(element, edge) result(rep)
@@ -408,7 +370,7 @@
 					! copy cell values to arrays edges_a and edges_b
 					! obs: cells with id > number of cells are actually ghost cells and come from edges "updates"
 					! see t_SWE_SIMD_geometry for an explanation about ghost cell ordering
-					do i=1, geom%num_edges
+					do i=1, _SWE_SIMD_NUM_EDGES
 						! edges_a
 						if (geom%edges_a(i) <= _SWE_SIMD_ORDER_SQUARE) then
 							edges_a(i) = Q(geom%edges_a(i))

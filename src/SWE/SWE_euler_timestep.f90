@@ -639,14 +639,15 @@
 				integer									:: i, j
 				real(kind = GRID_SR)											:: hstar, s1m, s2m, rare1, rare2
 				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: hL, hR, huL, huR, hvL, hvR, uL, uR, vL, vR, bL, bR
+				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: upd_hL, upd_hR, upd_huL, upd_huR, upd_hvL, upd_hvR
 				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,3)		:: waveSpeeds
 				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,3,3)	:: fwaves
 				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,3)		:: wall
 				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: delphi
 				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: sL, sR, uhat, chat, sRoe1, sRoe2, sE1, sE2
 				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: delh, delhu, delb, deldelphi, delphidecomp, beta1, beta2
-				!DIR$ ASSUME_ALIGNED hL(1): 64
-				!DIR$ ASSUME_ALIGNED hR(1): 64
+				!DIR$ ASSUME_ALIGNED hL: 64
+				!DIR$ ASSUME_ALIGNED hR: 64
 				!DIR$ ASSUME_ALIGNED huL: 64
 				!DIR$ ASSUME_ALIGNED huR: 64
 				!DIR$ ASSUME_ALIGNED hvL: 64
@@ -657,12 +658,18 @@
 				!DIR$ ASSUME_ALIGNED vR: 64
 				!DIR$ ASSUME_ALIGNED bL: 64
 				!DIR$ ASSUME_ALIGNED bR: 64
+				
+				!DIR$ ASSUME_ALIGNED upd_hL: 64
+				!DIR$ ASSUME_ALIGNED upd_hR: 64
+				!DIR$ ASSUME_ALIGNED upd_huL: 64
+				!DIR$ ASSUME_ALIGNED upd_huR: 64
+				!DIR$ ASSUME_ALIGNED upd_hvL: 64
+				!DIR$ ASSUME_ALIGNED upd_hvR: 64
 
 				!DIR$ ASSUME_ALIGNED waveSpeeds: 64
 				!DIR$ ASSUME_ALIGNED fwaves: 64
 				!DIR$ ASSUME_ALIGNED wall: 64
 				!DIR$ ASSUME_ALIGNED delphi: 64
-
 				!DIR$ ASSUME_ALIGNED sL: 64
 				!DIR$ ASSUME_ALIGNED sR: 64
 				!DIR$ ASSUME_ALIGNED uhat: 64
@@ -671,7 +678,6 @@
 				!DIR$ ASSUME_ALIGNED sRoe2: 64
 				!DIR$ ASSUME_ALIGNED sE1: 64
 				!DIR$ ASSUME_ALIGNED sE2: 64
-
 				!DIR$ ASSUME_ALIGNED delh: 64
 				!DIR$ ASSUME_ALIGNED delhu: 64
 				!DIR$ ASSUME_ALIGNED delb: 64
@@ -836,45 +842,55 @@
 						end do
 						
 						! compute net updates
-						do i=1, _SWE_SIMD_NUM_EDGES
-							! these arrays will be used to store the computed net updates! the input data is not necessary anymore.
-							edges_a(i)%h = 0
-							edges_a(i)%p = 0
-							edges_b(i)%h = 0
-							edges_b(i)%p = 0
-						end do
+						upd_hL = 0
+						upd_huL = 0
+						upd_hvL = 0
+						upd_hR = 0
+						upd_huR = 0
+						upd_hvR = 0
+						
 						do i=1,3 ! waveNumber
 							where (waveSpeeds(:,i) < 0)
-								edges_a(:)%h = edges_a(:)%h + fwaves(:,1,i)
-								edges_a(:)%p(1) = edges_a(:)%p(1) + fwaves(:,2,i)
-								edges_a(:)%p(2) = edges_a(:)%p(2) + fwaves(:,3,i)
+								upd_hL = upd_hL + fwaves(:,1,i)
+								upd_huL = upd_huL + fwaves(:,2,i)
+								upd_hvL = upd_hvL + fwaves(:,3,i)
 							elsewhere (waveSpeeds(:,i) > 0)
-								edges_b(:)%h = edges_b(:)%h + fwaves(:,1,i)
-								edges_b(:)%p(1) = edges_b(:)%p(1) + fwaves(:,2,i)
-								edges_b(:)%p(2) = edges_b(:)%p(2) + fwaves(:,3,i)
+								upd_hR = upd_hR + fwaves(:,1,i)
+								upd_huR = upd_huR + fwaves(:,2,i)
+								upd_hvR = upd_hvR + fwaves(:,3,i)
 							elsewhere
-								edges_a(:)%h = edges_a(:)%h + 0.5 * fwaves(:,1,i)
-								edges_a(:)%p(1) = edges_a(:)%p(1) + 0.5 * fwaves(:,2,i)
-								edges_a(:)%p(2) = edges_a(:)%p(2) + 0.5 * fwaves(:,3,i)
-								edges_b(:)%h = edges_b(:)%h + 0.5 * fwaves(:,1,i)
-								edges_b(:)%p(1) = edges_b(:)%p(1) + 0.5 * fwaves(:,2,i)
-								edges_b(:)%p(2) = edges_b(:)%p(2) + 0.5 * fwaves(:,3,i)
+								upd_hL = upd_hL + 0.5 * fwaves(:,1,i)
+								upd_huL = upd_huL + 0.5 * fwaves(:,2,i)
+								upd_hvL = upd_hvL + 0.5 * fwaves(:,3,i)
+								upd_hR = upd_hR + 0.5 * fwaves(:,1,i)
+								upd_huR = upd_huR + 0.5 * fwaves(:,2,i)
+								upd_hvR = upd_hvR + 0.5 * fwaves(:,3,i)
 							end where
 						end do
 						
 						! compute maximum wave speed
-						waveSpeeds = abs(waveSpeeds)
-						section%u_max = maxVal(waveSpeeds)
+						section%u_max = maxVal(abs(waveSpeeds))
 						
 						! skip problem if in a completely dry area
 						where (hL(:) < cfg%dry_tolerance .and. hR(:) < cfg%dry_tolerance)
-							edges_a(:)%h = 0
-							edges_a(:)%p(1) = 0
-							edges_a(:)%p(2) = 0
-							edges_b(:)%h = 0
-							edges_b(:)%p(1) = 0
-							edges_b(:)%p(2) = 0
+							upd_hL = 0
+							upd_huL = 0
+							upd_hvL = 0
+							upd_hR = 0
+							upd_huR = 0
+							upd_hvR = 0
 						end where
+						
+						! save updates in edges_a and _b arrays
+						do i=1, _SWE_SIMD_NUM_EDGES
+							edges_a(i)%h = upd_hL(i)
+							edges_b(i)%h = upd_hR(i)
+							edges_a(i)%p(1) = upd_huL(i)
+							edges_b(i)%p(1) = upd_huR(i)
+							edges_a(i)%p(2) = upd_hvL(i)
+							edges_b(i)%p(2) = upd_hvR(i)
+						end do
+						
 						
 					! STEP 3 = (inverse) transformations
 						do i=1, _SWE_SIMD_NUM_EDGES

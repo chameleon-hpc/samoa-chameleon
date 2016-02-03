@@ -124,7 +124,7 @@ env['LINKFLAGS'] = ''
 # Choose compiler
 if env['compiler'] == 'intel':
   fc = 'ifort'
-  env['F90FLAGS'] = '-implicitnone -nologo -fpp -allow nofpp-comments'
+  env['F90FLAGS'] = '-implicitnone -nologo -fpp -allow nofpp-comments -align array64byte'
 elif  env['compiler'] == 'gnu':
   fc = 'gfortran'
   env['F90FLAGS'] = '-fimplicit-none -cpp -ffree-line-length-none'

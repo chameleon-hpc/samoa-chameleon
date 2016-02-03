@@ -42,20 +42,8 @@
 		! before computation takes place. 
 		type(t_state), dimension(_SWE_SIMD_NUM_EDGES)								:: edges_a, edges_b
 		!$omp threadprivate(edges_a, edges_b)
-		
-		! arrays used by the FWave SIMD solver
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: hL, hR, huL, huR, hvL, hvR, uL, uR, vL, vR, bL, bR
-		!$omp threadprivate(hL, hR, huL, huR, hvL, hvR, uL, uR, vL, vR, bL, bR)
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,3)		:: waveSpeeds
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,3,3)	:: fwaves
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,3)		:: wall
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: delphi
-		!$omp threadprivate(waveSpeeds, fwaves, wall, delphi)
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: sL, sR, uhat, chat, sRoe1, sRoe2, sE1, sE2
-		!$omp threadprivate(sL, sR, uhat, chat, sRoe1, sRoe2, sE1, sE2)
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: delh, delhu, delb, deldelphi, delphidecomp, beta1, beta2
-		!$omp threadprivate(delh, delhu, delb, deldelphi, delphidecomp, beta1, beta2)
-		
+		!..DIR$ ASSUME_ALIGNED edges_a: 64
+		!..DIR$ ASSUME_ALIGNED edges_b: 64
 #endif
 
 #		define _GT_NAME							t_swe_euler_timestep_traversal
@@ -650,7 +638,48 @@
 				real(kind = GRID_SR)					:: transform_matrices(2,2,3) ! one matrix for each edge orientation
 				integer									:: i, j
 				real(kind = GRID_SR)											:: hstar, s1m, s2m, rare1, rare2
-				
+				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: hL, hR, huL, huR, hvL, hvR, uL, uR, vL, vR, bL, bR
+				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,3)		:: waveSpeeds
+				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,3,3)	:: fwaves
+				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,3)		:: wall
+				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: delphi
+				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: sL, sR, uhat, chat, sRoe1, sRoe2, sE1, sE2
+				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: delh, delhu, delb, deldelphi, delphidecomp, beta1, beta2
+				!DIR$ ASSUME_ALIGNED hL(1): 64
+				!DIR$ ASSUME_ALIGNED hR(1): 64
+				!DIR$ ASSUME_ALIGNED huL: 64
+				!DIR$ ASSUME_ALIGNED huR: 64
+				!DIR$ ASSUME_ALIGNED hvL: 64
+				!DIR$ ASSUME_ALIGNED hvR: 64
+				!DIR$ ASSUME_ALIGNED uL: 64
+				!DIR$ ASSUME_ALIGNED uR: 64
+				!DIR$ ASSUME_ALIGNED vL: 64
+				!DIR$ ASSUME_ALIGNED vR: 64
+				!DIR$ ASSUME_ALIGNED bL: 64
+				!DIR$ ASSUME_ALIGNED bR: 64
+
+				!DIR$ ASSUME_ALIGNED waveSpeeds: 64
+				!DIR$ ASSUME_ALIGNED fwaves: 64
+				!DIR$ ASSUME_ALIGNED wall: 64
+				!DIR$ ASSUME_ALIGNED delphi: 64
+
+				!DIR$ ASSUME_ALIGNED sL: 64
+				!DIR$ ASSUME_ALIGNED sR: 64
+				!DIR$ ASSUME_ALIGNED uhat: 64
+				!DIR$ ASSUME_ALIGNED chat: 64
+				!DIR$ ASSUME_ALIGNED sRoe1: 64
+				!DIR$ ASSUME_ALIGNED sRoe2: 64
+				!DIR$ ASSUME_ALIGNED sE1: 64
+				!DIR$ ASSUME_ALIGNED sE2: 64
+
+				!DIR$ ASSUME_ALIGNED delh: 64
+				!DIR$ ASSUME_ALIGNED delhu: 64
+				!DIR$ ASSUME_ALIGNED delb: 64
+				!DIR$ ASSUME_ALIGNED deldelphi: 64
+				!DIR$ ASSUME_ALIGNED delphidecomp: 64
+				!DIR$ ASSUME_ALIGNED beta1: 64
+				!DIR$ ASSUME_ALIGNED beta2: 64
+
 				associate(geom => SWE_SIMD_geometry)
 				
 					! STEP 1 = transformations

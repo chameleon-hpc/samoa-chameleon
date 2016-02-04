@@ -635,8 +635,8 @@
 				real(kind = GRID_SR), intent(in)    	:: normals(2,3)
 				
 				!local
-				real(kind = GRID_SR)					:: transform_matrices(2,2,3) ! one matrix for each edge orientation
-				integer									:: i, j
+				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,2,2)	:: transform_matrices
+				integer								:: i, j
 				real(kind = GRID_SR)											:: hstar, s1m, s2m, rare1, rare2
 				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: hL, hR, huL, huR, hvL, hvR, uL, uR, vL, vR, bL, bR
 				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: upd_hL, upd_hR, upd_huL, upd_huR, upd_hvL, upd_hvR
@@ -646,6 +646,7 @@
 				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: delphi
 				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: sL, sR, uhat, chat, sRoe1, sRoe2, sE1, sE2
 				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: delh, delhu, delb, deldelphi, delphidecomp, beta1, beta2
+				!DIR$ ASSUME_ALIGNED transform_matrices
 				!DIR$ ASSUME_ALIGNED hL: 64
 				!DIR$ ASSUME_ALIGNED hR: 64
 				!DIR$ ASSUME_ALIGNED huL: 64
@@ -688,22 +689,12 @@
 
 				associate(geom => SWE_SIMD_geometry)
 				
-					! STEP 1 = transformations
-						do i=1,3 
-							transform_matrices(1,:,i) = normals(:,i)
-							transform_matrices(2,:,i) = [ - normals(2,i), normals(1,i) ]
+					! STEP 1 = compute transformations matrices
+						do i=1,_SWE_SIMD_NUM_EDGES 
+							transform_matrices(i,1,:) = normals(:,geom%edges_orientation(i))
+							transform_matrices(i,2,:) = [ - normals(2,geom%edges_orientation(i)), normals(1,geom%edges_orientation(i)) ]
 						end do
 						
-						do i=1, _SWE_SIMD_NUM_EDGES
-							edges_a(i)%h = edges_a(i)%h - edges_a(i)%b
-							edges_b(i)%h = edges_b(i)%h - edges_b(i)%b
-							
-							edges_a(i)%p = matmul(transform_matrices(:,:,geom%edges_orientation(i)), edges_a(i)%p)
-							edges_b(i)%p = matmul(transform_matrices(:,:,geom%edges_orientation(i)), edges_b(i)%p)
-						end do
-					
-					
-					
 					! STEP 2 = solve riemann problems
 					! *** F-Wave solver *** (based on geoclaw implementation)
 						! copy hL, hR, etc.;
@@ -717,7 +708,19 @@
 							bL(i) = edges_a(i)%b
 							bR(i) = edges_b(i)%b
 						end do
-					
+
+						!samoa considers bathymetry included in h, the solver doesn't
+						hL = hL - bL
+						hR = hR - bR
+
+						! change base so hu/hv become ortogonal/perperdicular to edge
+						! (here, uL and uR are used as a temp arrays to save memory, they are not computed here!)
+						uL = huL
+						huL = transform_matrices(:,1,1) * huL + transform_matrices(:,1,2) * hvL
+						hvL = transform_matrices(:,2,1) * uL + transform_matrices(:,2,2) * hvL
+						uR = huR
+						huR = transform_matrices(:,1,1) * huR + transform_matrices(:,1,2) * hvR
+						hvR = transform_matrices(:,2,1) * uR + transform_matrices(:,2,2) * hvR
 						
 						! initialize Riemann problem for grid interfaces
 						waveSpeeds=0
@@ -871,15 +874,13 @@
 						! compute maximum wave speed
 						section%u_max = maxVal(abs(waveSpeeds))
 						
-						! skip problem if in a completely dry area
-						where (hL(:) < cfg%dry_tolerance .and. hR(:) < cfg%dry_tolerance)
-							upd_hL = 0
-							upd_huL = 0
-							upd_hvL = 0
-							upd_hR = 0
-							upd_huR = 0
-							upd_hvR = 0
-						end where
+						! inverse transformations
+						uL = upd_huL
+						upd_huL = transform_matrices(:,1,1) * upd_huL + transform_matrices(:,2,1) * upd_hvL
+						upd_hvL = transform_matrices(:,1,2) * uL + transform_matrices(:,2,2) * upd_hvL
+						uR = upd_huR
+						upd_huR = transform_matrices(:,1,1) * upd_huR + transform_matrices(:,2,1) * upd_hvR
+						upd_hvR = transform_matrices(:,1,2) * uR + transform_matrices(:,2,2) * upd_hvR
 						
 						! save updates in edges_a and _b arrays
 						do i=1, _SWE_SIMD_NUM_EDGES
@@ -891,13 +892,6 @@
 							edges_b(i)%p(2) = upd_hvR(i)
 						end do
 						
-						
-					! STEP 3 = (inverse) transformations
-						do i=1, _SWE_SIMD_NUM_EDGES
-							edges_a(i)%p = matmul(edges_a(i)%p,transform_matrices(:,:,geom%edges_orientation(i)))
-							edges_b(i)%p = matmul(edges_b(i)%p,transform_matrices(:,:,geom%edges_orientation(i)))
-						end do	
-					
 				end associate
 			end subroutine
 #		endif

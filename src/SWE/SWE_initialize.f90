@@ -89,7 +89,14 @@
 
 			call alpha_volume_op(traversal, section, element, Q)
 
-			call gv_Q%write(element, Q)
+# 			if defined(_SWE_SIMD)
+				element%cell%data_pers%H = Q(:)%h
+				element%cell%data_pers%HU = Q(:)%p(1)
+				element%cell%data_pers%HV = Q(:)%p(2)
+				element%cell%data_pers%B = Q(:)%b
+#			else
+				call gv_Q%write(element, Q)
+#			endif
 
 		end subroutine
 

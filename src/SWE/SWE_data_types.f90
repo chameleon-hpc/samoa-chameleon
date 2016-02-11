@@ -83,7 +83,8 @@
 		!> persistent scenario data on a cell
 		type num_cell_data_pers
 #		if defined(_SWE_SIMD)
-			type(t_state), DIMENSION(_SWE_SIMD_ORDER_SQUARE)			:: Q !< triangular patch
+			type(t_state), DIMENSION(_SWE_CELL_SIZE)			:: Q !TODO: remove this and others Qs --> must handle conflicts with t_gv_Q methods afterwards...
+			real (kind = GRID_SR), DIMENSION(_SWE_SIMD_ORDER_SQUARE)	:: H, HU, HV, B !< unknowns + bathymetry in triangular patch
 #		else
 			type(t_state), DIMENSION(_SWE_CELL_SIZE)				:: Q						!< cell status vector
 #		endif
@@ -92,7 +93,8 @@
 		!> Cell representation on an edge, this would typically be everything required from a cell to compute the flux function on an edge
 		type num_cell_rep
 #if defined(_SWE_SIMD)
-			type(t_state), DIMENSION(_SWE_SIMD_ORDER)				:: Q !< edge stores ghost cells for communication
+			type(t_state), DIMENSION(_SWE_EDGE_SIZE)				:: Q !TODO: remove this and others Qs --> must handle conflicts with t_gv_Q methods afterwards...
+			real (kind = GRID_SR), dimension (_SWE_SIMD_ORDER)		:: H, HU, HV, B !< edge stores ghost cells for communication of ghost cells
 #else
 			type(t_state), DIMENSION(_SWE_EDGE_SIZE)									:: Q						!< cell representation
 #endif
@@ -101,7 +103,8 @@
 		!> Cell update, this would typically be a flux function
 		type num_cell_update
 #if defined (_SWE_SIMD)
-			type(t_state), DIMENSION(_SWE_SIMD_ORDER)									:: Q !< values of ghost cells
+			type(t_state), DIMENSION(_SWE_EDGE_SIZE)									:: Q  !TODO: remove this and others Qs --> must handle conflicts with t_gv_Q methods afterwards...
+			real (kind = GRID_SR), DIMENSION(_SWE_SIMD_ORDER)							:: H, HU, HV, B !< values of ghost cells
 #endif
 			type(t_update), DIMENSION(_SWE_EDGE_SIZE)									:: flux						!< cell update
 		end type

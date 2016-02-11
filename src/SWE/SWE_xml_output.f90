@@ -304,8 +304,6 @@
 				type(t_state), dimension(_SWE_SIMD_ORDER_SQUARE):: Q
 				integer											:: j, row, col, cell_id
 				
-				call gv_Q%read(element, Q)
-				
 				row=1
 				col=1
 
@@ -331,10 +329,10 @@
 					end if
 					traversal%cell_data(traversal%i_cell_data_index)%id_within_patch = cell_id
 
-					traversal%cell_data(traversal%i_cell_data_index)%Q%h = element%cell%data_pers%Q(cell_id)%h
-					traversal%cell_data(traversal%i_cell_data_index)%Q%b = element%cell%data_pers%Q(cell_id)%b
-					traversal%cell_data(traversal%i_cell_data_index)%Q%p(1) = element%cell%data_pers%Q(cell_id)%p(1)
-					traversal%cell_data(traversal%i_cell_data_index)%Q%p(2) = element%cell%data_pers%Q(cell_id)%p(2)	
+					traversal%cell_data(traversal%i_cell_data_index)%Q%h = element%cell%data_pers%H(cell_id)
+					traversal%cell_data(traversal%i_cell_data_index)%Q%b = element%cell%data_pers%B(cell_id)
+					traversal%cell_data(traversal%i_cell_data_index)%Q%p(1) = element%cell%data_pers%HU(cell_id)
+					traversal%cell_data(traversal%i_cell_data_index)%Q%p(2) = element%cell%data_pers%HV(cell_id)
 					
 					! prepare for next cell
 					traversal%i_cell_data_index = traversal%i_cell_data_index + 1

@@ -161,17 +161,21 @@
 			real(kind = GRID_SR), dimension(2, 3), parameter		:: edge_offsets = reshape([0.0, 0.0, 0.0, 1.0, 1.0, 0.0], [2, 3])
 			real(kind = GRID_SR), dimension(2, 3), parameter		:: edge_vectors = reshape([0.0, 1.0, 1.0, -1.0, -1.0, 0.0], [2, 3])
 #			if defined(_SWE_SIMD)
-				type(t_state), dimension(_SWE_SIMD_ORDER_SQUARE)	:: Q
+				real(kind=GRID_SR),dimension(_SWE_SIMD_ORDER_SQUARE):: H, HU, HV, B
 				integer												:: edge_type !1=left, 2=hypotenuse, 3=right
+				
+				H = element%cell%data_pers%H
+				HU = element%cell%data_pers%HU
+				HV = element%cell%data_pers%HV
+				B = element%cell%data_pers%B
+				
 #			else
 				type(t_state), dimension(_SWE_CELL_SIZE)			:: Q
+				_log_write(6, '(3X, A)') "swe cell to edge op:"
+				_log_write(6, '(4X, A, F0.3, 1X, F0.3, 1X, F0.3, 1X, F0.3)') "Q in: ", Q
+				_log_write(6, '(4X, A, F0.3, 1X, F0.3)') "normal in : ", edge%transform_data%normal
 #			endif
-			
-			call gv_Q%read(element, Q)
 
-			_log_write(6, '(3X, A)') "swe cell to edge op:"
-			_log_write(6, '(4X, A, F0.3, 1X, F0.3, 1X, F0.3, 1X, F0.3)') "Q in: ", Q
-            _log_write(6, '(4X, A, F0.3, 1X, F0.3)') "normal in : ", edge%transform_data%normal
 			
 			i_edge = edge%transform_data%index
 #           if (_SWE_CELL_SIZE > 1)
@@ -208,24 +212,32 @@
 				select case (edge_type)
 				case (1) !cells with id i*i+1 (left leg)
 					do i=0, _SWE_SIMD_ORDER - 1
-						rep%Q(i+1) = Q(i*i + 1)
+						rep%H(i+1) = H(i*i + 1)
+						rep%HU(i+1) = HU(i*i + 1)
+						rep%HV(i+1) = HV(i*i + 1)
+						rep%B(i+1) = B(i*i + 1)
 					end do
 				case (2) ! hypotenuse
 					do i=1, _SWE_SIMD_ORDER
-						rep%Q(i) = Q((_SWE_SIMD_ORDER-1)*(_SWE_SIMD_ORDER-1) + 2*i - 1)
+						rep%H(i) = H((_SWE_SIMD_ORDER-1)*(_SWE_SIMD_ORDER-1) + 2*i - 1)
+						rep%HU(i) = HU((_SWE_SIMD_ORDER-1)*(_SWE_SIMD_ORDER-1) + 2*i - 1)
+						rep%HV(i) = HV((_SWE_SIMD_ORDER-1)*(_SWE_SIMD_ORDER-1) + 2*i - 1)
+						rep%B(i) = B((_SWE_SIMD_ORDER-1)*(_SWE_SIMD_ORDER-1) + 2*i - 1)
 					end do
 				case (3) !cells with id i*i (right leg)
 					do i=1, _SWE_SIMD_ORDER
-						rep%Q(_SWE_SIMD_ORDER + 1 - i) = Q(i*i)
+						rep%H(_SWE_SIMD_ORDER + 1 - i) = H(i*i)
+						rep%HU(_SWE_SIMD_ORDER + 1 - i) = HU(i*i)
+						rep%HV(_SWE_SIMD_ORDER + 1 - i) = HV(i*i)
+						rep%B(_SWE_SIMD_ORDER + 1 - i) = B(i*i)
 					end do
 				end select
 			
 				
 #			else
 				rep%Q(1) = Q(1)
+				_log_write(6, '(4X, A, F0.3, 1X, F0.3, 1X, F0.3, 1X, F0.3)') "Q out: ", rep%Q
 #           endif
-
-			_log_write(6, '(4X, A, F0.3, 1X, F0.3, 1X, F0.3, 1X, F0.3)') "Q out: ", rep%Q
 		end function
 
 		subroutine skeleton_array_op(traversal, grid, edges, rep1, rep2, update1, update2)
@@ -251,8 +263,6 @@
 			integer 														:: i
 
 			_log_write(6, '(3X, A)') "swe skeleton op:"
-			_log_write(6, '(4X, A, F0.3, 1X, F0.3, 1X, F0.3, 1X, F0.3)') "Q 1 in: ", rep1%Q
-			_log_write(6, '(4X, A, F0.3, 1X, F0.3, 1X, F0.3, 1X, F0.3)') "Q 2 in: ", rep2%Q
 
 #			if defined (_SWE_LF) || defined (_SWE_LF_BATH) || defined (_SWE_LLF) || defined (_SWE_LLF_BATH)
 				call compute_lf_flux(edge%transform_data%normal, rep1%Q(1), rep2%Q(1), update1%flux(1), update2%flux(1))
@@ -266,10 +276,20 @@
 				!/____\1   3\|
 				
 				do i=1, _SWE_SIMD_ORDER
-					update1%Q(i) = rep2%Q(_SWE_SIMD_ORDER + 1 - i)
-					update2%Q(i) = rep1%Q(_SWE_SIMD_ORDER + 1 - i)
+					update1%H(i) = rep2%H(_SWE_SIMD_ORDER + 1 - i)
+					update1%HU(i) = rep2%HU(_SWE_SIMD_ORDER + 1 - i)
+					update1%HV(i) = rep2%HV(_SWE_SIMD_ORDER + 1 - i)
+					update1%B(i) = rep2%B(_SWE_SIMD_ORDER + 1 - i)
+					
+					
+					update2%H(i) = rep1%H(_SWE_SIMD_ORDER + 1 - i)
+					update2%HU(i) = rep1%HU(_SWE_SIMD_ORDER + 1 - i)
+					update2%HV(i) = rep1%HV(_SWE_SIMD_ORDER + 1 - i)
+					update2%B(i) = rep1%B(_SWE_SIMD_ORDER + 1 - i)
 				end do
 #			else
+				_log_write(6, '(4X, A, F0.3, 1X, F0.3, 1X, F0.3, 1X, F0.3)') "Q 1 in: ", rep1%Q
+				_log_write(6, '(4X, A, F0.3, 1X, F0.3, 1X, F0.3, 1X, F0.3)') "Q 2 in: ", rep2%Q
 				call compute_geoclaw_flux(edge%transform_data%normal, rep1%Q(1), rep2%Q(1), update1%flux(1), update2%flux(1))
 				_log_write(6, '(4X, A, F0.3, 1X, F0.3, 1X, F0.3, 1X, F0.3)') "flux 1 out: ", update1%flux
 				_log_write(6, '(4X, A, F0.3, 1X, F0.3, 1X, F0.3, 1X, F0.3)') "flux 2 out: ", update2%flux
@@ -305,8 +325,10 @@
             !SLIP: reflect momentum at normal
 			!bnd_rep = t_state(rep%Q(1)%h, rep%Q(1)%p - dot_product(rep%Q(1)%p, edge%transform_data%normal) * edge%transform_data%normal, rep%Q(1)%b)
 
+#			ifndef _SWE_SIMD
             !NOSLIP: invert momentum (stable)
 			bnd_rep = t_state(rep%Q(1)%h, -rep%Q(1)%p, rep%Q(1)%b)
+#			endif			
 
 			!OUTFLOW: copy values
 			!bnd_rep = rep%Q(1)
@@ -314,7 +336,11 @@
 #			if defined (_SWE_LF) || defined (_SWE_LF_BATH) || defined (_SWE_LLF) || defined (_SWE_LLF_BATH)
 				call compute_lf_flux(edge%transform_data%normal, rep%Q(1), bnd_rep, update%flux(1), bnd_flux)
 #			elif defined (_SWE_SIMD)
-				update%Q = bnd_rep
+				! boundary conditions on ghost cells
+				update%H = rep%H
+				update%HU = - rep%HU
+				update%HV = - rep%HV
+				update%B = rep%B
 #			else
 				call compute_geoclaw_flux(edge%transform_data%normal, rep%Q(1), bnd_rep, update%flux(1), bnd_flux)
 #			endif
@@ -332,6 +358,16 @@
 				real(kind = GRID_SR)									 	    :: normals(2,3)
 				type(t_update)													:: update_a, update_b
 				real(kind = GRID_SR)										    :: volume, edge_lengths(3), dt_div_volume
+				real(kind = GRID_SR), DIMENSION(_SWE_SIMD_NUM_EDGES)			:: hL, huL, hvL, bL
+				real(kind = GRID_SR), DIMENSION(_SWE_SIMD_NUM_EDGES)			:: hR, huR, hvR, bR
+				!DIR$ ASSUME_ALIGNED hL: 64
+				!DIR$ ASSUME_ALIGNED hR: 64
+				!DIR$ ASSUME_ALIGNED huL: 64
+				!DIR$ ASSUME_ALIGNED huR: 64
+				!DIR$ ASSUME_ALIGNED hvL: 64
+				!DIR$ ASSUME_ALIGNED hvR: 64
+				!DIR$ ASSUME_ALIGNED bL: 64
+				!DIR$ ASSUME_ALIGNED bR: 64
 				
 				! copy/compute normal vectors
 				! normal for type 2 edges is equal to the 2nd edge's normal
@@ -353,46 +389,80 @@
 					update3=tmp
 				end if
 				
-				associate(Q => element%cell%data_pers%Q, geom => SWE_SIMD_geometry)
+				associate(data => element%cell%data_pers, geom => SWE_SIMD_geometry)
 				
 					! copy cell values to arrays edges_a and edges_b
 					! obs: cells with id > number of cells are actually ghost cells and come from edges "updates"
 					! see t_SWE_SIMD_geometry for an explanation about ghost cell ordering
 					do i=1, _SWE_SIMD_NUM_EDGES
-						! edges_a
+						! left
 						if (geom%edges_a(i) <= _SWE_SIMD_ORDER_SQUARE) then
-							edges_a(i) = Q(geom%edges_a(i))
+							hL(i) = data%H(geom%edges_a(i))
+							huL(i) = data%HU(geom%edges_a(i))
+							hvL(i) = data%HV(geom%edges_a(i))
+							bL(i) = data%B(geom%edges_a(i))
 						else if (geom%edges_a(i) <= _SWE_SIMD_ORDER_SQUARE + _SWE_SIMD_ORDER) then
-							edges_a(i) = update1%Q(geom%edges_a(i) - _SWE_SIMD_ORDER_SQUARE)
+							hL(i) = update1%H(geom%edges_a(i) - _SWE_SIMD_ORDER_SQUARE)
+							huL(i) = update1%HU(geom%edges_a(i) - _SWE_SIMD_ORDER_SQUARE)
+							hvL(i) = update1%HV(geom%edges_a(i) - _SWE_SIMD_ORDER_SQUARE)
+							bL(i) = update1%B(geom%edges_a(i) - _SWE_SIMD_ORDER_SQUARE)
 						else if (geom%edges_a(i) <= _SWE_SIMD_ORDER_SQUARE + 2*_SWE_SIMD_ORDER) then
-							edges_a(i) = update2%Q(geom%edges_a(i) - _SWE_SIMD_ORDER_SQUARE - _SWE_SIMD_ORDER)
+							hL(i) = update2%H(geom%edges_a(i) - _SWE_SIMD_ORDER_SQUARE - _SWE_SIMD_ORDER)
+							huL(i) = update2%HU(geom%edges_a(i) - _SWE_SIMD_ORDER_SQUARE - _SWE_SIMD_ORDER)
+							hvL(i) = update2%HV(geom%edges_a(i) - _SWE_SIMD_ORDER_SQUARE - _SWE_SIMD_ORDER)
+							bL(i) = update2%B(geom%edges_a(i) - _SWE_SIMD_ORDER_SQUARE - _SWE_SIMD_ORDER)
 						else 
-							edges_a(i) = update3%Q(geom%edges_a(i) - _SWE_SIMD_ORDER_SQUARE - 2*_SWE_SIMD_ORDER)
+							hL(i) = update3%H(geom%edges_a(i) - _SWE_SIMD_ORDER_SQUARE - 2*_SWE_SIMD_ORDER)
+							huL(i) = update3%HU(geom%edges_a(i) - _SWE_SIMD_ORDER_SQUARE - 2*_SWE_SIMD_ORDER)
+							hvL(i) = update3%HV(geom%edges_a(i) - _SWE_SIMD_ORDER_SQUARE - 2*_SWE_SIMD_ORDER)
+							bL(i) = update3%B(geom%edges_a(i) - _SWE_SIMD_ORDER_SQUARE - 2*_SWE_SIMD_ORDER)
 						end if
 						
-						! edges_b
+						! right
 						if (geom%edges_b(i) <= _SWE_SIMD_ORDER_SQUARE) then
-							edges_b(i) = Q(geom%edges_b(i))
+							hR(i) = data%H(geom%edges_b(i))
+							huR(i) = data%HU(geom%edges_b(i))
+							hvR(i) = data%HV(geom%edges_b(i))
+							bR(i) = data%B(geom%edges_b(i))
 						else if (geom%edges_b(i) <= _SWE_SIMD_ORDER_SQUARE + _SWE_SIMD_ORDER) then
-							edges_b(i) = update1%Q(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE)
+							hR(i) = update1%H(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE)
+							huR(i) = update1%HU(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE)
+							hvR(i) = update1%HV(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE)
+							bR(i) = update1%B(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE)
 						else if (geom%edges_b(i) <= _SWE_SIMD_ORDER_SQUARE + 2*_SWE_SIMD_ORDER) then
-							edges_b(i) = update2%Q(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE - _SWE_SIMD_ORDER)
+							hR(i) = update2%H(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE - _SWE_SIMD_ORDER)
+							huR(i) = update2%HU(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE - _SWE_SIMD_ORDER)
+							hvR(i) = update2%HV(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE - _SWE_SIMD_ORDER)
+							bR(i) = update2%B(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE - _SWE_SIMD_ORDER)
 						else 
-							edges_b(i) = update3%Q(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE - 2*_SWE_SIMD_ORDER)
+							hR(i) = update3%H(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE - 2*_SWE_SIMD_ORDER)
+							huR(i) = update3%HU(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE - 2*_SWE_SIMD_ORDER)
+							hvR(i) = update3%HV(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE - 2*_SWE_SIMD_ORDER)
+							bR(i) = update3%B(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE - 2*_SWE_SIMD_ORDER)
 						end if
 					end do
 					
 					! compute net_updates
 #					if defined (_USE_SIMD)
-						call compute_updates_fwave_simd(section, normals)
+						call compute_updates_fwave_simd(section, normals, hL, huL, hvL, bL, hR, huR, hvR, bR)
 #					else					
 					! NO-SIMD version
  					do i=1, _SWE_SIMD_NUM_EDGES
+						edges_a(i)%h = hL(i)
+						edges_a(i)%p(1) = huL(i)
+						edges_a(i)%p(2) = hvL(i)
+						edges_a(i)%b = bL(i)
+						edges_b(i)%h = hR(i)
+						edges_b(i)%p(1) = huR(i)
+						edges_b(i)%p(2) = hvR(i)
+						edges_b(i)%b = bR(i)
  						call compute_geoclaw_flux(normals(:,geom%edges_orientation(i)), edges_a(i), edges_b(i), update_a, update_b)
- 						edges_a(i)%h = update_a%h
- 						edges_a(i)%p = update_a%p
- 						edges_b(i)%h = update_b%h
- 						edges_b(i)%p = update_b%p
+ 						hL(i) = update_a%h
+ 						huL(i) = update_a%p(1)
+ 						hvL(i) = update_a%p(2)
+ 						hR(i) = update_b%h
+ 						huR(i) = update_b%p(1)
+ 						hvR(i) = update_b%p(2)
  						section%u_max = max(section%u_max, update_a%max_wave_speed)
  					end do
 #					endif
@@ -400,14 +470,16 @@
 					! if land is flooded, init water height to dry tolerance and
 					! velocity to zero
 					do i=1,_SWE_SIMD_NUM_EDGES
-						if (geom%edges_a(i) <= _SWE_SIMD_ORDER_SQUARE .and. edges_a(i)%h > 0 .and. Q(geom%edges_a(i))%h < Q(geom%edges_a(i))%b + cfg%dry_tolerance) then
-							Q(geom%edges_a(i))%h = Q(geom%edges_a(i))%b + cfg%dry_tolerance
-							Q(geom%edges_a(i))%p = [0.0_GRID_SR, 0.0_GRID_SR]
+						if (geom%edges_a(i) <= _SWE_SIMD_ORDER_SQUARE .and. hL(i) > 0 .and. data%H(geom%edges_a(i)) < data%B(geom%edges_a(i)) + cfg%dry_tolerance) then
+							data%H(geom%edges_a(i)) = data%B(geom%edges_a(i)) + cfg%dry_tolerance
+							data%HU(geom%edges_a(i)) = 0.0_GRID_SR
+							data%HV(geom%edges_a(i)) = 0.0_GRID_SR
 						endif
 					
-						if (geom%edges_b(i) <= _SWE_SIMD_ORDER_SQUARE .and. edges_b(i)%h > 0 .and. Q(geom%edges_b(i))%h < Q(geom%edges_b(i))%b + cfg%dry_tolerance) then
-							Q(geom%edges_b(i))%h = Q(geom%edges_b(i))%b + cfg%dry_tolerance
-							Q(geom%edges_b(i))%p = [0.0_GRID_SR, 0.0_GRID_SR]
+						if (geom%edges_b(i) <= _SWE_SIMD_ORDER_SQUARE .and. hR(i) > 0 .and. data%H(geom%edges_b(i)) < data%B(geom%edges_b(i)) + cfg%dry_tolerance) then
+							data%H(geom%edges_b(i)) = data%B(geom%edges_a(i)) + cfg%dry_tolerance
+							data%HU(geom%edges_b(i)) = 0.0_GRID_SR
+							data%HV(geom%edges_b(i)) = 0.0_GRID_SR
 						endif
 					end do
 
@@ -417,22 +489,22 @@
 					dt_div_volume = section%r_dt / volume
 					do i=1, _SWE_SIMD_NUM_EDGES
 						if (geom%edges_a(i) <= _SWE_SIMD_ORDER_SQUARE) then !ignore ghost cells
-							Q(geom%edges_a(i))%h = Q(geom%edges_a(i))%h - edges_a(i)%h * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
-							Q(geom%edges_a(i))%p(1) = Q(geom%edges_a(i))%p(1) - edges_a(i)%p(1) * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
-							Q(geom%edges_a(i))%p(2) = Q(geom%edges_a(i))%p(2) - edges_a(i)%p(2) * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
+							data%H(geom%edges_a(i)) = data%H(geom%edges_a(i)) - hL(i) * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
+							data%HU(geom%edges_a(i)) = data%HU(geom%edges_a(i)) - huL(i) * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
+							data%HV(geom%edges_a(i)) = data%HV(geom%edges_a(i)) - hvL(i) * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
 						end if
 						if (geom%edges_b(i) <= _SWE_SIMD_ORDER_SQUARE) then
-							Q(geom%edges_b(i))%h = Q(geom%edges_b(i))%h - edges_b(i)%h * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
-							Q(geom%edges_b(i))%p(1) = Q(geom%edges_b(i))%p(1) - edges_b(i)%p(1) * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
-							Q(geom%edges_b(i))%p(2) = Q(geom%edges_b(i))%p(2) - edges_b(i)%p(2) * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
+							data%H(geom%edges_b(i)) = data%H(geom%edges_b(i)) - hR(i) * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
+							data%HU(geom%edges_b(i)) = data%HU(geom%edges_b(i)) - huR(i) * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
+							data%HV(geom%edges_b(i)) = data%HV(geom%edges_b(i)) - hvR(i) * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
 						end if
 					end do
 					
 					! if the water level falls below the dry tolerance, set water surface to 0 and velocity to 0
-					where (Q(:)%h < Q(:)%b + cfg%dry_tolerance) 
-						Q(:)%h = min(Q%b, 0.0_GRID_SR)
-						Q(:)%p(1) = 0.0_GRID_SR
-						Q(:)%p(2) = 0.0_GRID_SR
+					where (data%H < data%B + cfg%dry_tolerance) 
+						data%H = min(data%B, 0.0_GRID_SR)
+						data%HU = 0.0_GRID_SR
+						data%HV = 0.0_GRID_SR
 					end where
 
 				end associate
@@ -467,7 +539,11 @@
 			type(t_cell_data_ptr), intent(inout)				:: cell
 			real(kind = GRID_SR)							    :: b_norm
 
-			b_norm = minval(abs(cell%data_pers%Q%h - cell%data_pers%Q%b))
+#			if defined (_SWE_SIMD)
+				b_norm = minval(abs(cell%data_pers%H - cell%data_pers%B))
+#			else
+				b_norm = minval(abs(cell%data_pers%Q%h - cell%data_pers%Q%b))
+#			endif
 
 			!refine also on the coasts
 			if (cell%geometry%i_depth < cfg%i_max_depth .and. b_norm < 100.0_GRID_SR) then
@@ -630,15 +706,16 @@
 
 	
 #		if defined (_SWE_SIMD)
-			subroutine compute_updates_fwave_simd(section, normals)
+			subroutine compute_updates_fwave_simd(section, normals, hL, huL, hvL, bL, hR, huR, hvR, bR)
 				type(t_grid_section), intent(inout)		:: section
 				real(kind = GRID_SR), intent(in)    	:: normals(2,3)
+				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES), intent(inout)	:: hL, hR, huL, huR, hvL, hvR, bL, bR
+				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)				:: uL, uR, vL, vR
 				
 				!local
 				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,2,2)	:: transform_matrices
 				integer								:: i, j
-				real(kind = GRID_SR)											:: hstar, s1m, s2m, rare1, rare2
-				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: hL, hR, huL, huR, hvL, hvR, uL, uR, vL, vR, bL, bR
+				real(kind = GRID_SR)										:: hstar, s1m, s2m, rare1, rare2
 				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: upd_hL, upd_hR, upd_huL, upd_huR, upd_hvL, upd_hvR
 				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,3)		:: waveSpeeds
 				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,3,3)	:: fwaves
@@ -698,16 +775,16 @@
 					! STEP 2 = solve riemann problems
 					! *** F-Wave solver *** (based on geoclaw implementation)
 						! copy hL, hR, etc.;
-						do i=1, _SWE_SIMD_NUM_EDGES
-							hL(i) = edges_a(i)%h
-							hR(i) = edges_b(i)%h
-							huL(i) = edges_a(i)%p(1)
-							huR(i) = edges_b(i)%p(1)
-							hvL(i) = edges_a(i)%p(2)
-							hvR(i) = edges_b(i)%p(2)
-							bL(i) = edges_a(i)%b
-							bR(i) = edges_b(i)%b
-						end do
+						!do i=1, _SWE_SIMD_NUM_EDGES
+						!	hL(i) = edges_a(i)%h
+						!	hR(i) = edges_b(i)%h
+						!	huL(i) = edges_a(i)%p(1)
+						!	huR(i) = edges_b(i)%p(1)
+						!	hvL(i) = edges_a(i)%p(2)
+						!	hvR(i) = edges_b(i)%p(2)
+						!	bL(i) = edges_a(i)%b
+						!	bR(i) = edges_b(i)%b
+						!end do
 
 						!samoa considers bathymetry included in h, the solver doesn't
 						hL = hL - bL
@@ -883,14 +960,22 @@
 						upd_hvR = transform_matrices(:,1,2) * uR + transform_matrices(:,2,2) * upd_hvR
 						
 						! save updates in edges_a and _b arrays
-						do i=1, _SWE_SIMD_NUM_EDGES
-							edges_a(i)%h = upd_hL(i)
-							edges_b(i)%h = upd_hR(i)
-							edges_a(i)%p(1) = upd_huL(i)
-							edges_b(i)%p(1) = upd_huR(i)
-							edges_a(i)%p(2) = upd_hvL(i)
-							edges_b(i)%p(2) = upd_hvR(i)
-						end do
+						!do i=1, _SWE_SIMD_NUM_EDGES
+						!	edges_a(i)%h = upd_hL(i)
+						!	edges_b(i)%h = upd_hR(i)
+						!	edges_a(i)%p(1) = upd_huL(i)
+						!	edges_b(i)%p(1) = upd_huR(i)
+						!	edges_a(i)%p(2) = upd_hvL(i)
+						!	edges_b(i)%p(2) = upd_hvR(i)
+						!end do
+						
+						! input variables are used as output for updates
+						hL = upd_hL
+						huL = upd_huL
+						hvL = upd_hvL
+						hR = upd_hR
+						huR = upd_huR
+						hvR = upd_hvR
 						
 				end associate
 			end subroutine

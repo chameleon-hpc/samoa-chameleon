@@ -18,7 +18,11 @@
 		implicit none
 
         type num_traversal_data
-			type(t_state), dimension(_SWE_CELL_SIZE, 2)							:: Q_in
+#			if defined (_SWE_SIMD)
+				type(t_state), dimension(_SWE_SIMD_ORDER_SQUARE, 2)					:: Q_in
+#			else
+				type(t_state), dimension(_SWE_CELL_SIZE, 2)							:: Q_in
+#			endif
         end type
 
 		type(t_gv_Q)							:: gv_Q
@@ -99,12 +103,20 @@
 			type(t_traversal_element), intent(inout)									:: dest_element
 #			if defined(_SWE_SIMD)
 				type(t_state), dimension(_SWE_SIMD_ORDER_SQUARE)						:: Q
+				real (kind = GRID_SR), dimension(_SWE_SIMD_ORDER_SQUARE)				:: H, HU, HV, B
 #			else
 				type(t_state), dimension(_SWE_CELL_SIZE)								:: Q
 #			endif
 
-			call gv_Q%read( src_element%t_element_base, Q)
-			call gv_Q%write( dest_element%t_element_base, Q)
+#			if defined (_SWE_SIMD)
+				dest_element%cell%data_pers%H = src_element%cell%data_pers%H
+				dest_element%cell%data_pers%HU = src_element%cell%data_pers%HU
+				dest_element%cell%data_pers%HV = src_element%cell%data_pers%HV
+				dest_element%cell%data_pers%B = src_element%cell%data_pers%B
+#			else
+				call gv_Q%read( src_element%t_element_base, Q)
+				call gv_Q%write( dest_element%t_element_base, Q)
+#			endif
 		end subroutine
 
 		subroutine refine_op(traversal, section, src_element, dest_element, refinement_path)
@@ -124,7 +136,15 @@
 			integer																		:: i
 			!state vector
 
-			call gv_Q%read( src_element%t_element_base, Q_in)
+#			if defined (_SWE_SIMD)
+				! TODO: when really using adaptation, this should be implemented in a totally different way...
+				Q_in(:)%h = src_element%cell%data_pers%H
+				Q_in(:)%b = src_element%cell%data_pers%B
+				Q_in(:)%p(1) = src_element%cell%data_pers%HU
+				Q_in(:)%p(2) = src_element%cell%data_pers%HV
+#			else
+				call gv_Q%read( src_element%t_element_base, Q_in)
+#			endif
 
             !convert momentum to velocity
 			!Q_in(1)%p = 1.0_GRID_SR / (Q_in(1)%h - Q_in(1)%b) * Q_in(1)%p
@@ -142,7 +162,14 @@
             !convert velocity back to momentum
 			!Q_in(1)%p = (Q_in(1)%h - Q_in(1)%b) * Q_in(1)%p
 
-			call gv_Q%write( dest_element%t_element_base, Q_in)
+#			if defined (_SWE_SIMD)
+				dest_element%cell%data_pers%H = Q_in(:)%h
+				dest_element%cell%data_pers%B = Q_in(:)%b
+				dest_element%cell%data_pers%HU = Q_in(:)%p(1)
+				dest_element%cell%data_pers%HV = Q_in(:)%p(2)
+#			else
+				call gv_Q%write( dest_element%t_element_base, Q_in)
+#			endif
 		end subroutine
 
 		subroutine coarsen_op(traversal, section, src_element, dest_element, refinement_path)
@@ -162,7 +189,14 @@
 			!state vector
 
 			i = refinement_path(1)
-			call gv_Q%read( src_element%t_element_base, traversal%Q_in(:, i))
+#			if defined (_SWE_SIMD)
+				traversal%Q_in(:, i)%h = src_element%cell%data_pers%H
+				traversal%Q_in(:, i)%p(1) = src_element%cell%data_pers%HU
+				traversal%Q_in(:, i)%p(2) = src_element%cell%data_pers%HV
+				traversal%Q_in(:, i)%b = src_element%cell%data_pers%B
+#			else
+				call gv_Q%read( src_element%t_element_base, traversal%Q_in(:, i))
+#			endif
 
             !convert momentum to velocity
 			!traversal%Q_in(1, i)%p = 1.0_GRID_SR / (traversal%Q_in(1, i)%h - traversal%Q_in(1, i)%b) * traversal%Q_in(1, i)%p
@@ -175,8 +209,14 @@
 
                 !convert velocity back to momentum
                 !Q_out(1)%p = (Q_out(1)%h - Q_out(1)%b) * Q_out(1)%p
-
+#			if defined (_SWE_SIMD)
+				dest_element%cell%data_pers%H = Q_out(:)%h
+				dest_element%cell%data_pers%B = Q_out(:)%b
+				dest_element%cell%data_pers%HU = Q_out(:)%p(1)
+				dest_element%cell%data_pers%HV = Q_out(:)%p(2)
+#			else
 				call gv_Q%write( dest_element%t_element_base, Q_out)
+#			endif
 			end if
 		end subroutine
 

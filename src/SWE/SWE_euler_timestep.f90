@@ -171,6 +171,7 @@
 				
 #			else
 				type(t_state), dimension(_SWE_CELL_SIZE)			:: Q
+				call gv_Q%read(element, Q)
 				_log_write(6, '(3X, A)') "swe cell to edge op:"
 				_log_write(6, '(4X, A, F0.3, 1X, F0.3, 1X, F0.3, 1X, F0.3)') "Q in: ", Q
 				_log_write(6, '(4X, A, F0.3, 1X, F0.3)') "normal in : ", edge%transform_data%normal

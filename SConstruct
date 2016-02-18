@@ -271,8 +271,8 @@ elif env['target'] == 'profile':
   env.SetDefault(assertions = False)
 
   if env['compiler'] == 'intel':
-    env['F90FLAGS'] += ' -g -fast -inline-level=0 -funroll-loops -unroll -trace'
-    env['LINKFLAGS'] += ' -g -O3 -ip -ipo -trace'
+    env['F90FLAGS'] += ' -g -p -fast -inline-level=0 -funroll-loops -unroll -trace'
+    env['LINKFLAGS'] += ' -g -p -O3 -ip -ipo -trace'
   elif  env['compiler'] == 'gnu':
     env['F90FLAGS'] += '  -g -O3 -march=native -malign-double'
     env['LINKFLAGS'] += ' -g -O3'

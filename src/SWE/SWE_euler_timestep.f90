@@ -445,7 +445,11 @@
 					
 					! compute net_updates
 #					if defined (_USE_SIMD)
-						call compute_updates_fwave_simd(section, normals, hL, huL, hvL, bL, hR, huR, hvR, bR)
+#						if defined(_SWE_FWAVE)
+							call compute_updates_fwave_simd(section, normals, hL, huL, hvL, bL, hR, huR, hvR, bR)
+#						else
+							call compute_updates_hlle_simd(section, normals, hL, huL, hvL, bL, hR, huR, hvR, bR)
+#						endif
 #					else					
 					! NO-SIMD version
  					do i=1, _SWE_SIMD_NUM_EDGES
@@ -765,220 +769,299 @@
 				!DIR$ ASSUME_ALIGNED beta1: 64
 				!DIR$ ASSUME_ALIGNED beta2: 64
 
+				! compute transformations matrices
 				associate(geom => SWE_SIMD_geometry)
-				
-					! STEP 1 = compute transformations matrices
-						do i=1,_SWE_SIMD_NUM_EDGES 
-							transform_matrices(i,1,:) = normals(:,geom%edges_orientation(i))
-							transform_matrices(i,2,:) = [ - normals(2,geom%edges_orientation(i)), normals(1,geom%edges_orientation(i)) ]
-						end do
-						
-					! STEP 2 = solve riemann problems
-					! *** F-Wave solver *** (based on geoclaw implementation)
-						! copy hL, hR, etc.;
-						!do i=1, _SWE_SIMD_NUM_EDGES
-						!	hL(i) = edges_a(i)%h
-						!	hR(i) = edges_b(i)%h
-						!	huL(i) = edges_a(i)%p(1)
-						!	huR(i) = edges_b(i)%p(1)
-						!	hvL(i) = edges_a(i)%p(2)
-						!	hvR(i) = edges_b(i)%p(2)
-						!	bL(i) = edges_a(i)%b
-						!	bR(i) = edges_b(i)%b
-						!end do
-
-						!samoa considers bathymetry included in h, the solver doesn't
-						hL = hL - bL
-						hR = hR - bR
-
-						! change base so hu/hv become ortogonal/perperdicular to edge
-						! (here, uL and uR are used as a temp arrays to save memory, they are not computed here!)
-						uL = huL
-						huL = transform_matrices(:,1,1) * huL + transform_matrices(:,1,2) * hvL
-						hvL = transform_matrices(:,2,1) * uL + transform_matrices(:,2,2) * hvL
-						uR = huR
-						huR = transform_matrices(:,1,1) * huR + transform_matrices(:,1,2) * hvR
-						hvR = transform_matrices(:,2,1) * uR + transform_matrices(:,2,2) * hvR
-						
-						! initialize Riemann problem for grid interfaces
-						waveSpeeds=0
-						fWaves=0
-						
-						! check for wet/dry boundary
-						where (hR > cfg%dry_tolerance) 
-							uR = huR / hR
-							vR = hvR / hR
-						elsewhere
-							hR = 0
-							huR = 0
-							hvR = 0
-							uR = 0
-							vR = 0
-						end where
-						
-						where (hL > cfg%dry_tolerance)
-							uL = huL / hL
-							vL = hvL / hL
-						elsewhere
-							hL = 0
-							huL = 0
-							hvL = 0
-							uL = 0
-							vL = 0
-						end where
-						
-						! per default there is no wall
-						wall = 1
-						do i=1,_SWE_SIMD_NUM_EDGES
-							if (hR(i) <= cfg%dry_tolerance) then
-								call riemanntype(hL(i), hL(i), uL(i), -uL(i), hstar, s1m, s2m, rare1, rare2, 1, cfg%dry_tolerance, g)
-								hstar = max(hL(i), hstar)
-								if (hstar + bL(i) < bR(i)) then !right state should become ghost values that mirror left for wall problem
-									wall(i,2) = 0
-									wall(i,3) = 0
-									hR(i) = hL(i)
-									huR(i) = - huL(i)
-									bR(i) = bL(i)
-									uR(i) = -uL(i)
-									vR(i) = vL(i)
-								else if (hL(i) + bL(i) < bR(i)) then
-									bR(i) = hL(i)+bL(i)
-								end if
-							else if (hL(i) <= cfg%dry_tolerance) then ! right surface is lower than left topo
-								call riemanntype(hR(i), hR(i), -uR(i), uR(i), hstar, s1m, s2m, rare1, rare2, 1, cfg%dry_tolerance, g)
-								hstar = max (hR(i), hstar)
-								if (hstar + bR(i) < bL(i)) then !left state should become ghost values that mirror right
-									wall(i,1) = 0
-									wall(i,2) = 0
-									hL(i) = hR(i)
-									huL(i) = -huR(i)
-									bL(i) = bR(i)
-									uL(i) = -uR(i)
-									vL(i) = vR(i)
-								else if (hR(i) + bR(i) < bL(i)) then
-									bL(i) = hR(i) + bR(i)
-								end if
-							end if
-						end do
-						
-						! BUGFIX:
-						! Problem: loss of significance may occur in phiR-phiL, causing divergence of the steady state.
-						! Action:  Compute delphi=phiR-phiL explicitly. delphi is arithmetically equivalent to phiR-phiL, but with far smaller numerical loss.
-						delphi = (huR - huL)*(uL + uR) - uL*uR*(hR-hL) + (0.5 * g *(bR +hR - bL - hL)*(hR + hL)) - 0.5*g*(hR + hL)*(bR - bL)
-						
-						! determine wave speeds
-						sL=uL-sqrt(g*hL) ! 1 wave speed of left state
-						sR=uR+sqrt(g*hR) ! 2 wave speed of right state
-
-						uhat=(sqrt(g*hL)*uL + sqrt(g*hR)*uR)/(sqrt(g*hR)+sqrt(g*hL)) ! Roe average
-						chat=sqrt(g*0.5d0*(hR+hL)) ! Roe average
-						sRoe1=uhat-chat ! Roe wave speed 1 wave
-						sRoe2=uhat+chat ! Roe wave speed 2 wave
-
-						sE1 = min(sL,sRoe1) ! Eindfeldt speed 1 wave
-						sE2 = max(sR,sRoe2) ! Eindfeldt speed 2 wave
-						
-						!*******************
-						!* call the solver *
-						!*******************
-							
-							!determine del vectors
-							delh = hR - hL
-							delhu = huR - huL
-							delb = bR - bL
-							
-							deldelphi = -g * 0.5 * (hR + hL) * delb
-							delphidecomp = delphi - deldelphi
-							
-							!flux decomposition
-							beta1 = (sE2*delhu - delphidecomp) / (sE2 - sE1)
-							beta2 = (delphidecomp - sE1*delhu) / (sE2 - sE1)
-							
-							waveSpeeds(:,1) = sE1
-							waveSpeeds(:,2) = 0.5 * (sE1+sE2)
-							waveSpeeds(:,3) = sE2
-							! 1st nonlinear wave
-							fwaves(:,1,1) = beta1
-							fwaves(:,2,1) = beta1*sE1
-							fwaves(:,3,1) = beta1*vL
-							! 2nd nonlinear wave
-							fwaves(:,1,3) = beta2
-							fwaves(:,2,3) = beta2*sE2
-							fwaves(:,3,3) = beta2*vR
-							! advection of transverse wave
-							fwaves(:,1,2) = 0
-							fwaves(:,2,2) = 0
-							fwaves(:,3,2) = huR*vR - huL*vL - fwaves(:,3,1)-fwaves(:,3,3)
-							
-						!*****************
-						!* end of solver *
-						!*****************
-
-						! eliminate ghost fluxes for wall
-						do i=1, 3 !waveNumber
-							waveSpeeds(:,i) = waveSpeeds(:,i) * wall(:,i)
-							do j=1,3 !equationNumber
-								fwaves(:,j,i) = fwaves(:,j,i) * wall(:,i)
-							end do
-						end do
-						
-						! compute net updates
-						upd_hL = 0
-						upd_huL = 0
-						upd_hvL = 0
-						upd_hR = 0
-						upd_huR = 0
-						upd_hvR = 0
-						
-						do i=1,3 ! waveNumber
-							where (waveSpeeds(:,i) < 0)
-								upd_hL = upd_hL + fwaves(:,1,i)
-								upd_huL = upd_huL + fwaves(:,2,i)
-								upd_hvL = upd_hvL + fwaves(:,3,i)
-							elsewhere (waveSpeeds(:,i) > 0)
-								upd_hR = upd_hR + fwaves(:,1,i)
-								upd_huR = upd_huR + fwaves(:,2,i)
-								upd_hvR = upd_hvR + fwaves(:,3,i)
-							elsewhere
-								upd_hL = upd_hL + 0.5 * fwaves(:,1,i)
-								upd_huL = upd_huL + 0.5 * fwaves(:,2,i)
-								upd_hvL = upd_hvL + 0.5 * fwaves(:,3,i)
-								upd_hR = upd_hR + 0.5 * fwaves(:,1,i)
-								upd_huR = upd_huR + 0.5 * fwaves(:,2,i)
-								upd_hvR = upd_hvR + 0.5 * fwaves(:,3,i)
-							end where
-						end do
-						
-						! compute maximum wave speed
-						section%u_max = maxVal(abs(waveSpeeds))
-						
-						! inverse transformations
-						uL = upd_huL
-						upd_huL = transform_matrices(:,1,1) * upd_huL + transform_matrices(:,2,1) * upd_hvL
-						upd_hvL = transform_matrices(:,1,2) * uL + transform_matrices(:,2,2) * upd_hvL
-						uR = upd_huR
-						upd_huR = transform_matrices(:,1,1) * upd_huR + transform_matrices(:,2,1) * upd_hvR
-						upd_hvR = transform_matrices(:,1,2) * uR + transform_matrices(:,2,2) * upd_hvR
-						
-						! save updates in edges_a and _b arrays
-						!do i=1, _SWE_SIMD_NUM_EDGES
-						!	edges_a(i)%h = upd_hL(i)
-						!	edges_b(i)%h = upd_hR(i)
-						!	edges_a(i)%p(1) = upd_huL(i)
-						!	edges_b(i)%p(1) = upd_huR(i)
-						!	edges_a(i)%p(2) = upd_hvL(i)
-						!	edges_b(i)%p(2) = upd_hvR(i)
-						!end do
-						
-						! input variables are used as output for updates
-						hL = upd_hL
-						huL = upd_huL
-						hvL = upd_hvL
-						hR = upd_hR
-						huR = upd_huR
-						hvR = upd_hvR
-						
+					do i=1,_SWE_SIMD_NUM_EDGES 
+						transform_matrices(i,1,:) = normals(:,geom%edges_orientation(i))
+						transform_matrices(i,2,:) = [ - normals(2,geom%edges_orientation(i)), normals(1,geom%edges_orientation(i)) ]
+					end do
 				end associate
+
+
+				! *** F-Wave solver *** (based on geoclaw implementation)
+				!samoa considers bathymetry included in h, the solver doesn't
+				hL = hL - bL
+				hR = hR - bR
+
+				! change base so hu/hv become ortogonal/perperdicular to edge
+				call apply_transformations_before(transform_matrices, huL, hvL)
+				call apply_transformations_before(transform_matrices, huR, hvR)
+				
+				! initialize Riemann problem for grid interfaces
+				waveSpeeds=0
+				fWaves=0
+				
+				! check for wet/dry boundary
+				where (hR > cfg%dry_tolerance) 
+					uR = huR / hR
+					vR = hvR / hR
+				elsewhere
+					hR = 0
+					huR = 0
+					hvR = 0
+					uR = 0
+					vR = 0
+				end where
+				
+				where (hL > cfg%dry_tolerance)
+					uL = huL / hL
+					vL = hvL / hL
+				elsewhere
+					hL = 0
+					huL = 0
+					hvL = 0
+					uL = 0
+					vL = 0
+				end where
+				
+				! per default there is no wall
+				wall = 1
+				do i=1,_SWE_SIMD_NUM_EDGES
+					if (hR(i) <= cfg%dry_tolerance) then
+						call riemanntype(hL(i), hL(i), uL(i), -uL(i), hstar, s1m, s2m, rare1, rare2, 1, cfg%dry_tolerance, g)
+						hstar = max(hL(i), hstar)
+						if (hstar + bL(i) < bR(i)) then !right state should become ghost values that mirror left for wall problem
+							wall(i,2) = 0
+							wall(i,3) = 0
+							hR(i) = hL(i)
+							huR(i) = - huL(i)
+							bR(i) = bL(i)
+							uR(i) = -uL(i)
+							vR(i) = vL(i)
+						else if (hL(i) + bL(i) < bR(i)) then
+							bR(i) = hL(i)+bL(i)
+						end if
+					else if (hL(i) <= cfg%dry_tolerance) then ! right surface is lower than left topo
+						call riemanntype(hR(i), hR(i), -uR(i), uR(i), hstar, s1m, s2m, rare1, rare2, 1, cfg%dry_tolerance, g)
+						hstar = max (hR(i), hstar)
+						if (hstar + bR(i) < bL(i)) then !left state should become ghost values that mirror right
+							wall(i,1) = 0
+							wall(i,2) = 0
+							hL(i) = hR(i)
+							huL(i) = -huR(i)
+							bL(i) = bR(i)
+							uL(i) = -uR(i)
+							vL(i) = vR(i)
+						else if (hR(i) + bR(i) < bL(i)) then
+							bL(i) = hR(i) + bR(i)
+						end if
+					end if
+				end do
+				
+				! BUGFIX:
+				! Problem: loss of significance may occur in phiR-phiL, causing divergence of the steady state.
+				! Action:  Compute delphi=phiR-phiL explicitly. delphi is arithmetically equivalent to phiR-phiL, but with far smaller numerical loss.
+				delphi = (huR - huL)*(uL + uR) - uL*uR*(hR-hL) + (0.5 * g *(bR +hR - bL - hL)*(hR + hL)) - 0.5*g*(hR + hL)*(bR - bL)
+				
+				! determine wave speeds
+				sL=uL-sqrt(g*hL) ! 1 wave speed of left state
+				sR=uR+sqrt(g*hR) ! 2 wave speed of right state
+
+				uhat=(sqrt(g*hL)*uL + sqrt(g*hR)*uR)/(sqrt(g*hR)+sqrt(g*hL)) ! Roe average
+				chat=sqrt(g*0.5d0*(hR+hL)) ! Roe average
+				sRoe1=uhat-chat ! Roe wave speed 1 wave
+				sRoe2=uhat+chat ! Roe wave speed 2 wave
+
+				sE1 = min(sL,sRoe1) ! Eindfeldt speed 1 wave
+				sE2 = max(sR,sRoe2) ! Eindfeldt speed 2 wave
+				
+				!*******************
+				!* call the solver *
+				!*******************
+					
+					!determine del vectors
+					delh = hR - hL
+					delhu = huR - huL
+					delb = bR - bL
+					
+					deldelphi = -g * 0.5 * (hR + hL) * delb
+					delphidecomp = delphi - deldelphi
+					
+					!flux decomposition
+					beta1 = (sE2*delhu - delphidecomp) / (sE2 - sE1)
+					beta2 = (delphidecomp - sE1*delhu) / (sE2 - sE1)
+					
+					waveSpeeds(:,1) = sE1
+					waveSpeeds(:,2) = 0.5 * (sE1+sE2)
+					waveSpeeds(:,3) = sE2
+					! 1st nonlinear wave
+					fwaves(:,1,1) = beta1
+					fwaves(:,2,1) = beta1*sE1
+					fwaves(:,3,1) = beta1*vL
+					! 2nd nonlinear wave
+					fwaves(:,1,3) = beta2
+					fwaves(:,2,3) = beta2*sE2
+					fwaves(:,3,3) = beta2*vR
+					! advection of transverse wave
+					fwaves(:,1,2) = 0
+					fwaves(:,2,2) = 0
+					fwaves(:,3,2) = huR*vR - huL*vL - fwaves(:,3,1)-fwaves(:,3,3)
+					
+				!*****************
+				!* end of solver *
+				!*****************
+
+				! eliminate ghost fluxes for wall
+				do i=1, 3 !waveNumber
+					waveSpeeds(:,i) = waveSpeeds(:,i) * wall(:,i)
+					do j=1,3 !equationNumber
+						fwaves(:,j,i) = fwaves(:,j,i) * wall(:,i)
+					end do
+				end do
+				
+				! compute net updates
+				upd_hL = 0
+				upd_huL = 0
+				upd_hvL = 0
+				upd_hR = 0
+				upd_huR = 0
+				upd_hvR = 0
+				
+				do i=1,3 ! waveNumber
+					where (waveSpeeds(:,i) < 0)
+						upd_hL = upd_hL + fwaves(:,1,i)
+						upd_huL = upd_huL + fwaves(:,2,i)
+						upd_hvL = upd_hvL + fwaves(:,3,i)
+					elsewhere (waveSpeeds(:,i) > 0)
+						upd_hR = upd_hR + fwaves(:,1,i)
+						upd_huR = upd_huR + fwaves(:,2,i)
+						upd_hvR = upd_hvR + fwaves(:,3,i)
+					elsewhere
+						upd_hL = upd_hL + 0.5 * fwaves(:,1,i)
+						upd_huL = upd_huL + 0.5 * fwaves(:,2,i)
+						upd_hvL = upd_hvL + 0.5 * fwaves(:,3,i)
+						upd_hR = upd_hR + 0.5 * fwaves(:,1,i)
+						upd_huR = upd_huR + 0.5 * fwaves(:,2,i)
+						upd_hvR = upd_hvR + 0.5 * fwaves(:,3,i)
+					end where
+				end do
+				
+				! compute maximum wave speed
+				section%u_max = maxVal(abs(waveSpeeds))
+				
+				
+				
+				! inverse transformations
+				call apply_transformations_after(transform_matrices, upd_huL, upd_hvL)
+				call apply_transformations_after(transform_matrices, upd_huR, upd_hvR)
+				
+				! input variables are used as output for updates
+				hL = upd_hL
+				huL = upd_huL
+				hvL = upd_hvL
+				hR = upd_hR
+				huR = upd_huR
+				hvR = upd_hvR
+						
+			end subroutine
+			
+			subroutine compute_updates_hlle_simd(section, normals, hL, huL, hvL, bL, hR, huR, hvR, bR)
+				type(t_grid_section), intent(inout)		:: section
+				real(kind = GRID_SR), intent(in)    	:: normals(2,3)
+				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES), intent(inout)	:: hL, hR, huL, huR, hvL, hvR, bL, bR
+				
+				!local
+				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,2,2)	:: transform_matrices
+				integer														:: i, j
+				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: upd_hL, upd_hR, upd_huL, upd_huR, upd_hvL, upd_hvR
+				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: uL, uR
+
+
+				!DIR$ ASSUME_ALIGNED hL: 64
+				!DIR$ ASSUME_ALIGNED hR: 64
+				!DIR$ ASSUME_ALIGNED huL: 64
+				!DIR$ ASSUME_ALIGNED huR: 64
+				!DIR$ ASSUME_ALIGNED hvL: 64
+				!DIR$ ASSUME_ALIGNED hvR: 64
+				!DIR$ ASSUME_ALIGNED bL: 64
+				!DIR$ ASSUME_ALIGNED bR: 64
+
+				!DIR$ ASSUME_ALIGNED transform_matrices: 64
+				!DIR$ ASSUME_ALIGNED upd_hL: 64
+				!DIR$ ASSUME_ALIGNED upd_hR: 64
+				!DIR$ ASSUME_ALIGNED upd_huL: 64
+				!DIR$ ASSUME_ALIGNED upd_huR: 64
+				!DIR$ ASSUME_ALIGNED upd_hvL: 64
+				!DIR$ ASSUME_ALIGNED upd_hvR: 64
+				!DIR$ ASSUME_ALIGNED uL: 64
+				!DIR$ ASSUME_ALIGNED uR: 64
+
+				associate(geom => SWE_SIMD_geometry)
+					! compute transformations matrices
+					do i=1,_SWE_SIMD_NUM_EDGES 
+						transform_matrices(i,1,:) = normals(:,geom%edges_orientation(i))
+						transform_matrices(i,2,:) = [ - normals(2,geom%edges_orientation(i)), normals(1,geom%edges_orientation(i)) ]
+					end do
+				end associate
+
+						
+				!samoa considers bathymetry included in h, the solver doesn't
+				hL = hL - bL
+				hR = hR - bR
+
+				! change base so hu/hv become ortogonal/perperdicular to edge
+				call apply_transformations_before(transform_matrices, huL, hvL)
+				call apply_transformations_before(transform_matrices, huR, hvR)
+					
+
+				!!!!! actual solver
+				! reset net updates
+				upd_hL = 1
+				upd_hR = 1
+				upd_huL = 0
+				upd_huR = 0
+				upd_hvL = 0
+				upd_hvR = 0
+				
+				! CONTINUE HERE... ---> 	//declare variables which are used over and over again <-----
+					
+					
+				! inverse transformations
+				call apply_transformations_after(transform_matrices, upd_huL, upd_hvL)
+				call apply_transformations_after(transform_matrices, upd_huR, upd_hvR)
+				
+				! input variables are used as output for updates
+				hL = upd_hL
+				huL = upd_huL
+				hvL = upd_hvL
+				hR = upd_hR
+				huR = upd_huR
+				hvR = upd_hvR
+				
+				!TODO: remove this
+				section%u_max = 1
+						
+			end subroutine
+			
+			! change base so hu/hv become ortogonal/perperdicular to edge
+			subroutine apply_transformations_before(transform_matrices, hu, hv)
+				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,2,2), intent(in)	:: transform_matrices
+				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES), intent(inout)		:: hu, hv			
+				
+				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)					:: temp
+				!DIR$ ASSUME_ALIGNED transform_matrices: 64
+				!DIR$ ASSUME_ALIGNED hu: 64
+				!DIR$ ASSUME_ALIGNED hv: 64
+				!DIR$ ASSUME_ALIGNED temp: 64
+				
+				temp = hu
+				hu = transform_matrices(:,1,1) * hu + transform_matrices(:,1,2) * hv
+				hv = transform_matrices(:,2,1) * temp + transform_matrices(:,2,2) * hv
+			end subroutine
+			! transform back to original base
+			subroutine apply_transformations_after(transform_matrices, hu, hv)
+				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,2,2), intent(in)	:: transform_matrices
+				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES), intent(inout)		:: hu, hv			
+				
+				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)					:: temp
+				!DIR$ ASSUME_ALIGNED transform_matrices: 64
+				!DIR$ ASSUME_ALIGNED hu: 64
+				!DIR$ ASSUME_ALIGNED hv: 64
+				!DIR$ ASSUME_ALIGNED temp: 64
+				
+				temp = hu
+				hu = transform_matrices(:,1,1) * hu + transform_matrices(:,2,1) * hv
+				hv = transform_matrices(:,1,2) * temp + transform_matrices(:,2,2) * hv
 			end subroutine
 #		endif
 

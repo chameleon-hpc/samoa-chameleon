@@ -1222,7 +1222,7 @@
 				
 				! preserve depth-positivity
 				!  \cite[ch. 6.5.2]{george2006finite}, \cite[ch. 4.2.3]{george2008augmented}
-				where (eigenvalues(:,1) < -r_eps .and. eigenvalues(:,2) > r_eps)
+				where (eigenvalues(:,1) < -r_eps .and. eigenvalues(:,3) > r_eps)
 					! subsonic
 					steadyStateWave(:,1) = max(steadyStateWave(:,1), hLLMiddleHeight * (eigenValues(:,3) - eigenValues(:,1)) / eigenValues(:,1))
 					steadyStateWave(:,1) = min(steadyStateWave(:,1), hLLMiddleHeight * (eigenValues(:,3) - eigenValues(:,1)) / eigenValues(:,3))
@@ -1350,6 +1350,16 @@
 						upd_huR = upd_huR + 0.5_GRID_SR * fWaves(:,2,i)
 					end where
 				end do
+				
+				where (wetDryState == DryDry)
+					waveSpeeds(:,1) = 0.0_GRID_SR
+					waveSpeeds(:,2) = 0.0_GRID_SR
+					waveSpeeds(:,3) = 0.0_GRID_SR
+					upd_hL = 0.0_GRID_SR
+					upd_huL = 0.0_GRID_SR
+					upd_hR = 0.0_GRID_SR
+					upd_huR = 0.0_GRID_SR
+				end where
 				
 				! compute maximum wave speed (-> CFL-condition)
 				maxWaveSpeed = maxVal(abs(waveSpeeds))

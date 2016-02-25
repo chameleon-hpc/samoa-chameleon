@@ -358,7 +358,7 @@
 				type(num_cell_update)											:: tmp !> ghost cells in correct order 
 				real(kind = GRID_SR)									 	    :: normals(2,3)
 				type(t_update)													:: update_a, update_b
-				real(kind = GRID_SR)										    :: volume, edge_lengths(3), dt_div_volume
+				real(kind = GRID_SR)										    :: volume, edge_lengths(3), dt_div_volume, maxWaveSpeed
 				real(kind = GRID_SR), DIMENSION(_SWE_SIMD_NUM_EDGES)			:: hL, huL, hvL, bL
 				real(kind = GRID_SR), DIMENSION(_SWE_SIMD_NUM_EDGES)			:: hR, huR, hvR, bR
 				!DIR$ ASSUME_ALIGNED hL: 64
@@ -446,10 +446,11 @@
 					! compute net_updates
 #					if defined (_USE_SIMD)
 #						if defined(_SWE_FWAVE)
-							call compute_updates_fwave_simd(section, normals, hL, huL, hvL, bL, hR, huR, hvR, bR)
+							call compute_updates_fwave_simd(section, normals, hL, huL, hvL, bL, hR, huR, hvR, bR, maxWaveSpeed)
 #						else
-							call compute_updates_hlle_simd(section, normals, hL, huL, hvL, bL, hR, huR, hvR, bR)
+							call compute_updates_hlle_simd(section, normals, hL, huL, hvL, bL, hR, huR, hvR, bR, maxWaveSpeed)
 #						endif
+						section%u_max = max(section%u_max, maxWaveSpeed)
 #					else					
 					! NO-SIMD version
  					do i=1, _SWE_SIMD_NUM_EDGES
@@ -471,7 +472,7 @@
  						section%u_max = max(section%u_max, update_a%max_wave_speed)
  					end do
 #					endif
- 					
+ 					print *, "u_max = ", section%u_max
 					! if land is flooded, init water height to dry tolerance and
 					! velocity to zero
 					do i=1,_SWE_SIMD_NUM_EDGES
@@ -711,10 +712,11 @@
 
 	
 #		if defined (_SWE_SIMD)
-			subroutine compute_updates_fwave_simd(section, normals, hL, huL, hvL, bL, hR, huR, hvR, bR)
+			subroutine compute_updates_fwave_simd(section, normals, hL, huL, hvL, bL, hR, huR, hvR, bR, maxWaveSpeed)
 				type(t_grid_section), intent(inout)		:: section
 				real(kind = GRID_SR), intent(in)    	:: normals(2,3)
 				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES), intent(inout)	:: hL, hR, huL, huR, hvL, hvR, bL, bR
+				real(kind = GRID_SR), intent(inout)									:: maxWaveSpeed
 				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)				:: uL, uR, vL, vR
 				
 				!local
@@ -789,41 +791,41 @@
 				call apply_transformations_before(transform_matrices, huR, hvR)
 				
 				! initialize Riemann problem for grid interfaces
-				waveSpeeds=0
-				fWaves=0
+				waveSpeeds=0.0_GRID_SR
+				fWaves=0.0_GRID_SR
 				
 				! check for wet/dry boundary
 				where (hR > cfg%dry_tolerance) 
 					uR = huR / hR
 					vR = hvR / hR
 				elsewhere
-					hR = 0
-					huR = 0
-					hvR = 0
-					uR = 0
-					vR = 0
+					hR = 0.0_GRID_SR
+					huR = 0.0_GRID_SR
+					hvR = 0.0_GRID_SR
+					uR = 0.0_GRID_SR
+					vR = 0.0_GRID_SR
 				end where
 				
 				where (hL > cfg%dry_tolerance)
 					uL = huL / hL
 					vL = hvL / hL
 				elsewhere
-					hL = 0
-					huL = 0
-					hvL = 0
-					uL = 0
-					vL = 0
+					hL = 0.0_GRID_SR
+					huL = 0.0_GRID_SR
+					hvL = 0.0_GRID_SR
+					uL = 0.0_GRID_SR
+					vL = 0.0_GRID_SR
 				end where
 				
 				! per default there is no wall
-				wall = 1
+				wall = 1.0_GRID_SR
 				do i=1,_SWE_SIMD_NUM_EDGES
 					if (hR(i) <= cfg%dry_tolerance) then
 						call riemanntype(hL(i), hL(i), uL(i), -uL(i), hstar, s1m, s2m, rare1, rare2, 1, cfg%dry_tolerance, g)
 						hstar = max(hL(i), hstar)
 						if (hstar + bL(i) < bR(i)) then !right state should become ghost values that mirror left for wall problem
-							wall(i,2) = 0
-							wall(i,3) = 0
+							wall(i,2) = 0.0_GRID_SR
+							wall(i,3) = 0.0_GRID_SR
 							hR(i) = hL(i)
 							huR(i) = - huL(i)
 							bR(i) = bL(i)
@@ -836,8 +838,8 @@
 						call riemanntype(hR(i), hR(i), -uR(i), uR(i), hstar, s1m, s2m, rare1, rare2, 1, cfg%dry_tolerance, g)
 						hstar = max (hR(i), hstar)
 						if (hstar + bR(i) < bL(i)) then !left state should become ghost values that mirror right
-							wall(i,1) = 0
-							wall(i,2) = 0
+							wall(i,1) = 0.0_GRID_SR
+							wall(i,2) = 0.0_GRID_SR
 							hL(i) = hR(i)
 							huL(i) = -huR(i)
 							bL(i) = bR(i)
@@ -852,14 +854,14 @@
 				! BUGFIX:
 				! Problem: loss of significance may occur in phiR-phiL, causing divergence of the steady state.
 				! Action:  Compute delphi=phiR-phiL explicitly. delphi is arithmetically equivalent to phiR-phiL, but with far smaller numerical loss.
-				delphi = (huR - huL)*(uL + uR) - uL*uR*(hR-hL) + (0.5 * g *(bR +hR - bL - hL)*(hR + hL)) - 0.5*g*(hR + hL)*(bR - bL)
+				delphi = (huR - huL)*(uL + uR) - uL*uR*(hR-hL) + (0.5_GRID_SR * g *(bR +hR - bL - hL)*(hR + hL)) - 0.5_GRID_SR*g*(hR + hL)*(bR - bL)
 				
 				! determine wave speeds
 				sL=uL-sqrt(g*hL) ! 1 wave speed of left state
 				sR=uR+sqrt(g*hR) ! 2 wave speed of right state
 
 				uhat=(sqrt(g*hL)*uL + sqrt(g*hR)*uR)/(sqrt(g*hR)+sqrt(g*hL)) ! Roe average
-				chat=sqrt(g*0.5d0*(hR+hL)) ! Roe average
+				chat=sqrt(g*0.5_GRID_SR*(hR+hL)) ! Roe average
 				sRoe1=uhat-chat ! Roe wave speed 1 wave
 				sRoe2=uhat+chat ! Roe wave speed 2 wave
 
@@ -875,7 +877,7 @@
 					delhu = huR - huL
 					delb = bR - bL
 					
-					deldelphi = -g * 0.5 * (hR + hL) * delb
+					deldelphi = -g * 0.5_GRID_SR * (hR + hL) * delb
 					delphidecomp = delphi - deldelphi
 					
 					!flux decomposition
@@ -883,7 +885,7 @@
 					beta2 = (delphidecomp - sE1*delhu) / (sE2 - sE1)
 					
 					waveSpeeds(:,1) = sE1
-					waveSpeeds(:,2) = 0.5 * (sE1+sE2)
+					waveSpeeds(:,2) = 0.5_GRID_SR * (sE1+sE2)
 					waveSpeeds(:,3) = sE2
 					! 1st nonlinear wave
 					fwaves(:,1,1) = beta1
@@ -894,8 +896,8 @@
 					fwaves(:,2,3) = beta2*sE2
 					fwaves(:,3,3) = beta2*vR
 					! advection of transverse wave
-					fwaves(:,1,2) = 0
-					fwaves(:,2,2) = 0
+					fwaves(:,1,2) = 0.0_GRID_SR
+					fwaves(:,2,2) = 0.0_GRID_SR
 					fwaves(:,3,2) = huR*vR - huL*vL - fwaves(:,3,1)-fwaves(:,3,3)
 					
 				!*****************
@@ -911,12 +913,12 @@
 				end do
 				
 				! compute net updates
-				upd_hL = 0
-				upd_huL = 0
-				upd_hvL = 0
-				upd_hR = 0
-				upd_huR = 0
-				upd_hvR = 0
+				upd_hL = 0.0_GRID_SR
+				upd_huL = 0.0_GRID_SR
+				upd_hvL = 0.0_GRID_SR
+				upd_hR = 0.0_GRID_SR
+				upd_huR = 0.0_GRID_SR
+				upd_hvR = 0.0_GRID_SR
 				
 				do i=1,3 ! waveNumber
 					where (waveSpeeds(:,i) < 0)
@@ -928,18 +930,17 @@
 						upd_huR = upd_huR + fwaves(:,2,i)
 						upd_hvR = upd_hvR + fwaves(:,3,i)
 					elsewhere
-						upd_hL = upd_hL + 0.5 * fwaves(:,1,i)
-						upd_huL = upd_huL + 0.5 * fwaves(:,2,i)
-						upd_hvL = upd_hvL + 0.5 * fwaves(:,3,i)
-						upd_hR = upd_hR + 0.5 * fwaves(:,1,i)
-						upd_huR = upd_huR + 0.5 * fwaves(:,2,i)
-						upd_hvR = upd_hvR + 0.5 * fwaves(:,3,i)
+						upd_hL = upd_hL + 0.5_GRID_SR * fwaves(:,1,i)
+						upd_huL = upd_huL + 0.5_GRID_SR * fwaves(:,2,i)
+						upd_hvL = upd_hvL + 0.5_GRID_SR * fwaves(:,3,i)
+						upd_hR = upd_hR + 0.5_GRID_SR * fwaves(:,1,i)
+						upd_huR = upd_huR + 0.5_GRID_SR * fwaves(:,2,i)
+						upd_hvR = upd_hvR + 0.5_GRID_SR * fwaves(:,3,i)
 					end where
 				end do
 				
 				! compute maximum wave speed
-				section%u_max = maxVal(abs(waveSpeeds))
-				
+				maxWaveSpeed = maxVal(abs(waveSpeeds))
 				
 				
 				! inverse transformations
@@ -956,10 +957,11 @@
 						
 			end subroutine
 			
-			subroutine compute_updates_hlle_simd(section, normals, hL, huL, hvL, bL, hR, huR, hvR, bR)
+			subroutine compute_updates_hlle_simd(section, normals, hL, huL, hvL, bL, hR, huR, hvR, bR, maxWaveSpeed)
 				type(t_grid_section), intent(inout)		:: section
 				real(kind = GRID_SR), intent(in)    	:: normals(2,3)
 				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES), intent(inout)	:: hL, hR, huL, huR, hvL, hvR, bL, bR
+				real(kind = GRID_SR), intent(inout)									:: maxWaveSpeed
 				
 				!local
 				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,2,2)	:: transform_matrices
@@ -1350,7 +1352,7 @@
 				end do
 				
 				! compute maximum wave speed (-> CFL-condition)
-				section%u_max = maxVal(abs(waveSpeeds))
+				maxWaveSpeed = maxVal(abs(waveSpeeds))
 				
 				! inverse transformations
 				call apply_transformations_after(transform_matrices, upd_huL, upd_hvL)

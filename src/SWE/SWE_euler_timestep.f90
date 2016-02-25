@@ -472,7 +472,7 @@
  						section%u_max = max(section%u_max, update_a%max_wave_speed)
  					end do
 #					endif
- 					print *, "u_max = ", section%u_max
+ 					
 					! if land is flooded, init water height to dry tolerance and
 					! velocity to zero
 					do i=1,_SWE_SIMD_NUM_EDGES

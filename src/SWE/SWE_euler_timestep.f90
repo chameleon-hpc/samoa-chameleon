@@ -731,7 +731,7 @@
 				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: delphi
 				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: sL, sR, uhat, chat, sRoe1, sRoe2, sE1, sE2
 				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: delh, delhu, delb, deldelphi, delphidecomp, beta1, beta2
-				!DIR$ ASSUME_ALIGNED transform_matrices
+				!DIR$ ASSUME_ALIGNED transform_matrices: 64
 				!DIR$ ASSUME_ALIGNED hL: 64
 				!DIR$ ASSUME_ALIGNED hR: 64
 				!DIR$ ASSUME_ALIGNED huL: 64
@@ -981,6 +981,26 @@
 				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,2,3)	:: fWaves
 				real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,3)		:: waveSpeeds
 				
+				enum, bind(c) !constants to classify wet-dry-state of pairs of cells
+					enumerator :: DryDry = 0
+					enumerator :: WetWet = 1
+					enumerator :: WetDryInundation = 2
+					enumerator :: WetDryWall = 3
+					enumerator :: WetDryWallInundation = 4
+					enumerator :: DryWetInundation = 5
+					enumerator :: DryWetWall = 6
+					enumerator :: DryWetWallInundation = 7
+				end enum
+				
+				enum, bind(c) ! constants to classify Riemann state of a pair of cells:
+					enumerator :: DrySingleRarefaction = 0
+					enumerator :: SingleRarefactionDry = 1
+					enumerator :: ShockShock = 2
+					enumerator :: ShockRarefaction = 3
+					enumerator :: RarefactionShock = 4
+					enumerator :: RarefactionRarefaction = 5
+				end enum
+
 				!DIR$ ASSUME_ALIGNED hL: 64
 				!DIR$ ASSUME_ALIGNED hR: 64
 				!DIR$ ASSUME_ALIGNED huL: 64
@@ -1022,27 +1042,6 @@
 				
 				!DIR$ ASSUME_ALIGNED fWaves: 64
 				!DIR$ ASSUME_ALIGNED waveSpeeds: 64
-
-				
-				enum, bind(c) !constants to classify wet-dry-state of pairs of cells
-					enumerator :: DryDry = 0
-					enumerator :: WetWet = 1
-					enumerator :: WetDryInundation = 2
-					enumerator :: WetDryWall = 3
-					enumerator :: WetDryWallInundation = 4
-					enumerator :: DryWetInundation = 5
-					enumerator :: DryWetWall = 6
-					enumerator :: DryWetWallInundation = 7
-				end enum
-				
-				enum, bind(c) ! constants to classify Riemann state of a pair of cells:
-					enumerator :: DrySingleRarefaction = 0
-					enumerator :: SingleRarefactionDry = 1
-					enumerator :: ShockShock = 2
-					enumerator :: ShockRarefaction = 3
-					enumerator :: RarefactionShock = 4
-					enumerator :: RarefactionRarefaction = 5
-				end enum
 
 				associate(geom => SWE_SIMD_geometry)
 					! compute transformations matrices

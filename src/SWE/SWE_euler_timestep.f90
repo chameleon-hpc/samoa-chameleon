@@ -1059,15 +1059,19 @@
 				call apply_transformations_before(transform_matrices, huL, hvL)
 				call apply_transformations_before(transform_matrices, huR, hvR)
 					
-
+					
+				! initialize uL and uR (will be computed later, if h>dry_tolerance	
+				uL = 0.0_GRID_SR
+				uR = 0.0_GRID_SR
+				
 				!!!!! actual solver
 				! reset net updates
-				upd_hL = 0_GRID_SR
-				upd_hR = 0_GRID_SR
-				upd_huL = 0_GRID_SR
-				upd_huR = 0_GRID_SR
-				upd_hvL = 0_GRID_SR
-				upd_hvR = 0_GRID_SR
+				upd_hL = 0.0_GRID_SR
+				upd_hR = 0.0_GRID_SR
+				upd_huL = 0.0_GRID_SR
+				upd_huR = 0.0_GRID_SR
+				upd_hvL = 0.0_GRID_SR
+				upd_hvR = 0.0_GRID_SR
 				
 				! declare variables which are used over and over again
 				half_g = 0.5_GRID_SR * g
@@ -1083,18 +1087,18 @@
 					uL = huL / hL
 				elsewhere
 					bL = bL + hL
-					hL = 0_GRID_SR
-					huL = 0_GRID_SR
-					uL = 0_GRID_SR
+					hL = 0.0_GRID_SR
+					huL = 0.0_GRID_SR
+					!uL = 0.0_GRID_SR  !is already zero
 				end where
 				
 				where (hR >= cfg%dry_tolerance)
 					uR = huR / hR
 				elsewhere
 					bR = bR + hR
-					hR = 0_GRID_SR
-					huR = 0_GRID_SR
-					uR = 0_GRID_SR
+					hR = 0.0_GRID_SR
+					huR = 0.0_GRID_SR
+					!uR = 0_GRID_SR  !is already zero
 				end where				
 				
 				! MB: determine wet/dry-state - try to start with most frequent case
@@ -1114,8 +1118,8 @@
 							hR = hL
 							uR = -uL
 							huR = -huL
-							bR = 0_GRID_SR
-							bL = 0_GRID_SR
+							bR = 0.0_GRID_SR
+							bL = 0.0_GRID_SR
 							wetDryState = WetDryWall
 						end where
 					end where
@@ -1132,8 +1136,8 @@
 							hL = hR
 							uL = -uR
 							huL = -huR
-							bL = 0_GRID_SR
-							bR = 0_GRID_SR
+							bL = 0.0_GRID_SR
+							bR = 0.0_GRID_SR
 							wetDryState = DryWetWall
 						end where
 					elsewhere ! hL < cfg%dry_tolerance .and. hR < cfg%dry_tolerance
@@ -1270,6 +1274,11 @@
 				!* Solve linear equation end
 				!************************************************************************
 				
+				! initialize all fWaves and waveSpeeds to zero, so we don't need to set some of them to zero afterwards
+				! (see commented code below)
+				fWaves = 0.0_GRID_SR
+				waveSpeeds = 0.0_GRID_SR
+				
 				! compute f-waves and wave-speeds
 				where (wetDryState == WetDryWall)
 					! zero ghost updates (wall boundary)
@@ -1278,14 +1287,14 @@
 					fWaves(:,2,1) = beta(:,1) * eigenVectors(:,1,3)
 					
 					! set the rest to zero
-					fWaves(:,1,2) = 0_GRID_SR
-					fWaves(:,2,2) = 0_GRID_SR
-					fwaves(:,1,3) = 0_GRID_SR
-					fwaves(:,2,3) = 0_GRID_SR
+					!fWaves(:,1,2) = 0.0_GRID_SR   !is already zero
+					!fWaves(:,2,2) = 0.0_GRID_SR   !is already zero
+					!fwaves(:,1,3) = 0.0_GRID_SR   !is already zero
+					!fwaves(:,2,3) = 0.0_GRID_SR   !is already zero
 					
 					waveSpeeds(:,1) = eigenValues(:,1)
-					waveSpeeds(:,2) = 0.0_GRID_SR
-					waveSpeeds(:,3) = 0.0_GRID_SR
+					!waveSpeeds(:,2) = 0.0_GRID_SR   !is already zero
+					!waveSpeeds(:,3) = 0.0_GRID_SR   !is already zero
 				
 				elsewhere (wetDryState == DryWetWall)
 					! zero ghost updates (wall boundary)
@@ -1294,13 +1303,13 @@
 					fWaves(:,2,3) = beta(:,3) * eigenVectors(:,3,3)
 					
 					! set the rest to zero
-					fWaves(:,1,1) = 0
-					fWaves(:,2,1) = 0
-					fwaves(:,1,2) = 0
-					fwaves(:,2,2) = 0
+					!fWaves(:,1,1) = 0.0_GRID_SR   !is already zero
+					!fWaves(:,2,1) = 0.0_GRID_SR   !is already zero
+					!fwaves(:,1,2) = 0.0_GRID_SR   !is already zero
+					!fwaves(:,2,2) = 0.0_GRID_SR   !is already zero
 					
-					waveSpeeds(:,1) = 0.0_GRID_SR
-					waveSpeeds(:,2) = 0.0_GRID_SR
+					!waveSpeeds(:,1) = 0.0_GRID_SR   !is already zero
+					!waveSpeeds(:,2) = 0.0_GRID_SR   !is already zero
 					waveSpeeds(:,3) = eigenValues(:,3)
 					
 				elsewhere
@@ -1350,6 +1359,8 @@
 					end where
 				end do
 				
+				! no net updates in DryDry case -> a non-vectorized solver would have stopped the computation
+				! right after determining the Wet-Dry-State
 				where (wetDryState == DryDry)
 					waveSpeeds(:,1) = 0.0_GRID_SR
 					waveSpeeds(:,2) = 0.0_GRID_SR

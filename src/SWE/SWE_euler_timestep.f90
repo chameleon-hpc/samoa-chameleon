@@ -161,13 +161,7 @@
 			real(kind = GRID_SR), dimension(2, 3), parameter		:: edge_offsets = reshape([0.0, 0.0, 0.0, 1.0, 1.0, 0.0], [2, 3])
 			real(kind = GRID_SR), dimension(2, 3), parameter		:: edge_vectors = reshape([0.0, 1.0, 1.0, -1.0, -1.0, 0.0], [2, 3])
 #			if defined(_SWE_SIMD)
-				real(kind=GRID_SR),dimension(_SWE_SIMD_ORDER_SQUARE):: H, HU, HV, B
 				integer												:: edge_type !1=left, 2=hypotenuse, 3=right
-				
-				H = element%cell%data_pers%H
-				HU = element%cell%data_pers%HU
-				HV = element%cell%data_pers%HV
-				B = element%cell%data_pers%B
 				
 #			else
 				type(t_state), dimension(_SWE_CELL_SIZE)			:: Q
@@ -206,34 +200,35 @@
 					end do
 				end associate
 				
-				! copy boundary values to respective edges
-				! left leg cells go to edge 1
-				! hypotenuse cells go to edge 2
-				! right leg cells go to edge 3
-				select case (edge_type)
-				case (1) !cells with id i*i+1 (left leg)
-					do i=0, _SWE_SIMD_ORDER - 1
-						rep%H(i+1) = H(i*i + 1)
-						rep%HU(i+1) = HU(i*i + 1)
-						rep%HV(i+1) = HV(i*i + 1)
-						rep%B(i+1) = B(i*i + 1)
-					end do
-				case (2) ! hypotenuse
-					do i=1, _SWE_SIMD_ORDER
-						rep%H(i) = H((_SWE_SIMD_ORDER-1)*(_SWE_SIMD_ORDER-1) + 2*i - 1)
-						rep%HU(i) = HU((_SWE_SIMD_ORDER-1)*(_SWE_SIMD_ORDER-1) + 2*i - 1)
-						rep%HV(i) = HV((_SWE_SIMD_ORDER-1)*(_SWE_SIMD_ORDER-1) + 2*i - 1)
-						rep%B(i) = B((_SWE_SIMD_ORDER-1)*(_SWE_SIMD_ORDER-1) + 2*i - 1)
-					end do
-				case (3) !cells with id i*i (right leg)
-					do i=1, _SWE_SIMD_ORDER
-						rep%H(_SWE_SIMD_ORDER + 1 - i) = H(i*i)
-						rep%HU(_SWE_SIMD_ORDER + 1 - i) = HU(i*i)
-						rep%HV(_SWE_SIMD_ORDER + 1 - i) = HV(i*i)
-						rep%B(_SWE_SIMD_ORDER + 1 - i) = B(i*i)
-					end do
-				end select
-			
+				associate(H => element%cell%data_pers%H, HU => element%cell%data_pers%HU, HV => element%cell%data_pers%HV, B => element%cell%data_pers%B)
+					! copy boundary values to respective edges
+					! left leg cells go to edge 1
+					! hypotenuse cells go to edge 2
+					! right leg cells go to edge 3
+					select case (edge_type)
+					case (1) !cells with id i*i+1 (left leg)
+						do i=0, _SWE_SIMD_ORDER - 1
+							rep%H(i+1) = H(i*i + 1)
+							rep%HU(i+1) = HU(i*i + 1)
+							rep%HV(i+1) = HV(i*i + 1)
+							rep%B(i+1) = B(i*i + 1)
+						end do
+					case (2) ! hypotenuse
+						do i=1, _SWE_SIMD_ORDER
+							rep%H(i) = H((_SWE_SIMD_ORDER-1)*(_SWE_SIMD_ORDER-1) + 2*i - 1)
+							rep%HU(i) = HU((_SWE_SIMD_ORDER-1)*(_SWE_SIMD_ORDER-1) + 2*i - 1)
+							rep%HV(i) = HV((_SWE_SIMD_ORDER-1)*(_SWE_SIMD_ORDER-1) + 2*i - 1)
+							rep%B(i) = B((_SWE_SIMD_ORDER-1)*(_SWE_SIMD_ORDER-1) + 2*i - 1)
+						end do
+					case (3) !cells with id i*i (right leg)
+						do i=1, _SWE_SIMD_ORDER
+							rep%H(_SWE_SIMD_ORDER + 1 - i) = H(i*i)
+							rep%HU(_SWE_SIMD_ORDER + 1 - i) = HU(i*i)
+							rep%HV(_SWE_SIMD_ORDER + 1 - i) = HV(i*i)
+							rep%B(_SWE_SIMD_ORDER + 1 - i) = B(i*i)
+						end do
+					end select
+				end associate
 				
 #			else
 				rep%Q(1) = Q(1)

@@ -355,8 +355,8 @@
 				real(kind = GRID_SR)									 	    :: normals(2,3)
 				type(t_update)													:: update_a, update_b
 				real(kind = GRID_SR)										    :: volume, edge_lengths(3), dt_div_volume, maxWaveSpeed
-				real(kind = GRID_SR), DIMENSION(_SWE_SIMD_NUM_EDGES)			:: hL, huL, hvL, bL
-				real(kind = GRID_SR), DIMENSION(_SWE_SIMD_NUM_EDGES)			:: hR, huR, hvR, bR
+				real(kind = GRID_SR), DIMENSION(_SWE_SIMD_NUM_EDGES_ALIGNMENT)			:: hL, huL, hvL, bL
+				real(kind = GRID_SR), DIMENSION(_SWE_SIMD_NUM_EDGES_ALIGNMENT)			:: hR, huR, hvR, bR
 				!DIR$ ASSUME_ALIGNED hL: 64
 				!DIR$ ASSUME_ALIGNED hR: 64
 				!DIR$ ASSUME_ALIGNED huL: 64

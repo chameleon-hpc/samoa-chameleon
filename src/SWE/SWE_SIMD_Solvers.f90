@@ -10,22 +10,22 @@ MODULE SWE_SIMD_Solvers
 
 	subroutine compute_updates_fwave_simd(normals, hL, huL, hvL, bL, hR, huR, hvR, bR, maxWaveSpeed)
 		real(kind = GRID_SR), intent(in)    	:: normals(2,3)
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES), intent(inout)	:: hL, hR, huL, huR, hvL, hvR, bL, bR
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT), intent(inout)	:: hL, hR, huL, huR, hvL, hvR, bL, bR
 		real(kind = GRID_SR), intent(inout)									:: maxWaveSpeed
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)				:: uL, uR, vL, vR
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT)				:: uL, uR, vL, vR
 		
 		!local
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,2,2)	:: transform_matrices
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT,2,2)	:: transform_matrices
 		integer								:: i, j
 		real(kind = GRID_SR)										:: hstar, s1m, s2m
 		logical														:: rare1, rare2
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: upd_hL, upd_hR, upd_huL, upd_huR, upd_hvL, upd_hvR
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,3)		:: waveSpeeds
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,3,3)	:: fwaves
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,3)		:: wall
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: delphi
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: sL, sR, uhat, chat, sRoe1, sRoe2, sE1, sE2
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: delh, delhu, delb, deldelphi, delphidecomp, beta1, beta2
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT)		:: upd_hL, upd_hR, upd_huL, upd_huR, upd_hvL, upd_hvR
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT,3)		:: waveSpeeds
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT,3,3)	:: fwaves
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT,3)		:: wall
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT)		:: delphi
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT)		:: sL, sR, uhat, chat, sRoe1, sRoe2, sE1, sE2
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT)		:: delh, delhu, delb, deldelphi, delphidecomp, beta1, beta2
 		!DIR$ ASSUME_ALIGNED transform_matrices: 64
 		!DIR$ ASSUME_ALIGNED hL: 64
 		!DIR$ ASSUME_ALIGNED hR: 64
@@ -69,7 +69,7 @@ MODULE SWE_SIMD_Solvers
 
 		! compute transformations matrices
 		associate(geom => SWE_SIMD_geometry)
-			do i=1,_SWE_SIMD_NUM_EDGES 
+			do i=1,_SWE_SIMD_NUM_EDGES_ALIGNMENT 
 				transform_matrices(i,1,:) = normals(:,geom%edges_orientation(i))
 				transform_matrices(i,2,:) = [ - normals(2,geom%edges_orientation(i)), normals(1,geom%edges_orientation(i)) ]
 			end do
@@ -114,7 +114,7 @@ MODULE SWE_SIMD_Solvers
 		
 		! per default there is no wall
 		wall = 1.0_GRID_SR
-		do i=1,_SWE_SIMD_NUM_EDGES
+		do i=1,_SWE_SIMD_NUM_EDGES_ALIGNMENT
 			if (hR(i) <= cfg%dry_tolerance) then
 				call riemanntype(hL(i), hL(i), uL(i), -uL(i), hstar, s1m, s2m, rare1, rare2, 1, cfg%dry_tolerance, g)
 				hstar = max(hL(i), hstar)
@@ -254,26 +254,26 @@ MODULE SWE_SIMD_Solvers
 	
 	subroutine compute_updates_hlle_simd(normals, hL, huL, hvL, bL, hR, huR, hvR, bR, maxWaveSpeed)
 		real(kind = GRID_SR), intent(in)    	:: normals(2,3)
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES), intent(inout)	:: hL, hR, huL, huR, hvL, hvR, bL, bR
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT), intent(inout)	:: hL, hR, huL, huR, hvL, hvR, bL, bR
 		real(kind = GRID_SR), intent(inout)									:: maxWaveSpeed
 		
 		!local
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,2,2)	:: transform_matrices
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT,2,2)	:: transform_matrices
 		integer														:: i, j
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: upd_hL, upd_hR, upd_huL, upd_huR, upd_hvL, upd_hvR
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: uL, uR
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: sqrt_hL, sqrt_hR, sqrt_ghL, sqrt_ghR
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT)		:: upd_hL, upd_hR, upd_huL, upd_huR, upd_hvL, upd_hvR
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT)		:: uL, uR
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT)		:: sqrt_hL, sqrt_hR, sqrt_ghL, sqrt_ghR
 		real(kind = GRID_SR)										:: half_g, sqrt_g
-		integer(kind = BYTE), dimension(_SWE_SIMD_NUM_EDGES)		:: wetDryState
+		integer(kind = BYTE), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT)		:: wetDryState
 		
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,2)		:: characteristicSpeeds, roeSpeeds, extEinfeldtSpeeds, steadyStateWave
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)		:: hRoe, uRoe, sqrt_g_hRoe, hLLMiddleHeight, inverseDiff
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,3)		:: eigenValues, rightHandSide, beta
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,3,3)	:: eigenVectors
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT,2)		:: characteristicSpeeds, roeSpeeds, extEinfeldtSpeeds, steadyStateWave
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT)		:: hRoe, uRoe, sqrt_g_hRoe, hLLMiddleHeight, inverseDiff
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT,3)		:: eigenValues, rightHandSide, beta
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT,3,3)	:: eigenVectors
 		real(kind = GRID_SR), parameter								:: r_eps = 1e-7
 		
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,2,3)	:: fWaves
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,3)		:: waveSpeeds
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT,2,3)	:: fWaves
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT,3)		:: waveSpeeds
 		
 		enum, bind(c) !constants to classify wet-dry-state of pairs of cells
 			enumerator :: DryDry = 0
@@ -339,7 +339,7 @@ MODULE SWE_SIMD_Solvers
 
 		associate(geom => SWE_SIMD_geometry)
 			! compute transformations matrices
-			do i=1,_SWE_SIMD_NUM_EDGES 
+			do i=1,_SWE_SIMD_NUM_EDGES_ALIGNMENT 
 				transform_matrices(i,1,:) = normals(:,geom%edges_orientation(i))
 				transform_matrices(i,2,:) = [ - normals(2,geom%edges_orientation(i)), normals(1,geom%edges_orientation(i)) ]
 			end do
@@ -685,10 +685,10 @@ MODULE SWE_SIMD_Solvers
 	
 	! change base so hu/hv become ortogonal/perperdicular to edge
 	subroutine apply_transformations_before(transform_matrices, hu, hv)
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,2,2), intent(in)	:: transform_matrices
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES), intent(inout)		:: hu, hv			
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT,2,2), intent(in)	:: transform_matrices
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT), intent(inout)		:: hu, hv			
 		
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)					:: temp
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT)					:: temp
 		!DIR$ ASSUME_ALIGNED transform_matrices: 64
 		!DIR$ ASSUME_ALIGNED hu: 64
 		!DIR$ ASSUME_ALIGNED hv: 64
@@ -700,10 +700,10 @@ MODULE SWE_SIMD_Solvers
 	end subroutine
 	! transform back to original base
 	subroutine apply_transformations_after(transform_matrices, hu, hv)
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES,2,2), intent(in)	:: transform_matrices
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES), intent(inout)		:: hu, hv			
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT,2,2), intent(in)	:: transform_matrices
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT), intent(inout)		:: hu, hv			
 		
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES)					:: temp
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT)					:: temp
 		!DIR$ ASSUME_ALIGNED transform_matrices: 64
 		!DIR$ ASSUME_ALIGNED hu: 64
 		!DIR$ ASSUME_ALIGNED hv: 64

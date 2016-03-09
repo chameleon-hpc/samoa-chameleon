@@ -69,7 +69,7 @@ MODULE SWE_SIMD_Solvers
 
 		! compute transformations matrices
 		associate(geom => SWE_SIMD_geometry)
-			do i=1,_SWE_SIMD_NUM_EDGES_ALIGNMENT 
+			do i=1,_SWE_SIMD_NUM_EDGES 
 				transform_matrices(i,1,:) = normals(:,geom%edges_orientation(i))
 				transform_matrices(i,2,:) = [ - normals(2,geom%edges_orientation(i)), normals(1,geom%edges_orientation(i)) ]
 			end do
@@ -235,7 +235,7 @@ MODULE SWE_SIMD_Solvers
 		end do
 		
 		! compute maximum wave speed
-		maxWaveSpeed = maxVal(abs(waveSpeeds))
+		maxWaveSpeed = maxVal(abs(waveSpeeds(1:_SWE_SIMD_NUM_EDGES,:)))
 		
 		
 		! inverse transformations
@@ -339,7 +339,7 @@ MODULE SWE_SIMD_Solvers
 
 		associate(geom => SWE_SIMD_geometry)
 			! compute transformations matrices
-			do i=1,_SWE_SIMD_NUM_EDGES_ALIGNMENT 
+			do i=1,_SWE_SIMD_NUM_EDGES
 				transform_matrices(i,1,:) = normals(:,geom%edges_orientation(i))
 				transform_matrices(i,2,:) = [ - normals(2,geom%edges_orientation(i)), normals(1,geom%edges_orientation(i)) ]
 			end do
@@ -666,7 +666,7 @@ MODULE SWE_SIMD_Solvers
 		end where
 		
 		! compute maximum wave speed (-> CFL-condition)
-		maxWaveSpeed = maxVal(abs(waveSpeeds))
+		maxWaveSpeed = maxVal(abs(waveSpeeds(1:_SWE_SIMD_NUM_EDGES,:)))
 		
 		! inverse transformations
 		call apply_transformations_after(transform_matrices, upd_huL, upd_hvL)

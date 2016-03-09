@@ -8,9 +8,10 @@ MODULE SWE_SIMD_Solvers
 	
 	contains
 
-	subroutine compute_updates_fwave_simd(normals, hL, huL, hvL, bL, hR, huR, hvR, bR, maxWaveSpeed)
+	subroutine compute_updates_fwave_simd(normals, hL, huL, hvL, bL, hR, huR, hvR, bR,upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR, maxWaveSpeed)
 		real(kind = GRID_SR), intent(in)    	:: normals(2,3)
 		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT), intent(inout)	:: hL, hR, huL, huR, hvL, hvR, bL, bR
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT), intent(out)	:: upd_hL, upd_hR, upd_huL, upd_huR, upd_hvL, upd_hvR
 		real(kind = GRID_SR), intent(inout)									:: maxWaveSpeed
 		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT)				:: uL, uR, vL, vR
 		
@@ -19,7 +20,6 @@ MODULE SWE_SIMD_Solvers
 		integer								:: i, j
 		real(kind = GRID_SR)										:: hstar, s1m, s2m
 		logical														:: rare1, rare2
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT)		:: upd_hL, upd_hR, upd_huL, upd_huR, upd_hvL, upd_hvR
 		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT,3)		:: waveSpeeds
 		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT,3,3)	:: fwaves
 		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT,3)		:: wall
@@ -242,25 +242,17 @@ MODULE SWE_SIMD_Solvers
 		call apply_transformations_after(transform_matrices, upd_huL, upd_hvL)
 		call apply_transformations_after(transform_matrices, upd_huR, upd_hvR)
 		
-		! input variables are used as output for updates
-		hL = upd_hL
-		huL = upd_huL
-		hvL = upd_hvL
-		hR = upd_hR
-		huR = upd_huR
-		hvR = upd_hvR
-				
 	end subroutine
 	
-	subroutine compute_updates_hlle_simd(normals, hL, huL, hvL, bL, hR, huR, hvR, bR, maxWaveSpeed)
+	subroutine compute_updates_hlle_simd(normals, hL, huL, hvL, bL, hR, huR, hvR, bR, upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR, maxWaveSpeed)
 		real(kind = GRID_SR), intent(in)    	:: normals(2,3)
 		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT), intent(inout)	:: hL, hR, huL, huR, hvL, hvR, bL, bR
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT), intent(out)	:: upd_hL, upd_hR, upd_huL, upd_huR, upd_hvL, upd_hvR
 		real(kind = GRID_SR), intent(inout)									:: maxWaveSpeed
 		
 		!local
 		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT,2,2)	:: transform_matrices
 		integer														:: i, j
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT)		:: upd_hL, upd_hR, upd_huL, upd_huR, upd_hvL, upd_hvR
 		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT)		:: uL, uR
 		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT)		:: sqrt_hL, sqrt_hR, sqrt_ghL, sqrt_ghR
 		real(kind = GRID_SR)										:: half_g, sqrt_g
@@ -672,15 +664,6 @@ MODULE SWE_SIMD_Solvers
 		call apply_transformations_after(transform_matrices, upd_huL, upd_hvL)
 		call apply_transformations_after(transform_matrices, upd_huR, upd_hvR)
 		
-		! input variables are used as output for updates
-		hL = upd_hL
-		huL = upd_huL
-		hvL = upd_hvL
-		hR = upd_hR
-		huR = upd_huR
-		hvR = upd_hvR
-		
-			
 	end subroutine
 	
 	! change base so hu/hv become ortogonal/perperdicular to edge

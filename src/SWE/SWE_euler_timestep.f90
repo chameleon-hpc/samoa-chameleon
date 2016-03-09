@@ -357,6 +357,7 @@
 				real(kind = GRID_SR)										    :: volume, edge_lengths(3), dt_div_volume, maxWaveSpeed
 				real(kind = GRID_SR), DIMENSION(_SWE_SIMD_NUM_EDGES_ALIGNMENT)			:: hL, huL, hvL, bL
 				real(kind = GRID_SR), DIMENSION(_SWE_SIMD_NUM_EDGES_ALIGNMENT)			:: hR, huR, hvR, bR
+				real(kind = GRID_SR), DIMENSION(_SWE_SIMD_NUM_EDGES_ALIGNMENT)			:: upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR
 				!DIR$ ASSUME_ALIGNED hL: 64
 				!DIR$ ASSUME_ALIGNED hR: 64
 				!DIR$ ASSUME_ALIGNED huL: 64
@@ -365,6 +366,12 @@
 				!DIR$ ASSUME_ALIGNED hvR: 64
 				!DIR$ ASSUME_ALIGNED bL: 64
 				!DIR$ ASSUME_ALIGNED bR: 64
+				!DIR$ ASSUME_ALIGNED upd_hL: 64
+				!DIR$ ASSUME_ALIGNED upd_hR: 64
+				!DIR$ ASSUME_ALIGNED upd_huL: 64
+				!DIR$ ASSUME_ALIGNED upd_huR: 64
+				!DIR$ ASSUME_ALIGNED upd_hvL: 64
+				!DIR$ ASSUME_ALIGNED upd_hvR: 64
 				
 				! copy/compute normal vectors
 				! normal for type 2 edges is equal to the 2nd edge's normal
@@ -442,9 +449,9 @@
 					! compute net_updates
 #					if defined (_USE_SIMD)
 #						if defined(_SWE_FWAVE)
-							call compute_updates_fwave_simd(normals, hL, huL, hvL, bL, hR, huR, hvR, bR, maxWaveSpeed)
+							call compute_updates_fwave_simd(normals, hL, huL, hvL, bL, hR, huR, hvR, bR, upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR, maxWaveSpeed)
 #						else
-							call compute_updates_hlle_simd(normals, hL, huL, hvL, bL, hR, huR, hvR, bR, maxWaveSpeed)
+							call compute_updates_hlle_simd(normals, hL, huL, hvL, bL, hR, huR, hvR, bR, upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR, maxWaveSpeed)
 #						endif
 						section%u_max = max(section%u_max, maxWaveSpeed)
 #					else					
@@ -459,12 +466,12 @@
 						edges_b(i)%p(2) = hvR(i)
 						edges_b(i)%b = bR(i)
  						call compute_geoclaw_flux(normals(:,geom%edges_orientation(i)), edges_a(i), edges_b(i), update_a, update_b)
- 						hL(i) = update_a%h
- 						huL(i) = update_a%p(1)
- 						hvL(i) = update_a%p(2)
- 						hR(i) = update_b%h
- 						huR(i) = update_b%p(1)
- 						hvR(i) = update_b%p(2)
+ 						upd_hL(i) = update_a%h
+ 						upd_huL(i) = update_a%p(1)
+ 						upd_hvL(i) = update_a%p(2)
+ 						upd_hR(i) = update_b%h
+ 						upd_huR(i) = update_b%p(1)
+ 						upd_hvR(i) = update_b%p(2)
  						section%u_max = max(section%u_max, update_a%max_wave_speed)
  					end do
 #					endif
@@ -472,13 +479,13 @@
 					! if land is flooded, init water height to dry tolerance and
 					! velocity to zero
 					do i=1,_SWE_SIMD_NUM_EDGES
-						if (geom%edges_a(i) <= _SWE_SIMD_ORDER_SQUARE .and. hL(i) > 0 .and. data%H(geom%edges_a(i)) < data%B(geom%edges_a(i)) + cfg%dry_tolerance) then
+						if (geom%edges_a(i) <= _SWE_SIMD_ORDER_SQUARE .and. upd_hL(i) > 0 .and. data%H(geom%edges_a(i)) < data%B(geom%edges_a(i)) + cfg%dry_tolerance) then
 							data%H(geom%edges_a(i)) = data%B(geom%edges_a(i)) + cfg%dry_tolerance
 							data%HU(geom%edges_a(i)) = 0.0_GRID_SR
 							data%HV(geom%edges_a(i)) = 0.0_GRID_SR
 						endif
 					
-						if (geom%edges_b(i) <= _SWE_SIMD_ORDER_SQUARE .and. hR(i) > 0 .and. data%H(geom%edges_b(i)) < data%B(geom%edges_b(i)) + cfg%dry_tolerance) then
+						if (geom%edges_b(i) <= _SWE_SIMD_ORDER_SQUARE .and. upd_hR(i) > 0 .and. data%H(geom%edges_b(i)) < data%B(geom%edges_b(i)) + cfg%dry_tolerance) then
 							data%H(geom%edges_b(i)) = data%B(geom%edges_a(i)) + cfg%dry_tolerance
 							data%HU(geom%edges_b(i)) = 0.0_GRID_SR
 							data%HV(geom%edges_b(i)) = 0.0_GRID_SR
@@ -491,14 +498,14 @@
 					dt_div_volume = section%r_dt / volume
 					do i=1, _SWE_SIMD_NUM_EDGES
 						if (geom%edges_a(i) <= _SWE_SIMD_ORDER_SQUARE) then !ignore ghost cells
-							data%H(geom%edges_a(i)) = data%H(geom%edges_a(i)) - hL(i) * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
-							data%HU(geom%edges_a(i)) = data%HU(geom%edges_a(i)) - huL(i) * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
-							data%HV(geom%edges_a(i)) = data%HV(geom%edges_a(i)) - hvL(i) * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
+							data%H(geom%edges_a(i)) = data%H(geom%edges_a(i)) - upd_hL(i) * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
+							data%HU(geom%edges_a(i)) = data%HU(geom%edges_a(i)) - upd_huL(i) * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
+							data%HV(geom%edges_a(i)) = data%HV(geom%edges_a(i)) - upd_hvL(i) * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
 						end if
 						if (geom%edges_b(i) <= _SWE_SIMD_ORDER_SQUARE) then
-							data%H(geom%edges_b(i)) = data%H(geom%edges_b(i)) - hR(i) * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
-							data%HU(geom%edges_b(i)) = data%HU(geom%edges_b(i)) - huR(i) * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
-							data%HV(geom%edges_b(i)) = data%HV(geom%edges_b(i)) - hvR(i) * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
+							data%H(geom%edges_b(i)) = data%H(geom%edges_b(i)) - upd_hR(i) * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
+							data%HU(geom%edges_b(i)) = data%HU(geom%edges_b(i)) - upd_huR(i) * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
+							data%HV(geom%edges_b(i)) = data%HV(geom%edges_b(i)) - upd_hvR(i) * edge_lengths(geom%edges_orientation(i)) * dt_div_volume
 						end if
 					end do
 					

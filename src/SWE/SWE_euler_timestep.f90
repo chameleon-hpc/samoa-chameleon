@@ -352,7 +352,6 @@
 #			if defined (_SWE_SIMD)
 				integer 														:: i
 				type(num_cell_update)											:: tmp !> ghost cells in correct order 
-				real(kind = GRID_SR)									 	    :: normals(2,3)
 				type(t_update)													:: update_a, update_b
 				real(kind = GRID_SR)										    :: volume, edge_lengths_times_dt_div_volume(3), maxWaveSpeed
 				real(kind = GRID_SR), DIMENSION(_SWE_SIMD_NUM_EDGES_ALIGNMENT)			:: hL, huL, hvL, bL
@@ -373,18 +372,19 @@
 				!DIR$ ASSUME_ALIGNED upd_hvL: 64
 				!DIR$ ASSUME_ALIGNED upd_hvR: 64
 				
+				!TODO: clear this!
 				! copy/compute normal vectors
-				! normal for type 2 edges is equal to the 2nd edge's normal
-				normals(:,2) = element%edges(2)%ptr%transform_data%normal 
-				! normal for types 1 and 3 depend on cell orientation.
-				! notice that normal for type 1 points inwards. That's why it is multiplied by -1.
-				if (element%cell%geometry%i_plotter_type < 0) then ! orientation = backward
-					normals(:,1) = - element%edges(1)%ptr%transform_data%normal 
-					normals(:,3) = element%edges(3)%ptr%transform_data%normal 
-				else ! orientation = forward, so reverse edge order
-					normals(:,1) = - element%edges(3)%ptr%transform_data%normal 
-					normals(:,3) = element%edges(1)%ptr%transform_data%normal 				
-				end if
+! 				! normal for type 2 edges is equal to the 2nd edge's normal
+! 				normals(:,2) = element%edges(2)%ptr%transform_data%normal 
+! 				! normal for types 1 and 3 depend on cell orientation.
+! 				! notice that normal for type 1 points inwards. That's why it is multiplied by -1.
+! 				if (element%cell%geometry%i_plotter_type < 0) then ! orientation = backward
+! 					normals(:,1) = - element%edges(1)%ptr%transform_data%normal 
+! 					normals(:,3) = element%edges(3)%ptr%transform_data%normal 
+! 				else ! orientation = forward, so reverse edge order
+! 					normals(:,1) = - element%edges(3)%ptr%transform_data%normal 
+! 					normals(:,3) = element%edges(1)%ptr%transform_data%normal 				
+! 				end if
 
 				
 				if (element%cell%geometry%i_plotter_type > 0) then ! if orientation = forward, reverse updates
@@ -448,11 +448,13 @@
 					
 					! compute net_updates
 #					if defined (_USE_SIMD)
-#						if defined(_SWE_FWAVE)
-							call compute_updates_fwave_simd(normals, hL, huL, hvL, bL, hR, huR, hvR, bR, upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR, maxWaveSpeed)
-#						else
-							call compute_updates_hlle_simd(normals, hL, huL, hvL, bL, hR, huR, hvR, bR, upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR, maxWaveSpeed)
-#						endif
+						associate(transf => geom%transform_matrices(:,:,:,element%cell%geometry%i_plotter_type))
+#							if defined(_SWE_FWAVE)
+								call compute_updates_fwave_simd(transf, hL, huL, hvL, bL, hR, huR, hvR, bR, upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR, maxWaveSpeed)
+#							else
+								call compute_updates_hlle_simd(transf, hL, huL, hvL, bL, hR, huR, hvR, bR, upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR, maxWaveSpeed)
+#							endif
+						end associate
 						section%u_max = max(section%u_max, maxWaveSpeed)
 #					else					
 					! NO-SIMD version

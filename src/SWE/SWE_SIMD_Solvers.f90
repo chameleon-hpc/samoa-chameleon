@@ -8,15 +8,14 @@ MODULE SWE_SIMD_Solvers
 	
 	contains
 
-	subroutine compute_updates_fwave_simd(normals, hL, huL, hvL, bL, hR, huR, hvR, bR,upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR, maxWaveSpeed)
-		real(kind = GRID_SR), intent(in)    	:: normals(2,3)
+	subroutine compute_updates_fwave_simd(transform_matrices, hL, huL, hvL, bL, hR, huR, hvR, bR,upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR, maxWaveSpeed)
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT,2,2), intent(in)	:: transform_matrices
 		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT), intent(inout)	:: hL, hR, huL, huR, hvL, hvR, bL, bR
 		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT), intent(out)	:: upd_hL, upd_hR, upd_huL, upd_huR, upd_hvL, upd_hvR
 		real(kind = GRID_SR), intent(inout)									:: maxWaveSpeed
 		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT)				:: uL, uR, vL, vR
 		
 		!local
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT,2,2)	:: transform_matrices
 		integer								:: i, j
 		real(kind = GRID_SR)										:: hstar, s1m, s2m
 		logical														:: rare1, rare2
@@ -67,13 +66,14 @@ MODULE SWE_SIMD_Solvers
 		!DIR$ ASSUME_ALIGNED beta1: 64
 		!DIR$ ASSUME_ALIGNED beta2: 64
 
+		!TODO: clear this
 		! compute transformations matrices
-		associate(geom => SWE_SIMD_geometry)
-			do i=1,_SWE_SIMD_NUM_EDGES 
-				transform_matrices(i,1,:) = normals(:,geom%edges_orientation(i))
-				transform_matrices(i,2,:) = [ - normals(2,geom%edges_orientation(i)), normals(1,geom%edges_orientation(i)) ]
-			end do
-		end associate
+! 		associate(geom => SWE_SIMD_geometry)
+! 			do i=1,_SWE_SIMD_NUM_EDGES 
+! 				transform_matrices(i,1,:) = normals(:,geom%edges_orientation(i))
+! 				transform_matrices(i,2,:) = [ - normals(2,geom%edges_orientation(i)), normals(1,geom%edges_orientation(i)) ]
+! 			end do
+! 		end associate
 
 
 		! *** F-Wave solver *** (based on geoclaw implementation)
@@ -244,14 +244,13 @@ MODULE SWE_SIMD_Solvers
 		
 	end subroutine
 	
-	subroutine compute_updates_hlle_simd(normals, hL, huL, hvL, bL, hR, huR, hvR, bR, upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR, maxWaveSpeed)
-		real(kind = GRID_SR), intent(in)    	:: normals(2,3)
+	subroutine compute_updates_hlle_simd(transform_matrices, hL, huL, hvL, bL, hR, huR, hvR, bR, upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR, maxWaveSpeed)
+		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT,2,2),intent(in)	:: transform_matrices
 		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT), intent(inout)	:: hL, hR, huL, huR, hvL, hvR, bL, bR
 		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT), intent(out)	:: upd_hL, upd_hR, upd_huL, upd_huR, upd_hvL, upd_hvR
 		real(kind = GRID_SR), intent(inout)									:: maxWaveSpeed
 		
 		!local
-		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT,2,2)	:: transform_matrices
 		integer														:: i, j
 		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT)		:: uL, uR
 		real(kind = GRID_SR), dimension(_SWE_SIMD_NUM_EDGES_ALIGNMENT)		:: sqrt_hL, sqrt_hR, sqrt_ghL, sqrt_ghR
@@ -329,13 +328,14 @@ MODULE SWE_SIMD_Solvers
 		!DIR$ ASSUME_ALIGNED fWaves: 64
 		!DIR$ ASSUME_ALIGNED waveSpeeds: 64
 
-		associate(geom => SWE_SIMD_geometry)
-			! compute transformations matrices
-			do i=1,_SWE_SIMD_NUM_EDGES
-				transform_matrices(i,1,:) = normals(:,geom%edges_orientation(i))
-				transform_matrices(i,2,:) = [ - normals(2,geom%edges_orientation(i)), normals(1,geom%edges_orientation(i)) ]
-			end do
-		end associate
+		! TODO: clear this
+! 		associate(geom => SWE_SIMD_geometry)
+! 			! compute transformations matrices
+! 			do i=1,_SWE_SIMD_NUM_EDGES
+! 				transform_matrices(i,1,:) = normals(:,geom%edges_orientation(i))
+! 				transform_matrices(i,2,:) = [ - normals(2,geom%edges_orientation(i)), normals(1,geom%edges_orientation(i)) ]
+! 			end do
+! 		end associate
 
 		!samoa considers bathymetry included in h, the solver doesn't
 		hL = hL - bL

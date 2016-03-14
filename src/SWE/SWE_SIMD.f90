@@ -25,6 +25,8 @@ MODULE SWE_SIMD
 		! coordinates of cells vertices, used for producing visual output.
 		REAL (kind = GRID_SR), DIMENSION(2,3,(_SWE_SIMD_ORDER*_SWE_SIMD_ORDER)) :: coords
 		
+		! one vector of 2x2 transformation matrices for each i_plotter_type, to avoid repeated computation of this
+		REAL (kind = GRID_SR), DIMENSION(_SWE_SIMD_NUM_EDGES_ALIGNMENT,2,2,-8:8) :: transform_matrices
 
 		contains
 		
@@ -33,6 +35,7 @@ MODULE SWE_SIMD
 		procedure, pass :: compute_diagonal_internal_edges => SWE_SIMD_compute_diagonal_internal_edges
 		procedure, pass :: compute_ghost_edges => SWE_SIMD_compute_ghost_edges
 		procedure, pass :: compute_coords => SWE_SIMD_compute_coords
+		procedure, pass :: compute_transform => SWE_SIMD_compute_transform
 
 	END TYPE
 
@@ -68,6 +71,9 @@ MODULE SWE_SIMD
 		
 		! compute cells' vertices' coordinates 
 		call geom%compute_coords()
+		
+		! compute transformation matrices for the solver
+		call geom%compute_transform()
 	
 	END SUBROUTINE	
 
@@ -220,6 +226,40 @@ MODULE SWE_SIMD
 			end if
 		end do
 	
+	END SUBROUTINE
+	
+	SUBROUTINE SWE_SIMD_compute_transform(geom)
+		IMPLICIT NONE
+		CLASS(t_SWE_SIMD_geometry), INTENT(INOUT) :: geom
+
+		integer											:: i, j
+		real(kind = GRID_SR)							:: normals(2,3)
+		
+		do i = -8, 8 ! for each i_plotter_type
+            if (i .ne. 0) then
+				! copy/compute normal vectors
+				! normal for type 2 edges is equal to the 2nd edge's normal
+				normals(:,2) = ref_plotter_data(i)%edges(2)%normal 
+				! normal for types 1 and 3 depend on cell orientation.
+				! notice that normal for type 1 points inwards. That's why it is multiplied by -1.
+				if (i < 0) then ! orientation = backward
+					normals(:,1) = - ref_plotter_data(i)%edges(1)%normal 
+					normals(:,3) = ref_plotter_data(i)%edges(3)%normal 
+				else ! orientation = forward, so reverse edge order
+					normals(:,1) = - ref_plotter_data(i)%edges(3)%normal 
+					normals(:,3) = ref_plotter_data(i)%edges(1)%normal 				
+				end if
+				
+				! compute transformations matrices
+				do j=1,_SWE_SIMD_NUM_EDGES 
+					geom%transform_matrices(j,1,:,i) = normals(:,geom%edges_orientation(j))
+					geom%transform_matrices(j,2,:,i) = [ - normals(2,geom%edges_orientation(j)), normals(1,geom%edges_orientation(j)) ]
+				end do
+            end if
+        end do
+		
+		
+		
 	END SUBROUTINE
 	
 END MODULE

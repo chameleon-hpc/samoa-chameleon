@@ -91,7 +91,7 @@ vars.AddVariables(
               ),
 
   EnumVariable( 'machine', 'target machine', 'host',
-                allowed_values=('SSE4.2', 'AVX', 'host')
+                allowed_values=('SSE4.2', 'AVX', 'host','mic')
               ),
 
   BoolVariable( 'library', 'build samoa as a library', False),
@@ -299,6 +299,9 @@ if env['compiler'] == 'intel':
     env['F90FLAGS'] += ' -xSSE4.2'
   elif env['machine'] == 'AVX':
     env['F90FLAGS'] += ' -xAVX'
+  elif env['machine'] == 'mic':
+    env['F90FLAGS'] += ' -mmic'
+    env['LINKFLAGS'] += ' -mmic'
 
 #Enable or disable assertions
 if env['assertions']:

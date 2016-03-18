@@ -33,13 +33,13 @@
 #define _SWE_SIMD_ORDER_SQUARE		(_SWE_SIMD_ORDER*_SWE_SIMD_ORDER)
 #define _SWE_SIMD_NUM_EDGES			(3*_SWE_SIMD_ORDER*(_SWE_SIMD_ORDER+1)/2)
 ! make sure of matrix alignment by rounding up the size of each column
-! these consider that vector width=256bit, should be updates for other architectures!
+! these consider that vector width=512bit, should be updates for other architectures!
 #if defined(_SINGLE_PRECISION)
-#	define _VALUES_PER_VECTOR_INSTRUCTION 8
+#	define _VALUES_PER_VECTOR_INSTRUCTION 16
 #elif defined(_DOUBLE_PRECISION) 
-#	define _VALUES_PER_VECTOR_INSTRUCTION 4
+#	define _VALUES_PER_VECTOR_INSTRUCTION 8
 #elif defined(_QUAD_PRECISION) 
-#	define _VALUES_PER_VECTOR_INSTRUCTION 2
+#	define _VALUES_PER_VECTOR_INSTRUCTION 4
 #else
 #	define _VALUES_PER_VECTOR_INSTRUCTION 1
 #endif

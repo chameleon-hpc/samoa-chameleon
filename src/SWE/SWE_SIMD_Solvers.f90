@@ -114,7 +114,7 @@ MODULE SWE_SIMD_Solvers
 		
 		! per default there is no wall
 		wall = 1.0_GRID_SR
-		do i=1,_SWE_SIMD_NUM_EDGES_ALIGNMENT
+		do i=1,_SWE_SIMD_NUM_EDGES
 			if (hR(i) <= cfg%dry_tolerance) then
 				call riemanntype(hL(i), hL(i), uL(i), -uL(i), hstar, s1m, s2m, rare1, rare2, 1, cfg%dry_tolerance, g)
 				hstar = max(hL(i), hstar)

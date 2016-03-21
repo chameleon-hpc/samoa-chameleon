@@ -27,7 +27,7 @@
 
 		PUBLIC get_bathymetry
 
-#		define _GT_NAME t_swe_init_traversal
+#		define _GT_NAME							t_swe_init_traversal
 
 #		define _GT_EDGES
 #		define _GT_EDGES_TEMP

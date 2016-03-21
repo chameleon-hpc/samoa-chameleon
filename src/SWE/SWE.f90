@@ -52,13 +52,13 @@
 		!> Creates all required runtime objects for the scenario
 		subroutine swe_create(swe, grid, l_log, i_asagi_mode)
             class(t_swe), intent(inout)                                 :: swe
-			type(t_grid), intent(inout)			:: grid
-			logical, intent(in)		                :: l_log
-			integer, intent(in)				:: i_asagi_mode
+			type(t_grid), intent(inout)									:: grid
+			logical, intent(in)						                    :: l_log
+			integer, intent(in)											:: i_asagi_mode
 
 			!local variables
-			character(64)					:: s_log_name, s_date, s_time
-			integer                                         :: i_error
+			character(64)												:: s_log_name, s_date, s_time
+			integer                                                     :: i_error
 
 			call date_and_time(s_date, s_time)
 			

@@ -281,7 +281,7 @@ MODULE SWE_SIMD
 		CLASS(t_SWE_SIMD_geometry), INTENT(INOUT) 		:: geom
 		integer											:: i, j
 		real (kind = GRID_SR)							:: d, square_of_sqrt2_div_2
-		real (kind = GRID_SR), DIMENSION(2,2)			:: transform
+		real (kind = GRID_SR), DIMENSION(2,2)			:: transform_1, transform_2
 		real (kind = GRID_SR), DIMENSION(2)				:: center_point, test1, test2
 
 		! length of each leg edge

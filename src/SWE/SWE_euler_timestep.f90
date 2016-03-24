@@ -353,7 +353,7 @@
 				integer 														:: i
 				type(num_cell_update)											:: tmp !> ghost cells in correct order 
 				type(t_update)													:: update_a, update_b
-				real(kind = GRID_SR)										    :: volume, edge_lengths_times_dt_div_volume(3), maxWaveSpeed
+				real(kind = GRID_SR)										    :: volume, edge_lengths_times_dt_div_volume(3), maxWaveSpeed, maxMomentum
 				real(kind = GRID_SR), DIMENSION(_SWE_SIMD_NUM_EDGES_ALIGNMENT)			:: hL, huL, hvL, bL
 				real(kind = GRID_SR), DIMENSION(_SWE_SIMD_NUM_EDGES_ALIGNMENT)			:: hR, huR, hvR, bR
 				real(kind = GRID_SR), DIMENSION(_SWE_SIMD_NUM_EDGES_ALIGNMENT)			:: upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR
@@ -518,6 +518,17 @@
 						data%HU = 0.0_GRID_SR
 						data%HV = 0.0_GRID_SR
 					end where
+					
+					!set refinement condition -> TODO: implement a reasonable condition here. This one is probably not really meaninful.
+					element%cell%geometry%refinement = 0
+					maxMomentum = maxval(data%HU*data%HU + data%HV*data%HV) * cfg%scaling
+
+					if (element%cell%geometry%i_depth < cfg%i_max_depth .and. maxMomentum > (cfg%scaling * 2.0_GRID_SR) ** 2) then
+						element%cell%geometry%refinement = 1
+						traversal%i_refinements_issued = traversal%i_refinements_issued + 1_GRID_DI
+					else if (element%cell%geometry%i_depth > cfg%i_min_depth .and. maxMomentum < (cfg%scaling * 1.0_GRID_SR) ** 2) then
+						element%cell%geometry%refinement = -1
+					endif
 
 				end associate
 #			else

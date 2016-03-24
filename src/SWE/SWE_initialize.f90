@@ -27,7 +27,7 @@
 
 		PUBLIC get_bathymetry
 
-#		define _GT_NAME t_swe_init_traversal
+#		define _GT_NAME							t_swe_init_traversal
 
 #		define _GT_EDGES
 #		define _GT_EDGES_TEMP
@@ -274,7 +274,7 @@
 		if (asagi_grid_min(cfg%afh_bathymetry,0) <= xs(1) .and. asagi_grid_min(cfg%afh_bathymetry,1) <= xs(2) &
                         .and. xs(1) <= asagi_grid_max(cfg%afh_bathymetry,0) .and. xs(2) <= asagi_grid_max(cfg%afh_bathymetry,1)) then
 
-                    bathymetry = asagi_get_float(cfg%afh_bathymetry, x)
+                    bathymetry = asagi_get_float(cfg%afh_bathymetry, xs, 0)
                 else
                     bathymetry = -5000.0 !we assume that the sea floor is constant here
                 end if

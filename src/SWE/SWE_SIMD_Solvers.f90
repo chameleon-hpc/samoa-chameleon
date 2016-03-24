@@ -116,7 +116,11 @@ MODULE SWE_SIMD_Solvers
 		wall = 1.0_GRID_SR
 		do i=1,_SWE_SIMD_NUM_EDGES
 			if (hR(i) <= cfg%dry_tolerance) then
-				call riemanntype(hL(i), hL(i), uL(i), -uL(i), hstar, s1m, s2m, rare1, rare2, 1, cfg%dry_tolerance, g)
+#				if defined(_SINGLE_PRECISION)
+					call riemanntype_sp(hL(i), hL(i), uL(i), -uL(i), hstar, s1m, s2m, rare1, rare2, 1, cfg%dry_tolerance, g)
+#				elif defined(_DOUBLE_PRECISION)
+					call riemanntype(hL(i), hL(i), uL(i), -uL(i), hstar, s1m, s2m, rare1, rare2, 1, cfg%dry_tolerance, g)
+#				endif
 				hstar = max(hL(i), hstar)
 				if (hstar + bL(i) < bR(i)) then !right state should become ghost values that mirror left for wall problem
 					wall(i,2) = 0.0_GRID_SR
@@ -130,7 +134,11 @@ MODULE SWE_SIMD_Solvers
 					bR(i) = hL(i)+bL(i)
 				end if
 			else if (hL(i) <= cfg%dry_tolerance) then ! right surface is lower than left topo
-				call riemanntype(hR(i), hR(i), -uR(i), uR(i), hstar, s1m, s2m, rare1, rare2, 1, cfg%dry_tolerance, g)
+#				if defined(_SINGLE_PRECISION)
+					call riemanntype_sp(hR(i), hR(i), -uR(i), uR(i), hstar, s1m, s2m, rare1, rare2, 1, cfg%dry_tolerance, g)
+#				elif defined(_DOUBLE_PRECISION)
+					call riemanntype(hR(i), hR(i), -uR(i), uR(i), hstar, s1m, s2m, rare1, rare2, 1, cfg%dry_tolerance, g)
+#				endif
 				hstar = max (hR(i), hstar)
 				if (hstar + bR(i) < bL(i)) then !left state should become ghost values that mirror right
 					wall(i,1) = 0.0_GRID_SR

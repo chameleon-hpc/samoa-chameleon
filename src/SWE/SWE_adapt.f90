@@ -14,7 +14,9 @@
 		use Tools_noise
 		use SWE_initialize
 		use SWE_euler_timestep
-
+#		if defined (_SWE_SIMD)
+			use SWE_SIMD
+#		endif
 		implicit none
 
         type num_traversal_data
@@ -126,25 +128,91 @@
 			type(t_traversal_element), intent(inout)									:: dest_element
 			integer, dimension(:), intent(in)											:: refinement_path
 #			if defined(_SWE_SIMD)
-				type(t_state), dimension(_SWE_SIMD_ORDER_SQUARE)						:: Q_in
-				type(t_state), dimension(_SWE_SIMD_ORDER_SQUARE, 2)						:: Q_out
+				real (kind=GRID_SR), dimension(_SWE_SIMD_ORDER_SQUARE)						:: H_in, HU_in, HV_in
+				real (kind=GRID_SR), dimension(_SWE_SIMD_ORDER_SQUARE)						:: H_out, HU_out, HV_out, B_out
+				integer																		:: i_plotter_type, j, row, col, cell_id
+				integer, DIMENSION(_SWE_SIMD_ORDER_SQUARE,2)								:: child
+				real (kind = GRID_SR), DIMENSION(2)											:: r_coords		!< cell coords within patch
 #			else
 				type(t_state), dimension(_SWE_CELL_SIZE)									:: Q_in
 				type(t_state), dimension(_SWE_CELL_SIZE, 2)									:: Q_out
 #			endif
 
 			integer																		:: i
-			!state vector
 
 #			if defined (_SWE_SIMD)
-				! TODO: when really using adaptation, this should be implemented in a totally different way...
-				Q_in(:)%h = src_element%cell%data_pers%H
-				Q_in(:)%b = src_element%cell%data_pers%B
-				Q_in(:)%p(1) = src_element%cell%data_pers%HU
-				Q_in(:)%p(2) = src_element%cell%data_pers%HV
+				H_in = src_element%cell%data_pers%H
+				HU_in = src_element%cell%data_pers%HU
+				HV_in = src_element%cell%data_pers%HV
+				i_plotter_type = src_element%cell%geometry%i_plotter_type
+				
+				do i=1, size(refinement_path)
+					! compute 1st or 2nd child depending on orientation and refinement_path(i)
+					! and store it in output arrays.
+					! Store it in input arrays for next refinement.
+					
+					! decide which child is being computed (first = left to hypot, second = right to hypot.)
+					if ( (refinement_path(i) == 1 .and. i_plotter_type>0) .or. (refinement_path(i) == 2 .and. i_plotter_type<0)) then
+						child = SWE_SIMD_GEOMETRY%first_child
+					else
+						child = SWE_SIMD_GEOMETRY%second_child
+					end if
+					
+					! the child patch values are always averages of two values from the parent patch
+					do j=1, _SWE_SIMD_ORDER_SQUARE
+						H_out(j) = 0.5*( H_in(child(j,1)) + H_in(child(j,2)) )
+						HU_out(j) = 0.5*( HU_in(child(j,1)) + HU_in(child(j,2)) )
+						HV_out(j) = 0.5*( HV_in(child(j,1)) + HV_in(child(j,2)) )
+					end do
+					
+					! refined patches will have inverse orientation
+					i_plotter_type = -1 * i_plotter_type
+					
+					! copy to input arrays for next iteration
+					H_in = H_out
+					HU_in = HU_out
+					HV_in = HV_out
+				end do
+				
+				! store results in dest_element
+				dest_element%cell%data_pers%H = H_out
+				dest_element%cell%data_pers%HU = HU_out
+				dest_element%cell%data_pers%HV = HV_out
+				
+				! get bathymetry
+				row = 1
+				col = 1
+				do i=1, _SWE_SIMD_ORDER_SQUARE
+				
+					! if orientation is backwards, the plotter uses a transformation that mirrors the cell...
+					! this simple change solves the problem :)
+					if (dest_element%cell%geometry%i_plotter_type > 0) then 
+						cell_id = i
+					else
+						cell_id = (row-1)*(row-1) + 2 * row - col
+					end if
+				
+					r_coords = [0_GRID_SR, 0_GRID_SR]
+					do j=1,3
+						r_coords(:) = r_coords(:) + SWE_SIMD_geometry%coords(:,j,cell_id) 
+					end do
+					r_coords = r_coords / 3
+					dest_element%cell%data_pers%B(i) = get_bathymetry(section, samoa_barycentric_to_world_point(dest_element%transform_data, r_coords), section%r_time, dest_element%cell%geometry%i_depth / 2_GRID_SI)
+
+					col = col + 1
+					if (col == 2*row) then
+						col = 1
+						row = row + 1
+					end if
+				end do
+
+				
 #			else
-				call gv_Q%read( src_element%t_element_base, Q_in)
-#			endif
+			
+			
+
+			!state vector
+			call gv_Q%read( src_element%t_element_base, Q_in)
 
             !convert momentum to velocity
 			!Q_in(1)%p = 1.0_GRID_SR / (Q_in(1)%h - Q_in(1)%b) * Q_in(1)%p
@@ -162,14 +230,8 @@
             !convert velocity back to momentum
 			!Q_in(1)%p = (Q_in(1)%h - Q_in(1)%b) * Q_in(1)%p
 
-#			if defined (_SWE_SIMD)
-				dest_element%cell%data_pers%H = Q_in(:)%h
-				dest_element%cell%data_pers%B = Q_in(:)%b
-				dest_element%cell%data_pers%HU = Q_in(:)%p(1)
-				dest_element%cell%data_pers%HV = Q_in(:)%p(2)
-#			else
-				call gv_Q%write( dest_element%t_element_base, Q_in)
-#			endif
+			call gv_Q%write( dest_element%t_element_base, Q_in)
+#endif
 		end subroutine
 
 		subroutine coarsen_op(traversal, section, src_element, dest_element, refinement_path)

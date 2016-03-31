@@ -29,7 +29,7 @@ MODULE SWE_SIMD
 		REAL (kind = GRID_SR), DIMENSION(_SWE_SIMD_NUM_EDGES_ALIGNMENT,2,2,-8:8) :: transform_matrices
 
 		! represents relationships between cells within a coarse patch and its two refined children
-		REAL (kind = GRID_SR), DIMENSION(_SWE_SIMD_ORDER_SQUARE,2) :: first_child, second_child
+		INTEGER, DIMENSION(_SWE_SIMD_ORDER_SQUARE,2) :: first_child, second_child
 
 		contains
 		

@@ -242,6 +242,18 @@ MODULE SWE_SIMD_Solvers
 			end where
 		end do
 		
+		! no net updates in DryDry case -> a non-vectorized solver would have stopped the computation
+		! right after checking wet/dry boundary
+		where (hL < cfg%dry_tolerance .and. hR < cfg%dry_tolerance)
+			waveSpeeds(:,1) = 0.0_GRID_SR
+			waveSpeeds(:,2) = 0.0_GRID_SR
+			waveSpeeds(:,3) = 0.0_GRID_SR
+			upd_hL = 0.0_GRID_SR
+			upd_huL = 0.0_GRID_SR
+			upd_hR = 0.0_GRID_SR
+			upd_huR = 0.0_GRID_SR
+		end where
+
 		! compute maximum wave speed
 		maxWaveSpeed = maxVal(abs(waveSpeeds(1:_SWE_SIMD_NUM_EDGES,:)))
 		

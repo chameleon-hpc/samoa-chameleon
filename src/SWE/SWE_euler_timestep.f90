@@ -353,7 +353,7 @@
 				integer 														:: i
 				type(num_cell_update)											:: tmp !> ghost cells in correct order 
 				type(t_update)													:: update_a, update_b
-				real(kind = GRID_SR)										    :: volume, edge_lengths_times_dt_div_volume(3), maxWaveSpeed, maxMomentum
+				real(kind = GRID_SR)										    :: volume, edge_lengths(3), maxWaveSpeed, maxMomentum
 				type(num_cell_data_pers)													:: dQ !> deltaQ, used to compute cell updates
 				real(kind = GRID_SR), DIMENSION(_SWE_SIMD_NUM_EDGES_ALIGNMENT)			:: hL, huL, hvL, bL
 				real(kind = GRID_SR), DIMENSION(_SWE_SIMD_NUM_EDGES_ALIGNMENT)			:: hR, huR, hvR, bR
@@ -484,19 +484,17 @@
 					dQ%HU = 0.0_GRID_SR
 					dQ%HV = 0.0_GRID_SR
 					volume = cfg%scaling * cfg%scaling * element%cell%geometry%get_volume() / (_SWE_SIMD_ORDER_SQUARE)
-					!edge_lengths = cfg%scaling * element%cell%geometry%get_edge_sizes() / _SWE_SIMD_ORDER !these lines were replaced by the one below
-					!dt_div_volume = section%r_dt / volume
-					edge_lengths_times_dt_div_volume = cfg%scaling * element%cell%geometry%get_edge_sizes() *section%r_dt / (_SWE_SIMD_ORDER*volume)
+					edge_lengths = cfg%scaling * element%cell%geometry%get_edge_sizes() / _SWE_SIMD_ORDER !these lines were replaced by the one below
 					do i=1, _SWE_SIMD_NUM_EDGES
 						if (geom%edges_a(i) <= _SWE_SIMD_ORDER_SQUARE) then !ignore ghost cells
-							dQ%H(geom%edges_a(i)) = dQ%H(geom%edges_a(i)) - upd_hL(i) * edge_lengths_times_dt_div_volume(geom%edges_orientation(i))
-							dQ%HU(geom%edges_a(i)) = dQ%HU(geom%edges_a(i)) - upd_huL(i) * edge_lengths_times_dt_div_volume(geom%edges_orientation(i))
-							dQ%HV(geom%edges_a(i)) = dQ%HV(geom%edges_a(i)) - upd_hvL(i) * edge_lengths_times_dt_div_volume(geom%edges_orientation(i))
+							dQ%H(geom%edges_a(i)) = dQ%H(geom%edges_a(i)) + upd_hL(i) * edge_lengths(geom%edges_orientation(i))
+							dQ%HU(geom%edges_a(i)) = dQ%HU(geom%edges_a(i)) + upd_huL(i) * edge_lengths(geom%edges_orientation(i))
+							dQ%HV(geom%edges_a(i)) = dQ%HV(geom%edges_a(i)) + upd_hvL(i) * edge_lengths(geom%edges_orientation(i))
 						end if
 						if (geom%edges_b(i) <= _SWE_SIMD_ORDER_SQUARE) then
-							dQ%H(geom%edges_b(i)) = dQ%H(geom%edges_b(i)) - upd_hR(i) * edge_lengths_times_dt_div_volume(geom%edges_orientation(i))
-							dQ%HU(geom%edges_b(i)) = dQ%HU(geom%edges_b(i)) - upd_huR(i) * edge_lengths_times_dt_div_volume(geom%edges_orientation(i))
-							dQ%HV(geom%edges_b(i)) = dQ%HV(geom%edges_b(i)) - upd_hvR(i) * edge_lengths_times_dt_div_volume(geom%edges_orientation(i))
+							dQ%H(geom%edges_b(i)) = dQ%H(geom%edges_b(i)) + upd_hR(i) * edge_lengths(geom%edges_orientation(i))
+							dQ%HU(geom%edges_b(i)) = dQ%HU(geom%edges_b(i)) + upd_huR(i) * edge_lengths(geom%edges_orientation(i))
+							dQ%HV(geom%edges_b(i)) = dQ%HV(geom%edges_b(i)) + upd_hvR(i) * edge_lengths(geom%edges_orientation(i))
 						end if
 					end do
 
@@ -509,9 +507,9 @@
 					end where
 
 					! update unknowns
-					data%H = data%H + dQ%H
-					data%HU = data%HU + dQ%HU
-					data%HV = data%HV + dQ%HV
+					data%H = data%H + dQ%H * (-section%r_dt / volume)
+					data%HU = data%HU + dQ%HU * (-section%r_dt / volume)
+					data%HV = data%HV + dQ%HV * (-section%r_dt / volume)
 					
 					! if the water level falls below the dry tolerance, set water surface to 0 and velocity to 0
 					where (data%H < data%B + cfg%dry_tolerance) 

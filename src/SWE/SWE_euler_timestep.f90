@@ -354,6 +354,7 @@
 				type(num_cell_update)											:: tmp !> ghost cells in correct order 
 				type(t_update)													:: update_a, update_b
 				real(kind = GRID_SR)										    :: volume, edge_lengths_times_dt_div_volume(3), maxWaveSpeed, maxMomentum
+				type(num_cell_data_pers)													:: dQ !> deltaQ, used to compute cell updates
 				real(kind = GRID_SR), DIMENSION(_SWE_SIMD_NUM_EDGES_ALIGNMENT)			:: hL, huL, hvL, bL
 				real(kind = GRID_SR), DIMENSION(_SWE_SIMD_NUM_EDGES_ALIGNMENT)			:: hR, huR, hvR, bR
 				real(kind = GRID_SR), DIMENSION(_SWE_SIMD_NUM_EDGES_ALIGNMENT)			:: upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR
@@ -477,40 +478,40 @@
  						section%u_max = max(section%u_max, update_a%max_wave_speed)
  					end do
 #					endif
- 					
-					! if land is flooded, init water height to dry tolerance and
-					! velocity to zero
-					do i=1,_SWE_SIMD_NUM_EDGES
-						if (geom%edges_a(i) <= _SWE_SIMD_ORDER_SQUARE .and. upd_hL(i) > 0 .and. data%H(geom%edges_a(i)) < data%B(geom%edges_a(i)) + cfg%dry_tolerance) then
-							data%H(geom%edges_a(i)) = data%B(geom%edges_a(i)) + cfg%dry_tolerance
-							data%HU(geom%edges_a(i)) = 0.0_GRID_SR
-							data%HV(geom%edges_a(i)) = 0.0_GRID_SR
-						endif
-					
-						if (geom%edges_b(i) <= _SWE_SIMD_ORDER_SQUARE .and. upd_hR(i) > 0 .and. data%H(geom%edges_b(i)) < data%B(geom%edges_b(i)) + cfg%dry_tolerance) then
-							data%H(geom%edges_b(i)) = data%B(geom%edges_a(i)) + cfg%dry_tolerance
-							data%HU(geom%edges_b(i)) = 0.0_GRID_SR
-							data%HV(geom%edges_b(i)) = 0.0_GRID_SR
-						endif
-					end do
 
-					! update unknowns
+					! compute dQ
+					dQ%H = 0.0_GRID_SR
+					dQ%HU = 0.0_GRID_SR
+					dQ%HV = 0.0_GRID_SR
 					volume = cfg%scaling * cfg%scaling * element%cell%geometry%get_volume() / (_SWE_SIMD_ORDER_SQUARE)
-					!edge_lengths = cfg%scaling * element%cell%geometry%get_edge_sizes() / _SWE_SIMD_ORDER
+					!edge_lengths = cfg%scaling * element%cell%geometry%get_edge_sizes() / _SWE_SIMD_ORDER !these lines were replaced by the one below
 					!dt_div_volume = section%r_dt / volume
 					edge_lengths_times_dt_div_volume = cfg%scaling * element%cell%geometry%get_edge_sizes() *section%r_dt / (_SWE_SIMD_ORDER*volume)
 					do i=1, _SWE_SIMD_NUM_EDGES
 						if (geom%edges_a(i) <= _SWE_SIMD_ORDER_SQUARE) then !ignore ghost cells
-							data%H(geom%edges_a(i)) = data%H(geom%edges_a(i)) - upd_hL(i) * edge_lengths_times_dt_div_volume(geom%edges_orientation(i))
-							data%HU(geom%edges_a(i)) = data%HU(geom%edges_a(i)) - upd_huL(i) * edge_lengths_times_dt_div_volume(geom%edges_orientation(i))
-							data%HV(geom%edges_a(i)) = data%HV(geom%edges_a(i)) - upd_hvL(i) * edge_lengths_times_dt_div_volume(geom%edges_orientation(i))
+							dQ%H(geom%edges_a(i)) = dQ%H(geom%edges_a(i)) - upd_hL(i) * edge_lengths_times_dt_div_volume(geom%edges_orientation(i))
+							dQ%HU(geom%edges_a(i)) = dQ%HU(geom%edges_a(i)) - upd_huL(i) * edge_lengths_times_dt_div_volume(geom%edges_orientation(i))
+							dQ%HV(geom%edges_a(i)) = dQ%HV(geom%edges_a(i)) - upd_hvL(i) * edge_lengths_times_dt_div_volume(geom%edges_orientation(i))
 						end if
 						if (geom%edges_b(i) <= _SWE_SIMD_ORDER_SQUARE) then
-							data%H(geom%edges_b(i)) = data%H(geom%edges_b(i)) - upd_hR(i) * edge_lengths_times_dt_div_volume(geom%edges_orientation(i))
-							data%HU(geom%edges_b(i)) = data%HU(geom%edges_b(i)) - upd_huR(i) * edge_lengths_times_dt_div_volume(geom%edges_orientation(i))
-							data%HV(geom%edges_b(i)) = data%HV(geom%edges_b(i)) - upd_hvR(i) * edge_lengths_times_dt_div_volume(geom%edges_orientation(i))
+							dQ%H(geom%edges_b(i)) = dQ%H(geom%edges_b(i)) - upd_hR(i) * edge_lengths_times_dt_div_volume(geom%edges_orientation(i))
+							dQ%HU(geom%edges_b(i)) = dQ%HU(geom%edges_b(i)) - upd_huR(i) * edge_lengths_times_dt_div_volume(geom%edges_orientation(i))
+							dQ%HV(geom%edges_b(i)) = dQ%HV(geom%edges_b(i)) - upd_hvR(i) * edge_lengths_times_dt_div_volume(geom%edges_orientation(i))
 						end if
 					end do
+
+					! if land is flooded, init water height to dry tolerance and
+					! velocity to zero
+					where (data%H < data%B + cfg%dry_tolerance .and. data%H + dQ%H > data%B + cfg%dry_tolerance)
+						data%H = data%B + cfg%dry_tolerance
+						data%HU = 0.0_GRID_SR
+						data%HV = 0.0_GRID_SR
+					end where
+
+					! update unknowns
+					data%H = data%H + dQ%H
+					data%HU = data%HU + dQ%HU
+					data%HV = data%HV + dQ%HV
 					
 					! if the water level falls below the dry tolerance, set water surface to 0 and velocity to 0
 					where (data%H < data%B + cfg%dry_tolerance) 

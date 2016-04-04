@@ -294,10 +294,6 @@
                         exit
                     end if
 
-                    if (grid%r_time > asagi_grid_max(cfg%afh_displacement,3)) then
-                        exit
-                    end if
-
                     !do an euler time step
                     call swe%adaption%traverse(grid)
 
@@ -331,6 +327,11 @@
 
                         r_time_next_output = r_time_next_output + cfg%r_output_time_step
                     end if
+
+                if (asagi_grid_dimensions(cfg%afh_displacement) < 3 .or. grid%r_time > asagi_grid_max(cfg%afh_displacement,3)) then
+					exit
+				end if
+
                 end do
 
                 !print EQ phase stats
@@ -345,10 +346,9 @@
 				if ((cfg%r_max_time >= 0.0 .and. grid%r_time > cfg%r_max_time) .or. (cfg%i_max_time_steps >= 0 .and. i_time_step >= cfg%i_max_time_steps)) then
 					exit
 				end if
-! TODO : correct adaption operators for SWE_SIMD
-#				ifndef _SWE_SIMD
-					!call swe%adaption%traverse(grid)
-#				endif
+
+				call swe%adaption%traverse(grid)
+
 
 				!do a time step
 				call swe%euler%traverse(grid)

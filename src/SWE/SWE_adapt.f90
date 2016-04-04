@@ -242,44 +242,76 @@
 			integer, dimension(:), intent(in)											:: refinement_path
 			integer																		:: i
 #			if defined(_SWE_SIMD)
-				type(t_state), dimension(_SWE_SIMD_ORDER_SQUARE)						:: Q_out
+				integer																		:: j
+				integer, DIMENSION(_SWE_SIMD_ORDER_SQUARE,2)								:: child
 #			else
 				type(t_state), dimension(_SWE_CELL_SIZE)								:: Q_out
 #			endif
 
+#			if defined(_SWE_SIMD)
+				!IMPORTANT: in the current samoa implementation, this subroutine is always called first with refinement_path=1, and then =2.
+				! The below implementation supposes this. If the samoa core implementation changes, this may become invalid!
 
-			!state vector
+				! find out children order based on geometry
+				if ((refinement_path(1) == 1 .and. dest_element%cell%geometry%i_plotter_type>0) .or. (refinement_path(1) == 2 .and. dest_element%cell%geometry%i_plotter_type<0)) then
+					child = SWE_SIMD_GEOMETRY%first_child
+				else
+					child = SWE_SIMD_GEOMETRY%second_child
+				end if
 
-			i = refinement_path(1)
-#			if defined (_SWE_SIMD)
-				traversal%Q_in(:, i)%h = src_element%cell%data_pers%H
-				traversal%Q_in(:, i)%p(1) = src_element%cell%data_pers%HU
-				traversal%Q_in(:, i)%p(2) = src_element%cell%data_pers%HV
-				traversal%Q_in(:, i)%b = src_element%cell%data_pers%B
+				associate (data => dest_element%cell%data_pers)
+					! initialize all values with zero - the final value is an average of 4 children's cells
+					if (refinement_path(1) == 1) then
+						data%H = 0.0_GRID_SR
+						data%HU = 0.0_GRID_SR
+						data%HV = 0.0_GRID_SR
+						data%B = 0.0_GRID_SR
+					end if
+
+					! sum all values to their respective cells
+					do i=1, _SWE_SIMD_ORDER_SQUARE
+						do j=1, 2
+							data%H(child(i,j)) = data%H(child(i,j)) + src_element%cell%data_pers%H(i)
+							data%HU(child(i,j)) = data%HU(child(i,j)) + src_element%cell%data_pers%HU(i)
+							data%HV(child(i,j)) = data%HV(child(i,j)) + src_element%cell%data_pers%HV(i)
+							data%B(child(i,j)) = data%B(child(i,j)) + src_element%cell%data_pers%B(i)
+						end do
+					end do
+
+					! divide by 4 to compute the average of the 4 values
+					if (refinement_path(1) == 2) then
+						data%H = data%H * 0.25_GRID_SR
+						data%HU = data%HU * 0.25_GRID_SR
+						data%HV = data%HV * 0.25_GRID_SR
+						data%B = data%B * 0.25_GRID_SR
+					end if
+
+				end associate
+
+
 #			else
+
+				!state vector
+
+				i = refinement_path(1)
 				call gv_Q%read( src_element%t_element_base, traversal%Q_in(:, i))
-#			endif
 
-            !convert momentum to velocity
-			!traversal%Q_in(1, i)%p = 1.0_GRID_SR / (traversal%Q_in(1, i)%h - traversal%Q_in(1, i)%b) * traversal%Q_in(1, i)%p
 
-			if (i > 1) then
-				call t_basis_Q_merge(traversal%Q_in(:, 1)%h,		traversal%Q_in(:, 2)%h,		Q_out%h)
-				call t_basis_Q_merge(traversal%Q_in(:, 1)%p(1),	    traversal%Q_in(:, 2)%p(1),	Q_out%p(1))
-				call t_basis_Q_merge(traversal%Q_in(:, 1)%p(2),	    traversal%Q_in(:, 2)%p(2),	Q_out%p(2))
-				call t_basis_Q_merge(traversal%Q_in(:, 1)%b,		traversal%Q_in(:, 2)%b,		Q_out%b)
+				!convert momentum to velocity
+				!traversal%Q_in(1, i)%p = 1.0_GRID_SR / (traversal%Q_in(1, i)%h - traversal%Q_in(1, i)%b) * traversal%Q_in(1, i)%p
 
-                !convert velocity back to momentum
-                !Q_out(1)%p = (Q_out(1)%h - Q_out(1)%b) * Q_out(1)%p
-#			if defined (_SWE_SIMD)
-				dest_element%cell%data_pers%H = Q_out(:)%h
-				dest_element%cell%data_pers%B = Q_out(:)%b
-				dest_element%cell%data_pers%HU = Q_out(:)%p(1)
-				dest_element%cell%data_pers%HV = Q_out(:)%p(2)
-#			else
+				if (i > 1) then
+					call t_basis_Q_merge(traversal%Q_in(:, 1)%h,		traversal%Q_in(:, 2)%h,		Q_out%h)
+					call t_basis_Q_merge(traversal%Q_in(:, 1)%p(1),	    traversal%Q_in(:, 2)%p(1),	Q_out%p(1))
+					call t_basis_Q_merge(traversal%Q_in(:, 1)%p(2),	    traversal%Q_in(:, 2)%p(2),	Q_out%p(2))
+					call t_basis_Q_merge(traversal%Q_in(:, 1)%b,		traversal%Q_in(:, 2)%b,		Q_out%b)
+
+					!convert velocity back to momentum
+					!Q_out(1)%p = (Q_out(1)%h - Q_out(1)%b) * Q_out(1)%p
+
 				call gv_Q%write( dest_element%t_element_base, Q_out)
+				end if
 #			endif
-			end if
 		end subroutine
 
 		subroutine cell_last_touch_op(traversal, section, cell)

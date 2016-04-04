@@ -101,15 +101,16 @@
 			type(t_grid), intent(inout)							    :: grid
 
 			grid%r_dt = cfg%courant_number * cfg%scaling * get_edge_size(grid%d_max) / ((2.0_GRID_SR + sqrt(2.0_GRID_SR)) * grid%u_max)
-#			if defined(_SWE_SIMD)
-				grid%r_dt = grid%r_dt / _SWE_SIMD_ORDER
-#			endif
 		
 #           if defined(_ASAGI)
-                if (grid%r_time < asagi_grid_max(cfg%afh_displacement,2)) then
+                if (asagi_grid_dimensions(cfg%afh_displacement) > 2 .and. grid%r_time < asagi_grid_max(cfg%afh_displacement,2)) then
                     grid%r_dt = min(grid%r_dt, asagi_grid_delta(cfg%afh_displacement,2))
                 end if
 #           endif
+
+#			if defined(_SWE_SIMD)
+				grid%r_dt = grid%r_dt / _SWE_SIMD_ORDER
+#			endif
 
 			call scatter(grid%r_dt, grid%sections%elements_alloc%r_dt)
 

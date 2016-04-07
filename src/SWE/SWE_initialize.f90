@@ -260,7 +260,7 @@
 			integer (kind = GRID_SI), intent(in)				:: lod						!< level of detail
             real (kind = GRID_SR)								:: bathymetry				!< bathymetry
 
-            real (kind = GRID_SR)                               :: xs(3), ts
+            double precision			                               :: xs(3), ts
 
 
 

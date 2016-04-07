@@ -208,8 +208,6 @@ if env['asagi'] != 'noasagi':
 
   if env['openmp'] == 'noomp':
     env.Append(LIBS = ['asagi_nomt'])
-  elif env['mpi'] == 'nompi':
-    env.Append(LIBS = ['asagi_nompi'])
   else:
     env.Append(LIBS = ['asagi'])
 

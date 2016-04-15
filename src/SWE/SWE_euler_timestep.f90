@@ -374,19 +374,24 @@
 				!DIR$ ASSUME_ALIGNED upd_hvL: 64
 				!DIR$ ASSUME_ALIGNED upd_hvR: 64
 				
-				!TODO: clear this!
-				! copy/compute normal vectors
-! 				! normal for type 2 edges is equal to the 2nd edge's normal
-! 				normals(:,2) = element%edges(2)%ptr%transform_data%normal 
-! 				! normal for types 1 and 3 depend on cell orientation.
-! 				! notice that normal for type 1 points inwards. That's why it is multiplied by -1.
-! 				if (element%cell%geometry%i_plotter_type < 0) then ! orientation = backward
-! 					normals(:,1) = - element%edges(1)%ptr%transform_data%normal 
-! 					normals(:,3) = element%edges(3)%ptr%transform_data%normal 
-! 				else ! orientation = forward, so reverse edge order
-! 					normals(:,1) = - element%edges(3)%ptr%transform_data%normal 
-! 					normals(:,3) = element%edges(1)%ptr%transform_data%normal 				
-! 				end if
+#				if !defined(_USE_SIMD)
+					! using patches, but applying geoclaw solvers on single edges
+
+					real(kind = GRID_SR), dimension(2,3)						:: normals
+
+					! copy/compute normal vectors
+					! normal for type 2 edges is equal to the 2nd edge's normal
+					normals(:,2) = element%edges(2)%ptr%transform_data%normal
+					! normal for types 1 and 3 depend on cell orientation.
+					! notice that normal for type 1 points inwards. That's why it is multiplied by -1.
+					if (element%cell%geometry%i_plotter_type < 0) then ! orientation = backward
+						normals(:,1) = - element%edges(1)%ptr%transform_data%normal
+						normals(:,3) = element%edges(3)%ptr%transform_data%normal
+					else ! orientation = forward, so reverse edge order
+						normals(:,1) = - element%edges(3)%ptr%transform_data%normal
+						normals(:,3) = element%edges(1)%ptr%transform_data%normal
+					end if
+#				endif
 
 				
 				if (element%cell%geometry%i_plotter_type > 0) then ! if orientation = forward, reverse updates

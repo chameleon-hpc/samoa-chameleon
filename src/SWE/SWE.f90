@@ -18,7 +18,7 @@
 		use SWE_ascii_output
 		use SWE_point_output
 		use SWE_euler_timestep
-#		if defined(_SWE_SIMD)
+#		if defined(_SWE_PATCH)
 			use SWE_SIMD
 #		endif
 
@@ -62,8 +62,8 @@
 
 			call date_and_time(s_date, s_time)
 			
-#if defined (_SWE_SIMD)
-			call SWE_SIMD_geometry%init(_SWE_SIMD_ORDER)
+#if defined (_SWE_PATCH)
+			call SWE_SIMD_geometry%init(_SWE_PATCH_ORDER)
 #endif
 
 #           if defined(_MPI)
@@ -431,12 +431,12 @@
                         _log_write(0, '(A, T34, A)') " Adaptions: ", trim(swe%adaption%stats%to_string())
                         _log_write(0, '(A, T34, A)') " Grid: ", trim(grid%stats%to_string())
                         ! throughput calculations are a bit different if using patches
-#						if defined(_SWE_SIMD)
-							_log_write(0, '(A, T34, F12.4, A)') " Element throughput: ", 1.0d-6 * dble(grid%stats%i_traversed_cells) * (_SWE_SIMD_ORDER_SQUARE) / t_phase, " M/s"
-							_log_write(0, '(A, T34, F12.4, A)') " Memory throughput: ", dble(grid%stats%i_traversed_memory) * (_SWE_SIMD_ORDER_SQUARE) / ((1024 * 1024 * 1024) * t_phase), " GB/s"
-							_log_write(0, '(A, T34, F12.4, A)') " Cell update throughput: ", 1.0d-6 * dble(swe%euler%stats%i_traversed_cells) * (_SWE_SIMD_ORDER_SQUARE) / t_phase, " M/s"
-							_log_write(0, '(A, T34, F12.4, A)') " #Cell updates: ", 1.0d-6 * dble(swe%euler%stats%i_traversed_cells) * (_SWE_SIMD_ORDER_SQUARE), " millions"
-							_log_write(0, '(A, T34, F12.4, A)') " Flux solver throughput: ", 1.0d-6 * dble(swe%euler%stats%i_traversed_cells) * (_SWE_SIMD_NUM_EDGES)  / t_phase, " M/s"
+#						if defined(_SWE_PATCH)
+							_log_write(0, '(A, T34, F12.4, A)') " Element throughput: ", 1.0d-6 * dble(grid%stats%i_traversed_cells) * (_SWE_PATCH_ORDER_SQUARE) / t_phase, " M/s"
+							_log_write(0, '(A, T34, F12.4, A)') " Memory throughput: ", dble(grid%stats%i_traversed_memory) * (_SWE_PATCH_ORDER_SQUARE) / ((1024 * 1024 * 1024) * t_phase), " GB/s"
+							_log_write(0, '(A, T34, F12.4, A)') " Cell update throughput: ", 1.0d-6 * dble(swe%euler%stats%i_traversed_cells) * (_SWE_PATCH_ORDER_SQUARE) / t_phase, " M/s"
+							_log_write(0, '(A, T34, F12.4, A)') " #Cell updates: ", 1.0d-6 * dble(swe%euler%stats%i_traversed_cells) * (_SWE_PATCH_ORDER_SQUARE), " millions"
+							_log_write(0, '(A, T34, F12.4, A)') " Flux solver throughput: ", 1.0d-6 * dble(swe%euler%stats%i_traversed_cells) * (_SWE_PATCH_NUM_EDGES)  / t_phase, " M/s"
 #						else
 							_log_write(0, '(A, T34, F12.4, A)') " Element throughput: ", 1.0d-6 * dble(grid%stats%i_traversed_cells) / t_phase, " M/s"
 							_log_write(0, '(A, T34, F12.4, A)') " Memory throughput: ", dble(grid%stats%i_traversed_memory) / ((1024 * 1024 * 1024) * t_phase), " GB/s"

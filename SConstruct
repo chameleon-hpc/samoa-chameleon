@@ -46,9 +46,9 @@ vars.AddVariables(
                 allowed_values=('lf', 'lfbath', 'llf', 'llfbath', 'fwave', 'aug_riemann', 'hlle')
               ),
 
-  ( 'swe_simd_order', 'order of vectorized triangular mesh, 1=no_vectorization', 1),
+  ( 'swe_patch_order', 'order of triangular patches, 1=no_patches', 1),
   
-  BoolVariable( 'simd', 'use simd solver? no = original geoclaw implementation', False),
+  BoolVariable( 'swe_patch_solver', 'use patch solver? if False, a original non-vectorizable geoclaw implementation will be used', False),
 
   EnumVariable( 'compiler', 'choice of compiler', 'intel',
                 allowed_values=('intel', 'gnu')
@@ -237,24 +237,24 @@ if env['no_vec']:
   env['LINKFLAGS'] += ' -no-vec -no-simd'
   env['F90FLAGS']  += ' -no-vec -no-simd'
   
-if (int(env['swe_simd_order'])) > 1:
-  env['F90FLAGS'] += ' -D_SWE_SIMD'
-  env['F90FLAGS'] += ' -D_SWE_SIMD_ORDER=' + env['swe_simd_order']
+if (int(env['swe_patch_order'])) > 1:
+  env['F90FLAGS'] += ' -D_SWE_PATCH'
+  env['F90FLAGS'] += ' -D_SWE_PATCH_ORDER=' + env['swe_patch_order']
   
-if env['simd']:
-  if (int(env['swe_simd_order'])) <= 1:
-	  print "Error: simd solvers are only available when using patches"
+if env['swe_patch_solver']:
+  if (int(env['swe_patch_order'])) <= 1:
+	  print "Error: patch solvers are only available when using patches. Set swe_patch_solver=False or swe_patch_order=2 or higher"
 	  Exit(-1)
-  env['F90FLAGS'] += ' -D_USE_SIMD'
+  env['F90FLAGS'] += ' -D_SWE_USE_PATCH_SOLVER'
   
-#Check if solver is really available (some are not/only available when using patches/simd)
-if (int(env['swe_simd_order'])) > 1 and env['simd']:
+#Check if solver is really available (some are not/only available when using patch solvers)
+if (int(env['swe_patch_order'])) > 1 and env['swe_patch_solver']:
 	if env['swe_solver'] != 'hlle' and env['swe_solver'] != 'fwave':
-		print "Error: when using patches and simd solver, only hlle and fwave solvers are available"
+		print "Error: Only hlle and fwave solvers are available as patch solvers. Try using another solver or setting swe_patch_solver=True"
 		Exit(-1)
 else:
 	if env['swe_solver'] == 'hlle':
-		print "Error: hlle solver is only available when using patches and simd"
+		print "Error: hlle solver is currently only available as a patch solver. Try using another solver or setting swe_patch_solver=True"
 		Exit(-1)
 	
 

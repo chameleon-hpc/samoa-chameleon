@@ -10,7 +10,7 @@
 		use SFC_edge_traversal
 		use SWE_euler_timestep
 		use SWE_initialize
-#		if defined(_SWE_SIMD)
+#		if defined(_SWE_PATCH)
 			use SWE_SIMD
 #		endif
 
@@ -92,8 +92,8 @@
 			type(t_element_base), intent(inout)						    :: element
 			type(t_state), dimension(_SWE_CELL_SIZE), intent(inout)	    :: Q
 			integer (kind = GRID_SI)								    :: i
-#			if defined(_SWE_SIMD)
-				real (kind = GRID_SR), dimension(_SWE_SIMD_ORDER_SQUARE)        :: db
+#			if defined(_SWE_PATCH)
+				real (kind = GRID_SR), dimension(_SWE_PATCH_ORDER_SQUARE)        :: db
 				real (kind = GRID_SR), DIMENSION(2)								:: r_coords		!< cell coords within patch
 				integer (kind = GRID_SI)										:: j, row, col, cell_id
 #			else
@@ -102,10 +102,10 @@
 
 			!evaluate initial function values at dof positions and compute DoFs
 #           if defined(_ASAGI)
-#				if defined(_SWE_SIMD)
+#				if defined(_SWE_PATCH)
 					row = 1
 					col = 1
-					do i=1, _SWE_SIMD_ORDER_SQUARE
+					do i=1, _SWE_PATCH_ORDER_SQUARE
 					
 						! if orientation is backwards, the plotter uses a transformation that mirrors the cell...
 						! this simple change solves the problem :)

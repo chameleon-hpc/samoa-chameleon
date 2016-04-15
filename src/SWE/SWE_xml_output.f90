@@ -14,7 +14,7 @@
 		use Samoa_swe
 		use SWE_euler_timestep
 		
-#		if defined(_SWE_SIMD)
+#		if defined(_SWE_PATCH)
 			use SWE_SIMD
 #		endif
 
@@ -34,7 +34,7 @@
 			integer (kind = BYTE)									:: depth
 			integer (kind = BYTE)									:: refinement
 			integer (kind = BYTE)									:: i_plotter_type
-#			if defined(_SWE_SIMD)			
+#			if defined(_SWE_PATCH)			
 				integer (kind = BYTE)								:: id_within_patch
 #			endif
 		end type
@@ -120,7 +120,7 @@
                         e_io = vtk%VTK_VAR_XML('section index', 1_GRID_SI, 1)
                         e_io = vtk%VTK_VAR_XML('depth', 1_1, 1)
                         e_io = vtk%VTK_VAR_XML('i_plotter_type', 1_1, 1)
-#						if defined(_SWE_SIMD)
+#						if defined(_SWE_PATCH)
 							e_io = vtk%VTK_VAR_XML('id_within_patch', 1_1, 1)
 #						endif
                         e_io = vtk%VTK_VAR_XML('refinement flag', 1_1, 1)
@@ -157,8 +157,8 @@
 			integer (kind = GRID_SI)									:: i_error, i_cells, i_points
 
             grid_info = section%get_info()
-#if defined (_SWE_SIMD)
-			i_cells = grid_info%i_cells * _SWE_SIMD_ORDER * _SWE_SIMD_ORDER
+#if defined (_SWE_PATCH)
+			i_cells = grid_info%i_cells * _SWE_PATCH_ORDER * _SWE_PATCH_ORDER
 #else
 			i_cells = grid_info%i_cells
 #endif
@@ -191,8 +191,8 @@
 			integer(4)													:: e_io
 
             grid_info = section%get_info()
-#if defined (_SWE_SIMD)
-			i_cells = grid_info%i_cells * _SWE_SIMD_ORDER * _SWE_SIMD_ORDER
+#if defined (_SWE_PATCH)
+			i_cells = grid_info%i_cells * _SWE_PATCH_ORDER * _SWE_PATCH_ORDER
 #else
 			i_cells = grid_info%i_cells
 #endif
@@ -263,7 +263,7 @@
                         e_io = vtk%VTK_VAR_XML(i_cells, 'section index', traversal%cell_data%section_index)
                         e_io = vtk%VTK_VAR_XML(i_cells, 'depth', traversal%cell_data%depth)
                         e_io = vtk%VTK_VAR_XML(i_cells, 'i_plotter_type', traversal%cell_data%i_plotter_type)
-#						if defined(_SWE_SIMD)                        
+#						if defined(_SWE_PATCH)                        
 							e_io = vtk%VTK_VAR_XML(i_cells, 'id_within_patch', traversal%cell_data%id_within_patch)
 #						endif
                         e_io = vtk%VTK_VAR_XML(i_cells, 'refinement flag', traversal%cell_data%refinement)
@@ -300,14 +300,14 @@
 			integer (kind = GRID_SI)							:: i
 			real (kind = GRID_SR), parameter, dimension(2, 6)	:: r_test_points = reshape([1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.5, 0.5, 0.0, 0.5, 0.5 ], [2, 6 ])
 			real (kind = GRID_SR), parameter, dimension(2)		:: r_test_point0 = [1.0_GRID_SR/3.0_GRID_SR, 1.0_GRID_SR/3.0_GRID_SR]
-#			if defined(_SWE_SIMD)
-				type(t_state), dimension(_SWE_SIMD_ORDER_SQUARE):: Q
+#			if defined(_SWE_PATCH)
+				type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE):: Q
 				integer											:: j, row, col, cell_id
 				
 				row=1
 				col=1
 
-				do j=1,_SWE_SIMD_ORDER * _SWE_SIMD_ORDER
+				do j=1,_SWE_PATCH_ORDER * _SWE_PATCH_ORDER
 					traversal%cell_data(traversal%i_cell_data_index)%rank = rank_MPI
 					traversal%cell_data(traversal%i_cell_data_index)%section_index = section%index
 					traversal%cell_data(traversal%i_cell_data_index)%depth = element%cell%geometry%i_depth

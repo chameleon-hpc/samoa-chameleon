@@ -11,7 +11,7 @@
 
 		use Samoa_swe
 		use c_bind_riemannsolvers
-#		if defined(_SWE_SIMD)
+#		if defined(_SWE_PATCH)
 			use SWE_SIMD
 			use SWE_SIMD_Solvers
 #		endif
@@ -37,11 +37,11 @@
 		type(t_lfs_flux)						:: lfs_flux
 		
 		
-#if defined (_SWE_SIMD)
+#if defined (_SWE_PATCH)
 		! arrays used to compute updates within each triangular patch.
 		! for each edge, the left/right values are copied to these arrays 
 		! before computation takes place. 
-		type(t_state), dimension(_SWE_SIMD_NUM_EDGES)								:: edges_a, edges_b
+		type(t_state), dimension(_SWE_PATCH_NUM_EDGES)								:: edges_a, edges_b
 		!$omp threadprivate(edges_a, edges_b)
 		!..DIR$ ASSUME_ALIGNED edges_a: 64
 		!..DIR$ ASSUME_ALIGNED edges_b: 64
@@ -108,8 +108,8 @@
                 end if
 #           endif
 
-#			if defined(_SWE_SIMD)
-				grid%r_dt = grid%r_dt / _SWE_SIMD_ORDER
+#			if defined(_SWE_PATCH)
+				grid%r_dt = grid%r_dt / _SWE_PATCH_ORDER
 #			endif
 
 			call scatter(grid%r_dt, grid%sections%elements_alloc%r_dt)
@@ -128,8 +128,8 @@
 			grid%r_time = grid%r_time + grid%r_dt
 
             r_dt_cfl = cfg%scaling * get_edge_size(grid%d_max) / ((2.0_GRID_SR + sqrt(2.0_GRID_SR)) * grid%u_max)
-#			if defined(_SWE_SIMD)
-				r_dt_cfl = r_dt_cfl / _SWE_SIMD_ORDER
+#			if defined(_SWE_PATCH)
+				r_dt_cfl = r_dt_cfl / _SWE_PATCH_ORDER
 #			endif
 
             if (grid%r_dt > r_dt_cfl) then
@@ -162,7 +162,7 @@
 			real(kind = GRID_SR), dimension(2, _SWE_EDGE_SIZE)		:: dof_pos
 			real(kind = GRID_SR), dimension(2, 3), parameter		:: edge_offsets = reshape([0.0, 0.0, 0.0, 1.0, 1.0, 0.0], [2, 3])
 			real(kind = GRID_SR), dimension(2, 3), parameter		:: edge_vectors = reshape([0.0, 1.0, 1.0, -1.0, -1.0, 0.0], [2, 3])
-#			if defined(_SWE_SIMD)
+#			if defined(_SWE_PATCH)
 				integer												:: edge_type !1=left, 2=hypotenuse, 3=right
 				
 #			else
@@ -190,7 +190,7 @@
 					rep%Q(i)%p(1) = t_basis_Q_eval(dof_pos(:, i), Q%p(1))
 					rep%Q(i)%p(2) = t_basis_Q_eval(dof_pos(:, i), Q%p(2))
 				end forall
-#           elif defined(_SWE_SIMD)
+#           elif defined(_SWE_PATCH)
 				!find out which edge it is comparing its normal with cell normals
 				! obs.: negative plotter_types describe triangles in desired order: left, hypotenuse, right
 				associate(cell_edge => ref_plotter_data(- abs(element%cell%geometry%i_plotter_type))%edges, normal => edge%transform_data%normal)
@@ -209,25 +209,25 @@
 					! right leg cells go to edge 3
 					select case (edge_type)
 					case (1) !cells with id i*i+1 (left leg)
-						do i=0, _SWE_SIMD_ORDER - 1
+						do i=0, _SWE_PATCH_ORDER - 1
 							rep%H(i+1) = H(i*i + 1)
 							rep%HU(i+1) = HU(i*i + 1)
 							rep%HV(i+1) = HV(i*i + 1)
 							rep%B(i+1) = B(i*i + 1)
 						end do
 					case (2) ! hypotenuse
-						do i=1, _SWE_SIMD_ORDER
-							rep%H(i) = H((_SWE_SIMD_ORDER-1)*(_SWE_SIMD_ORDER-1) + 2*i - 1)
-							rep%HU(i) = HU((_SWE_SIMD_ORDER-1)*(_SWE_SIMD_ORDER-1) + 2*i - 1)
-							rep%HV(i) = HV((_SWE_SIMD_ORDER-1)*(_SWE_SIMD_ORDER-1) + 2*i - 1)
-							rep%B(i) = B((_SWE_SIMD_ORDER-1)*(_SWE_SIMD_ORDER-1) + 2*i - 1)
+						do i=1, _SWE_PATCH_ORDER
+							rep%H(i) = H((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*i - 1)
+							rep%HU(i) = HU((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*i - 1)
+							rep%HV(i) = HV((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*i - 1)
+							rep%B(i) = B((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*i - 1)
 						end do
 					case (3) !cells with id i*i (right leg)
-						do i=1, _SWE_SIMD_ORDER
-							rep%H(_SWE_SIMD_ORDER + 1 - i) = H(i*i)
-							rep%HU(_SWE_SIMD_ORDER + 1 - i) = HU(i*i)
-							rep%HV(_SWE_SIMD_ORDER + 1 - i) = HV(i*i)
-							rep%B(_SWE_SIMD_ORDER + 1 - i) = B(i*i)
+						do i=1, _SWE_PATCH_ORDER
+							rep%H(_SWE_PATCH_ORDER + 1 - i) = H(i*i)
+							rep%HU(_SWE_PATCH_ORDER + 1 - i) = HU(i*i)
+							rep%HV(_SWE_PATCH_ORDER + 1 - i) = HV(i*i)
+							rep%B(_SWE_PATCH_ORDER + 1 - i) = B(i*i)
 						end do
 					end select
 				end associate
@@ -264,7 +264,7 @@
 
 #			if defined (_SWE_LF) || defined (_SWE_LF_BATH) || defined (_SWE_LLF) || defined (_SWE_LLF_BATH)
 				call compute_lf_flux(edge%transform_data%normal, rep1%Q(1), rep2%Q(1), update1%flux(1), update2%flux(1))
-#			elif defined (_SWE_SIMD)
+#			elif defined (_SWE_PATCH)
 				! invert values in edges
 				! cells are copied in inverse order because the neighbor 
 				! ghost cells will have a mirrored numbering! See a (poorly-drawn) example:
@@ -273,17 +273,17 @@
 				! /  \2   2\ |
 				!/____\1   3\|
 				
-				do i=1, _SWE_SIMD_ORDER
-					update1%H(i) = rep2%H(_SWE_SIMD_ORDER + 1 - i)
-					update1%HU(i) = rep2%HU(_SWE_SIMD_ORDER + 1 - i)
-					update1%HV(i) = rep2%HV(_SWE_SIMD_ORDER + 1 - i)
-					update1%B(i) = rep2%B(_SWE_SIMD_ORDER + 1 - i)
+				do i=1, _SWE_PATCH_ORDER
+					update1%H(i) = rep2%H(_SWE_PATCH_ORDER + 1 - i)
+					update1%HU(i) = rep2%HU(_SWE_PATCH_ORDER + 1 - i)
+					update1%HV(i) = rep2%HV(_SWE_PATCH_ORDER + 1 - i)
+					update1%B(i) = rep2%B(_SWE_PATCH_ORDER + 1 - i)
 					
 					
-					update2%H(i) = rep1%H(_SWE_SIMD_ORDER + 1 - i)
-					update2%HU(i) = rep1%HU(_SWE_SIMD_ORDER + 1 - i)
-					update2%HV(i) = rep1%HV(_SWE_SIMD_ORDER + 1 - i)
-					update2%B(i) = rep1%B(_SWE_SIMD_ORDER + 1 - i)
+					update2%H(i) = rep1%H(_SWE_PATCH_ORDER + 1 - i)
+					update2%HU(i) = rep1%HU(_SWE_PATCH_ORDER + 1 - i)
+					update2%HV(i) = rep1%HV(_SWE_PATCH_ORDER + 1 - i)
+					update2%B(i) = rep1%B(_SWE_PATCH_ORDER + 1 - i)
 				end do
 #			else
 				_log_write(6, '(4X, A, F0.3, 1X, F0.3, 1X, F0.3, 1X, F0.3)') "Q 1 in: ", rep1%Q
@@ -323,7 +323,7 @@
             !SLIP: reflect momentum at normal
 			!bnd_rep = t_state(rep%Q(1)%h, rep%Q(1)%p - dot_product(rep%Q(1)%p, edge%transform_data%normal) * edge%transform_data%normal, rep%Q(1)%b)
 
-#			ifndef _SWE_SIMD
+#			ifndef _SWE_PATCH
             !NOSLIP: invert momentum (stable)
 			bnd_rep = t_state(rep%Q(1)%h, -rep%Q(1)%p, rep%Q(1)%b)
 #			endif			
@@ -333,7 +333,7 @@
 
 #			if defined (_SWE_LF) || defined (_SWE_LF_BATH) || defined (_SWE_LLF) || defined (_SWE_LLF_BATH)
 				call compute_lf_flux(edge%transform_data%normal, rep%Q(1), bnd_rep, update%flux(1), bnd_flux)
-#			elif defined (_SWE_SIMD)
+#			elif defined (_SWE_PATCH)
 				! boundary conditions on ghost cells
 				update%H = rep%H
 				update%HU = - rep%HU
@@ -350,15 +350,15 @@
 			type(t_element_base), intent(inout)								:: element
 			type(num_cell_update), intent(inout)							:: update1, update2, update3
 		
-#			if defined (_SWE_SIMD)
+#			if defined (_SWE_PATCH)
 				integer 														:: i
 				type(num_cell_update)											:: tmp !> ghost cells in correct order 
 				type(t_update)													:: update_a, update_b
 				real(kind = GRID_SR)										    :: volume, edge_lengths(3), maxWaveSpeed, dQ_max_norm
 				type(num_cell_data_pers)													:: dQ !> deltaQ, used to compute cell updates
-				real(kind = GRID_SR), DIMENSION(_SWE_SIMD_NUM_EDGES_ALIGNMENT)			:: hL, huL, hvL, bL
-				real(kind = GRID_SR), DIMENSION(_SWE_SIMD_NUM_EDGES_ALIGNMENT)			:: hR, huR, hvR, bR
-				real(kind = GRID_SR), DIMENSION(_SWE_SIMD_NUM_EDGES_ALIGNMENT)			:: upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR
+				real(kind = GRID_SR), DIMENSION(_SWE_PATCH_NUM_EDGES_ALIGNMENT)			:: hL, huL, hvL, bL
+				real(kind = GRID_SR), DIMENSION(_SWE_PATCH_NUM_EDGES_ALIGNMENT)			:: hR, huR, hvR, bR
+				real(kind = GRID_SR), DIMENSION(_SWE_PATCH_NUM_EDGES_ALIGNMENT)			:: upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR
 				!DIR$ ASSUME_ALIGNED hL: 64
 				!DIR$ ASSUME_ALIGNED hR: 64
 				!DIR$ ASSUME_ALIGNED huL: 64
@@ -374,8 +374,10 @@
 				!DIR$ ASSUME_ALIGNED upd_hvL: 64
 				!DIR$ ASSUME_ALIGNED upd_hvR: 64
 				
-#				if !defined(_USE_SIMD)
+#				if !defined(_SWE_USE_PATCH_SOLVER)
 					! using patches, but applying geoclaw solvers on single edges
+					
+					! the normals are only needed in this case.
 
 					real(kind = GRID_SR), dimension(2,3)						:: normals
 
@@ -404,57 +406,57 @@
 				
 					! copy cell values to arrays edges_a and edges_b
 					! obs: cells with id > number of cells are actually ghost cells and come from edges "updates"
-					! see t_SWE_SIMD_geometry for an explanation about ghost cell ordering
-					do i=1, _SWE_SIMD_NUM_EDGES
+					! see t_SWE_PATCH_geometry for an explanation about ghost cell ordering
+					do i=1, _SWE_PATCH_NUM_EDGES
 						! left
-						if (geom%edges_a(i) <= _SWE_SIMD_ORDER_SQUARE) then
+						if (geom%edges_a(i) <= _SWE_PATCH_ORDER_SQUARE) then
 							hL(i) = data%H(geom%edges_a(i))
 							huL(i) = data%HU(geom%edges_a(i))
 							hvL(i) = data%HV(geom%edges_a(i))
 							bL(i) = data%B(geom%edges_a(i))
-						else if (geom%edges_a(i) <= _SWE_SIMD_ORDER_SQUARE + _SWE_SIMD_ORDER) then
-							hL(i) = update1%H(geom%edges_a(i) - _SWE_SIMD_ORDER_SQUARE)
-							huL(i) = update1%HU(geom%edges_a(i) - _SWE_SIMD_ORDER_SQUARE)
-							hvL(i) = update1%HV(geom%edges_a(i) - _SWE_SIMD_ORDER_SQUARE)
-							bL(i) = update1%B(geom%edges_a(i) - _SWE_SIMD_ORDER_SQUARE)
-						else if (geom%edges_a(i) <= _SWE_SIMD_ORDER_SQUARE + 2*_SWE_SIMD_ORDER) then
-							hL(i) = update2%H(geom%edges_a(i) - _SWE_SIMD_ORDER_SQUARE - _SWE_SIMD_ORDER)
-							huL(i) = update2%HU(geom%edges_a(i) - _SWE_SIMD_ORDER_SQUARE - _SWE_SIMD_ORDER)
-							hvL(i) = update2%HV(geom%edges_a(i) - _SWE_SIMD_ORDER_SQUARE - _SWE_SIMD_ORDER)
-							bL(i) = update2%B(geom%edges_a(i) - _SWE_SIMD_ORDER_SQUARE - _SWE_SIMD_ORDER)
+						else if (geom%edges_a(i) <= _SWE_PATCH_ORDER_SQUARE + _SWE_PATCH_ORDER) then
+							hL(i) = update1%H(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE)
+							huL(i) = update1%HU(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE)
+							hvL(i) = update1%HV(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE)
+							bL(i) = update1%B(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE)
+						else if (geom%edges_a(i) <= _SWE_PATCH_ORDER_SQUARE + 2*_SWE_PATCH_ORDER) then
+							hL(i) = update2%H(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
+							huL(i) = update2%HU(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
+							hvL(i) = update2%HV(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
+							bL(i) = update2%B(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
 						else 
-							hL(i) = update3%H(geom%edges_a(i) - _SWE_SIMD_ORDER_SQUARE - 2*_SWE_SIMD_ORDER)
-							huL(i) = update3%HU(geom%edges_a(i) - _SWE_SIMD_ORDER_SQUARE - 2*_SWE_SIMD_ORDER)
-							hvL(i) = update3%HV(geom%edges_a(i) - _SWE_SIMD_ORDER_SQUARE - 2*_SWE_SIMD_ORDER)
-							bL(i) = update3%B(geom%edges_a(i) - _SWE_SIMD_ORDER_SQUARE - 2*_SWE_SIMD_ORDER)
+							hL(i) = update3%H(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
+							huL(i) = update3%HU(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
+							hvL(i) = update3%HV(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
+							bL(i) = update3%B(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
 						end if
 						
 						! right
-						if (geom%edges_b(i) <= _SWE_SIMD_ORDER_SQUARE) then
+						if (geom%edges_b(i) <= _SWE_PATCH_ORDER_SQUARE) then
 							hR(i) = data%H(geom%edges_b(i))
 							huR(i) = data%HU(geom%edges_b(i))
 							hvR(i) = data%HV(geom%edges_b(i))
 							bR(i) = data%B(geom%edges_b(i))
-						else if (geom%edges_b(i) <= _SWE_SIMD_ORDER_SQUARE + _SWE_SIMD_ORDER) then
-							hR(i) = update1%H(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE)
-							huR(i) = update1%HU(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE)
-							hvR(i) = update1%HV(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE)
-							bR(i) = update1%B(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE)
-						else if (geom%edges_b(i) <= _SWE_SIMD_ORDER_SQUARE + 2*_SWE_SIMD_ORDER) then
-							hR(i) = update2%H(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE - _SWE_SIMD_ORDER)
-							huR(i) = update2%HU(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE - _SWE_SIMD_ORDER)
-							hvR(i) = update2%HV(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE - _SWE_SIMD_ORDER)
-							bR(i) = update2%B(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE - _SWE_SIMD_ORDER)
+						else if (geom%edges_b(i) <= _SWE_PATCH_ORDER_SQUARE + _SWE_PATCH_ORDER) then
+							hR(i) = update1%H(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE)
+							huR(i) = update1%HU(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE)
+							hvR(i) = update1%HV(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE)
+							bR(i) = update1%B(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE)
+						else if (geom%edges_b(i) <= _SWE_PATCH_ORDER_SQUARE + 2*_SWE_PATCH_ORDER) then
+							hR(i) = update2%H(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
+							huR(i) = update2%HU(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
+							hvR(i) = update2%HV(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
+							bR(i) = update2%B(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
 						else 
-							hR(i) = update3%H(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE - 2*_SWE_SIMD_ORDER)
-							huR(i) = update3%HU(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE - 2*_SWE_SIMD_ORDER)
-							hvR(i) = update3%HV(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE - 2*_SWE_SIMD_ORDER)
-							bR(i) = update3%B(geom%edges_b(i) - _SWE_SIMD_ORDER_SQUARE - 2*_SWE_SIMD_ORDER)
+							hR(i) = update3%H(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
+							huR(i) = update3%HU(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
+							hvR(i) = update3%HV(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
+							bR(i) = update3%B(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
 						end if
 					end do
 					
 					! compute net_updates
-#					if defined (_USE_SIMD)
+#					if defined (_SWE_USE_PATCH_SOLVER)
 						associate(transf => geom%transform_matrices(:,:,:,element%cell%geometry%i_plotter_type))
 #							if defined(_SWE_FWAVE)
 								call compute_updates_fwave_simd(transf, hL, huL, hvL, bL, hR, huR, hvR, bR, upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR, maxWaveSpeed)
@@ -468,8 +470,8 @@
 						end associate
 						section%u_max = max(section%u_max, maxWaveSpeed)
 #					else					
-					! NO-SIMD version
- 					do i=1, _SWE_SIMD_NUM_EDGES
+					! using original geoclaw solver
+ 					do i=1, _SWE_PATCH_NUM_EDGES
 						edges_a(i)%h = hL(i)
 						edges_a(i)%p(1) = huL(i)
 						edges_a(i)%p(2) = hvL(i)
@@ -493,15 +495,15 @@
 					dQ%H = 0.0_GRID_SR
 					dQ%HU = 0.0_GRID_SR
 					dQ%HV = 0.0_GRID_SR
-					volume = cfg%scaling * cfg%scaling * element%cell%geometry%get_volume() / (_SWE_SIMD_ORDER_SQUARE)
-					edge_lengths = cfg%scaling * element%cell%geometry%get_edge_sizes() / _SWE_SIMD_ORDER !these lines were replaced by the one below
-					do i=1, _SWE_SIMD_NUM_EDGES
-						if (geom%edges_a(i) <= _SWE_SIMD_ORDER_SQUARE) then !ignore ghost cells
+					volume = cfg%scaling * cfg%scaling * element%cell%geometry%get_volume() / (_SWE_PATCH_ORDER_SQUARE)
+					edge_lengths = cfg%scaling * element%cell%geometry%get_edge_sizes() / _SWE_PATCH_ORDER !these lines were replaced by the one below
+					do i=1, _SWE_PATCH_NUM_EDGES
+						if (geom%edges_a(i) <= _SWE_PATCH_ORDER_SQUARE) then !ignore ghost cells
 							dQ%H(geom%edges_a(i)) = dQ%H(geom%edges_a(i)) + upd_hL(i) * edge_lengths(geom%edges_orientation(i))
 							dQ%HU(geom%edges_a(i)) = dQ%HU(geom%edges_a(i)) + upd_huL(i) * edge_lengths(geom%edges_orientation(i))
 							dQ%HV(geom%edges_a(i)) = dQ%HV(geom%edges_a(i)) + upd_hvL(i) * edge_lengths(geom%edges_orientation(i))
 						end if
-						if (geom%edges_b(i) <= _SWE_SIMD_ORDER_SQUARE) then
+						if (geom%edges_b(i) <= _SWE_PATCH_ORDER_SQUARE) then
 							dQ%H(geom%edges_b(i)) = dQ%H(geom%edges_b(i)) + upd_hR(i) * edge_lengths(geom%edges_orientation(i))
 							dQ%HU(geom%edges_b(i)) = dQ%HU(geom%edges_b(i)) + upd_huR(i) * edge_lengths(geom%edges_orientation(i))
 							dQ%HV(geom%edges_b(i)) = dQ%HV(geom%edges_b(i)) + upd_hvR(i) * edge_lengths(geom%edges_orientation(i))
@@ -571,7 +573,7 @@
 			type(t_cell_data_ptr), intent(inout)				:: cell
 			real(kind = GRID_SR)							    :: b_norm
 
-#			if defined (_SWE_SIMD)
+#			if defined (_SWE_PATCH)
 				b_norm = minval(abs(cell%data_pers%H - cell%data_pers%B))
 #			else
 				b_norm = minval(abs(cell%data_pers%Q%h - cell%data_pers%Q%b))

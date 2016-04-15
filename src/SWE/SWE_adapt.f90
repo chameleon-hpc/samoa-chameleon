@@ -14,14 +14,14 @@
 		use Tools_noise
 		use SWE_initialize
 		use SWE_euler_timestep
-#		if defined (_SWE_SIMD)
+#		if defined (_SWE_PATCH)
 			use SWE_SIMD
 #		endif
 		implicit none
 
         type num_traversal_data
-#			if defined (_SWE_SIMD)
-				type(t_state), dimension(_SWE_SIMD_ORDER_SQUARE, 2)					:: Q_in
+#			if defined (_SWE_PATCH)
+				type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE, 2)					:: Q_in
 #			else
 				type(t_state), dimension(_SWE_CELL_SIZE, 2)							:: Q_in
 #			endif
@@ -103,14 +103,14 @@
 			type(t_grid_section), intent(inout)											:: section
 			type(t_traversal_element), intent(inout)									:: src_element
 			type(t_traversal_element), intent(inout)									:: dest_element
-#			if defined(_SWE_SIMD)
-				type(t_state), dimension(_SWE_SIMD_ORDER_SQUARE)						:: Q
-				real (kind = GRID_SR), dimension(_SWE_SIMD_ORDER_SQUARE)				:: H, HU, HV, B
+#			if defined(_SWE_PATCH)
+				type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE)						:: Q
+				real (kind = GRID_SR), dimension(_SWE_PATCH_ORDER_SQUARE)				:: H, HU, HV, B
 #			else
 				type(t_state), dimension(_SWE_CELL_SIZE)								:: Q
 #			endif
 
-#			if defined (_SWE_SIMD)
+#			if defined (_SWE_PATCH)
 				dest_element%cell%data_pers%H = src_element%cell%data_pers%H
 				dest_element%cell%data_pers%HU = src_element%cell%data_pers%HU
 				dest_element%cell%data_pers%HV = src_element%cell%data_pers%HV
@@ -127,11 +127,11 @@
 			type(t_traversal_element), intent(inout)									:: src_element
 			type(t_traversal_element), intent(inout)									:: dest_element
 			integer, dimension(:), intent(in)											:: refinement_path
-#			if defined(_SWE_SIMD)
-				real (kind=GRID_SR), dimension(_SWE_SIMD_ORDER_SQUARE)						:: H_in, HU_in, HV_in
-				real (kind=GRID_SR), dimension(_SWE_SIMD_ORDER_SQUARE)						:: H_out, HU_out, HV_out, B_out
+#			if defined(_SWE_PATCH)
+				real (kind=GRID_SR), dimension(_SWE_PATCH_ORDER_SQUARE)						:: H_in, HU_in, HV_in
+				real (kind=GRID_SR), dimension(_SWE_PATCH_ORDER_SQUARE)						:: H_out, HU_out, HV_out, B_out
 				integer																		:: i_plotter_type, j, row, col, cell_id
-				integer, DIMENSION(_SWE_SIMD_ORDER_SQUARE,2)								:: child
+				integer, DIMENSION(_SWE_PATCH_ORDER_SQUARE,2)								:: child
 				real (kind = GRID_SR), DIMENSION(2)											:: r_coords		!< cell coords within patch
 #			else
 				type(t_state), dimension(_SWE_CELL_SIZE)									:: Q_in
@@ -140,7 +140,7 @@
 
 			integer																		:: i
 
-#			if defined (_SWE_SIMD)
+#			if defined (_SWE_PATCH)
 				H_in = src_element%cell%data_pers%H
 				HU_in = src_element%cell%data_pers%HU
 				HV_in = src_element%cell%data_pers%HV
@@ -159,7 +159,7 @@
 					end if
 					
 					! the child patch values are always averages of two values from the parent patch
-					do j=1, _SWE_SIMD_ORDER_SQUARE
+					do j=1, _SWE_PATCH_ORDER_SQUARE
 						H_out(j) = 0.5*( H_in(child(j,1)) + H_in(child(j,2)) )
 						HU_out(j) = 0.5*( HU_in(child(j,1)) + HU_in(child(j,2)) )
 						HV_out(j) = 0.5*( HV_in(child(j,1)) + HV_in(child(j,2)) )
@@ -182,7 +182,7 @@
 				! get bathymetry
 				row = 1
 				col = 1
-				do i=1, _SWE_SIMD_ORDER_SQUARE
+				do i=1, _SWE_PATCH_ORDER_SQUARE
 				
 					! if orientation is backwards, the plotter uses a transformation that mirrors the cell...
 					! this simple change solves the problem :)
@@ -241,14 +241,14 @@
 			type(t_traversal_element), intent(inout)									:: dest_element
 			integer, dimension(:), intent(in)											:: refinement_path
 			integer																		:: i
-#			if defined(_SWE_SIMD)
+#			if defined(_SWE_PATCH)
 				integer																		:: j
-				integer, DIMENSION(_SWE_SIMD_ORDER_SQUARE,2)								:: child
+				integer, DIMENSION(_SWE_PATCH_ORDER_SQUARE,2)								:: child
 #			else
 				type(t_state), dimension(_SWE_CELL_SIZE)								:: Q_out
 #			endif
 
-#			if defined(_SWE_SIMD)
+#			if defined(_SWE_PATCH)
 				!IMPORTANT: in the current samoa implementation, this subroutine is always called first with refinement_path=1, and then =2.
 				! The below implementation supposes this. If the samoa core implementation changes, this may become invalid!
 
@@ -269,7 +269,7 @@
 					end if
 
 					! sum all values to their respective cells
-					do i=1, _SWE_SIMD_ORDER_SQUARE
+					do i=1, _SWE_PATCH_ORDER_SQUARE
 						do j=1, 2
 							data%H(child(i,j)) = data%H(child(i,j)) + src_element%cell%data_pers%H(i)
 							data%HU(child(i,j)) = data%HU(child(i,j)) + src_element%cell%data_pers%HU(i)

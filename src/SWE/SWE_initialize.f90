@@ -13,7 +13,7 @@
 		use SWE_euler_timestep
 
 		use Samoa_swe
-#		if defined(_SWE_SIMD)
+#		if defined(_SWE_PATCH)
 			use SWE_SIMD
 #		endif
 		implicit none
@@ -81,15 +81,15 @@
 			type(t_grid_section), intent(inout)						:: section
 			type(t_element_base), intent(inout)						:: element
 			
-#			if defined(_SWE_SIMD)
-				type(t_state), dimension(_SWE_SIMD_ORDER_SQUARE)	:: Q
+#			if defined(_SWE_PATCH)
+				type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE)	:: Q
 #			else
 				type(t_state), dimension(_SWE_CELL_SIZE)			:: Q
 #			endif
 
 			call alpha_volume_op(traversal, section, element, Q)
 
-# 			if defined(_SWE_SIMD)
+# 			if defined(_SWE_PATCH)
 				element%cell%data_pers%H = Q(:)%h
 				element%cell%data_pers%HU = Q(:)%p(1)
 				element%cell%data_pers%HV = Q(:)%p(2)
@@ -108,9 +108,9 @@
 			type(t_swe_init_traversal), intent(inout)				    :: traversal
 			type(t_grid_section), intent(inout)							:: section
 			type(t_element_base), intent(inout)							:: element
-#			if defined(_SWE_SIMD)
-				type(t_state), dimension(_SWE_SIMD_ORDER_SQUARE), intent(out)	:: Q
-				real (kind = GRID_SR), dimension(_SWE_SIMD_ORDER_SQUARE)		:: lambda
+#			if defined(_SWE_PATCH)
+				type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE), intent(out)	:: Q
+				real (kind = GRID_SR), dimension(_SWE_PATCH_ORDER_SQUARE)		:: lambda
 				real (kind = GRID_SR), DIMENSION(2)								:: r_coords		!< cell coords within patch
 				integer (kind = GRID_SI)										:: j, row, col, cell_id
 #			else
@@ -131,10 +131,10 @@
 				Q(i) = get_initial_state(section, samoa_barycentric_to_world_point(element%transform_data, t_basis_Q_get_dof_coords(i)), element%cell%geometry%i_depth / 2_GRID_SI)
 			end do
 		
-#			if defined(_SWE_SIMD)
+#			if defined(_SWE_PATCH)
 				row = 1
 				col = 1
-				do i=1, _SWE_SIMD_ORDER_SQUARE
+				do i=1, _SWE_PATCH_ORDER_SQUARE
 				
 					! if orientation is backwards, the plotter uses a transformation that mirrors the cell...
 					! this simple change solves the problem :)

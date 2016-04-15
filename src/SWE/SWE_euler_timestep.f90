@@ -453,8 +453,12 @@
 						associate(transf => geom%transform_matrices(:,:,:,element%cell%geometry%i_plotter_type))
 #							if defined(_SWE_FWAVE)
 								call compute_updates_fwave_simd(transf, hL, huL, hvL, bL, hR, huR, hvR, bR, upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR, maxWaveSpeed)
-#							else
+#							elif defined(_SWE_HLLE)
 								call compute_updates_hlle_simd(transf, hL, huL, hvL, bL, hR, huR, hvR, bR, upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR, maxWaveSpeed)
+#							else
+								! this should never happen -> SCons rules should avoid this before compiling
+#								error "No valid SWE solver for patches/simd implementation has been defined!"
+								print *, 
 #							endif
 						end associate
 						section%u_max = max(section%u_max, maxWaveSpeed)

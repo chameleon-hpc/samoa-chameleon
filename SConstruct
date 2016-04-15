@@ -43,10 +43,11 @@ vars.AddVariables(
               ),
 
   EnumVariable( 'swe_solver', 'flux solver for the swe scenario', 'aug_riemann',
-                allowed_values=('lf', 'lfbath', 'llf', 'llfbath', 'fwave', 'aug_riemann')
+                allowed_values=('lf', 'lfbath', 'llf', 'llfbath', 'fwave', 'aug_riemann', 'hlle')
               ),
 
   ( 'swe_simd_order', 'order of vectorized triangular mesh, 1=no_vectorization', 1),
+  
   BoolVariable( 'simd', 'use simd solver? no = original geoclaw implementation', False),
 
   EnumVariable( 'compiler', 'choice of compiler', 'intel',
@@ -228,6 +229,8 @@ elif env['swe_solver'] == 'fwave':
   env['F90FLAGS'] += ' -D_SWE_FWAVE'
 elif env['swe_solver'] == 'aug_riemann':
   env['F90FLAGS'] += ' -D_SWE_AUG_RIEMANN'
+elif env['swe_solver'] == 'hlle':
+  env['F90FLAGS'] += ' -D_SWE_HLLE'
 
 #vectorization options for SWE scenario
 if env['no_vec']: 
@@ -239,7 +242,21 @@ if (int(env['swe_simd_order'])) > 1:
   env['F90FLAGS'] += ' -D_SWE_SIMD_ORDER=' + env['swe_simd_order']
   
 if env['simd']:
+  if (int(env['swe_simd_order'])) <= 1:
+	  print "Error: simd solvers are only available when using patches"
+	  Exit(-1)
   env['F90FLAGS'] += ' -D_USE_SIMD'
+  
+#Check if solver is really available (some are not/only available when using patches/simd)
+if (int(env['swe_simd_order'])) > 1 and env['simd']:
+	if env['swe_solver'] != 'hlle' and env['swe_solver'] != 'fwave':
+		print "Error: when using patches and simd solver, only hlle and fwave solvers are available"
+		Exit(-1)
+else:
+	if env['swe_solver'] == 'hlle':
+		print "Error: hlle solver is only available when using patches and simd"
+		Exit(-1)
+	
 
 #Choose a floating point precision
 if env['precision'] == 'single':

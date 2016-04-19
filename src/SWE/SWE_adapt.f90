@@ -15,7 +15,7 @@
 		use SWE_initialize
 		use SWE_euler_timestep
 #		if defined (_SWE_PATCH)
-			use SWE_SIMD
+			use SWE_PATCH
 #		endif
 		implicit none
 
@@ -153,9 +153,9 @@
 					
 					! decide which child is being computed (first = left to hypot, second = right to hypot.)
 					if ( (refinement_path(i) == 1 .and. i_plotter_type>0) .or. (refinement_path(i) == 2 .and. i_plotter_type<0)) then
-						child = SWE_SIMD_GEOMETRY%first_child
+						child = SWE_PATCH_GEOMETRY%first_child
 					else
-						child = SWE_SIMD_GEOMETRY%second_child
+						child = SWE_PATCH_GEOMETRY%second_child
 					end if
 					
 					! the child patch values are always averages of two values from the parent patch
@@ -194,7 +194,7 @@
 				
 					r_coords = [0_GRID_SR, 0_GRID_SR]
 					do j=1,3
-						r_coords(:) = r_coords(:) + SWE_SIMD_geometry%coords(:,j,cell_id) 
+						r_coords(:) = r_coords(:) + SWE_PATCH_geometry%coords(:,j,cell_id) 
 					end do
 					r_coords = r_coords / 3
 					dest_element%cell%data_pers%B(i) = get_bathymetry(section, samoa_barycentric_to_world_point(dest_element%transform_data, r_coords), section%r_time, dest_element%cell%geometry%i_depth / 2_GRID_SI)
@@ -254,9 +254,9 @@
 
 				! find out children order based on geometry
 				if ((refinement_path(1) == 1 .and. dest_element%cell%geometry%i_plotter_type>0) .or. (refinement_path(1) == 2 .and. dest_element%cell%geometry%i_plotter_type<0)) then
-					child = SWE_SIMD_GEOMETRY%first_child
+					child = SWE_PATCH_GEOMETRY%first_child
 				else
-					child = SWE_SIMD_GEOMETRY%second_child
+					child = SWE_PATCH_GEOMETRY%second_child
 				end if
 
 				associate (data => dest_element%cell%data_pers)

@@ -2,9 +2,9 @@
 
 #include "Compilation_control.f90"
 
-MODULE SWE_SIMD_Solvers
+MODULE SWE_PATCH_Solvers
 	use Samoa_swe
-	use SWE_SIMD
+	use SWE_PATCH
 	
 	contains
 
@@ -68,7 +68,7 @@ MODULE SWE_SIMD_Solvers
 
 		!TODO: clear this
 		! compute transformations matrices
-! 		associate(geom => SWE_SIMD_geometry)
+! 		associate(geom => SWE_PATCH_geometry)
 ! 			do i=1,_SWE_PATCH_NUM_EDGES 
 ! 				transform_matrices(i,1,:) = normals(:,geom%edges_orientation(i))
 ! 				transform_matrices(i,2,:) = [ - normals(2,geom%edges_orientation(i)), normals(1,geom%edges_orientation(i)) ]
@@ -349,7 +349,7 @@ MODULE SWE_SIMD_Solvers
 		!DIR$ ASSUME_ALIGNED waveSpeeds: 64
 
 		! TODO: clear this
-! 		associate(geom => SWE_SIMD_geometry)
+! 		associate(geom => SWE_PATCH_geometry)
 ! 			! compute transformations matrices
 ! 			do i=1,_SWE_PATCH_NUM_EDGES
 ! 				transform_matrices(i,1,:) = normals(:,geom%edges_orientation(i))

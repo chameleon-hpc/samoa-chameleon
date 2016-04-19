@@ -11,7 +11,7 @@
 		use SWE_euler_timestep
 		use SWE_initialize
 #		if defined(_SWE_PATCH)
-			use SWE_SIMD
+			use SWE_PATCH
 #		endif
 
 		use Samoa_swe
@@ -117,7 +117,7 @@
 					
 						r_coords = [0_GRID_SR, 0_GRID_SR]
 						do j=1,3
-							r_coords(:) = r_coords(:) + SWE_SIMD_geometry%coords(:,j,cell_id) 
+							r_coords(:) = r_coords(:) + SWE_PATCH_geometry%coords(:,j,cell_id) 
 						end do
 						r_coords = r_coords / 3
 						db(i) = -element%cell%data_pers%B(i) + get_bathymetry(section, samoa_barycentric_to_world_point(element%transform_data, r_coords), section%r_time, element%cell%geometry%i_depth / 2_GRID_SI)

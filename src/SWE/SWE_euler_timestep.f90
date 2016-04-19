@@ -12,8 +12,8 @@
 		use Samoa_swe
 		use c_bind_riemannsolvers
 #		if defined(_SWE_PATCH)
-			use SWE_SIMD
-			use SWE_SIMD_Solvers
+			use SWE_PATCH
+			use SWE_PATCH_Solvers
 #		endif
 		implicit none
 
@@ -402,7 +402,7 @@
 					update3=tmp
 				end if
 				
-				associate(data => element%cell%data_pers, geom => SWE_SIMD_geometry)
+				associate(data => element%cell%data_pers, geom => SWE_PATCH_geometry)
 				
 					! copy cell values to arrays edges_a and edges_b
 					! obs: cells with id > number of cells are actually ghost cells and come from edges "updates"

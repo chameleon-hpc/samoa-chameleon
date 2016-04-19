@@ -2,11 +2,11 @@
 
 #include "Compilation_control.f90"
 
-MODULE SWE_SIMD
+MODULE SWE_PATCH
 
 	use SFC_edge_traversal
 
-	PUBLIC SWE_SIMD_geometry
+	PUBLIC SWE_PATCH_geometry
 
 	TYPE t_SWE_PATCH_geometry
 	
@@ -33,18 +33,18 @@ MODULE SWE_SIMD
 
 		contains
 		
-		procedure, pass :: init => SWE_SIMD_geometry_init
-		procedure, pass :: compute_horizontal_internal_edges => SWE_SIMD_compute_horizontal_internal_edges
-		procedure, pass :: compute_diagonal_internal_edges => SWE_SIMD_compute_diagonal_internal_edges
-		procedure, pass :: compute_ghost_edges => SWE_SIMD_compute_ghost_edges
-		procedure, pass :: compute_coords => SWE_SIMD_compute_coords
-		procedure, pass :: compute_transform => SWE_SIMD_compute_transform
-		procedure, pass :: compute_adaptivity => SWE_SIMD_compute_adaptivity
+		procedure, pass :: init => SWE_PATCH_geometry_init
+		procedure, pass :: compute_horizontal_internal_edges => SWE_PATCH_compute_horizontal_internal_edges
+		procedure, pass :: compute_diagonal_internal_edges => SWE_PATCH_compute_diagonal_internal_edges
+		procedure, pass :: compute_ghost_edges => SWE_PATCH_compute_ghost_edges
+		procedure, pass :: compute_coords => SWE_PATCH_compute_coords
+		procedure, pass :: compute_transform => SWE_PATCH_compute_transform
+		procedure, pass :: compute_adaptivity => SWE_PATCH_compute_adaptivity
 		procedure, pass	:: cell_in_which_the_point_lies
 
 	END TYPE
 
-	type(t_SWE_PATCH_geometry) SWE_SIMD_geometry
+	type(t_SWE_PATCH_geometry) SWE_PATCH_geometry
 
 	contains 
 	
@@ -52,8 +52,8 @@ MODULE SWE_SIMD
 	! Procedures/functions for t_SWE_PATCH_geometry
 	!*****************************************************************
 	
-	! procedure SWE_SIMD_geometry%init(d)
-	SUBROUTINE SWE_SIMD_geometry_init(geom, d)
+	! procedure SWE_PATCH_geometry%init(d)
+	SUBROUTINE SWE_PATCH_geometry_init(geom, d)
 		CLASS(t_SWE_PATCH_geometry), INTENT(INOUT) :: geom
 		INTEGER, INTENT(IN) :: d
 		
@@ -85,7 +85,7 @@ MODULE SWE_SIMD
 	
 	END SUBROUTINE	
 
-	SUBROUTINE SWE_SIMD_compute_horizontal_internal_edges(geom,edges_computed)
+	SUBROUTINE SWE_PATCH_compute_horizontal_internal_edges(geom,edges_computed)
 		IMPLICIT NONE
 		CLASS(t_SWE_PATCH_geometry), INTENT(INOUT) :: geom
 		INTEGER, INTENT(INOUT) :: edges_computed
@@ -111,7 +111,7 @@ MODULE SWE_SIMD
 		END DO		
 	END SUBROUTINE
 	
-	SUBROUTINE SWE_SIMD_compute_diagonal_internal_edges(geom,edges_computed)
+	SUBROUTINE SWE_PATCH_compute_diagonal_internal_edges(geom,edges_computed)
 		IMPLICIT NONE
 		CLASS(t_SWE_PATCH_geometry), INTENT(INOUT) :: geom
 		INTEGER, INTENT (INOUT) :: edges_computed
@@ -147,7 +147,7 @@ MODULE SWE_SIMD
 		end if
 	end function
 	
-	SUBROUTINE SWE_SIMD_compute_ghost_edges(geom,edges_computed)
+	SUBROUTINE SWE_PATCH_compute_ghost_edges(geom,edges_computed)
 		IMPLICIT NONE
 		CLASS(t_SWE_PATCH_geometry), INTENT(INOUT) :: geom
 		INTEGER, INTENT (INOUT) :: edges_computed
@@ -192,7 +192,7 @@ MODULE SWE_SIMD
 	! computes the coordinates of the vertices in a local [0,1]x[0,1] representation. 
 	! The (patch) triangle legs lie on the x and y axes. 
 	! The output traversals typically apply transformations on these coordinates.
-	SUBROUTINE SWE_SIMD_compute_coords(geom)
+	SUBROUTINE SWE_PATCH_compute_coords(geom)
 		IMPLICIT NONE
 		CLASS(t_SWE_PATCH_geometry), INTENT(INOUT) :: geom
 
@@ -244,7 +244,7 @@ MODULE SWE_SIMD
 	
 	END SUBROUTINE
 	
-	SUBROUTINE SWE_SIMD_compute_transform(geom)
+	SUBROUTINE SWE_PATCH_compute_transform(geom)
 		IMPLICIT NONE
 		CLASS(t_SWE_PATCH_geometry), INTENT(INOUT) :: geom
 
@@ -276,7 +276,7 @@ MODULE SWE_SIMD
 	END SUBROUTINE
 	
     ! finds out relationships between cells on refinement and coarsening operations
-	SUBROUTINE SWE_SIMD_compute_adaptivity(geom)
+	SUBROUTINE SWE_PATCH_compute_adaptivity(geom)
 		IMPLICIT NONE
 		CLASS(t_SWE_PATCH_geometry), INTENT(INOUT) 		:: geom
 		integer											:: i, j

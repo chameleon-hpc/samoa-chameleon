@@ -19,7 +19,7 @@
 		use SWE_point_output
 		use SWE_euler_timestep
 #		if defined(_SWE_PATCH)
-			use SWE_SIMD
+			use SWE_PATCH
 #		endif
 
 		use Samoa_swe
@@ -63,7 +63,7 @@
 			call date_and_time(s_date, s_time)
 			
 #if defined (_SWE_PATCH)
-			call SWE_SIMD_geometry%init(_SWE_PATCH_ORDER)
+			call SWE_PATCH_geometry%init(_SWE_PATCH_ORDER)
 #endif
 
 #           if defined(_MPI)

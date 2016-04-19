@@ -15,7 +15,7 @@
 		use SWE_euler_timestep
 		
 #		if defined(_SWE_PATCH)
-			use SWE_SIMD
+			use SWE_PATCH
 #		endif
 
 		implicit none
@@ -315,7 +315,7 @@
 					traversal%cell_data(traversal%i_cell_data_index)%refinement = element%cell%geometry%refinement
 
 					forall (i = 1 : 3)
-						traversal%point_data(traversal%i_point_data_index + i - 1)%coords = cfg%scaling * samoa_barycentric_to_world_point(element%transform_data, SWE_SIMD_geometry%coords(:,i, j)) + cfg%offset
+						traversal%point_data(traversal%i_point_data_index + i - 1)%coords = cfg%scaling * samoa_barycentric_to_world_point(element%transform_data, SWE_PATCH_geometry%coords(:,i, j)) + cfg%offset
 					end forall
 
 					traversal%i_point_data_index = traversal%i_point_data_index + 3

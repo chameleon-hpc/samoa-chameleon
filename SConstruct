@@ -46,6 +46,8 @@ vars.AddVariables(
                 allowed_values=('lf', 'lfbath', 'llf', 'llfbath', 'fwave', 'aug_riemann', 'hlle')
               ),
 
+  ( 'swe_dg_order', 'order of DG method, 0=simple FVM', 0),
+
   ( 'swe_patch_order', 'order of triangular patches, 1=no_patches', 1),
   
   BoolVariable( 'swe_patch_solver', 'use patch solver? if False, a original non-vectorizable geoclaw implementation will be used', False),
@@ -231,6 +233,14 @@ elif env['swe_solver'] == 'aug_riemann':
   env['F90FLAGS'] += ' -D_SWE_AUG_RIEMANN'
 elif env['swe_solver'] == 'hlle':
   env['F90FLAGS'] += ' -D_SWE_HLLE'
+  
+# DG options for SWE scenario
+if (int(env['swe_dg_order'])) > 0:
+	env['F90FLAGS'] += ' -D_SWE_DG'
+	env['F90FLAGS'] += ' -D_SWE_DG_ORDER=' + env['swe_dg_order']
+	if (int(env['swe_patch_order'])) > 1:
+		print "WARNING: DG options will override set patch options"
+	env['swe_patch_order'] = str(2* int(env['swe_dg_order']) + 1)
 
 #vectorization options for SWE scenario
 if env['no_vec']: 

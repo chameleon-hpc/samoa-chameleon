@@ -135,16 +135,30 @@ MODULE SWE_PATCH
 	integer function isPerfectSquare(n)
 		IMPLICIT NONE
 		integer , intent (IN) :: n
-		real :: root
+		integer :: i
+		!real :: root
 
-		!if the square root has no decimal portion
-		!test this with 'if sqrt == truncated decimal sqrt'
-		root = sqrt(real(n))
-		if (root == aint(root)) then
-			isPerfectSquare = 1
-		else
-			isPerfectSquare = 0
-		end if
+		! now using a brute-force approach, since older version (see below) was leading to precision errors in some architectures.
+		! (performance decrease is insignificant)
+
+		isPerfectSquare = 0
+		i = 1
+		do while (i*i <= n)
+			if (i*i == n) then
+				isPerfectSquare = 1
+			endif
+		end do
+
+		! old version:
+
+		!!!if the square root has no decimal portion
+		!!!test this with 'if sqrt == truncated decimal sqrt'
+		!root = sqrt(real(n))
+		!if (root == aint(root)) then
+		!	isPerfectSquare = 1
+		!else
+		!	isPerfectSquare = 0
+		!end if
 	end function
 	
 	SUBROUTINE SWE_PATCH_compute_ghost_edges(geom,edges_computed)

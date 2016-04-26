@@ -265,7 +265,7 @@
 
 
 #			if defined(_ASAGI)
-                xs = cfg%scaling * x + cfg%offset
+                xs(1:2) = cfg%scaling * x + cfg%offset
 
 #               if defined(_ASAGI_TIMING)
                     section%stats%r_asagi_time = section%stats%r_asagi_time - get_wtime()

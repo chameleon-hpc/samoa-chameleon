@@ -147,6 +147,7 @@ MODULE SWE_PATCH
 			if (i*i == n) then
 				isPerfectSquare = 1
 			endif
+			i = i + 1
 		end do
 
 		! old version:

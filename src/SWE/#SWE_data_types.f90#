@@ -225,6 +225,8 @@
 !                   HV_FV=matmul(phi,HV_DG)*ref_triangle_size_inv
                    !      dofs%B=matmul(phi,dofs%B_DG)*ref_triangle_size_inv
 
+                    
+
                    fv_temp=matmul(phi,q)*ref_triangle_size_inv
                    
                    dofs%H=fv_temp(:,1)

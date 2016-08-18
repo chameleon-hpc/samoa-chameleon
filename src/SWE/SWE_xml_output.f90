@@ -76,6 +76,10 @@
                 _log_write(1, '(A, I0)') " SWE: output step: ", traversal%i_output_iteration
             end if
 
+               ! if(traversal%i_output_iteration .eq. 1) then
+               !    stop
+               ! end if
+
             call scatter(traversal%s_file_stamp, traversal%children%s_file_stamp)
             call scatter(traversal%i_output_iteration, traversal%children%i_output_iteration)
 		end subroutine
@@ -134,7 +138,8 @@
                             inquire(file = s_file_name, exist = l_exists)
 
                             if (l_exists) then
-                                write(s_file_name, "(A)") trim(s_file_name(scan(s_file_name, "/\", .true.) + 1 : len(s_file_name)))
+                                write(s_file_name, "(A)") trim(s_file_name(scan(s_file_name, "/\&
+" , .true.) + 1 : len(s_file_name)))
                                 e_io = vtk%VTK_GEO_XML(s_file_name)
                             else
                                 exit
@@ -303,7 +308,25 @@
 #			if defined(_SWE_PATCH)
 				type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE):: Q
 				integer											:: j, row, col, cell_id
-				
+# if defined(_SWE_DG)				
+                                real(kind=GRID_SR) :: normalY(2),normalX(2),temp_hu
+                                !rotate flux
+!                                print*,"output start"
+                                call element%cell%data_pers%convert_dg_to_fv()
+
+                                ! normalY=ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%edges(1)%normal
+                                ! normalX=ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%edges(3)%normal
+
+                                ! normalY= -1.0_GRID_SR*normalY                         
+                                ! normalX= -1.0_GRID_SR*normalX
+
+                                ! do i=1,_SWE_PATCH_ORDER_SQUARE
+                                !    temp_hu =  element%cell%data_pers%HU(i)*normalY(1)+ element%cell%data_pers%HV(i)*normalX(1)
+                                !    element%cell%data_pers%HV(i) =  element%cell%data_pers%HU(i)*normalY(2)+ element%cell%data_pers%HV(i)*normalX(2)
+                                !    element%cell%data_pers%HU(i) = temp_hu
+                                ! end do
+# endif
+
 				row=1
 				col=1
 
@@ -394,6 +417,7 @@
 
 				traversal%i_cell_data_index = traversal%i_cell_data_index + 1
 #			endif
+!                                print*,"output done"
 		end subroutine
 	END MODULE
 #endif

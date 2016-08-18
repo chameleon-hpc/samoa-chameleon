@@ -115,6 +115,16 @@
 				dest_element%cell%data_pers%HU = src_element%cell%data_pers%HU
 				dest_element%cell%data_pers%HV = src_element%cell%data_pers%HV
 				dest_element%cell%data_pers%B = src_element%cell%data_pers%B
+
+!                                call dest_element%cell%data_pers%convert_fv_to_dg()
+!                                call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry()
+!                                print*,"predict Transver"
+!                                call dg_predictor(dest_element,section%r_dt)
+
+				dest_element%cell%data_pers%Q_DG = src_element%cell%data_pers%Q_DG
+				dest_element%cell%data_pers%Q_DG_P = src_element%cell%data_pers%Q_DG_P
+
+
 #			else
 				call gv_Q%read( src_element%t_element_base, Q)
 				call gv_Q%write( dest_element%t_element_base, Q)
@@ -205,8 +215,13 @@
 						row = row + 1
 					end if
 				end do
+    call dest_element%cell%data_pers%convert_fv_to_dg()
+    call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry()
+!    print*,"predict refine"
+    call dg_predictor(dest_element,section%r_dt)
 
-				
+
+    
 #			else
 			
 			
@@ -287,6 +302,11 @@
 					end if
 
 				end associate
+                                
+                                call dest_element%cell%data_pers%convert_fv_to_dg()
+                                call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry()
+!                                print*,"predict coarsen"
+                                call dg_predictor(dest_element,section%r_dt)
 
 
 #			else

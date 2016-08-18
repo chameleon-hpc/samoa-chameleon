@@ -1,0 +1,2 @@
+integer, Parameter :: mue_lu_pivot(_SWE_DG_DOFS+1)= (/&
+         7,         7,         3,         7,         7,         6,         7/)

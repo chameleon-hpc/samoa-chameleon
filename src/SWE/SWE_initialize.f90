@@ -36,8 +36,8 @@
 #		define _GT_PRE_TRAVERSAL_GRID_OP		pre_traversal_grid_op
 #		define _GT_POST_TRAVERSAL_GRID_OP		post_traversal_grid_op
 #		define _GT_ELEMENT_OP					element_op
-
 #		define _GT_CELL_TO_EDGE_OP				cell_to_edge_op
+
 
 #		include "SFC_generic_traversal_ringbuffer.f90"
 
@@ -47,8 +47,13 @@
 
 			grid%r_time = 0.0_GRID_SR
 			grid%r_dt = 0.0_GRID_SR
+!			grid%r_dt = 1.0e-10_GRID_SR
+
 			grid%d_max = cfg%i_max_depth
 			grid%u_max = sqrt(g)
+
+!                        cfg%courant_number=1/Real(2*_SWE_DG_ORDER+1,GRID_SR)
+
 
             call scatter(grid%r_time, grid%sections%elements_alloc%r_time)
 		end subroutine
@@ -80,9 +85,11 @@
 			type(t_swe_init_traversal), intent(inout)				:: traversal
 			type(t_grid_section), intent(inout)						:: section
 			type(t_element_base), intent(inout)						:: element
-			
+			integer::i
+
 #			if defined(_SWE_PATCH)
 				type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE)	:: Q
+                                real(kind=grid_sr), dimension(_SWE_PATCH_ORDER_SQUARE,3)	:: Q_temp
 #			else
 				type(t_state), dimension(_SWE_CELL_SIZE)			:: Q
 #			endif
@@ -94,9 +101,28 @@
 				element%cell%data_pers%HU = Q(:)%p(1)
 				element%cell%data_pers%HV = Q(:)%p(2)
 				element%cell%data_pers%B = Q(:)%b
+                               
 #			else
 				call gv_Q%write(element, Q)
 #			endif
+
+#                       if defined(_SWE_DG)
+!                                print *, "convert"
+                                call element%cell%data_pers%convert_fv_to_dg()
+                                call element%cell%data_pers%convert_fv_to_dg_bathymetry()
+!                                print *, "convered"
+!                                print *,"predict initialize"
+
+                                call dg_predictor(element,0.0_GRID_SR)
+
+!                                print *,"predicted initialize"
+
+!                                do i=1,_SWE_DG_DOFS*(_SWE_DG_ORDER+1)
+!                                print *,"ini_pred h",element%cell%data_pers%Q_DG_P(i)%h
+!                                print *,"ini_pred p",element%cell%data_pers%Q_DG_P(i)%p
+!                                end do
+#                       endif
+
 
 		end subroutine
 
@@ -237,20 +263,47 @@
 			type(t_dof_state)									:: Q						!< initial state
 
 			real (kind = GRID_SR), dimension(2), parameter		:: dam_center = [0.5, 0.5]
+
 			real (kind = GRID_SR), parameter					:: dam_radius = 0.2
-			real (kind = GRID_SR), parameter					:: outer_height = 0.0
-			real (kind = GRID_SR), parameter					:: inner_height = 10.0
-            real (kind = GRID_SR)                               :: xs(2)
+			real (kind = GRID_SR), parameter					:: outer_height = 10.0
+                        real (kind = GRID_SR), parameter					:: inner_height = 10.0
+                        real (kind = GRID_SR)                               :: xs(2)
 
             xs = cfg%scaling * x + cfg%offset
 
 #			if defined(_ASAGI)
 				Q%h = 0.0_GRID_SR
 #			else
-				Q%h = 0.5_GRID_SR * (inner_height + outer_height) + (inner_height - outer_height) * sign(0.5_GRID_SR, (dam_radius ** 2) - dot_product(xs - dam_center, xs - dam_center))
+
+!                        Q%h = inner_height
+
+!                       Q%h=xs(2)*inner_height+outer_height
+
+                         ! if (xs(2) < dam_center(2)) then
+                         !    Q%h=inner_height
+                         ! else
+                         !    Q%h=outer_height
+                         ! end if
+
+!                       if(NORM2(xs-dam_center) < dam_radius) then
+!                           Q%p = (abs(1- (xs-dam_center)/dam_radius) ) *inner_height
+!                           print *,Q%p
+!                        else
+!                           Q%p=0
+!                        end if
+                        
+!                        Q%h = 0.5_GRID_SR * (inner_height + outer_height) + (inner_height - outer_height) * sign(0.5_GRID_SR, (dam_radius ** 2) - dot_product(xs - dam_center, xs - dam_center))
 #			endif
 
-			Q%p = 0.0_GRID_SR
+!gauss kurve
+                          if(NORM2(xs-dam_center)<dam_radius) then
+                             Q%h=1.0q0/(sqrt(2*3.1415q0))*exp((NORM2(xs-dam_center)/dam_radius*1.5q0)**2)*(1-NORM2(xs-dam_center)/dam_radius)*inner_height+outer_height
+                             else
+                                Q%h = outer_height
+                          end if
+
+                          Q%p = 0.0_GRID_SR
+
 		end function
 
 		function get_bathymetry(section, x, t, lod) result(bathymetry)
@@ -296,13 +349,29 @@
 #			else
                 real (kind = GRID_SR), dimension(2), parameter		:: dam_center = [0.5, 0.5]
                 real (kind = GRID_SR), parameter					:: dam_radius = 0.1
-                real (kind = GRID_SR), parameter					:: outer_height = -100.0
+                real (kind = GRID_SR), parameter					:: outer_height = -5.0
                 real (kind = GRID_SR), parameter					:: inner_height = -5.0
+!                real (kind = GRID_SR), parameter					:: inner_height = -500.0
 
                 xs(1:2) = cfg%scaling * x + cfg%offset
 				bathymetry = 0.5_GRID_SR * (inner_height + outer_height) + (inner_height - outer_height) * sign(0.5_GRID_SR, (dam_radius ** 2) - dot_product(xs(1:2) - dam_center, xs(1:2) - dam_center))
 #			endif
 		end function
+  
+! #if defined(_SWE_DG)
+!   function cell_to_edge_op_ini(element, edge) result(rep)
+!     type(t_element_base), intent(in)						:: element
+!     type(t_edge_data), intent(in)						    :: edge
+!     type(num_cell_rep)										:: rep
+!     integer(kind = GRID_SI)									:: i, j, i_edge
+!     real(kind = GRID_SR), dimension(2, _SWE_EDGE_SIZE)		:: dof_pos
+!     real(kind = GRID_SR), dimension(2, 3), parameter		:: edge_offsets = reshape([0.0, 0.0, 0.0, 1.0, 1.0, 0.0], [2, 3])
+!     real(kind = GRID_SR), dimension(2, 3), parameter		:: edge_vectors = reshape([0.0, 1.0, 1.0, -1.0, -1.0, 0.0], [2, 3])
+!     rep%Q_DG_P(:)=t_dof_state(0,(/0,0/))
+
+!   end function cell_to_edge_op_ini
+! #endif
+   
 	END MODULE
 #endif
 

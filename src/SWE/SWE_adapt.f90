@@ -14,11 +14,18 @@
 		use Tools_noise
 		use SWE_initialize_bathymetry
 		use SWE_euler_timestep
+#       if defined (_SWE_PATCH)
+            use SWE_PATCH
+#       endif
 
 		implicit none
 
         type num_traversal_data
-			type(t_state), dimension(_SWE_CELL_SIZE, 2)							:: Q_in
+#           if defined (_SWE_PATCH)
+                type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE, 2)                    :: Q_in
+#           else
+                type(t_state), dimension(_SWE_CELL_SIZE, 2)                         :: Q_in
+#           endif
         end type
 
 		type(t_gv_Q)							:: gv_Q
@@ -98,10 +105,22 @@
 			type(t_traversal_element), intent(inout)									:: src_element
 			type(t_traversal_element), intent(inout)									:: dest_element
 
-			type(t_state), dimension(_SWE_CELL_SIZE)									:: Q
+#           if defined(_SWE_PATCH)
+                type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE)                       :: Q
+                real (kind = GRID_SR), dimension(_SWE_PATCH_ORDER_SQUARE)               :: H, HU, HV, B
+#           else
+                type(t_state), dimension(_SWE_CELL_SIZE)                                :: Q
+#           endif
 
-			call gv_Q%read( src_element%t_element_base, Q)
-			call gv_Q%write( dest_element%t_element_base, Q)
+#           if defined (_SWE_PATCH)
+                dest_element%cell%data_pers%H = src_element%cell%data_pers%H
+                dest_element%cell%data_pers%HU = src_element%cell%data_pers%HU
+                dest_element%cell%data_pers%HV = src_element%cell%data_pers%HV
+                dest_element%cell%data_pers%B = src_element%cell%data_pers%B
+#           else
+                call gv_Q%read( src_element%t_element_base, Q)
+                call gv_Q%write( dest_element%t_element_base, Q)
+#           endif
 		end subroutine
 
 		subroutine refine_op(traversal, section, src_element, dest_element, refinement_path)
@@ -110,12 +129,61 @@
 			type(t_traversal_element), intent(inout)									:: src_element
 			type(t_traversal_element), intent(inout)									:: dest_element
 			integer, dimension(:), intent(in)											:: refinement_path
-
-			type(t_state), dimension(_SWE_CELL_SIZE)									:: Q_in
-			type(t_state), dimension(_SWE_CELL_SIZE, 2)									:: Q_out
-
+			
+#           if defined(_SWE_PATCH)
+                real (kind=GRID_SR), dimension(_SWE_PATCH_ORDER_SQUARE)                     :: H_in, HU_in, HV_in
+                real (kind=GRID_SR), dimension(_SWE_PATCH_ORDER_SQUARE)                     :: H_out, HU_out, HV_out, B_out
+                integer                                                                     :: i_plotter_type, j, row, col, cell_id
+                integer, DIMENSION(_SWE_PATCH_ORDER_SQUARE,2)                               :: child
+                real (kind = GRID_SR), DIMENSION(2)                                         :: r_coords     !< cell coords within patch
+#           else
+                type(t_state), dimension(_SWE_CELL_SIZE)                                    :: Q_in
+                type(t_state), dimension(_SWE_CELL_SIZE, 2)                                 :: Q_out
+#           endif
 			integer					:: i
-
+			
+#           if defined (_SWE_PATCH)
+                H_in = src_element%cell%data_pers%H
+                HU_in = src_element%cell%data_pers%HU
+                HV_in = src_element%cell%data_pers%HV
+                i_plotter_type = src_element%cell%geometry%i_plotter_type
+                
+                do i=1, size(refinement_path)
+                    ! compute 1st or 2nd child depending on orientation and refinement_path(i)
+                    ! and store it in output arrays.
+                    ! Store it in input arrays for next refinement.
+                    
+                    ! decide which child is being computed (first = left to hypot, second = right to hypot.)
+                    if ( (refinement_path(i) == 1 .and. i_plotter_type>0) .or. (refinement_path(i) == 2 .and. i_plotter_type<0)) then
+                        child = SWE_PATCH_GEOMETRY%first_child
+                    else
+                        child = SWE_PATCH_GEOMETRY%second_child
+                    end if
+                    
+                    ! the child patch values are always averages of two values from the parent patch
+                    do j=1, _SWE_PATCH_ORDER_SQUARE
+                        H_out(j) = 0.5*( H_in(child(j,1)) + H_in(child(j,2)) )
+                        HU_out(j) = 0.5*( HU_in(child(j,1)) + HU_in(child(j,2)) )
+                        HV_out(j) = 0.5*( HV_in(child(j,1)) + HV_in(child(j,2)) )
+                    end do
+                    
+                    ! refined patches will have inverse orientation
+                    i_plotter_type = -1 * i_plotter_type
+                    
+                    ! copy to input arrays for next iteration
+                    H_in = H_out
+                    HU_in = HU_out
+                    HV_in = HV_out
+                end do
+                
+                ! store results in dest_element
+                dest_element%cell%data_pers%H = H_out
+                dest_element%cell%data_pers%HU = HU_out
+                dest_element%cell%data_pers%HV = HV_out
+                
+                ! get bathymetry
+                dest_element%cell%data_pers%B = get_bathymetry_at_patch(section, dest_element%t_element_base, section%r_time)
+#           else
 			call gv_Q%read( src_element%t_element_base, Q_in)
 
             !convert momentum to velocity
@@ -135,6 +203,7 @@
             Q_in%b = get_bathymetry_at_element(section, dest_element%t_element_base, section%r_time)
 
 			call gv_Q%write( dest_element%t_element_base, Q_in)
+#           endif
 		end subroutine
 
 		subroutine coarsen_op(traversal, section, src_element, dest_element, refinement_path)

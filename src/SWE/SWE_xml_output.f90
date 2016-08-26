@@ -14,6 +14,10 @@
 		use Samoa_swe
 		use SWE_euler_timestep
 
+#       if defined(_SWE_PATCH)
+            use SWE_PATCH
+#       endif
+		
 		implicit none
 
 		!> Output point data
@@ -29,6 +33,10 @@
 			integer (kind = GRID_SI)								:: section_index
 			integer (kind = BYTE)									:: depth
 			integer (kind = BYTE)									:: refinement
+            integer (kind = BYTE)                                   :: i_plotter_type
+#           if defined(_SWE_PATCH)          
+                integer (kind = BYTE)                               :: id_in_patch
+#           endif
 		end type
 
         type num_traversal_data
@@ -116,6 +124,10 @@
                         e_io = vtk%VTK_VAR_XML('section index', 1_GRID_SI, 1)
                         e_io = vtk%VTK_VAR_XML('depth', 1_1, 1)
                         e_io = vtk%VTK_VAR_XML('refinement flag', 1_1, 1)
+                        e_io = vtk%VTK_VAR_XML('i_plotter_type', 1_1, 1)
+#                       if defined(_SWE_PATCH)
+                            e_io = vtk%VTK_VAR_XML('id_in_patch', 1_1, 1)
+#                       endif
                     e_io = vtk%VTK_DAT_XML('pcell', 'CLOSE')
 
                     e_io = vtk%VTK_GEO_XML(1.0_GRID_SR)
@@ -149,7 +161,11 @@
 			integer (kind = GRID_SI)									:: i_error, i_cells, i_points
 
             grid_info = section%get_info()
-			i_cells = grid_info%i_cells
+#           if defined (_SWE_PATCH)
+                i_cells = grid_info%i_cells * _SWE_PATCH_ORDER_SQUARE
+#           else
+                i_cells = grid_info%i_cells
+#           endif
 
 			if (i_element_order > 1) then
 				i_points = 6 * i_cells
@@ -180,8 +196,11 @@
             character (len = 256)							            :: s_file_name
 
             grid_info = section%get_info()
-			i_cells = grid_info%i_cells
-
+#           if defined (_SWE_PATCH)
+                i_cells = grid_info%i_cells * _SWE_PATCH_ORDER_SQUARE
+#           else
+                i_cells = grid_info%i_cells
+#           endif
 			if (i_element_order > 1) then
 				i_points = 6 * i_cells
 				allocate(i_connectivity(6 * i_cells), stat = i_error); assert_eq(i_error, 0)
@@ -245,6 +264,10 @@
                         e_io = vtk%VTK_VAR_XML(i_cells, 'section index', traversal%cell_data%section_index)
                         e_io = vtk%VTK_VAR_XML(i_cells, 'depth', traversal%cell_data%depth)
                         e_io = vtk%VTK_VAR_XML(i_cells, 'refinement flag', traversal%cell_data%refinement)
+                        e_io = vtk%VTK_VAR_XML(i_cells, 'i_plotter_type', traversal%cell_data%i_plotter_type)
+#                       if defined(_SWE_PATCH)                        
+                            e_io = vtk%VTK_VAR_XML(i_cells, 'id_in_patch', traversal%cell_data%id_in_patch)
+#                       endif
                     e_io = vtk%VTK_DAT_XML('cell', 'CLOSE')
 
                     e_io = vtk%VTK_GEO_XML()
@@ -278,7 +301,50 @@
 			real (kind = GRID_SR), parameter, dimension(2, 6)	:: r_test_points_forward = reshape([1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.5, 0.5, 0.0, 0.5, 0.5 ], [2, 6 ])
 			real (kind = GRID_SR), parameter, dimension(2, 6)	:: r_test_points_backward = reshape([0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.5, 0.0, 0.0, 0.5, 0.5, 0.5 ], [2, 6 ])
 			real (kind = GRID_SR), parameter, dimension(2)		:: r_test_point0 = [1.0_GRID_SR/3.0_GRID_SR, 1.0_GRID_SR/3.0_GRID_SR]
+#           if defined(_SWE_PATCH)
+                type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE):: Q
+                integer                                         :: j, row, col, cell_id
+                
+                row=1
+                col=1
 
+                do j=1,_SWE_PATCH_ORDER * _SWE_PATCH_ORDER
+                    traversal%cell_data(traversal%i_cell_data_index)%rank = rank_MPI
+                    traversal%cell_data(traversal%i_cell_data_index)%section_index = section%index
+                    traversal%cell_data(traversal%i_cell_data_index)%depth = element%cell%geometry%i_depth
+                    traversal%cell_data(traversal%i_cell_data_index)%i_plotter_type = element%cell%geometry%i_plotter_type
+                    traversal%cell_data(traversal%i_cell_data_index)%refinement = element%cell%geometry%refinement
+
+                    do i=1,3
+                        traversal%point_data(traversal%i_point_data_index + i - 1)%coords = cfg%scaling * samoa_barycentric_to_world_point(element%transform_data, SWE_PATCH_geometry%coords(:,i, j)) + cfg%offset
+                    end do
+
+                    traversal%i_point_data_index = traversal%i_point_data_index + 3
+                    
+                    ! if orientation is backwards, the plotter uses a transformation that mirrors the cell...
+                    ! this simple change solves the problem :)
+                    if (element%cell%geometry%i_plotter_type > 0) then 
+                        cell_id = j
+                    else
+                        cell_id = (row-1)*(row-1) + 2 * row - col
+                    end if
+                    traversal%cell_data(traversal%i_cell_data_index)%id_in_patch = cell_id
+
+                    traversal%cell_data(traversal%i_cell_data_index)%Q%h = element%cell%data_pers%H(cell_id)
+                    traversal%cell_data(traversal%i_cell_data_index)%Q%b = element%cell%data_pers%B(cell_id)
+                    traversal%cell_data(traversal%i_cell_data_index)%Q%p(1) = element%cell%data_pers%HU(cell_id)
+                    traversal%cell_data(traversal%i_cell_data_index)%Q%p(2) = element%cell%data_pers%HV(cell_id)
+                    
+                    ! prepare for next cell
+                    traversal%i_cell_data_index = traversal%i_cell_data_index + 1
+                    col = col + 1
+                    if (col == 2*row) then
+                        col = 1
+                        row = row + 1
+                    end if
+                end do
+
+#           else
 			type(t_state), dimension(_SWE_CELL_SIZE)			:: Q
 			type(t_state), dimension(6)							:: Q_test
 
@@ -287,6 +353,7 @@
             traversal%cell_data(traversal%i_cell_data_index)%rank = rank_MPI
             traversal%cell_data(traversal%i_cell_data_index)%section_index = section%index
 			traversal%cell_data(traversal%i_cell_data_index)%depth = element%cell%geometry%i_depth
+            traversal%cell_data(traversal%i_cell_data_index)%i_plotter_type = element%cell%geometry%i_plotter_type
 			traversal%cell_data(traversal%i_cell_data_index)%refinement = element%cell%geometry%refinement
 
 			select case (i_element_order)
@@ -350,6 +417,7 @@
 			end select
 
 			traversal%i_cell_data_index = traversal%i_cell_data_index + 1
+#           endif
 		end subroutine
 	END MODULE
 #endif

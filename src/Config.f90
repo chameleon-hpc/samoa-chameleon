@@ -523,6 +523,8 @@ module config
             _log_write(0, '(" Scenario: Flux solver: ", A)')  "F-Wave"
 #       elif defined(_AUG_RIEMANN_FLUX)
             _log_write(0, '(" Scenario: Flux solver: ", A)')  "Augmented Riemann"
+#       elif defined(_HLLE_FLUX)
+            _log_write(0, '(" Scenario: Flux solver: ", A)')  "HLLE"
 #       else
 #           error Invalid flux solver!
 #       endif

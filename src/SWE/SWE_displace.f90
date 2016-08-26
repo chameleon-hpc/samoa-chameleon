@@ -10,7 +10,9 @@
 		use SFC_edge_traversal
 		use SWE_euler_timestep
 		use SWE_initialize_bathymetry
-
+#       if defined(_SWE_PATCH)
+            use SWE_PATCH
+#       endif
 		use Samoa_swe
 
 		implicit none
@@ -90,14 +92,26 @@
 			type(t_grid_section), intent(inout)							:: section
 			type(t_element_base), intent(inout)						    :: element
 			type(t_state), intent(inout)	                            :: Q(:)
-
-			real (kind = GRID_SR)		                                :: db(_SWE_CELL_SIZE)
+            integer (kind = GRID_SI)                                    :: i
+#           if defined(_SWE_PATCH)
+                real (kind = GRID_SR), dimension(_SWE_PATCH_ORDER_SQUARE)        :: db
+                real (kind = GRID_SR), DIMENSION(2)                             :: r_coords     !< cell coords within patch
+                integer (kind = GRID_SI)                                        :: j, row, col, cell_id
+#           else
+                real (kind = GRID_SR)                                       :: db(_SWE_CELL_SIZE)
+#           endif
 
 			!evaluate initial function values at dof positions and compute DoFs
 #           if defined(_ASAGI)
-                db = -Q%b + get_bathymetry_at_element(section, element, section%r_time)
-                Q%h = Q%h + db
-                Q%b = Q%b + db
+#               if defined (_SWE_PATCH)
+                    db = -element%cell%data_pers%B + get_bathymetry_at_patch(section, element, section%r_time)
+                    element%cell%data_pers%H = element%cell%data_pers%H + db
+                    element%cell%data_pers%B = element%cell%data_pers%B + db
+#               else
+                    db = -Q%b + get_bathymetry_at_element(section, element, section%r_time)
+                    Q%h = Q%h + db
+                    Q%b = Q%b + db
+#               endif
 #           endif
 
             !no coarsening while the earthquake takes place

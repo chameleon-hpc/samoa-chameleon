@@ -138,9 +138,9 @@ MODULE SWE_PATCH_Solvers
         !* call the solver *
         !*******************
 
-#       if defined(_SWE_FWAVE)
+#       if defined(_FWAVE_FLUX)
             call riemann_fwave_simd(hL,hR,huL,huR,hvL,hvR,bL,bR,uL,uR,vL,vR,delphi,sE1,sE2,waveSpeeds,fWaves)
-#       elif defined(_SWE_AUG_RIEMANN)
+#       elif defined(_AUG_RIEMANN_FLUX)
             call riemann_augrie_simd(1,hL,hR,huL,huR,hvL,hvR,bL,bR,uL,uR,vL,vR,delphi,sE1,sE2,waveSpeeds,fWaves)
 #       endif
         !*****************
@@ -982,7 +982,7 @@ END MODULE
 #endif
 
 
-#if defined(_SWE_HLLE) 
+#if defined(_HLLE_FLUX) 
 
 MODULE SWE_HLLE
     use Samoa_swe

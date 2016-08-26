@@ -237,7 +237,13 @@ MODULE SWE_PATCH
 				tmp = geom%coords(:,1,i)
 				geom%coords(:,1,i) = geom%coords(:,2,i)
 				geom%coords(:,2,i) = tmp
+            else ! make the second vertex always the right angle -> needed by refine_2D_recursive
+                tmp = geom%coords(:,1,i)
+                geom%coords(:,1,i) = geom%coords(:,3,i)
+                geom%coords(:,3,i) = geom%coords(:,2,i)
+                geom%coords(:,2,i) = tmp                
 			end if
+			
 
 			!compute next points
 			col = col + 1

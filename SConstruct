@@ -43,8 +43,12 @@ vars.AddVariables(
               ),
 
   EnumVariable( 'flux_solver', 'flux solver for FV problems', 'upwind',
-                allowed_values=('upwind', 'lf', 'lfbath', 'llf', 'llfbath', 'fwave', 'aug_riemann')
+                allowed_values=('upwind', 'lf', 'lfbath', 'llf', 'llfbath', 'fwave', 'aug_riemann', 'hlle')
               ),
+  
+  ( 'swe_patch_order', 'order of triangular patches, 1=no_patches', 1),
+  
+  BoolVariable( 'swe_patch_solver', 'use patch solver? if False, a original non-vectorizable geoclaw implementation will be used', False),
 
   EnumVariable( 'data_refinement', 'input data refinement method', 'integrate',
                 allowed_values=('integrate', 'sample')
@@ -83,6 +87,8 @@ vars.AddVariables(
   BoolVariable( 'asagi_timing', 'switch on timing of all ASAGI calls', False),
 
   PathVariable( 'asagi_dir', 'ASAGI directory', '.'),
+  
+  PathVariable( 'netcdf_dir', 'NetCDF directory: only required when machine=mic, because NetCDF libs need to be compiled with -mmic.', '.'),
 
   EnumVariable( 'precision', 'floating point precision', 'double',
                 allowed_values=('single', 'double', 'quad')
@@ -132,7 +138,7 @@ env['LINKFLAGS'] = ''
 # Choose compiler
 if env['compiler'] == 'intel':
   fc = 'ifort'
-  env['F90FLAGS'] = ' -implicitnone -nologo -fpp -allow nofpp-comments'
+  env['F90FLAGS'] = ' -implicitnone -nologo -fpp -allow nofpp-comments -align array64byte'
   env['LINKFLAGS'] += ' -Bdynamic -shared-libgcc -shared-intel'
 elif  env['compiler'] == 'gnu':
   fc = 'gfortran'
@@ -210,7 +216,10 @@ if env['asagi']:
   env['F90FLAGS'] += ' -D_ASAGI'
   env['LINKFLAGS'] += ' -Wl,--rpath,' + os.path.abspath(env['asagi_dir']) + '/lib'
   env.Append(LIBPATH = env['asagi_dir'] + '/lib')
-  env.Append(LIBS = ['asagi', 'numa'])
+  if env['machine'] == 'mic':
+    env.Append(LIBS = ['asagi_mic'])
+  else:
+    env.Append(LIBS = ['asagi', 'numa'])
 
 #Enable or disable timing of ASAGI calls
 if env['asagi_timing']:
@@ -223,7 +232,7 @@ if env['asagi_timing']:
 #Choose a flux solver
 if env['flux_solver'] == 'upwind':
   env['F90FLAGS'] += ' -D_UPWIND_FLUX'
-if env['flux_solver'] == 'lf':
+elif env['flux_solver'] == 'lf':
   env['F90FLAGS'] += ' -D_LF_FLUX'
 elif env['flux_solver'] == 'lfbath':
   env['F90FLAGS'] += ' -D_LF_BATH_FLUX'
@@ -235,6 +244,25 @@ elif env['flux_solver'] == 'fwave':
   env['F90FLAGS'] += ' -D_FWAVE_FLUX'
 elif env['flux_solver'] == 'aug_riemann':
   env['F90FLAGS'] += ' -D_AUG_RIEMANN_FLUX'
+elif env['flux_solver'] == 'hlle':
+  env['F90FLAGS'] += ' -D_HLLE_FLUX'
+
+#Patches options for SWE scenario
+if (int(env['swe_patch_order'])) > 1:
+  env['F90FLAGS'] += ' -D_SWE_PATCH'
+  env['F90FLAGS'] += ' -D_SWE_PATCH_ORDER=' + env['swe_patch_order']
+  
+if env['swe_patch_solver']:
+  if (int(env['swe_patch_order'])) <= 1:
+      print "Error: patch solvers are only available when using patches. Set swe_patch_solver=False or swe_patch_order=2 or higher"
+      Exit(-1)
+  env['F90FLAGS'] += ' -D_SWE_USE_PATCH_SOLVER'
+  
+#Check if solver is really available (some are not/only available when using patch solvers)
+if (int(env['swe_patch_order'])) > 1 and env['swe_patch_solver']:
+    if env['swe_solver'] != 'hlle' and env['swe_solver'] != 'fwave' and env['swe_solver'] != 'aug_riemann':
+        print "Error: Only hlle, fwave and aug_riemann solvers are available as patch solvers. Try using another solver or setting swe_patch_solver=True"
+        Exit(-1)
 
 #Choose a mobility term
 if env['mobility'] == 'linear':
@@ -324,6 +352,8 @@ if env['compiler'] == 'intel':
   elif env['machine'] == 'mic':
     env['F90'] += ' -mmic'
     env['LINK'] += ' -mmic'
+    if env['netcdf_dir'] != '.' and env['asagi']: 
+      env['LINKFLAGS'] += ' -L' + env['netcdf_dir']  + '/lib -lnetcdf'
   elif env['machine'] == 'SSE4.2':
     env['F90FLAGS'] += ' -xSSE4.2'
   elif env['machine'] == 'AVX':

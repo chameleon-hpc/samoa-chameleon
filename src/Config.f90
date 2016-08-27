@@ -488,6 +488,16 @@ module config
 
         _log_write(0, '(" Sections per thread: ", I0)') config%i_sections_per_thread
         _log_write(0, '(" Adaptivity: min depth: ", I0, ", max depth: ", I0, ", start depth: ", I0)') config%i_min_depth, config%i_max_depth, config%i_start_depth
+        
+#       if defined(_SWE_PATCH)
+#           if defined(_SWE_USE_PATCH_SOLVER)
+                _log_write(0, '(" SWE: Patches: Yes, order: ", I0, ", using patch solver: Yes")') _SWE_PATCH_ORDER
+#           else
+                _log_write(0, '(" SWE: Patches: Yes, order: ", I0, ", using patch solver: No")') _SWE_PATCH_ORDER
+#           endif
+#       elif defined (_SWE)
+            _log_write(0, '(" SWE: Patches: No")')
+#       endif
 
         _log_write(0, '(" Load balancing: timed load estimate: ", A, ", split sections: ", A, ", serial: ", A)') logical_to_char(config%l_timed_load), logical_to_char(config%l_split_sections), logical_to_char(config%l_serial_lb)
         _log_write(0, '(" Load balancing: cell weight: ", F0.2, ", boundary weight: ", F0.2)') config%r_cell_weight, config%r_boundary_weight

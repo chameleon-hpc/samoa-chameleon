@@ -212,9 +212,56 @@
 			type(t_traversal_element), intent(inout)									:: src_element
 			type(t_traversal_element), intent(inout)									:: dest_element
 			integer, dimension(:), intent(in)											:: refinement_path
+            integer                                                                     :: i
+#           if defined(_SWE_PATCH)
+                integer                                                                     :: j
+                integer, DIMENSION(_SWE_PATCH_ORDER_SQUARE,2)                               :: child
+#           else
+                type(t_state), dimension(_SWE_CELL_SIZE)                                :: Q_out
+#           endif
 
-			type(t_state), dimension(_SWE_CELL_SIZE)									:: Q_out
-			integer																		:: i
+#           if defined(_SWE_PATCH)
+                !IMPORTANT: in the current samoa implementation, this subroutine is always called first with refinement_path=1, and then =2.
+                ! The below implementation supposes this. If the samoa core implementation changes, this may become invalid!
+
+                ! find out children order based on geometry
+                if ((refinement_path(1) == 1 .and. dest_element%cell%geometry%i_plotter_type>0) .or. (refinement_path(1) == 2 .and. dest_element%cell%geometry%i_plotter_type<0)) then
+                    child = SWE_PATCH_GEOMETRY%first_child
+                else
+                    child = SWE_PATCH_GEOMETRY%second_child
+                end if
+
+                associate (data => dest_element%cell%data_pers)
+                    ! initialize all values with zero - the final value is an average of 4 children's cells
+                    if (refinement_path(1) == 1) then
+                        data%H = 0.0_GRID_SR
+                        data%HU = 0.0_GRID_SR
+                        data%HV = 0.0_GRID_SR
+                        data%B = 0.0_GRID_SR
+                    end if
+
+                    ! sum all values to their respective cells
+                    do i=1, _SWE_PATCH_ORDER_SQUARE
+                        do j=1, 2
+                            data%H(child(i,j)) = data%H(child(i,j)) + src_element%cell%data_pers%H(i)
+                            data%HU(child(i,j)) = data%HU(child(i,j)) + src_element%cell%data_pers%HU(i)
+                            data%HV(child(i,j)) = data%HV(child(i,j)) + src_element%cell%data_pers%HV(i)
+                            data%B(child(i,j)) = data%B(child(i,j)) + src_element%cell%data_pers%B(i)
+                        end do
+                    end do
+
+                    ! divide by 4 to compute the average of the 4 values
+                    if (refinement_path(1) == 2) then
+                        data%H = data%H * 0.25_GRID_SR
+                        data%HU = data%HU * 0.25_GRID_SR
+                        data%HV = data%HV * 0.25_GRID_SR
+                        data%B = data%B * 0.25_GRID_SR
+                    end if
+
+                end associate
+
+
+#           else
 
 			!state vector
 
@@ -235,6 +282,7 @@
 
 				call gv_Q%write( dest_element%t_element_base, Q_out)
 			end if
+#           endif
 		end subroutine
 
         pure subroutine node_write_op(local_node, neighbor_node)

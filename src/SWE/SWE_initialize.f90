@@ -436,7 +436,11 @@
                     !refine the displacements
 
                     x = samoa_barycentric_to_world_point(element%transform_data, [1.0_SR/3.0_SR, 1.0_SR/3.0_SR])
-                    dQ_norm = abs(get_bathymetry_at_element(section, element, cfg%t_max_eq + 1.0_SR) - Q(1)%b)
+#                   if defined (_SWE_PATCH)
+                        dQ_norm = sum(abs(get_bathymetry_at_patch(section, element, cfg%t_max_eq + 1.0_SR) - element%cell%data_pers%B))
+#                   else
+                        dQ_norm = abs(get_bathymetry_at_element(section, element, cfg%t_max_eq + 1.0_SR) - Q(1)%b)
+#                   endif
 
                     if (dQ_norm > 0.0_GRID_SR) then
                         element%cell%geometry%refinement = 1

@@ -15,7 +15,7 @@
             use SWE_PATCH
             use SWE_PATCH_Solvers
 #       endif
-#       if defined(_SWE_HLLE)
+#       if defined(_HLLE_FLUX)
             use SWE_HLLE
 #       endif
 		implicit none

@@ -1050,7 +1050,7 @@ MODULE SWE_HLLE
         if (hL >= cfg%dry_tolerance) then
             uL = huL / hL
         else
-            bL = bL + hL
+            !bL = bL + hL
             hL = 0.0_GRID_SR
             huL = 0.0_GRID_SR
             uL = 0.0_GRID_SR  !is already zero
@@ -1059,7 +1059,7 @@ MODULE SWE_HLLE
         if (hR >= cfg%dry_tolerance) then
             uR = huR / hR
         else
-            bR = bR + hR
+            !bR = bR + hR
             hR = 0.0_GRID_SR
             huR = 0.0_GRID_SR
             uR = 0_GRID_SR  !is already zero

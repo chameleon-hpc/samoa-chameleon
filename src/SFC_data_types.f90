@@ -33,6 +33,10 @@ MODULE SFC_data_types
 #	endif
 
     implicit none
+    
+    ! TODO: this should be somewhere else, probably an attribute of t_grid
+    double precision :: time_test
+    public time_test
 
 	!constants
 

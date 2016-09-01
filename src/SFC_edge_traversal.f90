@@ -34,6 +34,9 @@ module SFC_edge_traversal
             logical                             :: l_conform
         end function
     end interface
+    
+    integer :: i_steps_since_last_lb = 0 !TODO: this should be somewhere else
+    public i_steps_since_last_lb
 
 	contains
 
@@ -1343,6 +1346,8 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
         type(t_grid), save						        :: grid_temp
         integer	(BYTE)  		                        :: i_color
         logical                                         :: l_early_exit
+        double precision                                :: my_throughput
+        integer (kind = GRID_DI)                        :: my_load
 
 #		if defined(_MPI)
             _log_write(3, '(3X, A)') "distribute load"
@@ -1375,10 +1380,46 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
 
 	        _log_write(2, '(4X, "load balancing: imbalance above threshold? yes: ", F0.3, " > ", F0.3)') dble(i_max_load) * size_MPI / dble(i_total_load) - 1.0d0, r_max_imbalance
 
-            if (cfg%l_serial_lb) then
-                call compute_partition_serial(grid, i_rank_out, i_section_index_out, i_rank_in, l_early_exit)
+                        !$omp single
+                i_steps_since_last_lb = mod(i_steps_since_last_lb + 1, cfg%i_lb_frequency)
+                
+                my_load = sum(grid%sections%elements_alloc(:)%load)
+                _log_write(1, '(4X, "Rank ", I0, " has ", I0)'), rank_MPI, my_load
+            !$omp end single
+            
+            ! check if LB should be performed now
+            if (i_steps_since_last_lb .eq. 0) then
+                if (rank_MPI == 0) then
+                    !$omp single
+                    _log_write(1, '(4X, "Time for LB...")')
+                    !$omp end single
+                end if
+                
+                if (cfg%l_lb_hh) then
+                    call compute_load_and_throughput(grid, my_load, my_throughput)
+                    !$omp single
+                        !_log_write(1, '(4X, "My load, my throughput, ratio: ", I0, F20.5, F20.5)') my_load, my_throughput, my_load/my_throughput
+                    !$omp end single
+                    
+                    !call compute_max_imbalance(my_throughput)
+                    
+                    !if (cfg%l_serial_lb) then
+                        call compute_partition_serial_heterogeneous(grid, i_rank_out, i_section_index_out, i_rank_in, l_early_exit, my_throughput, my_load)
+                    !else
+                        ! I REMOVED THIS BECAUSE IT WAS TOO CONFUSE! TODO: IMPLEMENT IT AGAIN?
+                        !call compute_partition_distributed_heterogeneous(grid, i_rank_out, i_section_index_out, i_rank_in, l_early_exit, my_throughput, my_load)
+                    !end if
+                else
+                    if (cfg%l_serial_lb) then
+                        call compute_partition_serial(grid, i_rank_out, i_section_index_out, i_rank_in, l_early_exit)
+                    else
+                        call compute_partition_distributed(grid, i_rank_out, i_section_index_out, i_rank_in, l_early_exit)
+                    end if
+                end if
+                
             else
-                call compute_partition_distributed(grid, i_rank_out, i_section_index_out, i_rank_in, l_early_exit)
+                !do not perform any LB now!
+                l_early_exit = .true.
             end if
 
             if (l_early_exit) then
@@ -1518,6 +1559,58 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
 	        !$omp barrier
 #		endif
     end subroutine
+    
+    subroutine compute_load_and_throughput(grid, my_load, my_throughput)
+        type(t_grid), intent(inout)   :: grid
+        integer (kind = GRID_DI), intent(inout) :: my_load
+        double precision, intent(out) :: my_throughput
+        double precision :: average
+        
+        integer :: min_load
+        double precision :: my_computation_time
+        
+        !$omp single
+        
+            my_load = sum(grid%sections%elements_alloc(:)%load)
+
+            ! if cfg%l_lb_hh_auto is not set, then use this 50-25-25 distribution
+            if (cfg%l_lb_hh_auto .eqv. .false.) then
+                if (mod(rank_MPI,3) == 0) then 
+                    my_throughput = cfg%i_lb_hh_ratio
+                else
+                    my_throughput = (100 - cfg%i_lb_hh_ratio)/2
+                end if
+            else
+                
+                ! if at least one rank has zero load, distribute the load evenly so that it is possible to compute 
+                ! the throughput for every rank at the next iteration
+                
+                min_load = my_load
+                call reduce(min_load, MPI_MIN)
+
+                if (min_load == 0) then
+                    my_throughput = 1
+
+                else
+                    
+                    ! now we need to actually compute the throughput
+                    
+                    ! compute throughput based on time for the last steps (from the average thread)
+                    my_computation_time = time_test / size(grid%threads%elements(:))
+
+                    time_test = 0
+                    
+                    my_throughput = my_load / max(my_computation_time, 1.0e-6) ! avoid division by zero
+                    
+                end if
+           endif
+        
+            
+        !$omp end single copyprivate(my_load, my_throughput)
+
+        
+    end subroutine
+    
 
 #	if defined(_MPI)
 		subroutine load_neighbor_rep(section)
@@ -1536,6 +1629,10 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
                         if (comm%neighbor_rank .ge. 0 .and. comm%neighbor_rank .ne. rank_MPI) then
                             do i_edge = 1, comm%i_edges
                                 update%flux(:) = comm%p_local_edges(i_edge)%update%flux(:)
+                                !update%H(:) = comm%p_local_edges(i_edge)%update%H(:)
+                                !update%HU(:) = comm%p_local_edges(i_edge)%update%HU(:)
+                                !update%HV(:) = comm%p_local_edges(i_edge)%update%HV(:)
+                                !update%B(:) = comm%p_local_edges(i_edge)%update%B(:)
                                 rep = transfer(update, rep)
                                 comm%p_neighbor_edges(i_edge)%rep%Q(:) = rep%Q(:)
                             end do
@@ -1563,6 +1660,10 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
                                 rep%Q(:) = comm%p_neighbor_edges(i_edge)%rep%Q(:)
                                 update = transfer(rep, update)
                                 comm%p_local_edges(i_edge)%update%flux(:) = update%flux(:)
+                                !comm%p_local_edges(i_edge)%update%H = update%H
+                                !comm%p_local_edges(i_edge)%update%HU = update%HU
+                                !comm%p_local_edges(i_edge)%update%HV = update%HV
+                                !comm%p_local_edges(i_edge)%update%B = update%B
                             end do
                         end if
                     end do
@@ -2036,6 +2137,243 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
             call mpi_waitall(i_sections_out, requests_out, MPI_STATUSES_IGNORE, i_error); assert_eq(i_error, 0)
             !$omp end single
 
+            !pass private copies of the array pointers back to caller function
+            i_rank_out_local => i_rank_out
+            i_section_index_out_local => i_section_index_out
+            i_rank_in_local => i_rank_in
+        end subroutine
+        
+        !> for heterogeneous hardware: uses a serial algorithm to compute the new partition based on each rank's performance
+        !> this serial approach scales badly, but can apply global methods and can achieve optimal load balance
+        subroutine compute_partition_serial_heterogeneous(grid, i_rank_out_local, i_section_index_out_local, i_rank_in_local, l_early_exit, my_throughput, my_load)
+            type(t_grid), intent(inout)                     :: grid
+            integer, pointer, intent(inout)                 :: i_rank_out_local(:), i_section_index_out_local(:), i_rank_in_local(:)
+            logical, intent(out)                            :: l_early_exit
+            double precision, intent(inout)                 :: my_throughput 
+            integer (kind = GRID_DI), intent(inout)         :: my_load
+
+            integer, pointer, save                          :: i_rank_out(:) => null(), i_section_index_out(:) => null(), i_rank_in(:) => null()
+            integer, allocatable, save                      :: all_sections(:), displacements(:), all_ranks(:), all_section_indices_out(:)
+            integer, allocatable, save                      :: requests_in(:), requests_out(:)
+            integer (kind = GRID_DI), allocatable, save     :: all_load(:), local_load(:)
+            integer                                         :: total_sections, i_sections_out, i_sections_in, i_error, i, j, k
+            
+            double precision :: my_computation_time ! computation time since last LB for this rank (avg among all threads)
+            double precision :: total_throughput ! sum of all ranks' throughputs
+            double precision, allocatable :: rank_throughput(:) ! throughputs of each rank
+            double precision, allocatable :: section_position(:) ! proportional position of section
+            integer (kind = GRID_DI), allocatable :: rank_load(:) ! total load of each rank
+            integer (kind = GRID_DI), allocatable :: prefix_sum_load(:)
+            integer (kind = GRID_DI) :: total_load
+            double precision :: max_imbalance ! used for deciding whether load balancing will be perfomed. A value of zero would mean a perfectly balanced rank (with respect to its output)
+            integer :: status(MPI_STATUS_SIZE)
+
+            l_early_exit = .false.
+
+            !$omp single
+            
+                if (rank_MPI == 0) then
+                    allocate(all_sections(0 : size_MPI - 1), stat=i_error); assert_eq(i_error, 0)
+                    allocate(displacements(0 : size_MPI - 1), stat=i_error); assert_eq(i_error, 0)
+                    allocate(rank_throughput(0 : size_MPI - 1), stat=i_error); assert_eq(i_error, 0)
+                    allocate(rank_load(0 : size_MPI - 1), stat=i_error); assert_eq(i_error, 0)
+                else
+                    allocate(all_sections(0), stat=i_error); assert_eq(i_error, 0)
+                    allocate(displacements(0), stat=i_error); assert_eq(i_error, 0)
+                    allocate(rank_throughput(0), stat=i_error); assert_eq(i_error, 0)
+                    allocate(rank_load(0), stat=i_error); assert_eq(i_error, 0)
+                end if
+
+                !gather section indices
+                i_sections_out = grid%sections%get_size()
+                call mpi_gather(i_sections_out, 1, MPI_INTEGER, all_sections, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, i_error); assert_eq(i_error, 0)
+                
+                ! gather load and throughput from all ranks
+                call mpi_gather(my_load, 1, MPI_INTEGER8, rank_load, 1, MPI_INTEGER8, 0, MPI_COMM_WORLD, i_error); assert_eq(i_error, 0)
+                call mpi_gather(my_throughput, 1, MPI_DOUBLE, rank_throughput, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD, i_error); assert_eq(i_error, 0)
+                
+                ! apply prefix sum to rank_throughput and compute total_throughput
+                if (rank_MPI == 0) then
+                    call prefix_sum(rank_throughput, rank_throughput)
+                    total_throughput = rank_throughput(size_MPI - 1)
+                    total_load = sum(rank_load)
+                endif
+                
+                !call MPI_bcast(total_load, 1, MPI_INTEGER8, 0, MPI_COMM_WORLD, i_error); assert_eq(i_error, 0)
+                ! MPI_bcast is not working properly on SuperMUC nodes, so I am using the "manual" broadcasting below:
+                if (rank_MPI == 0) then
+                    ! 0 sends to all others
+                    do i = 1, size_MPI - 1
+                        call MPI_Send(total_load, 1, MPI_INTEGER8, i, 0, MPI_COMM_WORLD, i_error); assert_eq(i_error, 0)
+                    end do
+                else
+                    ! all others receive from 0
+                    call MPI_Recv(total_load, 1, MPI_INTEGER8, 0, 0, MPI_COMM_WORLD, status, i_error); assert_eq(i_error, 0)
+                end if
+                         
+                !gather load
+                if (rank_MPI == 0) then
+                    call prefix_sum(displacements, all_sections)
+                    total_sections = displacements(size_MPI - 1)
+                    displacements(:) = displacements(:) - all_sections(:)
+
+                    allocate(all_load(total_sections), stat=i_error); assert_eq(i_error, 0)
+                    allocate(prefix_sum_load(total_sections), stat=i_error); assert_eq(i_error, 0)
+                    allocate(section_position(total_sections), stat=i_error); assert_eq(i_error, 0)
+                    allocate(all_ranks(total_sections), stat=i_error); assert_eq(i_error, 0)
+                    allocate(all_section_indices_out(total_sections), stat=i_error); assert_eq(i_error, 0)
+                else
+                    allocate(all_load(0), stat=i_error); assert_eq(i_error, 0)
+                    allocate(prefix_sum_load(0), stat=i_error); assert_eq(i_error, 0)
+                    allocate(section_position(0), stat=i_error); assert_eq(i_error, 0)
+                    allocate(all_ranks(0), stat=i_error); assert_eq(i_error, 0)
+                    allocate(all_section_indices_out(0), stat=i_error); assert_eq(i_error, 0)
+                end if
+
+                allocate(local_load(i_sections_out), stat=i_error); assert_eq(i_error, 0)
+
+                local_load(:) = grid%sections%elements_alloc(:)%load
+                call mpi_gatherv(local_load, i_sections_out, MPI_INTEGER8, all_load, all_sections, displacements, MPI_INTEGER8, 0, MPI_COMM_WORLD, i_error); assert_eq(i_error, 0)
+                
+                ! check if imbalance is high enough
+                if (my_load > 0) then
+                    ! the computation below is the same as: max_imbalance = (my_load/my_throughput)/(total_load/total_throughput)
+                    ! but with only one division.
+                    max_imbalance = (my_load*total_throughput)/(total_load*my_throughput)
+                    
+
+                    if (max_imbalance < 1) then ! avoid negative values
+                        if (max_imbalance == 0) then ! avoid division by zero
+                            max_imbalance = 1.0 
+                        else
+                            max_imbalance = 1.0 / max_imbalance
+                        end if
+                    end if
+                    max_imbalance = max_imbalance - 1 ! 0 = perfectly balanced
+                else if (cfg%i_lb_hh_ratio .ne. 0 .and. cfg%i_lb_hh_ratio .ne. 100) then
+                    max_imbalance = 1 ! if this rank is empty, it is not balanced
+                end if
+
+                call reduce(max_imbalance, MPI_MAX)
+                
+                if (rank_MPI == 0) then
+                    !_log_write(0, '(4X, "Max imbalance: ", F20.10)'), max_imbalance
+                end if
+                
+                !exit early if the imbalance is not big enough
+                if (max_imbalance .le. cfg%r_lb_hh_threshold) then
+                    if (rank_MPI == 0) then
+                        _log_write(0, '(4X, "load balancing: max imbalance = ", F10.5 ," <= ", F0.3, ", do nothing")') max_imbalance, cfg%r_lb_hh_threshold
+                    end if
+                    l_early_exit = .true.
+                end if
+                
+                if (l_early_exit .ne. .true.) then
+                    if (rank_MPI == 0) then
+                            _log_write(0, '(4X, "Max Imbalance = ", F10.5, " > ", F0.3, ", performing LB...")') max_imbalance, cfg%r_lb_hh_threshold
+                            ! integer/total load :
+                            !_log_write(0, '(4X, "Before LB, load: ", I0, " ", I0, " ", I0)'), rank_load(0), rank_load(1), rank_load(2)
+                            ! real/percentage:
+                            _log_write(0, '(4X, "Before LB, load: ", F6.3, " ", F6.3, " ", F6.3)'), dble(rank_load(0))/total_load, dble(rank_load(1))/total_load, dble(rank_load(2))/total_load
+                            !_log_write(0, '(4X, "Before LB, TP: ", F20.10, " ", F20.10, " ", F20.10)'), rank_throughput(0), rank_throughput(1), rank_throughput(2)
+                        
+                        ! assign each section to a rank according to the relative sections' loads and the ranks' throuhputs
+                        ! first compute a relative position for each section (relative to total throughput)
+                        call prefix_sum(prefix_sum_load, all_load)
+                        do i = 1, total_sections
+                            section_position(i) = (prefix_sum_load(i) - 0.5 * all_load(i)) * total_throughput / total_load
+                        end do
+                        
+                        ! now assign each section to a rank
+                        j = 0 ! rank
+                        do i = 1, total_sections ! i = section id
+                            do while (section_position(i) > rank_throughput(j)) !this is actually the prefix sum of throughputs
+                                j = j + 1
+                            end do
+                            
+                            all_ranks(i) = j
+                            
+                            assert_le(j, MPI_rank - 1)
+                        end do
+
+                        all_sections(:) = 0
+                        rank_load = 0
+
+                        do j = 1, total_sections
+                            i = all_ranks(j)
+                            all_sections(i) = all_sections(i) + 1
+                            all_section_indices_out(j) = all_sections(i)
+                            
+                            rank_load(i) = rank_load(i) + all_load(j)
+                        end do
+                        !_log_write(0, '(4X, "After LB, load: ", I0, " ", I0, " ", I0)'), rank_load(0), rank_load(1), rank_load(2)
+                        _log_write(0, '(4X, "After LB, load: ", F6.3, " ", F6.3, " ", F6.3)'), dble(rank_load(0))/total_load, dble(rank_load(1))/total_load, dble(rank_load(2))/total_load
+                    end if
+                    
+                    !scatter new section count
+
+                    call mpi_scatter(all_sections, 1, MPI_INTEGER, i_sections_in, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, i_error); assert_eq(i_error, 0)
+                    
+                    !scatter new ranks
+
+                    !allocate space for variables that are stored per input section
+                    if (.not. associated(i_rank_in) .or. size(i_rank_in) .ne. i_sections_in) then
+                        if (associated(i_rank_in)) then
+                            deallocate(i_rank_in, stat = i_error); assert_eq(i_error, 0)
+                            deallocate(requests_in, stat=i_error); assert_eq(i_error, 0)
+                        end if
+
+                        allocate(i_rank_in(i_sections_in), stat=i_error); assert_eq(i_error, 0)
+                        allocate(requests_in(i_sections_in), stat=i_error); assert_eq(i_error, 0)
+                    end if
+
+                    !allocate space for variables that are stored per output section
+                    if (.not. associated(i_rank_out) .or. size(i_rank_out) .ne. i_sections_out) then
+                        if (associated(i_rank_out)) then
+                            deallocate(i_rank_out, stat = i_error); assert_eq(i_error, 0)
+                            deallocate(i_section_index_out, stat = i_error); assert_eq(i_error, 0)
+                            deallocate(requests_out, stat = i_error); assert_eq(i_error, 0)
+                        end if
+
+                        allocate(i_rank_out(i_sections_out), stat=i_error); assert_eq(i_error, 0)
+                        allocate(i_section_index_out(i_sections_out), stat=i_error); assert_eq(i_error, 0)
+                        allocate(requests_out(i_sections_out), stat=i_error); assert_eq(i_error, 0)
+                    end if
+
+                    if (rank_MPI == 0) then
+
+                        all_sections(0 : size_MPI - 2) = displacements(1 : size_MPI - 1) - displacements(0 : size_MPI - 2)
+                        all_sections(size_MPI - 1) = total_sections - displacements(size_MPI - 1)
+                    end if
+
+                    call mpi_scatterv(all_ranks, all_sections, displacements, MPI_INTEGER, i_rank_out, i_sections_out, MPI_INTEGER, 0, MPI_COMM_WORLD, i_error); assert_eq(i_error, 0)
+                    call mpi_scatterv(all_section_indices_out, all_sections, displacements, MPI_INTEGER, i_section_index_out, i_sections_out, MPI_INTEGER, 0, MPI_COMM_WORLD, i_error); assert_eq(i_error, 0)
+
+                    do j = 1, i_sections_in
+                        call mpi_irecv(i_rank_in(j), 1, MPI_INTEGER, MPI_ANY_SOURCE, j, MPI_COMM_WORLD, requests_in(j), i_error); assert_eq(i_error, 0)
+                    end do
+
+                    do j = 1, i_sections_out
+                        call mpi_isend(rank_MPI, 1, MPI_INTEGER, i_rank_out(j), i_section_index_out(j), MPI_COMM_WORLD, requests_out(j), i_error); assert_eq(i_error, 0)
+                    end do
+
+                    call mpi_waitall(i_sections_in, requests_in, MPI_STATUSES_IGNORE, i_error); assert_eq(i_error, 0)
+                    call mpi_waitall(i_sections_out, requests_out, MPI_STATUSES_IGNORE, i_error); assert_eq(i_error, 0)
+                end if
+                
+                deallocate(local_load, stat=i_error); assert_eq(i_error, 0)
+                deallocate(all_load, stat=i_error); assert_eq(i_error, 0)
+                deallocate(all_sections, stat=i_error); assert_eq(i_error, 0)
+                deallocate(displacements, stat=i_error); assert_eq(i_error, 0)
+                deallocate(all_ranks, stat=i_error); assert_eq(i_error, 0)
+                deallocate(all_section_indices_out, stat=i_error); assert_eq(i_error, 0)
+                deallocate(rank_throughput, stat=i_error); assert_eq(i_error, 0)
+                deallocate(rank_load, stat=i_error); assert_eq(i_error, 0)
+                deallocate(prefix_sum_load, stat=i_error); assert_eq(i_error, 0)
+                deallocate(section_position, stat=i_error); assert_eq(i_error, 0)
+
+            !$omp end single copyprivate(l_early_exit)
+            
             !pass private copies of the array pointers back to caller function
             i_rank_out_local => i_rank_out
             i_section_index_out_local => i_section_index_out

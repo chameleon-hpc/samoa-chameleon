@@ -81,8 +81,8 @@
 !                   stop
 !                end if
 
-            call scatter(traversal%s_file_stamp, traversal%children%s_file_stamp)
-            call scatter(traversal%i_output_iteration, traversal%children%i_output_iteration)
+            call scatter(traversal%s_file_stamp, traversal%sections%s_file_stamp)
+            call scatter(traversal%i_output_iteration, traversal%sections%i_output_iteration)
 
 		end subroutine
 
@@ -316,10 +316,6 @@
                                 call element%cell%data_pers%convert_dg_to_fv()
 
 # endif
-
-#           if defined(_SWE_PATCH)
-                type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE):: Q
-                integer                                         :: j, row, col, cell_id
                 
                 row=1
                 col=1

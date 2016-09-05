@@ -515,9 +515,6 @@
 			type(t_dof_state)							        :: Q
                         real (kind = GRID_SR), parameter		            :: hL = 1.0_SR, hR = 0.0_SR
                         real (kind = GRID_SR)                               :: xs(2)
-			real (kind = GRID_SR), parameter					:: outer_height = 8.0
-                        real (kind = GRID_SR), parameter					:: inner_height = 8.0
-                        real (kind = GRID_SR)                               :: xs(2)
 
                         xs = cfg%scaling * x + cfg%offset
 

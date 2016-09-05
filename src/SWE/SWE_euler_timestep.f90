@@ -131,8 +131,6 @@
 #endif
                         
 			call scatter(grid%r_dt, grid%sections%elements_alloc%r_dt)
-                       
-			grid%u_max = 0.0_GRID_SR
    
 		end subroutine
 
@@ -178,7 +176,9 @@
 			real(kind = GRID_SR), dimension(2, 3), parameter		:: edge_vectors = reshape([0.0, 1.0, 1.0, -1.0, -1.0, 0.0], [2, 3])
 #           if defined(_SWE_PATCH)
                 integer                                             :: edge_type !1=left, 2=hypotenuse, 3=right
-                
+#if defined (_SWE_DG)                
+                integer:: indx,indx_mir,k
+#endif
 #           else
                 call gv_Q%read(element, Q)
                 _log_write(6, '(3X, A)') "swe cell to edge op:"
@@ -262,7 +262,6 @@
                           end do
                        end do
                     end do
-                    rep%permute=.true.
                    
 #endif				
 
@@ -556,11 +555,11 @@
                                       stop
                                    end if
                                   
-                                  do i=1,_SWE_DG_DOFS                                     
-                                     if(Q_DG(i)%h > cfg%dry_tolerance) then
-                                        section%u_max = max(section%u_max,sqrt(g * Q_DG(i)%h) + max(Q_DG(i)%p(1)/Q_DG(i)%h,Q_DG(i)%p(2)/Q_DG(i)%h))
-                                     end if
-                                  end do
+ !                                 do i=1,_SWE_DG_DOFS                                     
+!                                     if(Q_DG(i)%h > cfg%dry_tolerance) then
+!                                        section%u_max = max(section%u_max,sqrt(g * Q_DG(i)%h) + max(Q_DG(i)%p(1)/Q_DG(i)%h,Q_DG(i)%p(2)/Q_DG(i)%h))
+!                                     end if
+!                                  end do
                                   
                                 end associate
                                 !- !- print*,"predict"
@@ -786,7 +785,7 @@
 		!*******************************
 		!Volume and DoF operators
 		!*******************************
-
+#if defined(_SWE_DG)
                 subroutine dg_solver(element,update1,update2,update3,dt)
 			type(t_element_base), intent(in)						:: element
                         type(t_update), dimension(_SWE_DG_DOFS*(_SWE_DG_ORDER+1)),intent(inout)  	:: update1, update2, update3

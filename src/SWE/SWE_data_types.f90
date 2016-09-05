@@ -9,9 +9,7 @@
 	MODULE SWE_data_types
 #if defined(_SWE_DG)
                 use SWE_DG_matrices
-#endif
-		implicit none
-#if !defined(_SWE_DG)
+# else
 		PUBLIC
 
 		!data precision
@@ -25,6 +23,7 @@
 #           error "No floating point precision is chosen!"
 #       endif
 #endif
+		implicit none
 		integer, PARAMETER :: BYTE = selected_int_kind(1)
 		integer, PARAMETER :: SHORT = selected_int_kind(4)
 		integer, PARAMETER :: GRID_SI = selected_int_kind(8)
@@ -129,7 +128,7 @@
 
 #if defined(_SWE_DG)
                         type(t_state), DIMENSION(_SWE_DG_DOFS*(_SWE_DG_ORDER+1))   :: Q_DG_P
-                        logical :: permute = .false.
+#endif
 #endif
 
                      end type num_cell_rep
@@ -142,8 +141,8 @@
                         type(t_state), DIMENSION(_SWE_DG_DOFS*(_SWE_DG_ORDER+1))   :: Q_DG_P
                         logical :: bnd=.false.
 #endif
-#endif	
                         type(t_update), DIMENSION(_SWE_EDGE_SIZE)									:: flux						!< cell update
+#endif	
 		end type
 
 		!*************************
@@ -177,7 +176,7 @@
 		end type
 
 		contains
-#if defined _SWE_DG
+#if defined (_SWE_DG)
 
                  subroutine convert_fv_to_dg(dofs)
                    class(num_cell_data_pers) :: dofs

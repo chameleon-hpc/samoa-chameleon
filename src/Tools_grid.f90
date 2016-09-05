@@ -343,6 +343,12 @@ module Section_info_list
 
  	subroutine grid_info_print(grid_info)
 		class(t_grid_info), intent(in)	:: grid_info
+		real(kind = GRID_SR)            :: quality
+
+		!Compute average partition circumference
+		quality = sum(grid_info%i_boundary_edges) / real(size_MPI, SR) * (sqrt(2.0_SR) / 3.0_SR + 2.0_SR/3.0_SR)
+		!Divide by ideal circumference of a square partition
+		quality = quality * 0.25_SR / sqrt(real(grid_info%i_cells, SR) / (2.0_SR * real(size_MPI, SR)))
 
 		_log_write(0, "(A)")			"  Info:"
 		_log_write(0, '(A)')			""
@@ -357,6 +363,9 @@ module Section_info_list
 		_log_write(0, "(A, 2(I14))")	"  Stack nodes (red/green)       :", grid_info%i_stack_nodes
 
 		_log_write(0, "(A, 2(I14))")	"  Comms (red/green)             :", grid_info%i_comms
+
+		_log_write(0, "(A, F0.4)")	    "  Partition quality (1.0: perfect, infinity: worst): ", quality
+
 		_log_write(0, *) ""
 	end subroutine
 
@@ -472,7 +481,6 @@ module Grid_section
 		type(t_adaptive_statistics)												    :: stats
 
  		integer (kind = GRID_SI)													:: index					                    !< source rank of the section
-		!logical                                                                    :: is_synchronized(RED:GREEN)                   !< if true, the boundary is sychronized with neighbors
 
 		type(t_cell_stream)															:: cells										!< cell geometry + pers data + refinement stream
 		type(t_crossed_edge_stream)													:: crossed_edges_in, crossed_edges_out			!< crossed edge geometry + pers data stream
@@ -500,6 +508,7 @@ module Grid_section
 		procedure, pass :: get_info => grid_section_get_info
 		procedure, pass :: eq => grid_section_eq
 		procedure, pass :: assign => grid_section_assign
+		procedure, pass :: is_forward => grid_section_is_forward
 
         generic :: operator(.eq.) => eq
         generic :: assignment(=) => assign
@@ -512,7 +521,7 @@ module Grid_section
 
 #	include "Tools_list.f90"
 
-    !< Moves a grid to the destination grid, clearing the source grid in the process
+    !< Copies a grid section to the destination grid
 	subroutine grid_section_assign(dest_section, src_section)
 		class(t_grid_section), intent(inout)    :: dest_section
 		type(t_grid_section), intent(in)        :: src_section
@@ -552,25 +561,25 @@ module Grid_section
         section%load = section_info%i_load
         section%dest_cells = section_info%i_cells - 4
 
-		call section%cells%resize(section_info%i_cells)
-		call section%crossed_edges_in%resize(section_info%i_crossed_edges)
-		call section%crossed_edges_out%attach(section%crossed_edges_in%elements)
+		call section%cells%resize(int(section_info%i_cells, SI))
+		call section%crossed_edges_in%resize(int(section_info%i_crossed_edges, SI))
+		call section%crossed_edges_out%attach(section%crossed_edges_in%elements, section%cells%is_forward())
 
-		call section%color_edges_in%resize(section_info%i_color_edges)
-		call section%color_edges_out%attach(section%color_edges_in%elements)
+		call section%color_edges_in%resize(int(section_info%i_color_edges))
+		call section%color_edges_out%attach(section%color_edges_in%elements, section%cells%is_forward())
 
-		call section%nodes_in%resize(section_info%i_nodes)
-		call section%nodes_out%attach(section%nodes_in%elements)
+		call section%nodes_in%resize(int(section_info%i_nodes))
+		call section%nodes_out%attach(section%nodes_in%elements, section%cells%is_forward())
 
 		do i_color = RED, GREEN
-			call section%boundary_edges(i_color)%resize(int(section_info%i_boundary_edges(i_color), GRID_DI))
-			call section%boundary_nodes(i_color)%resize(int(section_info%i_boundary_nodes(i_color), GRID_DI))
-            call section%comms(i_color)%resize(int(section_info%i_comms(i_color), GRID_DI))
+			call section%boundary_edges(i_color)%resize(section_info%i_boundary_edges(i_color))
+			call section%boundary_nodes(i_color)%resize(section_info%i_boundary_nodes(i_color))
+            call section%comms(i_color)%resize(section_info%i_comms(i_color))
 
 			assert_eq(section_info%i_comms(i_color), section_info%i_comms_type(OLD, i_color) + section_info%i_comms_type(NEW, i_color))
 
-			section%comms_type(OLD, i_color)%elements => section%comms(i_color)%elements(1 : section_info%i_comms_type(OLD, i_color))
-			section%comms_type(NEW, i_color)%elements => section%comms(i_color)%elements(section_info%i_comms_type(NEW, i_color) + 1 : size(section%comms(i_color)%elements))
+			call section%comms_type(OLD, i_color)%attach(section%comms(i_color)%elements(1 : section_info%i_comms_type(OLD, i_color)), section%comms(i_color)%is_forward())
+			call section%comms_type(NEW, i_color)%attach(section%comms(i_color)%elements(section_info%i_comms_type(OLD, i_color) + 1 : ), section%comms(i_color)%is_forward())
 		end do
 	end subroutine
 
@@ -604,7 +613,7 @@ module Grid_section
 		end do
 	end subroutine
 
-    elemental subroutine grid_section_reset(section)
+    subroutine grid_section_reset(section)
 		class(t_grid_section), intent(inout)		        :: section
 		integer (kind = BYTE)                                  :: i_color
 
@@ -692,7 +701,7 @@ module Grid_section
 		class(t_grid_section), intent(inout)		        :: section
 
         if (cfg%l_timed_load) then
-            section%load = (int(section%stats%r_computation_time * 1.0d6, GRID_DI) * section%dest_cells) / section%cells%get_size()
+            section%load = (int((section%stats%get_time(pre_compute_time) + section%stats%get_time(inner_compute_time) + section%stats%get_time(post_compute_time)) * 1.0d6, GRID_DI) * section%dest_cells) / section%cells%get_size()
 		else
             section%load = int(cfg%r_cell_weight * section%dest_cells + cfg%r_boundary_weight * (section%boundary_nodes(RED)%get_size() + section%boundary_nodes(GREEN)%get_size()), GRID_DI)
 		endif
@@ -766,6 +775,41 @@ module Grid_section
             end do
         end do
 	end subroutine
+
+	function grid_section_is_forward(section) result(is_forward)
+		class(t_grid_section), intent(in)	:: section
+        logical                             :: is_forward
+
+        integer :: i_color
+
+        is_forward = section%cells%is_forward()
+
+        assert_eqv(is_forward, section%crossed_edges_in%is_forward())
+        assert_eqv(is_forward, section%crossed_edges_out%is_forward())
+
+		assert_eqv(is_forward, section%crossed_edges_in%is_forward())
+		assert_eqv(is_forward, section%crossed_edges_out%is_forward())
+
+		assert_eqv(is_forward, section%color_edges_in%is_forward())
+		assert_eqv(is_forward, section%color_edges_out%is_forward())
+
+		assert_eqv(is_forward, section%nodes_in%is_forward())
+		assert_eqv(is_forward, section%nodes_out%is_forward())
+
+		do i_color = RED, GREEN
+            assert_eqv(is_forward, section%boundary_edges(i_color)%is_forward())
+            assert_eqv(is_forward, section%boundary_type_edges(OLD, i_color)%is_forward())
+            assert_eqv(is_forward, section%boundary_type_edges(NEW, i_color)%is_forward())
+
+            assert_eqv(is_forward, section%boundary_nodes(i_color)%is_forward())
+            assert_eqv(is_forward, section%boundary_type_nodes(OLD, i_color)%is_forward())
+            assert_eqv(is_forward, section%boundary_type_nodes(NEW, i_color)%is_forward())
+
+            assert_eqv(is_forward, section%comms(i_color)%is_forward())
+            assert_eqv(is_forward, section%comms_type(OLD, i_color)%is_forward())
+            assert_eqv(is_forward, section%comms_type(NEW, i_color)%is_forward())
+		end do
+	end function
 end module
 
 module Grid
@@ -806,7 +850,7 @@ module Grid
 
 	!> Allocates all streams and stacks
 	subroutine grid_create(grid, dest_grid_sections, i_stack_size)
-		class(t_grid), target, intent(inout)		    :: grid
+		class(t_grid), intent(inout)		            :: grid
 		type(t_section_info_list), intent(inout)	    :: dest_grid_sections
 		integer (kind = GRID_SI), intent(in)	        :: i_stack_size(:)
 
@@ -986,8 +1030,8 @@ module Grid
 		integer (kind = GRID_SI)			            :: i_thread, i_threads, i_sections
 
         !TODO: a more sophisticated scheduler could use the (prefix sum over the)
-        !number of cells per section to decide which threads get which sections
-        !this is required only if the sections are not of uniform size.
+        !load per section to decide which threads get which sections
+        !this is required only if the sections are not of uniform load.
 
         i_thread = omp_get_thread_num()
         i_threads = omp_get_num_threads()
@@ -1010,7 +1054,7 @@ module Grid
         call grid%get_local_sections(i_first_local_section_alloc, i_last_local_section_alloc)
         i_sections = grid%sections%get_size()
 
-        if (grid%sections%forward) then
+        if (grid%sections%is_forward()) then
             i_first_local_section = i_first_local_section_alloc
             i_last_local_section = i_last_local_section_alloc
         else
@@ -1031,7 +1075,6 @@ module Grid
         call grid%get_local_sections(i_first_local_section, i_last_local_section)
 
 		do i_section = i_first_local_section, i_last_local_section
-            assert_eq(i_section, grid%sections%elements_alloc(i_section)%index)
             call grid%sections%elements_alloc(i_section)%reverse()
 		end do
 

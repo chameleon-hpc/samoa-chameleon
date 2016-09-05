@@ -15,10 +15,12 @@ for file in darcy*.log ; do
 	processes=$(echo $file | grep -oE "_p[0-9]+" | grep -oE "[0-9]+")
 	threads=$(echo $file | grep -oE "_t[0-9]+" | grep -oE "[0-9]+")
 	sections=$(echo $file | grep -oE "_s[0-9]+" | grep -oE "[0-9]+")
+	layers=$(echo $file | grep -oE "_l[0-9]+" | grep -oE "[0-9]+")
 
 	processes=${processes:-1}
 	threads=${threads:-1}
 	sections=${sections:-1}
+    layers=${layers:-0}
 
     csplit $file "/Phase statistics:/" {*} &>/dev/null
 
@@ -27,6 +29,7 @@ for file in darcy*.log ; do
         #echo "#Element throughput by processes, threads, sections" > "darcy"$i".plt"
 	    echo -n $processes $threads $sections" " >> "darcy"$i".plt"
 	    grep -E "r0.*Element throughput" $phase | grep -oE "[0-9]+\.[0-9]+" | tr "\n" " " | cat >> "darcy"$i".plt"
+        echo -n $layers >> "darcy"$i".plt"
 	    echo "" >> "darcy"$i".plt"
 
         i=$(( $i + 1 ))
@@ -40,10 +43,12 @@ for file in swe*.log ; do
 	processes=$(echo $file | grep -oE "_p[0-9]+" | grep -oE "[0-9]+")
 	threads=$(echo $file | grep -oE "_t[0-9]+" | grep -oE "[0-9]+")
 	sections=$(echo $file | grep -oE "_s[0-9]+" | grep -oE "[0-9]+")
-	
+	layers=$(echo $file | grep -oE "_l[0-9]+" | grep -oE "[0-9]+")
+
 	processes=${processes:-1}
 	threads=${threads:-1}
 	sections=${sections:-1}
+    layers=${layers:-0}
 
     csplit $file "/Phase statistics:/" {*} &>/dev/null
 
@@ -81,6 +86,7 @@ set xlabel "Cores"
 set ylabel "Mio. Elements per sec."
 set key left top
 set logscale xy 2
+set xtics rotate
 
 title(n) = sprintf("%d section(s)", n)
 
@@ -100,13 +106,13 @@ set style line 32 lc rgb "green"
 
 do for [i=1:20] {
     infile = sprintf('darcy%i.plt', i)
-    set title 'Darcy element througput'
+    set title 'Darcy element throughput'
 
     unset output
     set xrange [*:*]
     set yrange [*:*]
 
-    plot for [n=1:64] infile u (\$1*\$2):(\$3 == n ? \$4 : 1/0) ls n w linespoints t title(n)
+    plot for [n=1:64] infile u (\$1*\$2):(\$3 == n ? \$4 * (\$5 > 0 ? \$5 : 1) : 1/0) ls n w linespoints t title(n)
 
     outfile = sprintf('| ps2pdf - darcy%i_log.pdf', i)
     set output outfile
@@ -120,7 +126,7 @@ do for [i=1:20] {
 
 do for [i=1:20] {
     infile = sprintf('swe%i.plt', i)
-    set title 'SWE element througput'
+    set title 'SWE element throughput'
 
     unset output
     set xrange [*:*]

@@ -67,8 +67,8 @@
 
 			_log_write(1, '(A, I0)') " FLASH: output step: ", traversal%i_output_iteration
 
-            call scatter(traversal%s_file_stamp, traversal%children%s_file_stamp)
-            call scatter(traversal%i_output_iteration, traversal%children%i_output_iteration)
+            call scatter(traversal%s_file_stamp, traversal%sections%s_file_stamp)
+            call scatter(traversal%i_output_iteration, traversal%sections%i_output_iteration)
 		end subroutine
 
         subroutine post_traversal_grid_op(traversal, grid)
@@ -140,7 +140,7 @@
 			type(t_section_info)                                           :: grid_info
 			integer (kind = GRID_SI)									:: i_error, i_cells, i_points
 
-            grid_info = section%get_capacity()
+            grid_info = section%get_info()
 			i_cells = grid_info%i_cells
 
 			if (i_element_order > 1) then
@@ -171,7 +171,7 @@
 			integer (kind = GRID_SI)									:: i_error, i_cells, i_points, i
 			integer(4)													:: e_io
 
-            grid_info = section%get_capacity()
+            grid_info = section%get_info()
 			i_cells = grid_info%i_cells
 
 			if (i_element_order > 1) then

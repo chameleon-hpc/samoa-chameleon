@@ -29,7 +29,7 @@ MODULE SFC_data_types
     use Tools_parallel_operators
 
 #	if defined(_ASAGI)
-		use asagi, asagi_create => asagi_grid_create, asagi_open => asagi_grid_open, asagi_close => asagi_grid_close, asagi_get_float => asagi_grid_get_float
+		use asagi
 #	endif
 
     implicit none
@@ -177,12 +177,12 @@ MODULE SFC_data_types
 			type(num_cell_update)							:: update
 #		endif
 
-        integer (kind = GRID_DI)                            :: min_distance         !< edge minimum distance (only defined for boundary edges)
-        logical                             :: owned_locally        !< if true, the current section owns the edge, defined only for boundary nodes!
-        logical                             :: owned_globally       !< if true, the current rank owns the edge, defined only for boundary nodes!
-        integer (kind = BYTE)                                  :: depth                !< edge depth
+        integer (kind = GRID_DI)                            :: min_distance             !< edge minimum distance (only defined for boundary edges)
+        logical                                             :: owned_locally = .true.   !< if true, the current section owns the edge, defined only for boundary edges!
+        logical                                             :: owned_globally = .true.  !< if true, the current rank owns the edge, defined only for boundary edges! owned_globally alwas implies owned_locally.
+        integer (kind = BYTE)                               :: depth                    !< edge depth
 
-		type(t_edge_transform_data), pointer				:: transform_data		!< local edge transform data
+		type(t_edge_transform_data), pointer				:: transform_data		    !< local edge transform data
 	end type
 
 	! Node storage
@@ -208,8 +208,8 @@ MODULE SFC_data_types
 #		endif
 
         integer (kind = GRID_DI)                            :: distance             !< node distance, defined only for boundary nodes!
-        logical                                             :: owned_locally        !< if true, the current section owns the node, defined only for boundary nodes!
-        logical                                             :: owned_globally       !< if true, the current rank owns the node, defined only for boundary nodes!
+        logical                                             :: owned_locally = .true.        !< if true, the current section owns the node, defined only for boundary nodes!
+        logical                                             :: owned_globally = .true.       !< if true, the current rank owns the node, defined only for boundary nodes! owned_globally alwas implies owned_locally.
 	end type
 
 	!traversal data types
@@ -259,9 +259,7 @@ MODULE SFC_data_types
 
 	!> Element-specific data for the generic triangle <-> Reference triangle transformation
 	type t_custom_transform_data
-		!TODO: real (kind = GRID_SR), DIMENSION(2:2)		:: matrix					!< Element matrix
-		!TODO: real (kind = GRID_SR), DIMENSION(2:2)		:: matrix_inv				!< Inverse element matrix
-		real (kind = GRID_SR), DIMENSION(:), pointer		:: offset					!< Element offset
+		real (kind = GRID_SR), pointer		                :: offset(:)				!< Element offset
 		real (kind = GRID_SR)								:: scaling					!< Element scaling
 	end type
 
@@ -269,6 +267,11 @@ MODULE SFC_data_types
 	type t_transform_data
 		type(t_cell_transform_data), pointer				:: plotter_data				!< Plotter grammar data
 		type(t_custom_transform_data)		 				:: custom_data				!< Element-specific custom data
+
+		contains
+
+        procedure, pass :: get_jacobian_2DH => t_transform_data_get_jacobian_2DH
+        procedure, pass :: get_jacobian_inv_2DH => t_transform_data_get_jacobian_inv_2DH
 	end type
 
 	type(t_cell_transform_data), target	                    :: ref_plotter_data(-8 : 8)			!< Reference plotter grammar data for the 16 possible triangle orientations
@@ -296,6 +299,26 @@ MODULE SFC_data_types
 	end type
 
 	contains
+
+	function t_transform_data_get_jacobian_2DH(td) result(jacobian_2DH)
+        class(t_transform_data), intent(in) :: td
+
+        real (kind = GRID_SR) :: jacobian_2DH(3, 3)
+
+        jacobian_2DH(1:2, 1:2) = td%custom_data%scaling * td%plotter_data%jacobian
+        jacobian_2DH(3, 1:2) = td%custom_data%offset
+        jacobian_2DH(1:3, 3) = [0.0_GRID_SR, 0.0_GRID_SR, 1.0_GRID_SR]
+    end function
+
+	function t_transform_data_get_jacobian_inv_2DH(td)  result(jacobian_inv_2DH)
+        class(t_transform_data), intent(in) :: td
+
+        real (kind = GRID_SR) :: jacobian_inv_2DH(3, 3)
+
+        jacobian_inv_2DH(1:2, 1:2) = td%plotter_data%jacobian_inv / td%custom_data%scaling
+        jacobian_inv_2DH(3, 1:2) = matmul(td%plotter_data%jacobian_inv, td%custom_data%offset) / td%custom_data%scaling
+        jacobian_inv_2DH(1:3, 3) = [0.0_GRID_SR, 0.0_GRID_SR, 1.0_GRID_SR]
+    end function
 
 	function t_edge_data_get_c_pointer(array) result(ptr)
         type(t_edge_data), pointer, intent(inout)	:: array(:)
@@ -351,9 +374,9 @@ MODULE SFC_data_types
 		integer (kind = BYTE), intent(out)			:: i_next_edge
 
 		integer (kind = BYTE), dimension(3, 3), parameter :: indices = reshape( \
-			[LEFT_EDGE, RIGHT_EDGE, HYPOTENUSE, \
+			int([LEFT_EDGE, RIGHT_EDGE, HYPOTENUSE, \
 			LEFT_EDGE, HYPOTENUSE, RIGHT_EDGE, \
-			HYPOTENUSE, LEFT_EDGE, RIGHT_EDGE], [3, 3])
+			HYPOTENUSE, LEFT_EDGE, RIGHT_EDGE], BYTE), [3, 3])
 
 		i_previous_edge = indices(1, cell%i_turtle_type)
 		i_color_edge = indices(2, cell%i_turtle_type)
@@ -367,9 +390,9 @@ MODULE SFC_data_types
 		integer (kind = BYTE), intent(out)			:: i_color_node_in
 
 		integer (kind = BYTE), dimension(3, 3), parameter :: indices = reshape( \
-			[TOP_NODE, LEFT_NODE, RIGHT_NODE, \
+			int([TOP_NODE, LEFT_NODE, RIGHT_NODE, \
 			LEFT_NODE, TOP_NODE, RIGHT_NODE, \
-			LEFT_NODE, RIGHT_NODE, TOP_NODE], [3, 3])
+			LEFT_NODE, RIGHT_NODE, TOP_NODE], BYTE), [3, 3])
 
 		i_color_node_out = indices(1, cell%i_turtle_type)
 		i_transfer_node = indices(2, cell%i_turtle_type)
@@ -435,14 +458,14 @@ MODULE SFC_data_types
 
 	elemental subroutine cell_set_next_edge_type(cell, i_next_edge_type)
 		class(fine_triangle), intent(inout)		:: cell
-		integer (kind = BYTE), intent(in)			:: i_next_edge_type
+		integer (kind = BYTE), intent(in)	    :: i_next_edge_type
 
 		call mvbits(i_next_edge_type, 1, 1, cell%i_entity_types, 2)
 	end subroutine
 
 	elemental subroutine cell_set_color_edge_type(cell, i_color_edge_type)
 		class(fine_triangle), intent(inout)		:: cell
-		integer (kind = BYTE), intent(in)			:: i_color_edge_type
+		integer (kind = BYTE), intent(in)	    :: i_color_edge_type
 
 		call mvbits(i_color_edge_type, 0, 2, cell%i_entity_types, 0)
 	end subroutine
@@ -453,10 +476,10 @@ MODULE SFC_data_types
         !invert edge types: swap previous and next edge and invert old/new bits
         cell%i_entity_types = ishftc(cell%i_entity_types, 1, 4)
         cell%i_entity_types = ishftc(cell%i_entity_types, -1, 3)
-        cell%i_entity_types = ieor(cell%i_entity_types, 1)
+        cell%i_entity_types = ieor(cell%i_entity_types, 1_BYTE)
 
         !invert turtle type: (K, V, H) -> (H, V, K)
-        cell%i_turtle_type = 4 - cell%i_turtle_type
+        cell%i_turtle_type = 4_BYTE - cell%i_turtle_type
 
         !invert plotter type
         cell%i_plotter_type = -cell%i_plotter_type
@@ -466,10 +489,10 @@ MODULE SFC_data_types
 		class(fine_triangle), intent(inout)		:: cell
 
         !invert edge types: invert old/new color edge bit
-        cell%i_entity_types = ieor(cell%i_entity_types, 1)
+        cell%i_entity_types = ieor(cell%i_entity_types, 1_BYTE)
 
         !invert turtle type: (K, V, H) -> (H, V, K)
-        cell%i_turtle_type = 4 - cell%i_turtle_type
+        cell%i_turtle_type = 4_BYTE - cell%i_turtle_type
 
         !invert plotter type
         cell%i_plotter_type = -cell%i_plotter_type
@@ -477,7 +500,7 @@ MODULE SFC_data_types
 
 	elemental subroutine cell_reverse_refinement(cell)
 		class(fine_triangle), intent(inout)		:: cell
-		integer (kind = BYTE), parameter           :: flip_2_3(-1:4) = [-1, 0, 1, 3, 2, 4]
+		integer (kind = BYTE), parameter        :: flip_2_3(-1:4) = [-1_BYTE, 0_BYTE, 1_BYTE, 3_BYTE, 2_BYTE, 4_BYTE]
 
         !invert refinement flag: flip 2 and 3
         cell%refinement = flip_2_3(cell%refinement)
@@ -531,7 +554,7 @@ MODULE SFC_data_types
 		real (kind = GRID_SR)           		:: edge_sizes(3)
 
         integer (kind = BYTE)                      :: i
-        real (kind = GRID_SR), parameter, dimension(0 : MAX_DEPTH)	:: r_leg_sizes = [ (sqrt(0.5_GRID_SR) ** i, i = 0, MAX_DEPTH) ]
+        real (kind = GRID_SR), parameter, dimension(-1 : MAX_DEPTH)	:: r_leg_sizes = [ (sqrt(0.5_GRID_SR) ** i, i = -1, MAX_DEPTH) ]
 
 		edge_sizes = [r_leg_sizes(cell%i_depth), r_leg_sizes(cell%i_depth - 1), r_leg_sizes(cell%i_depth)]
 	end function
@@ -596,16 +619,14 @@ MODULE SFC_data_types
 	subroutine init_transform_data()
 		type(t_edge_transform_data), pointer				:: p_edge_data
 		integer (kind = BYTE)							    :: i_plotter_type, i, j
-		integer                                             :: i_error
 		real (kind = GRID_SR)								:: r_angle
 		real (kind = GRID_SR)				                :: edge_vectors(2, 3), edge_normals(2, 3)
-		type(t_global_data)                                 :: global_data
 
 		!set transformation matrices for the 8 different plotter grammar patterns
 
         do i_plotter_type = -8, 8
             if (i_plotter_type .ne. 0) then
-               associate(p_cell_data => ref_plotter_data(i_plotter_type))
+                associate(p_cell_data => ref_plotter_data(i_plotter_type))
                     !p_cell_data%plotter_type = i_plotter_type
 
                     !set rotation angle
@@ -649,13 +670,13 @@ MODULE SFC_data_types
                         p_edge_data%index = i
 
                         if (edge_vectors(2, i) == 0.0_GRID_SR) then
-                            p_edge_data%orientation = sign(1.0_GRID_SR, dot_product(edge_vectors(:, i), [1.0_GRID_SR, 0.0_GRID_SR]))
+                            p_edge_data%orientation = int(sign(1.0_GRID_SR, dot_product(edge_vectors(:, i), [1.0_GRID_SR, 0.0_GRID_SR])), BYTE)
                         else if (edge_vectors(1, i) == 0.0_GRID_SR) then
-                            p_edge_data%orientation = sign(1.0_GRID_SR, dot_product(edge_vectors(:, i), [0.0_GRID_SR, 1.0_GRID_SR]))
+                            p_edge_data%orientation = int(sign(1.0_GRID_SR, dot_product(edge_vectors(:, i), [0.0_GRID_SR, 1.0_GRID_SR])), BYTE)
                         else if (edge_vectors(1, i) - edge_vectors(2, i) == 0.0_GRID_SR) then
-                            p_edge_data%orientation = sign(1.0_GRID_SR, dot_product(edge_vectors(:, i), [1.0_GRID_SR, 1.0_GRID_SR]))
+                            p_edge_data%orientation = int(sign(1.0_GRID_SR, dot_product(edge_vectors(:, i), [1.0_GRID_SR, 1.0_GRID_SR])), BYTE)
                         else if (edge_vectors(1, i) + edge_vectors(2, i) == 0.0_GRID_SR) then
-                            p_edge_data%orientation = sign(1.0_GRID_SR, dot_product(edge_vectors(:, i), [1.0_GRID_SR, -1.0_GRID_SR]))
+                            p_edge_data%orientation = int(sign(1.0_GRID_SR, dot_product(edge_vectors(:, i), [1.0_GRID_SR, -1.0_GRID_SR])), BYTE)
                         else
                             !something's wrong
                             assert(.false.)

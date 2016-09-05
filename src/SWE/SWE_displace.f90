@@ -9,11 +9,10 @@
 	MODULE SWE_Displace
 		use SFC_edge_traversal
 		use SWE_euler_timestep
-		use SWE_initialize
-#		if defined(_SWE_PATCH)
-			use SWE_PATCH
-#		endif
-
+		use SWE_initialize_bathymetry
+#       if defined(_SWE_PATCH)
+            use SWE_PATCH
+#       endif
 		use Samoa_swe
 
 		implicit none
@@ -40,10 +39,11 @@
         subroutine create_node_mpi_type(mpi_node_type)
             integer, intent(out)            :: mpi_node_type
 
-            type(t_node_data)               :: node
-            integer                         :: blocklengths(2), types(2), disps(2), i_error, extent
-
 #           if defined(_MPI)
+                type(t_node_data)                       :: node
+                integer                                 :: blocklengths(2), types(2), disps(2), type_size, i_error
+                integer (kind = MPI_ADDRESS_KIND)       :: lb, ub
+
                 blocklengths(1) = 1
                 blocklengths(2) = 1
 
@@ -56,11 +56,12 @@
                 call MPI_Type_struct(2, blocklengths, disps, types, mpi_node_type, i_error); assert_eq(i_error, 0)
                 call MPI_Type_commit(mpi_node_type, i_error); assert_eq(i_error, 0)
 
-                call MPI_Type_extent(mpi_node_type, extent, i_error); assert_eq(i_error, 0)
-                assert_eq(sizeof(node), extent)
+                call MPI_Type_size(mpi_node_type, type_size, i_error); assert_eq(i_error, 0)
+                call MPI_Type_get_extent(mpi_node_type, lb, ub, i_error); assert_eq(i_error, 0)
 
-                call MPI_Type_size(mpi_node_type, extent, i_error); assert_eq(i_error, 0)
-                assert_eq(0, extent)
+                assert_eq(0, lb)
+                assert_eq(0, type_size)
+                assert_eq(sizeof(node), ub)
 #           endif
         end subroutine
 
@@ -69,11 +70,11 @@
 		!******************
 
 		subroutine element_op(traversal, section, element)
-			type(t_swe_displace_traversal), intent(inout)				    :: traversal
-			type(t_grid_section), intent(inout)							:: section
+			type(t_swe_displace_traversal), intent(inout)		:: traversal
+			type(t_grid_section), intent(inout)					:: section
 			type(t_element_base), intent(inout)					:: element
 
-			type(t_state), dimension(_SWE_CELL_SIZE)			:: Q
+			type(t_state)			                            :: Q(_SWE_CELL_SIZE)
 
 			call gv_Q%read(element, Q)
 
@@ -90,53 +91,27 @@
 			type(t_swe_displace_traversal), intent(inout)				:: traversal
 			type(t_grid_section), intent(inout)							:: section
 			type(t_element_base), intent(inout)						    :: element
-			type(t_state), dimension(_SWE_CELL_SIZE), intent(inout)	    :: Q
-			integer (kind = GRID_SI)								    :: i
-#			if defined(_SWE_PATCH)
-				real (kind = GRID_SR), dimension(_SWE_PATCH_ORDER_SQUARE)        :: db
-				real (kind = GRID_SR), DIMENSION(2)								:: r_coords		!< cell coords within patch
-				integer (kind = GRID_SI)										:: j, row, col, cell_id
-#			else
-				real (kind = GRID_SR)		                                :: db
-#			endif
+			type(t_state), intent(inout)	                            :: Q(:)
+            integer (kind = GRID_SI)                                    :: i
+#           if defined(_SWE_PATCH)
+                real (kind = GRID_SR), dimension(_SWE_PATCH_ORDER_SQUARE)        :: db
+                real (kind = GRID_SR), DIMENSION(2)                             :: r_coords     !< cell coords within patch
+                integer (kind = GRID_SI)                                        :: j, row, col, cell_id
+#           else
+                real (kind = GRID_SR)                                       :: db(_SWE_CELL_SIZE)
+#           endif
 
 			!evaluate initial function values at dof positions and compute DoFs
 #           if defined(_ASAGI)
-#				if defined(_SWE_PATCH)
-					row = 1
-					col = 1
-					do i=1, _SWE_PATCH_ORDER_SQUARE
-					
-						! if orientation is backwards, the plotter uses a transformation that mirrors the cell...
-						! this simple change solves the problem :)
-						if (element%cell%geometry%i_plotter_type > 0) then 
-							cell_id = i
-						else
-							cell_id = (row-1)*(row-1) + 2 * row - col
-						end if
-					
-						r_coords = [0_GRID_SR, 0_GRID_SR]
-						do j=1,3
-							r_coords(:) = r_coords(:) + SWE_PATCH_geometry%coords(:,j,cell_id) 
-						end do
-						r_coords = r_coords / 3
-						db(i) = -element%cell%data_pers%B(i) + get_bathymetry(section, samoa_barycentric_to_world_point(element%transform_data, r_coords), section%r_time, element%cell%geometry%i_depth / 2_GRID_SI)
-
-						col = col + 1
-						if (col == 2*row) then
-							col = 1
-							row = row + 1
-						end if
-					end do
-					element%cell%data_pers%H = element%cell%data_pers%H + db
-					element%cell%data_pers%B = element%cell%data_pers%B + db
-#				else
-					do i = 1, _SWE_CELL_SIZE
-						db = -Q(i)%b + get_bathymetry(section, samoa_barycentric_to_world_point(element%transform_data, t_basis_Q_get_dof_coords(i)), section%r_time, element%cell%geometry%i_depth / 2_GRID_SI)
-						Q(i)%h = Q(i)%h + db
-						Q(i)%b = Q(i)%b + db
-					end do
-#				endif
+#               if defined (_SWE_PATCH)
+                    db = -element%cell%data_pers%B + get_bathymetry_at_patch(section, element, section%r_time)
+                    element%cell%data_pers%H = element%cell%data_pers%H + db
+                    element%cell%data_pers%B = element%cell%data_pers%B + db
+#               else
+                    db = -Q%b + get_bathymetry_at_element(section, element, section%r_time)
+                    Q%h = Q%h + db
+                    Q%b = Q%b + db
+#               endif
 #           endif
 
             !no coarsening while the earthquake takes place

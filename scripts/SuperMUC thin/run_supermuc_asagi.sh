@@ -36,7 +36,16 @@ do
 		do
 			processes=$concurrency
 			threads=1
-			nodes=$(( ($processes * $threads - 1) / 16 + 1 ))
+		    nodes=$(( ($processes * $threads - 1) / 16 + 1 ))
+			islands=$(( ($nodes - 1) / 512 + 1 ))
+
+			if [ $nodes -le 32 ]; then
+               class=test
+            elif [ $nodes -le 512 ]; then
+               class=general
+            else
+               class=large
+            fi
 
 			script="scripts/cache/run_thin"$postfix"_p"$processes"_t"$threads"_s"$sections"_a"$asagimode".sh"
 			cat "$script_dir/run_supermuc_template.sh" > $script
@@ -49,6 +58,7 @@ do
 			sed -i 's=$nodes='$nodes'=g' $script
 			sed -i 's=$limit='$limit'=g' $script
 			sed -i 's=$class='$class'=g' $script
+			sed -i 's=$islands='$islands'=g' $script
 			sed -i 's=$postfix='$postfix'=g' $script
 
 			llsubmit $script

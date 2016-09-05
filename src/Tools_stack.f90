@@ -107,7 +107,7 @@ subroutine create(stack, i_capacity)
 	stack%elements => alloc_wrapper(int(i_capacity, 8))
 
 	stack%i_current_element = 0
-end subroutine create
+end subroutine
 
 !> Destroys the stack
 subroutine destroy(stack)

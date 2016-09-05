@@ -178,11 +178,11 @@
 		type(_GT), intent(inout)					                :: traversal
 		type(t_grid_section), intent(inout)					        :: section
 
-		integer (kind = GRID_SI)							        :: i_color
-        integer (kind = GRID_SI)							        :: i_comm
-        type(t_comm_interface), pointer                             :: comm
-
 #       if defined(_GT_EDGES) && defined(_GT_SKELETON_OP)
+	        integer (kind = GRID_SI)							    :: i_color
+            integer (kind = GRID_SI)							    :: i_comm, i_edge
+            type(t_comm_interface), pointer                         :: comm
+
             do i_color = RED, GREEN
                 do i_comm = 1, size(section%comms(i_color)%elements)
                     comm => section%comms(i_color)%elements(i_comm)
@@ -190,9 +190,13 @@
                     if (comm%neighbor_rank .ge. 0 .and. comm%i_edges > 0) then
                         !the skeleton operator must be called for locally owned edges only.
                         !it is sufficient to check the first edge, since all edges of the comm are flagged equally
-                        if (comm%p_local_edges(1)%owned_locally) then
-                            call _GT_SKELETON_OP(traversal, section, comm%p_local_edges, comm%p_local_edges%rep, comm%p_neighbor_edges(comm%i_edges : 1 : -1)%rep, comm%p_local_edges%update, comm%p_neighbor_edges(comm%i_edges : 1 : -1)%update)
-                        end if
+                        do i_edge = 1, comm%i_edges
+                            if (comm%p_local_edges(i_edge)%owned_locally) then
+                                call _GT_SKELETON_OP(traversal, section, comm%p_local_edges(i_edge), &
+                                    comm%p_local_edges(i_edge)%rep, comm%p_neighbor_edges(comm%i_edges + 1 - i_edge)%rep, &
+                                    comm%p_local_edges(i_edge)%update, comm%p_neighbor_edges(comm%i_edges + 1 - i_edge)%update)
+                            end if
+                        end do
                     else
                         call _GT_BND_SKELETON_OP(traversal, section, comm%p_local_edges, comm%p_local_edges%rep, comm%p_local_edges%update)
                     end if
@@ -205,19 +209,35 @@
 		type(_GT), intent(inout)					                :: traversal
 		type(t_grid_section), intent(inout)					        :: section
 
-		integer (kind = GRID_SI)							        :: i_color
+		integer (kind = GRID_SI)							        :: i_color, i_node, i_edge
 
 #		if defined(_GT_PRE_TRAVERSAL_OP)
 			call _GT_PRE_TRAVERSAL_OP(traversal, section)
 #		endif
 
 		do i_color = RED, GREEN
-#			if defined(_GT_NODES) && defined(_GT_NODE_FIRST_TOUCH_OP)
-                call _GT_NODE_FIRST_TOUCH_OP(traversal, section, section%boundary_nodes(i_color)%elements)
+#			if defined(_GT_EDGES)
+                _log_write(5, '(5X, A)'), "boundary edges:"
+
+                do i_edge = 1, size(section%boundary_edges(i_color)%elements)
+#			        if defined(_GT_EDGE_FIRST_TOUCH_OP)
+                        if (section%boundary_edges(i_color)%elements(i_edge)%owned_locally) then
+                            call _GT_EDGE_FIRST_TOUCH_OP(traversal, section, section%boundary_edges(i_color)%elements)
+                        end if
+#			        endif
+                end do
 #			endif
 
-#			if defined(_GT_EDGES) && defined(_GT_EDGE_FIRST_TOUCH_OP)
-                call _GT_EDGE_FIRST_TOUCH_OP(traversal, section, section%boundary_edges(i_color)%elements)
+#			if defined(_GT_NODES)
+                _log_write(5, '(5X, A)'), "boundary nodes:"
+
+                do i_node = 1, size(section%boundary_nodes(i_color)%elements)
+#    			    if defined(_GT_NODE_FIRST_TOUCH_OP)
+                        if (section%boundary_nodes(i_color)%elements(i_node)%owned_locally) then
+                            call _GT_NODE_FIRST_TOUCH_OP(traversal, section, section%boundary_nodes(i_color)%elements(i_node))
+                        end if
+#                   endif
+                end do
 #			endif
 		end do
 	end subroutine
@@ -236,33 +256,37 @@
 #			if defined(_GT_EDGES)
                 _log_write(5, '(5X, A)'), "boundary edges:"
 
-#			    if defined(_GT_EDGE_LAST_TOUCH_OP)
-                    call _GT_EDGE_LAST_TOUCH_OP(traversal, section, section%boundary_edges(i_color)%elements)
-#			    endif
+                do i_edge = 1, size(section%boundary_edges(i_color)%elements)
+#			        if defined(_GT_EDGE_LAST_TOUCH_OP)
+                        if (section%boundary_edges(i_color)%elements(i_edge)%owned_locally) then
+                            call _GT_EDGE_LAST_TOUCH_OP(traversal, section, section%boundary_edges(i_color)%elements)
+                        end if
+#			        endif
 
-				do i_edge = 1, size(section%boundary_edges(i_color)%elements)
-                    if (section%boundary_edges(i_color)%elements(i_edge)%owned_globally) then
-#			            if defined(_GT_EDGE_REDUCE_OP)
+#			        if defined(_GT_EDGE_REDUCE_OP)
+                        if (section%boundary_edges(i_color)%elements(i_edge)%owned_globally) then
                             call _GT_EDGE_REDUCE_OP(traversal, section, section%boundary_edges(i_color)%elements(i_edge))
-#			            endif
-                    endif
-               end do
+                        end if
+#			        endif
+                end do
 #			endif
 
 #			if defined(_GT_NODES)
                 _log_write(5, '(5X, A)'), "boundary nodes:"
 
-#			    if defined(_GT_NODE_LAST_TOUCH_OP)
-                    call _GT_NODE_LAST_TOUCH_OP(traversal, section, section%boundary_nodes(i_color)%elements)
-#               endif
-
                 do i_node = 1, size(section%boundary_nodes(i_color)%elements)
-                    if (section%boundary_nodes(i_color)%elements(i_node)%owned_globally) then
-#			            if defined(_GT_NODE_REDUCE_OP)
+#    			    if defined(_GT_NODE_LAST_TOUCH_OP)
+                        if (section%boundary_nodes(i_color)%elements(i_node)%owned_locally) then
+                            call _GT_NODE_LAST_TOUCH_OP(traversal, section, section%boundary_nodes(i_color)%elements(i_node))
+                        end if
+#                   endif
+
+#    			    if defined(_GT_NODE_REDUCE_OP)
+                        if (section%boundary_nodes(i_color)%elements(i_node)%owned_globally) then
                             call _GT_NODE_REDUCE_OP(traversal, section, section%boundary_nodes(i_color)%elements(i_node))
-#           			endif
-                    endif
-				end do
+                        end if
+#                   endif
+                end do
 #			endif
 		end do
 
@@ -272,26 +296,26 @@
 	end subroutine
 
     subroutine _OP0(set_stats_counters)(stats, section)
-        type(t_statistics), intent(inout)		    :: stats
+        class(t_base_statistics), intent(inout)		:: stats
         type(t_grid_section), intent(in)			:: section
 
         type(t_section_info)               	        :: info
 
         info = section%get_info()
 
-        stats%i_traversals = 1
-        stats%i_traversed_cells = info%i_cells
-       	stats%i_traversed_memory = sizeof(section%cells%elements(1)) * info%i_cells
+        call stats%add_counter(traversals, 1_8)
+        call stats%add_counter(traversed_cells, info%i_cells)
+       	call stats%add_counter(traversed_memory, sizeof(section%cells%elements(1)) * info%i_cells)
 
 #   	if defined(_GT_NODES)
-            stats%i_traversed_nodes = info%i_nodes + sum(info%i_boundary_nodes)
-            stats%i_traversed_memory = stats%i_traversed_memory + sizeof(section%boundary_nodes(RED)%elements(1)%t_node_stream_data) * (info%i_nodes + sum(info%i_boundary_nodes))
+            call stats%add_counter(traversed_nodes, info%i_nodes + sum(info%i_boundary_nodes))
+            call stats%add_counter(traversed_memory, sizeof(section%boundary_nodes(RED)%elements(1)%t_node_stream_data) * (info%i_nodes + sum(info%i_boundary_nodes)))
 #   	endif
 
 #   	if defined(_GT_EDGES)
-            stats%i_traversed_edges = info%i_crossed_edges + info%i_color_edges + sum(info%i_boundary_edges)
-            stats%i_traversed_memory = stats%i_traversed_memory + sizeof(section%boundary_edges(RED)%elements(1)%t_crossed_edge_stream_data) * info%i_crossed_edges
-            stats%i_traversed_memory = stats%i_traversed_memory + sizeof(section%boundary_edges(RED)%elements(1)%t_color_edge_stream_data) * (info%i_color_edges + sum(info%i_boundary_edges))
+            call stats%add_counter(traversed_edges, info%i_crossed_edges + info%i_color_edges + sum(info%i_boundary_edges))
+            call stats%add_counter(traversed_memory, sizeof(section%boundary_edges(RED)%elements(1)%t_crossed_edge_stream_data) * info%i_crossed_edges)
+            call stats%add_counter(traversed_memory, sizeof(section%boundary_edges(RED)%elements(1)%t_color_edge_stream_data) * (info%i_color_edges + sum(info%i_boundary_edges)))
 #   	endif
     end subroutine
 
@@ -352,9 +376,9 @@
 
 			p_plotter_data => element%transform_data%plotter_data
 
-			forall (i = 1 : 3)
+			do i = 1, 3
                 element%edges(i)%ptr%transform_data => p_plotter_data%edges(i)
-            end forall
+            end do
 #		endif
 	end subroutine
 
@@ -456,8 +480,12 @@
             type(t_traversal_element), intent(inout)	        :: element
 #       endif
 
-		integer(kind = BYTE)								        :: i_color_edge_color
+		integer(kind = BYTE)								    :: i_color_edge_color
 		real (kind = GRID_SI), dimension(2, 3), parameter	    :: node_offset = reshape([0.0, 1.0, -1.0, 1.0, -1.0, 0.0], [2, 3])
+
+#       if !defined(_GT_NO_COORDS) && !defined(_GT_PASS_COORDS) && !defined(_STORE_NODE_COORDS) && (_GT_COLOR_EDGE_TYPE == _NEW)
+            real (kind = GRID_SI)                               :: new_position(2)
+#       endif
 
 #		if defined(_GT_SKELETON_OP) || defined(_GT_CELL_UPDATE_OP)
             type(num_cell_update)                               :: color_edge_local_update, next_edge_local_update
@@ -467,55 +495,56 @@
 
 		!read previous crossed edge
 #		if (_GT_PREVIOUS_EDGE_TYPE == _OLD)
-			!read transfer node from stack
-			_GT_N(element%transfer_node%ptr => thread%nodes_stack(RED + GREEN - i_color_edge_color)%current())
+            if (thread%nodes_stack(RED + GREEN - i_color_edge_color)%is_empty()) then
+			    _GT_N(element%transfer_node%ptr => section%boundary_nodes(RED + GREEN - i_color_edge_color)%current())
+            else
+			    _GT_N(element%transfer_node%ptr => thread%nodes_stack(RED + GREEN - i_color_edge_color)%current())
+			end if
 #		elif (_GT_PREVIOUS_EDGE_TYPE == _OLD_BND)
 			!access previous edge on the process edge stream
 			_GT_E(element%previous_edge%ptr => section%boundary_edges(RED)%next())
 
-			!read transfer nodes from the process node stream and push them on the stacks
-			_GT_N(element%color_node_out%ptr => thread%nodes_stack(i_color_edge_color)%push())
-			_GT_N(call section%boundary_nodes(i_color_edge_color)%read(element%color_node_out%ptr))
-
-			_GT_N(element%transfer_node%ptr => thread%nodes_stack(RED + GREEN - i_color_edge_color)%push())
-			_GT_N(call section%boundary_nodes(RED + GREEN - i_color_edge_color)%read(element%transfer_node%ptr))
+            _GT_N(element%color_node_out%ptr => section%boundary_nodes(i_color_edge_color)%next())
+            _GT_N(element%transfer_node%ptr => section%boundary_nodes(RED + GREEN - i_color_edge_color)%next())
 #		endif
 
 		!read color edge and color node
 #		if (_GT_COLOR_EDGE_TYPE == _OLD)
 			_GT_E(element%color_edge%ptr => thread%edges_stack(i_color_edge_color)%pop())
-
 			_GT_N(element%color_node_out%ptr => thread%nodes_stack(i_color_edge_color)%pop())
-			_GT_N(element%color_node_in%ptr => thread%nodes_stack(i_color_edge_color)%current())
-#		elif (_GT_COLOR_EDGE_TYPE == _NEW)
-			_GT_E(element%color_edge%ptr => thread%edges_stack(i_color_edge_color)%push())
-			_GT_ER(call section%color_edges_in%read(element%color_edge%ptr%t_color_edge_stream_data))
 
-			_GT_N(element%color_node_out%ptr => thread%nodes_stack(i_color_edge_color)%current())
+            if (thread%nodes_stack(i_color_edge_color)%is_empty()) then
+			    _GT_N(element%color_node_in%ptr => section%boundary_nodes(i_color_edge_color)%current())
+            else
+			    _GT_N(element%color_node_in%ptr => thread%nodes_stack(i_color_edge_color)%current())
+            end if
+#		elif (_GT_COLOR_EDGE_TYPE == _NEW)
+            if (thread%nodes_stack(i_color_edge_color)%is_empty()) then
+			    _GT_N(element%color_node_out%ptr => section%boundary_nodes(i_color_edge_color)%current())
+            else
+			    _GT_N(element%color_node_out%ptr => thread%nodes_stack(i_color_edge_color)%current())
+			end if
+
 			_GT_N(element%color_node_in%ptr => thread%nodes_stack(i_color_edge_color)%push())
-			_GT_NR(call section%nodes_in%read(element%color_node_in%ptr%t_node_stream_data))
+            _GT_NR(call section%nodes_in%read(element%color_node_in%ptr%t_node_stream_data))
+
+			_GT_E(element%color_edge%ptr => thread%edges_stack(i_color_edge_color)%push())
+            _GT_ER(call section%color_edges_in%read(element%color_edge%ptr%t_color_edge_stream_data))
 #		elif (_GT_COLOR_EDGE_TYPE == _OLD_BND) || (_GT_COLOR_EDGE_TYPE == _NEW_BND)
 			_GT_E(element%color_edge%ptr => section%boundary_edges(i_color_edge_color)%next())
 
-			_GT_N(element%color_node_out%ptr => section%boundary_nodes(i_color_edge_color)%current())
-			_GT_N(call thread%nodes_stack(i_color_edge_color)%pop_data(element%color_node_out%ptr))
-
-			_GT_N(element%color_node_in%ptr => thread%nodes_stack(i_color_edge_color)%push())
-			_GT_N(call section%boundary_nodes(i_color_edge_color)%read(element%color_node_in%ptr))
+            _GT_N(element%color_node_out%ptr => section%boundary_nodes(i_color_edge_color)%current())
+            _GT_N(element%color_node_in%ptr => section%boundary_nodes(i_color_edge_color)%next())
 #		endif
 
 		!read next crossed edge
 #		if (_GT_NEXT_EDGE_TYPE == _NEW)
-			_GT_ER(call section%crossed_edges_in%read(element%next_edge%ptr%t_crossed_edge_stream_data))
+            _GT_ER(call section%crossed_edges_in%read(element%next_edge%ptr%t_crossed_edge_stream_data))
 #		elif (_GT_NEXT_EDGE_TYPE == _NEW_BND)
 			_GT_E(element%next_edge%ptr => section%boundary_edges(RED)%next())
 
-			!pop transfer nodes from the stacks and write them to the process node streams
-			_GT_N(element%color_node_in%ptr => section%boundary_nodes(i_color_edge_color)%current())
-			_GT_N(call thread%nodes_stack(i_color_edge_color)%pop_data(element%color_node_in%ptr))
-
-			_GT_N(element%transfer_node%ptr => section%boundary_nodes(RED + GREEN - i_color_edge_color)%current())
-			_GT_N(call thread%nodes_stack(RED + GREEN - i_color_edge_color)%pop_data(element%transfer_node%ptr))
+            _GT_N(element%color_node_in%ptr => section%boundary_nodes(i_color_edge_color)%current())
+            _GT_N(element%transfer_node%ptr => section%boundary_nodes(RED + GREEN - i_color_edge_color)%current())
 #		endif
 
 		!set element tranformation data (must be defined)
@@ -534,10 +563,19 @@
 #               endif
 #		    elif !defined(_STORE_NODE_COORDS)
 #               if (_GT_COLOR_EDGE_TYPE == _NEW)
-                    element%color_node_in%ptr%position = element%color_node_out%ptr%position + element%transform_data%custom_data%scaling * matmul(element%transform_data%plotter_data%jacobian, node_offset(:, element%cell%geometry%i_turtle_type))
+                    new_position = element%color_node_out%ptr%position + element%transform_data%custom_data%scaling * matmul(element%transform_data%plotter_data%jacobian, node_offset(:, element%cell%geometry%i_turtle_type))
+                    element%color_node_in%ptr%position = new_position
 #               endif
 #           endif
 #		endif
+
+        assert_veq(element%nodes(1)%ptr%position, element%nodes(1)%ptr%position)
+        assert_veq(element%nodes(2)%ptr%position, element%nodes(2)%ptr%position)
+        assert_veq(element%nodes(3)%ptr%position, element%nodes(3)%ptr%position)
+
+        !assert(.not. any(element%nodes(1)%ptr%position > 0.0_SR .and. element%nodes(1)%ptr%position < 1.0e-100_SR))
+        !assert(.not. any(element%nodes(2)%ptr%position > 0.0_SR .and. element%nodes(2)%ptr%position < 1.0e-100_SR))
+        !assert(.not. any(element%nodes(3)%ptr%position > 0.0_SR .and. element%nodes(3)%ptr%position < 1.0e-100_SR))
 
 		!First Touch Hooks
 
@@ -616,7 +654,7 @@
             type(t_traversal_element), intent(inout)	        :: element
 #       endif
 
-		integer (kind = BYTE)							            :: i_color_edge_color
+		integer (kind = BYTE)							        :: i_color_edge_color
 
 		i_color_edge_color = element%cell%geometry%i_color_edge_color
 
@@ -686,8 +724,8 @@
 
 		!write color edge & transfer node to stream if the edge is old or on the boundary, otherwise on the stack
 #		if (_GT_COLOR_EDGE_TYPE == _OLD)
-			_GT_EW(call section%color_edges_out%write(element%color_edge%ptr%t_color_edge_stream_data))
-			_GT_NW(call section%nodes_out%write(element%color_node_out%ptr%t_node_stream_data))
+            _GT_EW(call section%color_edges_out%write(element%color_edge%ptr%t_color_edge_stream_data))
+            _GT_NW(call section%nodes_out%write(element%color_node_out%ptr%t_node_stream_data))
 #		endif
 
 #		if (_GT_NEXT_EDGE_TYPE == _NEW_BND)

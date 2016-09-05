@@ -13,11 +13,11 @@
 
 		use Samoa_swe
 		use SWE_euler_timestep
-		
-#		if defined(_SWE_PATCH)
-			use SWE_PATCH
-#		endif
 
+#       if defined(_SWE_PATCH)
+            use SWE_PATCH
+#       endif
+		
 		implicit none
 
 		!> Output point data
@@ -33,16 +33,16 @@
 			integer (kind = GRID_SI)								:: section_index
 			integer (kind = BYTE)									:: depth
 			integer (kind = BYTE)									:: refinement
-			integer (kind = BYTE)									:: i_plotter_type
-#			if defined(_SWE_PATCH)			
-				integer (kind = BYTE)								:: id_within_patch
-#			endif
+            integer (kind = BYTE)                                   :: i_plotter_type
+#           if defined(_SWE_PATCH)          
+                integer (kind = BYTE)                               :: id_in_patch
+#           endif
 		end type
 
         type num_traversal_data
             type(t_output_point_data), allocatable		            :: point_data(:)
             type(t_output_cell_data), allocatable			        :: cell_data(:)
-            character(len=64)							            :: s_file_stamp
+            character(len=256)							            :: s_file_stamp
 
             integer (kind = GRID_SI)								:: i_output_iteration = 0
             integer (kind = GRID_SI)								:: i_point_data_index
@@ -76,19 +76,21 @@
                 _log_write(1, '(A, I0)') " SWE: output step: ", traversal%i_output_iteration
             end if
 
+
 !                if(traversal%i_output_iteration .eq. 1) then
 !                   stop
 !                end if
 
             call scatter(traversal%s_file_stamp, traversal%children%s_file_stamp)
             call scatter(traversal%i_output_iteration, traversal%children%i_output_iteration)
+
 		end subroutine
 
         subroutine post_traversal_grid_op(traversal, grid)
 			type(t_swe_xml_output_traversal), intent(inout)				:: traversal
 			type(t_grid), intent(inout)							        :: grid
 
-            character (len = 64)							:: s_file_name
+            character (len = 256)							:: s_file_name
             integer                                         :: i_error
 			integer(4)										:: i_rank, i_section, e_io
 			logical                                         :: l_exists
@@ -105,11 +107,15 @@
                     write (s_file_name, "(A, A, I0, A)") TRIM(traversal%s_file_stamp), "_", traversal%i_output_iteration, ".pvtu"
                     e_io = vtk%VTK_INI_XML('ascii', s_file_name, 'PUnstructuredGrid')
 
+                    e_io = vtk%VTK_DAT_XML('pfield', 'OPEN')
+                        e_io = vtk%VTK_VAR_XML('time', 1.0_GRID_SR, 1)
+                    e_io = vtk%VTK_DAT_XML('pfield', 'CLOSE')
+
                     e_io = vtk%VTK_DAT_XML('pnode', 'OPEN')
                         if (i_element_order > 0) then
                             e_io = vtk%VTK_VAR_XML('water height', 1.0_GRID_SR, 1)
                             e_io = vtk%VTK_VAR_XML('bathymetry', 1.0_GRID_SR, 1)
-                            e_io = vtk%VTK_VAR_XML('velocity', 1.0_GRID_SR, 3)
+                            e_io = vtk%VTK_VAR_XML('momentum', 1.0_GRID_SR, 3)
                         end if
                     e_io = vtk%VTK_DAT_XML('pnode', 'CLOSE')
 
@@ -117,17 +123,17 @@
                         if (i_element_order == 0) then
                             e_io = vtk%VTK_VAR_XML('water height', 1.0_GRID_SR, 1)
                             e_io = vtk%VTK_VAR_XML('bathymetry', 1.0_GRID_SR, 1)
-                            e_io = vtk%VTK_VAR_XML('velocity', 1.0_GRID_SR, 3)
+                            e_io = vtk%VTK_VAR_XML('momentum', 1.0_GRID_SR, 3)
                         end if
 
                         e_io = vtk%VTK_VAR_XML('rank', 1_GRID_SI, 1)
                         e_io = vtk%VTK_VAR_XML('section index', 1_GRID_SI, 1)
                         e_io = vtk%VTK_VAR_XML('depth', 1_1, 1)
-                        e_io = vtk%VTK_VAR_XML('i_plotter_type', 1_1, 1)
-#						if defined(_SWE_PATCH)
-							e_io = vtk%VTK_VAR_XML('id_within_patch', 1_1, 1)
-#						endif
                         e_io = vtk%VTK_VAR_XML('refinement flag', 1_1, 1)
+                        e_io = vtk%VTK_VAR_XML('i_plotter_type', 1_1, 1)
+#                       if defined(_SWE_PATCH)
+                            e_io = vtk%VTK_VAR_XML('id_in_patch', 1_1, 1)
+#                       endif
                     e_io = vtk%VTK_DAT_XML('pcell', 'CLOSE')
 
                     e_io = vtk%VTK_GEO_XML(1.0_GRID_SR)
@@ -158,15 +164,16 @@
 			type(t_swe_xml_output_traversal), intent(inout)				:: traversal
 			type(t_grid_section), intent(inout)							:: section
 
-			type(t_section_info)                                        :: grid_info
+			type(t_section_info)                                           :: grid_info
 			integer (kind = GRID_SI)									:: i_error, i_cells, i_points
 
             grid_info = section%get_info()
-#if defined (_SWE_PATCH)
-			i_cells = grid_info%i_cells * _SWE_PATCH_ORDER * _SWE_PATCH_ORDER
-#else
-			i_cells = grid_info%i_cells
-#endif
+#           if defined (_SWE_PATCH)
+                i_cells = grid_info%i_cells * _SWE_PATCH_ORDER_SQUARE
+#           else
+                i_cells = grid_info%i_cells
+#           endif
+
 			if (i_element_order > 1) then
 				i_points = 6 * i_cells
 			else
@@ -187,21 +194,20 @@
 			integer (kind = GRID_SI), dimension(:), allocatable			:: i_offsets
 			integer (1), dimension(:), allocatable						:: i_types
 			integer (kind = GRID_SI), dimension(:), allocatable			:: i_connectivity
-			real (kind = GRID_SR), dimension(:, :), allocatable			:: r_velocity
 			real (kind = GRID_SR), dimension(:), allocatable			:: r_empty
             type(t_vtk_writer)                                          :: vtk
 
 			type(t_section_info)                                        :: grid_info
 			integer (kind = GRID_SI)									:: i_error, i_cells, i_points, i
 			integer(4)													:: e_io
+            character (len = 256)							            :: s_file_name
 
             grid_info = section%get_info()
-#if defined (_SWE_PATCH)
-			i_cells = grid_info%i_cells * _SWE_PATCH_ORDER * _SWE_PATCH_ORDER
-#else
-			i_cells = grid_info%i_cells
-#endif
-
+#           if defined (_SWE_PATCH)
+                i_cells = grid_info%i_cells * _SWE_PATCH_ORDER_SQUARE
+#           else
+                i_cells = grid_info%i_cells
+#           endif
 			if (i_element_order > 1) then
 				i_points = 6 * i_cells
 				allocate(i_connectivity(6 * i_cells), stat = i_error); assert_eq(i_error, 0)
@@ -212,7 +218,6 @@
 
 			allocate(i_offsets(i_cells), stat = i_error); assert_eq(i_error, 0)
 			allocate(i_types(i_cells), stat = i_error); assert_eq(i_error, 0)
-			allocate(r_velocity(2, max(i_cells, i_points)), stat = i_error); assert_eq(i_error, 0)
 			allocate(r_empty(max(i_cells, i_points)), stat = i_error); assert_eq(i_error, 0)
 
 			r_empty = 0.0_GRID_SR
@@ -233,12 +238,16 @@
 				end forall
 			end if
 
-			write (traversal%s_file_stamp, "(A, A, I0, A, I0, A, I0, A)") TRIM(traversal%s_file_stamp), "_", traversal%i_output_iteration, "_r", rank_MPI, "_s", section%index, ".vtu"
+			write (s_file_name, "(A, A, I0, A, I0, A, I0, A)") trim(traversal%s_file_stamp), "_", traversal%i_output_iteration, "_r", rank_MPI, "_s", section%index, ".vtu"
 
 #           if defined(_QUAD_PRECISION)
 #               warning VTK output does not work for quad precision
 #           else
-                e_io = vtk%VTK_INI_XML('binary', traversal%s_file_stamp, 'UnstructuredGrid')
+                e_io = vtk%VTK_INI_XML('binary', s_file_name, 'UnstructuredGrid')
+                    e_io = vtk%VTK_DAT_XML('field', 'OPEN')
+                        e_io = vtk%VTK_VAR_XML(1, 'time', [section%r_time])
+                    e_io = vtk%VTK_DAT_XML('field', 'CLOSE')
+
                     e_io = vtk%VTK_GEO_XML(i_points, i_cells, traversal%point_data%coords(1), traversal%point_data%coords(2), r_empty(1:i_points))
 
                     e_io = vtk%VTK_CON_XML(i_cells, i_connectivity, i_offsets, i_types)
@@ -247,10 +256,7 @@
                         if (i_element_order > 0) then
                             e_io = vtk%VTK_VAR_XML(i_points, 'water height', traversal%point_data%Q%h)
                             e_io = vtk%VTK_VAR_XML(i_points, 'bathymetry', traversal%point_data%Q%b)
-
-                            r_velocity(1, 1:i_points) = traversal%point_data%Q%p(1) / max(cfg%dry_tolerance, traversal%point_data%Q%h - traversal%point_data%Q%b)
-                            r_velocity(2, 1:i_points) = traversal%point_data%Q%p(2) / max(cfg%dry_tolerance, traversal%point_data%Q%h - traversal%point_data%Q%b)
-                            e_io = vtk%VTK_VAR_XML(i_points, 'velocity',  r_velocity(1, 1:i_points), r_velocity(2, 1:i_points), r_empty(1:i_points))
+                            e_io = vtk%VTK_VAR_XML(i_points, 'momentum',  traversal%point_data%Q%p(1), traversal%point_data%Q%p(2), r_empty(1:i_points))
                         end if
                     e_io = vtk%VTK_DAT_XML('node', 'CLOSE')
 
@@ -258,20 +264,17 @@
                         if (i_element_order == 0) then
                             e_io = vtk%VTK_VAR_XML(i_cells, 'water height', traversal%cell_data%Q%h)
                             e_io = vtk%VTK_VAR_XML(i_cells, 'bathymetry', traversal%cell_data%Q%b)
-
-                            r_velocity(1, 1:i_cells) = traversal%cell_data%Q%p(1) / max(cfg%dry_tolerance, traversal%cell_data%Q%h - traversal%cell_data%Q%b)
-                            r_velocity(2, 1:i_cells) = traversal%cell_data%Q%p(2) / max(cfg%dry_tolerance, traversal%cell_data%Q%h - traversal%cell_data%Q%b)
-                            e_io = vtk%VTK_VAR_XML(i_cells, 'velocity', r_velocity(1, 1:i_cells), r_velocity(2, 1:i_cells), r_empty(1:i_cells))
+                            e_io = vtk%VTK_VAR_XML(i_cells, 'momentum', traversal%cell_data%Q%p(1), traversal%cell_data%Q%p(2), r_empty(1:i_cells))
                         end if
 
                         e_io = vtk%VTK_VAR_XML(i_cells, 'rank', traversal%cell_data%rank)
                         e_io = vtk%VTK_VAR_XML(i_cells, 'section index', traversal%cell_data%section_index)
                         e_io = vtk%VTK_VAR_XML(i_cells, 'depth', traversal%cell_data%depth)
-                        e_io = vtk%VTK_VAR_XML(i_cells, 'i_plotter_type', traversal%cell_data%i_plotter_type)
-#						if defined(_SWE_PATCH)                        
-							e_io = vtk%VTK_VAR_XML(i_cells, 'id_within_patch', traversal%cell_data%id_within_patch)
-#						endif
                         e_io = vtk%VTK_VAR_XML(i_cells, 'refinement flag', traversal%cell_data%refinement)
+                        e_io = vtk%VTK_VAR_XML(i_cells, 'i_plotter_type', traversal%cell_data%i_plotter_type)
+#                       if defined(_SWE_PATCH)                        
+                            e_io = vtk%VTK_VAR_XML(i_cells, 'id_in_patch', traversal%cell_data%id_in_patch)
+#                       endif
                     e_io = vtk%VTK_DAT_XML('cell', 'CLOSE')
 
                     e_io = vtk%VTK_GEO_XML()
@@ -281,7 +284,6 @@
 			deallocate(i_offsets, stat = i_error); assert_eq(i_error, 0)
 			deallocate(i_types, stat = i_error); assert_eq(i_error, 0)
 			deallocate(i_connectivity, stat = i_error); assert_eq(i_error, 0)
-			deallocate(r_velocity, stat = i_error); assert_eq(i_error, 0)
 			deallocate(r_empty, stat = i_error); assert_eq(i_error, 0)
 
 			deallocate(traversal%cell_data, stat = i_error); assert_eq(i_error, 0)
@@ -303,121 +305,136 @@
 			!local variables
 
 			integer (kind = GRID_SI)							:: i
-			real (kind = GRID_SR), parameter, dimension(2, 6)	:: r_test_points = reshape([1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.5, 0.5, 0.0, 0.5, 0.5 ], [2, 6 ])
+			real (kind = GRID_SR), parameter, dimension(2, 6)	:: r_test_points_forward = reshape([1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.5, 0.5, 0.0, 0.5, 0.5 ], [2, 6 ])
+			real (kind = GRID_SR), parameter, dimension(2, 6)	:: r_test_points_backward = reshape([0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.5, 0.0, 0.0, 0.5, 0.5, 0.5 ], [2, 6 ])
 			real (kind = GRID_SR), parameter, dimension(2)		:: r_test_point0 = [1.0_GRID_SR/3.0_GRID_SR, 1.0_GRID_SR/3.0_GRID_SR]
 #			if defined(_SWE_PATCH)
 				type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE):: Q
 				integer											:: j, row, col, cell_id
 # if defined(_SWE_DG)				
-                                real(kind=GRID_SR) :: normalY(2),normalX(2),temp_hu
-                                !rotate flux
-!                                print*,"output start"
+
                                 call element%cell%data_pers%convert_dg_to_fv()
 
-                                ! normalY=ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%edges(1)%normal
-                                ! normalX=ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%edges(3)%normal
-
-                                ! normalY= -1.0_GRID_SR*normalY                         
-                                ! normalX= -1.0_GRID_SR*normalX
-
-                                ! do i=1,_SWE_PATCH_ORDER_SQUARE
-                                !    temp_hu =  element%cell%data_pers%HU(i)*normalY(1)+ element%cell%data_pers%HV(i)*normalX(1)
-                                !    element%cell%data_pers%HV(i) =  element%cell%data_pers%HU(i)*normalY(2)+ element%cell%data_pers%HV(i)*normalX(2)
-                                !    element%cell%data_pers%HU(i) = temp_hu
-                                ! end do
 # endif
 
-				row=1
-				col=1
+#           if defined(_SWE_PATCH)
+                type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE):: Q
+                integer                                         :: j, row, col, cell_id
+                
+                row=1
+                col=1
 
-				do j=1,_SWE_PATCH_ORDER * _SWE_PATCH_ORDER
-					traversal%cell_data(traversal%i_cell_data_index)%rank = rank_MPI
-					traversal%cell_data(traversal%i_cell_data_index)%section_index = section%index
-					traversal%cell_data(traversal%i_cell_data_index)%depth = element%cell%geometry%i_depth
-					traversal%cell_data(traversal%i_cell_data_index)%i_plotter_type = element%cell%geometry%i_plotter_type
-					traversal%cell_data(traversal%i_cell_data_index)%refinement = element%cell%geometry%refinement
+                do j=1,_SWE_PATCH_ORDER * _SWE_PATCH_ORDER
+                    traversal%cell_data(traversal%i_cell_data_index)%rank = rank_MPI
+                    traversal%cell_data(traversal%i_cell_data_index)%section_index = section%index
+                    traversal%cell_data(traversal%i_cell_data_index)%depth = element%cell%geometry%i_depth
+                    traversal%cell_data(traversal%i_cell_data_index)%i_plotter_type = element%cell%geometry%i_plotter_type
+                    traversal%cell_data(traversal%i_cell_data_index)%refinement = element%cell%geometry%refinement
 
-					forall (i = 1 : 3)
-						traversal%point_data(traversal%i_point_data_index + i - 1)%coords = cfg%scaling * samoa_barycentric_to_world_point(element%transform_data, SWE_PATCH_geometry%coords(:,i, j)) + cfg%offset
-					end forall
+                    do i=1,3
+                        traversal%point_data(traversal%i_point_data_index + i - 1)%coords = cfg%scaling * samoa_barycentric_to_world_point(element%transform_data, SWE_PATCH_geometry%coords(:,i, j)) + cfg%offset
+                    end do
+
+                    traversal%i_point_data_index = traversal%i_point_data_index + 3
+                    
+                    ! if orientation is backwards, the plotter uses a transformation that mirrors the cell...
+                    ! this simple change solves the problem :)
+                    if (element%cell%geometry%i_plotter_type > 0) then 
+                        cell_id = j
+                    else
+                        cell_id = (row-1)*(row-1) + 2 * row - col
+                    end if
+                    traversal%cell_data(traversal%i_cell_data_index)%id_in_patch = cell_id
+
+                    traversal%cell_data(traversal%i_cell_data_index)%Q%h = element%cell%data_pers%H(cell_id)
+                    traversal%cell_data(traversal%i_cell_data_index)%Q%b = element%cell%data_pers%B(cell_id)
+                    traversal%cell_data(traversal%i_cell_data_index)%Q%p(1) = element%cell%data_pers%HU(cell_id)
+                    traversal%cell_data(traversal%i_cell_data_index)%Q%p(2) = element%cell%data_pers%HV(cell_id)
+                    
+                    ! prepare for next cell
+                    traversal%i_cell_data_index = traversal%i_cell_data_index + 1
+                    col = col + 1
+                    if (col == 2*row) then
+                        col = 1
+                        row = row + 1
+                    end if
+                end do
+
+#           else
+			type(t_state), dimension(_SWE_CELL_SIZE)			:: Q
+			type(t_state), dimension(6)							:: Q_test
+
+			call gv_Q%read(element, Q)
+
+            traversal%cell_data(traversal%i_cell_data_index)%rank = rank_MPI
+            traversal%cell_data(traversal%i_cell_data_index)%section_index = section%index
+			traversal%cell_data(traversal%i_cell_data_index)%depth = element%cell%geometry%i_depth
+            traversal%cell_data(traversal%i_cell_data_index)%i_plotter_type = element%cell%geometry%i_plotter_type
+			traversal%cell_data(traversal%i_cell_data_index)%refinement = element%cell%geometry%refinement
+
+			select case (i_element_order)
+				case (2)
+                    if (element%transform_data%plotter_data%orientation > 0) then
+                        forall (i = 1 : 6)
+                            traversal%point_data(traversal%i_point_data_index + i - 1)%coords = cfg%scaling * samoa_barycentric_to_world_point(element%transform_data, r_test_points_forward(:, i)) + cfg%offset
+                            traversal%point_data(traversal%i_point_data_index + i - 1)%Q%h = t_basis_Q_eval(r_test_points_forward(:, i), Q%h)
+                            traversal%point_data(traversal%i_point_data_index + i - 1)%Q%b = t_basis_Q_eval(r_test_points_forward(:, i), Q%b)
+                            traversal%point_data(traversal%i_point_data_index + i - 1)%Q%p(1) = t_basis_Q_eval(r_test_points_forward(:, i), Q%p(1))
+                            traversal%point_data(traversal%i_point_data_index + i - 1)%Q%p(2) = t_basis_Q_eval(r_test_points_forward(:, i), Q%p(2))
+                        end forall
+                    else
+                        forall (i = 1 : 6)
+                            traversal%point_data(traversal%i_point_data_index + i - 1)%coords = cfg%scaling * samoa_barycentric_to_world_point(element%transform_data, r_test_points_backward(:, i)) + cfg%offset
+                            traversal%point_data(traversal%i_point_data_index + i - 1)%Q%h = t_basis_Q_eval(r_test_points_backward(:, i), Q%h)
+                            traversal%point_data(traversal%i_point_data_index + i - 1)%Q%b = t_basis_Q_eval(r_test_points_backward(:, i), Q%b)
+                            traversal%point_data(traversal%i_point_data_index + i - 1)%Q%p(1) = t_basis_Q_eval(r_test_points_backward(:, i), Q%p(1))
+                            traversal%point_data(traversal%i_point_data_index + i - 1)%Q%p(2) = t_basis_Q_eval(r_test_points_backward(:, i), Q%p(2))
+                        end forall
+                    end if
+
+					traversal%i_point_data_index = traversal%i_point_data_index + 6
+				case (1)
+                    if (element%transform_data%plotter_data%orientation > 0) then
+                        forall (i = 1 : 3)
+                            traversal%point_data(traversal%i_point_data_index + i - 1)%coords = cfg%scaling * samoa_barycentric_to_world_point(element%transform_data, r_test_points_forward(:, i)) + cfg%offset
+                            traversal%point_data(traversal%i_point_data_index + i - 1)%Q%h = t_basis_Q_eval(r_test_points_forward(:, i), Q%h)
+                            traversal%point_data(traversal%i_point_data_index + i - 1)%Q%b = t_basis_Q_eval(r_test_points_forward(:, i), Q%b)
+                            traversal%point_data(traversal%i_point_data_index + i - 1)%Q%p(1) = t_basis_Q_eval(r_test_points_forward(:, i), Q%p(1))
+                            traversal%point_data(traversal%i_point_data_index + i - 1)%Q%p(2) = t_basis_Q_eval(r_test_points_forward(:, i), Q%p(2))
+                        end forall
+                    else
+                        forall (i = 1 : 3)
+                            traversal%point_data(traversal%i_point_data_index + i - 1)%coords = cfg%scaling * samoa_barycentric_to_world_point(element%transform_data, r_test_points_backward(:, i)) + cfg%offset
+                            traversal%point_data(traversal%i_point_data_index + i - 1)%Q%h = t_basis_Q_eval(r_test_points_backward(:, i), Q%h)
+                            traversal%point_data(traversal%i_point_data_index + i - 1)%Q%b = t_basis_Q_eval(r_test_points_backward(:, i), Q%b)
+                            traversal%point_data(traversal%i_point_data_index + i - 1)%Q%p(1) = t_basis_Q_eval(r_test_points_backward(:, i), Q%p(1))
+                            traversal%point_data(traversal%i_point_data_index + i - 1)%Q%p(2) = t_basis_Q_eval(r_test_points_backward(:, i), Q%p(2))
+                        end forall
+                    end if
 
 					traversal%i_point_data_index = traversal%i_point_data_index + 3
-					
-					! if orientation is backwards, the plotter uses a transformation that mirrors the cell...
-					! this simple change solves the problem :)
-					if (element%cell%geometry%i_plotter_type > 0) then 
-						cell_id = j
-					else
-						cell_id = (row-1)*(row-1) + 2 * row - col
-					end if
-					traversal%cell_data(traversal%i_cell_data_index)%id_within_patch = cell_id
+				case (0)
+                    if (element%transform_data%plotter_data%orientation > 0) then
+                        forall (i = 1 : 3)
+                            traversal%point_data(traversal%i_point_data_index + i - 1)%coords = cfg%scaling * samoa_barycentric_to_world_point(element%transform_data, r_test_points_forward(:, i)) + cfg%offset
+                        end forall
+                    else
+                        forall (i = 1 : 3)
+                            traversal%point_data(traversal%i_point_data_index + i - 1)%coords = cfg%scaling * samoa_barycentric_to_world_point(element%transform_data, r_test_points_backward(:, i)) + cfg%offset
+                        end forall
+                    end if
 
-					traversal%cell_data(traversal%i_cell_data_index)%Q%h = element%cell%data_pers%H(cell_id)
-					traversal%cell_data(traversal%i_cell_data_index)%Q%b = element%cell%data_pers%B(cell_id)
-					traversal%cell_data(traversal%i_cell_data_index)%Q%p(1) = element%cell%data_pers%HU(cell_id)
-					traversal%cell_data(traversal%i_cell_data_index)%Q%p(2) = element%cell%data_pers%HV(cell_id)
-					
-					! prepare for next cell
-					traversal%i_cell_data_index = traversal%i_cell_data_index + 1
-					col = col + 1
-					if (col == 2*row) then
-						col = 1
-						row = row + 1
-					end if
-				end do
+					traversal%i_point_data_index = traversal%i_point_data_index + 3
 
-#			else
-				type(t_state), dimension(_SWE_CELL_SIZE)			:: Q
+					traversal%cell_data(traversal%i_cell_data_index)%Q%h = t_basis_Q_eval(r_test_point0, Q%h)
+					traversal%cell_data(traversal%i_cell_data_index)%Q%b = t_basis_Q_eval(r_test_point0, Q%b)
+					traversal%cell_data(traversal%i_cell_data_index)%Q%p(1) = t_basis_Q_eval(r_test_point0, Q%p(1))
+					traversal%cell_data(traversal%i_cell_data_index)%Q%p(2) = t_basis_Q_eval(r_test_point0, Q%p(2))
+			end select
 
-				type(t_state), dimension(6)							:: Q_test
+			traversal%i_cell_data_index = traversal%i_cell_data_index + 1
+#           endif
 
-				call gv_Q%read(element, Q)
-
-				traversal%cell_data(traversal%i_cell_data_index)%rank = rank_MPI
-				traversal%cell_data(traversal%i_cell_data_index)%section_index = section%index
-				traversal%cell_data(traversal%i_cell_data_index)%depth = element%cell%geometry%i_depth
-				traversal%cell_data(traversal%i_cell_data_index)%i_plotter_type = element%cell%geometry%i_plotter_type
-				traversal%cell_data(traversal%i_cell_data_index)%refinement = element%cell%geometry%refinement
-
-				select case (i_element_order)
-					case (2)
-						forall (i = 1 : 6)
-							traversal%point_data(traversal%i_point_data_index + i - 1)%coords = cfg%scaling * samoa_barycentric_to_world_point(element%transform_data, r_test_points(:, i)) + cfg%offset
-							traversal%point_data(traversal%i_point_data_index + i - 1)%Q%h = t_basis_Q_eval(r_test_points(:, i), Q%h)
-							traversal%point_data(traversal%i_point_data_index + i - 1)%Q%b = t_basis_Q_eval(r_test_points(:, i), Q%b)
-							traversal%point_data(traversal%i_point_data_index + i - 1)%Q%p(1) = t_basis_Q_eval(r_test_points(:, i), Q%p(1))
-							traversal%point_data(traversal%i_point_data_index + i - 1)%Q%p(2) = t_basis_Q_eval(r_test_points(:, i), Q%p(2))
-						end forall
-
-						traversal%i_point_data_index = traversal%i_point_data_index + 6
-					case (1)
-						forall (i = 1 : 3)
-							traversal%point_data(traversal%i_point_data_index + i - 1)%coords = cfg%scaling * samoa_barycentric_to_world_point(element%transform_data, r_test_points(:, i)) + cfg%offset
-							traversal%point_data(traversal%i_point_data_index + i - 1)%Q%h = t_basis_Q_eval(r_test_points(:, i), Q%h)
-							traversal%point_data(traversal%i_point_data_index + i - 1)%Q%b = t_basis_Q_eval(r_test_points(:, i), Q%b)
-							traversal%point_data(traversal%i_point_data_index + i - 1)%Q%p(1) = t_basis_Q_eval(r_test_points(:, i), Q%p(1))
-							traversal%point_data(traversal%i_point_data_index + i - 1)%Q%p(2) = t_basis_Q_eval(r_test_points(:, i), Q%p(2))
-						end forall
-
-						traversal%i_point_data_index = traversal%i_point_data_index + 3
-					case (0)
-						forall (i = 1 : 3)
-							traversal%point_data(traversal%i_point_data_index + i - 1)%coords = cfg%scaling * samoa_barycentric_to_world_point(element%transform_data, r_test_points(:, i)) + cfg%offset
-						end forall
-						
-						
-
-						traversal%i_point_data_index = traversal%i_point_data_index + 3
-
-						traversal%cell_data(traversal%i_cell_data_index)%Q%h = t_basis_Q_eval(r_test_point0, Q%h)
-						traversal%cell_data(traversal%i_cell_data_index)%Q%b = t_basis_Q_eval(r_test_point0, Q%b)
-						traversal%cell_data(traversal%i_cell_data_index)%Q%p(1) = t_basis_Q_eval(r_test_point0, Q%p(1))
-						traversal%cell_data(traversal%i_cell_data_index)%Q%p(2) = t_basis_Q_eval(r_test_point0, Q%p(2))
-				end select
-
-				traversal%i_cell_data_index = traversal%i_cell_data_index + 1
-#			endif
-!                                print*,"output done"
 		end subroutine
 	END MODULE
 #endif

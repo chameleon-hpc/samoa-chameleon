@@ -29,7 +29,7 @@
 #define _T						_CNT_DATA_TYPE
 
 #if !defined(_CHUNK_SIZE)
-#   define _CHUNK_SIZE 1_8
+#   define _CHUNK_SIZE 1_SI
 #endif
 
 private
@@ -41,7 +41,7 @@ type _CNT
 	_T, pointer				    :: elements(:) => null()		!< element array
 	_T, pointer				    :: elements_alloc(:) => null()	!< element array in allocation order
 	integer(kind = GRID_DI)     :: i_current_element = 0		!< stream current element
-
+    logical                     :: forward = .true.
 	contains
 
 	procedure, pass :: resize => resize_by_value
@@ -62,17 +62,15 @@ type _CNT
 	procedure, private, pass :: current_element
 	procedure, private, pass :: next_element
 	procedure, private, pass :: read_element
-	procedure, private, pass :: read_elements
 	procedure, private, pass :: write_element
-	procedure, private, pass :: write_elements
 	procedure, private, pass :: add_element
 
 	procedure, pass :: to_string
 
 	generic :: current => current_element
 	generic :: next => next_element
-	generic :: read => read_element, read_elements
-	generic :: write => write_element, write_elements
+	generic :: read => read_element
+	generic :: write => write_element
 	generic :: add => add_element
 end type
 
@@ -81,8 +79,8 @@ contains
 !helper functions
 
 function alloc_wrapper(i_elements) result(data)
-    integer*8, intent(in)       :: i_elements
-    _T, pointer                 :: data(:)
+    integer(kind = GRID_SI), intent(in)     :: i_elements
+    _T, pointer                             :: data(:)
 
 #   if defined(_KMP_ALLOC)
 	    integer (kind = KMP_POINTER_KIND)               :: i_data
@@ -123,34 +121,40 @@ end subroutine
 !> resizes a self-managed stream
 subroutine resize_by_value(stream, i_elements)
 	class(_CNT), intent(inout)						:: stream			!< stream object
-	integer*8, intent(in)                           :: i_elements
 
-    _T, pointer                                     :: elements_temp(:)
+	integer(kind = GRID_SI), intent(in)             :: i_elements
+    _T, pointer                                     :: elements_temp_alloc(:), elements_temp(:)
+	integer(kind = GRID_SI)                         :: i
 	integer                                         :: i_error
 
-    assert(.not. associated(stream%elements) .or. associated(stream%elements, stream%elements_alloc))
+    assert(i_elements .ge. 0)
+
+#   if defined _ASSERT
+        if (stream%is_forward() .or. stream%get_size() < 1) then
+            assert(.not. associated(stream%elements) .or. associated(stream%elements, stream%elements_alloc))
+        else
+            assert(associated(stream%elements, stream%elements_alloc(stream%get_size() : 1 : -1)))
+        end if
+#   endif
+
+    elements_temp_alloc => alloc_wrapper(i_elements)
+
+    if (stream%is_forward() .or. i_elements < 1) then
+        elements_temp => elements_temp_alloc
+    else
+        elements_temp => elements_temp_alloc(i_elements : 1 : -1)
+    end if
 
 	if (associated(stream%elements)) then
-        elements_temp => alloc_wrapper(i_elements)
-
-        if (stream%is_forward()) then
-            elements_temp(1 : min(i_elements, size(stream%elements))) = stream%elements_alloc
-            stream%elements => elements_temp
-        else
-            elements_temp(max(1, i_elements - size(stream%elements) + 1) : i_elements) = stream%elements_alloc
-            stream%elements => elements_temp(i_elements : 1 : -1)
-        end if
+	    do i = 1, min(i_elements, size(stream%elements))
+            elements_temp(i) = stream%elements(i)
+        end do
 
         call free_wrapper(stream%elements_alloc)
-
-        stream%elements_alloc => elements_temp
-    else
-        assert(.not. associated(stream%elements_alloc))
-
-        stream%elements_alloc => alloc_wrapper(i_elements)
-
-        stream%elements => stream%elements_alloc
     end if
+
+    stream%elements => elements_temp
+    stream%elements_alloc => elements_temp_alloc
 end subroutine
 
 !> auto-resizes a self-managed stream
@@ -160,14 +164,7 @@ subroutine resize_auto(stream)
     _T, pointer                                     :: elements_temp(:)
 	integer                                         :: i_error
 
-	if (associated(stream%elements)) then
-        call stream%resize(size(stream%elements) + _CHUNK_SIZE)
-    else
-        assert(.not. associated(stream%elements_alloc))
-        stream%elements_alloc => alloc_wrapper(_CHUNK_SIZE)
-    end if
-
-	stream%elements => stream%elements_alloc
+	call stream%resize(stream%get_size() + _CHUNK_SIZE)
 end subroutine
 
 subroutine clear(stream)
@@ -183,17 +180,30 @@ subroutine clear(stream)
 end subroutine
 
 !> attaches a stream to an array
-pure subroutine attach(stream, elements)
+subroutine attach(stream, elements, is_forward)
 	class(_CNT), intent(inout)						:: stream			!< stream object
 	_T, target, intent(inout)			            :: elements(:)		!< target array
+	logical                                         :: is_forward       !< true if the array is in allocation order, false otherwise
 
-	stream%elements_alloc => elements
-	stream%elements => elements
+    if (is_forward .or. size(elements) < 1) then
+        stream%elements_alloc => elements
+    else
+        stream%elements_alloc => elements(size(elements) : 1 : -1)
+    end if
+
+    stream%elements => elements
+	stream%forward = is_forward
 	stream%i_current_element = 0
+
+#   if defined _ASSERT
+        if (stream%get_size() > 1) then
+            assert(stream%is_forward() .eqv. loc(stream%elements(1)) .lt. loc(stream%elements(size(elements))))
+        end if
+#   endif
 end subroutine
 
 !> unattaches a stream from its target
-pure subroutine unattach(stream)
+subroutine unattach(stream)
 	class(_CNT), intent(inout)					    :: stream					!< stream object
 
 	nullify(stream%elements_alloc)
@@ -201,7 +211,7 @@ pure subroutine unattach(stream)
 end subroutine
 
 !> trims a stream to all elements up to the current element
-elemental subroutine trim_stream(stream)
+subroutine trim_stream(stream)
 	class(_CNT), intent(inout)						:: stream			!< stream object
 
 	stream%elements => stream%elements(1 : stream%i_current_element)
@@ -250,20 +260,6 @@ subroutine read_element(stream, data)
 	data = stream%elements(stream%i_current_element)
 end subroutine
 
-!> increments the current element index, then reads a block of elements from the stream
-subroutine read_elements(stream, data)
-	class(_CNT), intent(inout)					:: stream					!< stream object
-	_T, intent(out)								:: data(:)					!< data
-
-	stream%i_current_element = stream%i_current_element + size(data)
-
-	!check for overflow
-	assert_ge(stream%i_current_element, size(data))
-	assert_le(stream%i_current_element, stream%get_size())
-
-	data = stream%elements(stream%i_current_element - size(data) + 1 : stream%i_current_element)
-end subroutine
-
 !> increments the current element index, then writes the current element to the stream
 subroutine write_element(stream, data)
 	class(_CNT), intent(inout)					:: stream					!< stream object
@@ -276,20 +272,6 @@ subroutine write_element(stream, data)
 	assert_le(stream%i_current_element, stream%get_size())
 
 	stream%elements(stream%i_current_element) = data
-end subroutine
-
-!> increments the current element index, then writes a chunk of elements to the stream
-subroutine write_elements(stream, data)
-	class(_CNT), intent(inout)					:: stream					!< stream object
-	_T, intent(in)								:: data(:)					!< data
-
-	stream%i_current_element = stream%i_current_element + size(data)
-
-	!check for overflow
-	assert_ge(stream%i_current_element, size(data))
-	assert_le(stream%i_current_element, stream%get_size())
-
-	stream%elements(stream%i_current_element - size(data) + 1 : stream%i_current_element) = data
 end subroutine
 
 !> adds an element to a self-managed stream. If necessary, the size of the stream is increased to fit the element.
@@ -316,42 +298,68 @@ function merge_streams(stream1, stream2) result(stream)
 	class(_CNT), intent(in)					    :: stream1, stream2     !< stream objects
 	type(_CNT)              					:: stream               !< stream objects
 
-	_T, pointer					                :: elements_temp(:)
-	integer*8                                   :: total_size
+	_T, pointer					                :: elements_temp_alloc(:), elements_temp(:)
+	integer (kind = GRID_SI)                    :: stream1_size, stream2_size, i
+
+    assert(.not. associated(stream%elements))
+    assert(.not. associated(stream%elements_alloc))
+    assert_eqv(stream1%is_forward(), stream2%is_forward())
 
     !merge array parts
-    total_size = size(stream1%elements) + size(stream2%elements)
+    stream1_size = stream1%get_size()
+    stream2_size = stream2%get_size()
 
-    if (total_size > 0) then
-        elements_temp => alloc_wrapper(total_size)
+    if (stream1_size + stream2_size > 0) then
+        elements_temp_alloc => alloc_wrapper(stream1_size + stream2_size)
+
+        if (stream1%is_forward()) then
+            elements_temp => elements_temp_alloc
+        else
+            elements_temp => elements_temp_alloc(stream1_size + stream2_size : 1 : -1)
+        end if
 
         if (associated(stream1%elements)) then
-            elements_temp(1 : size(stream1%elements)) = stream1%elements
+            do i = 1, stream1_size
+                elements_temp(i) = stream1%elements(i)
+            end do
         end if
 
         if (associated(stream2%elements)) then
-            elements_temp(total_size - size(stream2%elements) + 1 : total_size) = stream2%elements
+            do i = 1, stream2_size
+                elements_temp(stream1_size + i) = stream2%elements(i)
+            end do
         end if
 
-        assert(.not. associated(stream%elements))
-        assert(.not. associated(stream%elements_alloc))
-        stream%elements_alloc => elements_temp
+        stream%elements_alloc => elements_temp_alloc
         stream%elements => elements_temp
+        stream%forward = stream1%is_forward()
     end if
 end function
 
-elemental subroutine reverse_stream(stream)
+subroutine reverse_stream(stream)
 	class(_CNT), intent(inout)					:: stream					!< stream object
 
 	_T, pointer					                :: elements_temp(:)
+	integer (kind = GRID_SI)                    :: stream_size
 
-	elements_temp => stream%elements(stream%get_size() : 1 : -1)
+    stream_size = stream%get_size()
 
-	stream%elements => elements_temp
+    if (stream_size > 0) then
+        elements_temp => stream%elements(stream_size : 1 : -1)
+        stream%elements => elements_temp
+    end if
+
 	stream%i_current_element = 0
+	stream%forward = .not. stream%forward
+
+#   if defined(_ASSERT)
+        if (stream%get_size() > 1) then
+            assert_pure((loc(stream%elements(1)) < loc(stream%elements(size(stream%elements)))) .eqv. stream%is_forward())
+        end if
+#   endif
 end subroutine
 
-elemental subroutine reset_stream(stream)
+subroutine reset_stream(stream)
 	class(_CNT), intent(inout)					:: stream					!< stream object
 
 	stream%i_current_element = 0
@@ -372,10 +380,13 @@ function is_forward(stream)
 	class(_CNT), intent(in)     :: stream					!< stream object
     logical                     :: is_forward
 
-    assert(associated(stream%elements))
-    assert_ge(stream%get_size(), 1)
+#   if defined _ASSERT
+        if (stream%get_size() > 1) then
+            assert(loc(stream%elements(1)) .lt. loc(stream%elements(size(stream%elements))) .eqv. stream%forward)
+        end if
+#   endif
 
-    is_forward = loc(stream%elements(1)) .le. loc(stream%elements(size(stream%elements)))
+    is_forward = stream%forward
 end function
 
 !> Returns the size of the list

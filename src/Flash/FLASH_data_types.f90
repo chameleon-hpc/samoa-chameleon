@@ -22,6 +22,10 @@
     integer, PARAMETER :: GRID_SI = selected_int_kind(8)
     integer, PARAMETER :: GRID_DI = selected_int_kind(16)
 
+    integer, PARAMETER :: SR = GRID_SR
+    integer, PARAMETER :: SI = GRID_SI
+    integer, PARAMETER :: DI = GRID_DI
+
     real (kind = GRID_SR), parameter  :: g = 9.80665_GRID_SR        !< gravitational constant
 
 
@@ -137,15 +141,17 @@
 
     !adds two state vectors
     elemental function state_add(Q1, Q2)    result(Q_out)
-      class (t_state), intent(in)                     :: Q1, Q2
-      type (t_state)                                  :: Q_out
+      class (t_state), intent(in)                   :: Q1
+      type (t_state), intent(in)		            :: Q2
+      type (t_state)                                :: Q_out
 
       Q_out = t_state(Q1%h + Q2%h, Q1%p + Q2%p, Q1%h_old + Q2%h_old, Q1%p_old + Q2%p_old, Q1%b + Q2%b)
     end function
 
     !adds two update vectors
     elemental function update_add(f1, f2)   result(f_out)
-      class (t_update), intent(in)                    :: f1, f2
+      class (t_update), intent(in)                    :: f1
+      type (t_update), intent(in)                     :: f2
       type (t_update)                                 :: f_out
 
       f_out = t_update(f1%h + f2%h, f1%p + f2%p, f1%h_old + f2%h_old, f1%p_old + f2%p_old, max_wave_speed = max(f1%max_wave_speed, f2%max_wave_speed))
@@ -153,7 +159,8 @@
 
     !adds two dof state vectors
     elemental function dof_state_add(Q1, Q2)        result(Q_out)
-      class (t_dof_state), intent(in)                 :: Q1, Q2
+      class (t_dof_state), intent(in)                 :: Q1
+      type (t_dof_state), intent(in)                  :: Q2
       type (t_dof_state)                              :: Q_out
 
       Q_out = t_dof_state(Q1%h + Q2%h, Q1%p + Q2%p, Q1%h_old + Q2%h_old, Q1%p_old + Q2%p_old)

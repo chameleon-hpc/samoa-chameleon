@@ -82,10 +82,11 @@ module Conformity
     subroutine create_node_mpi_type(mpi_node_type)
         integer, intent(out)            :: mpi_node_type
 
-        type(t_node_data)               :: node
-        integer                         :: blocklengths(2), types(2), disps(2), i_error, extent
-
 #       if defined(_MPI)
+            type(t_node_data)                       :: node
+            integer                                 :: blocklengths(2), types(2), disps(2), type_size, i_error
+            integer (kind = MPI_ADDRESS_KIND)       :: lb, ub
+
             blocklengths(1) = 1
             blocklengths(2) = 1
 
@@ -98,21 +99,23 @@ module Conformity
             call MPI_Type_struct(2, blocklengths, disps, types, mpi_node_type, i_error); assert_eq(i_error, 0)
             call MPI_Type_commit(mpi_node_type, i_error); assert_eq(i_error, 0)
 
-            call MPI_Type_extent(mpi_node_type, extent, i_error); assert_eq(i_error, 0)
-            assert_eq(sizeof(node), extent)
+            call MPI_Type_size(mpi_node_type, type_size, i_error); assert_eq(i_error, 0)
+            call MPI_Type_get_extent(mpi_node_type, lb, ub, i_error); assert_eq(i_error, 0)
 
-            call MPI_Type_size(mpi_node_type, extent, i_error); assert_eq(i_error, 0)
-            assert_eq(0, extent)
+            assert_eq(0, lb)
+            assert_eq(0, type_size)
+            assert_eq(sizeof(node), ub)
 #       endif
     end subroutine
 
     subroutine create_edge_mpi_type(mpi_edge_type)
         integer, intent(out)            :: mpi_edge_type
 
-        type(t_edge_data)               :: edge
-        integer                         :: blocklengths(3), types(3), disps(3), i_error, extent
-
 #       if defined(_MPI)
+            type(t_edge_data)                       :: edge
+            integer                                 :: blocklengths(3), types(3), disps(3), type_size, i_error
+            integer (kind = MPI_ADDRESS_KIND)       :: lb, ub
+
             blocklengths(1) = 1
             blocklengths(2) = 3
             blocklengths(3) = 1
@@ -128,11 +131,12 @@ module Conformity
             call MPI_Type_struct(3, blocklengths, disps, types, mpi_edge_type, i_error); assert_eq(i_error, 0)
             call MPI_Type_commit(mpi_edge_type, i_error); assert_eq(i_error, 0)
 
-            call MPI_Type_extent(mpi_edge_type, extent, i_error); assert_eq(i_error, 0)
-            assert_eq(sizeof(edge), extent)
+            call MPI_Type_size(mpi_edge_type, type_size, i_error); assert_eq(i_error, 0)
+            call MPI_Type_get_extent(mpi_edge_type, lb, ub, i_error); assert_eq(i_error, 0)
 
-            call MPI_Type_size(mpi_edge_type, extent, i_error); assert_eq(i_error, 0)
-            assert_eq(3*4, extent)
+            assert_eq(0, lb)
+            assert_eq(3*4, type_size)
+            assert_eq(sizeof(edge), ub)
 #       endif
     end subroutine
 
@@ -218,8 +222,8 @@ module Conformity
 
         call grid%get_local_sections(i_first_local_section, i_last_local_section)
 
-        thread_stats%r_traversal_time = -get_wtime()
-        thread_stats%r_computation_time = -get_wtime()
+        call thread_stats%start_time(traversal_time)
+        call thread_stats%start_time(inner_compute_time)
 
         do i_section = i_first_local_section, i_last_local_section
 #           if defined(_OPENMP_TASKS)
@@ -238,8 +242,8 @@ module Conformity
             !$omp taskwait
 #       endif
 
-        thread_stats%r_computation_time = thread_stats%r_computation_time + get_wtime()
-        thread_stats%r_traversal_time = thread_stats%r_traversal_time + get_wtime()
+        call thread_stats%stop_time(inner_compute_time)
+        call thread_stats%stop_time(traversal_time)
 
         conformity%threads(i_thread)%stats = conformity%threads(i_thread)%stats + thread_stats
     end subroutine
@@ -255,8 +259,8 @@ module Conformity
 
         call grid%get_local_sections(i_first_local_section, i_last_local_section)
 
-        thread_stats%r_traversal_time = -get_wtime()
-        thread_stats%r_computation_time = -get_wtime()
+        call thread_stats%start_time(traversal_time)
+        call thread_stats%start_time(inner_compute_time)
 
         do i_section = i_first_local_section, i_last_local_section
             assert_eq(i_section, grid%sections%elements_alloc(i_section)%index)
@@ -285,21 +289,34 @@ module Conformity
             !$omp taskwait
 #       endif
 
-        thread_stats%r_computation_time = thread_stats%r_computation_time + get_wtime()
+        call thread_stats%stop_time(inner_compute_time)
 
-        thread_stats%r_sync_time = -get_wtime()
-        call sync_boundary(grid, edge_merge_op_integrity, node_merge_op_integrity, edge_write_op_integrity, node_write_op_integrity, mpi_node_type_optional=conformity%mpi_node_type)
-        thread_stats%r_sync_time = thread_stats%r_sync_time + get_wtime()
+        !wait until all computation is done
+        !$omp barrier
 
-        thread_stats%r_barrier_time = -get_wtime()
+        call thread_stats%start_time(sync_time)
+        call collect_boundary_data(grid, edge_merge_op_integrity, node_merge_op_integrity, mpi_node_type_optional=conformity%mpi_node_type)
+        call thread_stats%stop_time(sync_time)
+
+        !wait until all boundary data has been collected
+        !$omp barrier
+
+        call thread_stats%start_time(sync_time)
+        call duplicate_boundary_data(grid, edge_write_op_integrity, node_write_op_integrity)
+        call thread_stats%stop_time(sync_time)
+
+        !wait until all boundary data has been copied
+        !$omp barrier
+
+        call thread_stats%start_time(barrier_time)
 
         !$omp single
         call reduce(grid%l_conform, grid%sections%elements_alloc%l_conform, MPI_LAND, .true.)
         !$omp end single
 
-        thread_stats%r_barrier_time = thread_stats%r_barrier_time + get_wtime()
+        call thread_stats%stop_time(barrier_time)
 
-        thread_stats%r_traversal_time = thread_stats%r_traversal_time + get_wtime()
+        call thread_stats%stop_time(traversal_time)
 
         conformity%threads(i_thread)%stats = conformity%threads(i_thread)%stats + thread_stats
     end subroutine
@@ -315,8 +332,9 @@ module Conformity
 
         call grid%get_local_sections(i_first_local_section, i_last_local_section)
 
-        thread_stats%r_traversal_time = -get_wtime()
-        thread_stats%r_computation_time = -get_wtime()
+        call thread_stats%start_time(traversal_time)
+
+        call thread_stats%start_time(inner_compute_time)
 
         do i_section = i_first_local_section, i_last_local_section
 #           if defined(_OPENMP_TASKS)
@@ -340,9 +358,9 @@ module Conformity
             !$omp taskwait
 #       endif
 
-        thread_stats%r_computation_time = thread_stats%r_computation_time + get_wtime()
+        call thread_stats%stop_time(inner_compute_time)
 
-        thread_stats%r_barrier_time = -get_wtime()
+        call thread_stats%start_time(barrier_time)
 
         !$omp barrier
 
@@ -350,9 +368,9 @@ module Conformity
         call gather_integrity(grid%t_global_data, grid%sections%elements%t_global_data)
         !$omp end single
 
-        thread_stats%r_barrier_time = thread_stats%r_barrier_time + get_wtime()
+        call thread_stats%stop_time(barrier_time)
 
-        thread_stats%r_traversal_time = thread_stats%r_traversal_time + get_wtime()
+        call thread_stats%stop_time(traversal_time)
 
         conformity%threads(i_thread)%stats = conformity%threads(i_thread)%stats + thread_stats
 
@@ -430,33 +448,36 @@ module Conformity
 
 		i_dest_stack = section%start_dest_stack
 
-        if (section%cells%get_size() > 0) then
-            assert_ge(section%cells%get_size(), 2)
-
-            !process first element
-            p_cell_data => section%cells%next()
-            call initial_conformity_traversal_leaf(thread, section, p_cell_data%fine_triangle, i_dest_stack)
-
-            do
+        select case (section%cells%get_size())
+            case (1)
+                !process the only element
                 p_cell_data => section%cells%next()
+                call initial_conformity_traversal_leaf(thread, section, p_cell_data%fine_triangle, i_dest_stack)
+            case (2:)
+                !process first element
+                p_cell_data => section%cells%next()
+                call initial_conformity_traversal_leaf(thread, section, p_cell_data%fine_triangle, i_dest_stack)
 
-                select case (p_cell_data%fine_triangle%i_entity_types)
-                    case (INNER_OLD)
-                        call initial_conformity_traversal_old_leaf(thread, section, p_cell_data%fine_triangle, i_dest_stack)
-                    case (INNER_NEW)
-                        call initial_conformity_traversal_new_leaf(thread, section, p_cell_data%fine_triangle, i_dest_stack)
-                    case (INNER_OLD_BND)
-                        call initial_conformity_traversal_old_bnd_leaf(thread, section, p_cell_data%fine_triangle, i_dest_stack)
-                    case (INNER_NEW_BND)
-                        call initial_conformity_traversal_new_bnd_leaf(thread, section, p_cell_data%fine_triangle, i_dest_stack)
-                    case default
-                        exit
-                end select
-            end do
+                do
+                    p_cell_data => section%cells%next()
 
-            !process last element
-            call initial_conformity_traversal_leaf(thread, section, p_cell_data%fine_triangle, i_dest_stack)
-		end if
+                    select case (p_cell_data%fine_triangle%i_entity_types)
+                        case (INNER_OLD)
+                            call initial_conformity_traversal_old_leaf(thread, section, p_cell_data%fine_triangle, i_dest_stack)
+                        case (INNER_NEW)
+                            call initial_conformity_traversal_new_leaf(thread, section, p_cell_data%fine_triangle, i_dest_stack)
+                        case (INNER_OLD_BND)
+                            call initial_conformity_traversal_old_bnd_leaf(thread, section, p_cell_data%fine_triangle, i_dest_stack)
+                        case (INNER_NEW_BND)
+                            call initial_conformity_traversal_new_bnd_leaf(thread, section, p_cell_data%fine_triangle, i_dest_stack)
+                        case default
+                            exit
+                    end select
+                end do
+
+                !process last element
+                call initial_conformity_traversal_leaf(thread, section, p_cell_data%fine_triangle, i_dest_stack)
+        end select
 
 		!add +1 to the maximum for any crossed edges that might have been refined
 		!we did not take account of those, since they produce at most one more element on the stack
@@ -771,33 +792,36 @@ module Conformity
 
 		i_dest_stack = section%start_dest_stack
 
-        if (section%cells%get_size() > 0) then
-            assert_ge(section%cells%get_size(), 2)
-
-            !process first element
-            p_cell_data => section%cells%next()
-            call update_conformity_traversal_leaf(thread, section, p_cell_data%fine_triangle, i_dest_stack)
-
-            do
+        select case (section%cells%get_size())
+            case (1)
+                !process the only element
                 p_cell_data => section%cells%next()
+                call update_conformity_traversal_leaf(thread, section, p_cell_data%fine_triangle, i_dest_stack)
+            case (2:)
+                !process first element
+                p_cell_data => section%cells%next()
+                call update_conformity_traversal_leaf(thread, section, p_cell_data%fine_triangle, i_dest_stack)
 
-                select case (p_cell_data%fine_triangle%i_entity_types)
-                    case (INNER_OLD)
-                        call update_conformity_traversal_old_leaf(thread, section, p_cell_data%fine_triangle, i_dest_stack)
-                    case (INNER_NEW)
-                        call update_conformity_traversal_new_leaf(thread, section, p_cell_data%fine_triangle, i_dest_stack)
-                    case (INNER_OLD_BND)
-                        call update_conformity_traversal_old_bnd_leaf(thread, section, p_cell_data%fine_triangle, i_dest_stack)
-                    case (INNER_NEW_BND)
-                        call update_conformity_traversal_new_bnd_leaf(thread, section, p_cell_data%fine_triangle, i_dest_stack)
-                    case default
-                        exit
-                end select
-            end do
+                do
+                    p_cell_data => section%cells%next()
 
-            !process last element
-            call update_conformity_traversal_leaf(thread, section, p_cell_data%fine_triangle, i_dest_stack)
-		end if
+                    select case (p_cell_data%fine_triangle%i_entity_types)
+                        case (INNER_OLD)
+                            call update_conformity_traversal_old_leaf(thread, section, p_cell_data%fine_triangle, i_dest_stack)
+                        case (INNER_NEW)
+                            call update_conformity_traversal_new_leaf(thread, section, p_cell_data%fine_triangle, i_dest_stack)
+                        case (INNER_OLD_BND)
+                            call update_conformity_traversal_old_bnd_leaf(thread, section, p_cell_data%fine_triangle, i_dest_stack)
+                        case (INNER_NEW_BND)
+                            call update_conformity_traversal_new_bnd_leaf(thread, section, p_cell_data%fine_triangle, i_dest_stack)
+                        case default
+                            exit
+                    end select
+                end do
+
+                !process last element
+                call update_conformity_traversal_leaf(thread, section, p_cell_data%fine_triangle, i_dest_stack)
+        end select
 
 		!add +1 to the maximum for any crossed edges that might have been refined
 		!we did not take account of those, since they produce at most one more element on the stack
@@ -1071,33 +1095,36 @@ module Conformity
 		! local variables
 		type(t_cell_stream_data), pointer			:: p_cell_data
 
-        if (section%cells%get_size() > 0) then
-            assert_ge(section%cells%get_size(), 2)
-
-            !process first element
-            p_cell_data => section%cells%next()
-            call empty_traversal_leaf(thread, section, p_cell_data%fine_triangle)
-
-            do
+        select case (section%cells%get_size())
+            case (1)
+                !process the only element
                 p_cell_data => section%cells%next()
+                call empty_traversal_leaf(thread, section, p_cell_data%fine_triangle)
+            case (2:)
+                !process first element
+                p_cell_data => section%cells%next()
+                call empty_traversal_leaf(thread, section, p_cell_data%fine_triangle)
 
-                select case (p_cell_data%fine_triangle%i_entity_types)
-                    case (INNER_OLD)
-                        call empty_traversal_old_leaf(thread, section, p_cell_data%fine_triangle)
-                    case (INNER_NEW)
-                        call empty_traversal_new_leaf(thread, section, p_cell_data%fine_triangle)
-                    case (INNER_OLD_BND)
-                        call empty_traversal_old_bnd_leaf(thread, section, p_cell_data%fine_triangle)
-                    case (INNER_NEW_BND)
-                        call empty_traversal_new_bnd_leaf(thread, section, p_cell_data%fine_triangle)
-                    case default
-                        exit
-                end select
-            end do
+                do
+                    p_cell_data => section%cells%next()
 
-            !process last element
-            call empty_traversal_leaf(thread, section, p_cell_data%fine_triangle)
-		end if
+                    select case (p_cell_data%fine_triangle%i_entity_types)
+                        case (INNER_OLD)
+                            call empty_traversal_old_leaf(thread, section, p_cell_data%fine_triangle)
+                        case (INNER_NEW)
+                            call empty_traversal_new_leaf(thread, section, p_cell_data%fine_triangle)
+                        case (INNER_OLD_BND)
+                            call empty_traversal_old_bnd_leaf(thread, section, p_cell_data%fine_triangle)
+                        case (INNER_NEW_BND)
+                            call empty_traversal_new_bnd_leaf(thread, section, p_cell_data%fine_triangle)
+                        case default
+                            exit
+                    end select
+                end do
+
+                !process last element
+                call empty_traversal_leaf(thread, section, p_cell_data%fine_triangle)
+        end select
 
 		!swap start and end dest stack
 		i_dest_stack = section%end_dest_stack
@@ -1319,17 +1346,17 @@ module Conformity
         local_edges%coarsen = neighbor_edges%coarsen
     end function
 
-    function node_merge_op_integrity(local_nodes, neighbor_nodes) result(l_conform)
-        type(t_node_data), intent(inout)    :: local_nodes
-        type(t_node_data), intent(in)       :: neighbor_nodes
+    function node_merge_op_integrity(local_node, neighbor_node) result(l_conform)
+        type(t_node_data), intent(inout)    :: local_node
+        type(t_node_data), intent(in)       :: neighbor_node
         logical                             :: l_conform
 
         l_conform = .true.
     end function
 
-    function node_write_op_integrity(local_nodes, neighbor_nodes) result(l_conform)
-        type(t_node_data), intent(inout)    :: local_nodes
-        type(t_node_data), intent(in)       :: neighbor_nodes
+    function node_write_op_integrity(local_node, neighbor_node) result(l_conform)
+        type(t_node_data), intent(inout)    :: local_node
+        type(t_node_data), intent(in)       :: neighbor_node
         logical                             :: l_conform
 
         l_conform = .true.

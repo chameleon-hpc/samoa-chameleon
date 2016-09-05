@@ -21,15 +21,11 @@
             integer (kind = GRID_SI)								:: i_point_data_index
         end type
 
-        interface node_first_touch_op
-            module procedure node_first_touch_op_scalar
-            module procedure node_first_touch_op_array
-        end interface
-
         type(darcy_gm_A)										    :: gm_A
         type(darcy_gv_p)										    :: gv_p
         type(darcy_gv_r)										    :: gv_r
-        !type(darcy_gv_rhs)										    :: gv_rhs
+        type(darcy_gv_rhs)										    :: gv_rhs
+        type(darcy_gv_is_dirichlet)                                 :: gv_is_dirichlet
 
 #		define	_GT_NAME							t_darcy_lse_output_traversal
 
@@ -46,7 +42,8 @@
 
 #		define	_GT_ELEMENT_OP						element_op
 
-#		define  _GT_NODE_FIRST_TOUCH_OP			    node_first_touch_op
+#		define  _GT_NODE_FIRST_TOUCH_OP			    inner_node_first_touch_op
+#		define  _GT_INNER_NODE_FIRST_TOUCH_OP		inner_node_first_touch_op
 
 #		include "SFC_generic_traversal_ringbuffer.f90"
 
@@ -56,7 +53,7 @@
 
 			_log_write(1, '(A, I0, A, I0)') " Darcy: LSE output step: ", traversal%i_output_iteration
 
-            call scatter(traversal%i_output_iteration, traversal%children%i_output_iteration)
+            call scatter(traversal%i_output_iteration, traversal%sections%i_output_iteration)
 		end subroutine
 
 		subroutine post_traversal_grid_op(traversal, grid)
@@ -126,12 +123,12 @@
             end do
             write(fileunit, '()')
 
+            close(unit=fileunit, iostat=i_error); assert_eq(i_error, 0)
+
             !test if |rhs - A p| < epsilon. This might fail even though we did everything correct, since we minimize
             !the preconditioned residual norm |D^{-1} (rhs - A p)| and not the residual norm |rhs - A p| in the linear solver
             !nrm = norm2(matmul(traversal%A, traversal%p) - traversal%rhs)
-            !assert_le(nrm, cfg%r_epsilon * 1.0e-7 * cfg%r_p0)
-
-            close(unit=fileunit, iostat=i_error); assert_eq(i_error, 0)
+            !assert_le(nrm, cfg%r_epsilon * 1.0e-7 * cfg%r_p_prod)
 
 			deallocate(traversal%A, stat=i_error); assert_eq(i_error, 0)
 			deallocate(traversal%p, stat=i_error); assert_eq(i_error, 0)
@@ -149,71 +146,87 @@
 
 			!local variables
 
-			real (kind = GRID_SR)       :: A(_DARCY_P_SIZE, _DARCY_P_SIZE)
-			real (kind = GRID_SR)       :: p(_DARCY_P_SIZE)
+			real (kind = GRID_SR)       :: A(3, 3)
+			real (kind = GRID_SR)       :: p(3)
+			real (kind = GRID_SR)       :: rhs(3)
 
-			real (kind = GRID_SR)       :: r_indices(_DARCY_P_SIZE)		!< point data indices
-			integer (kind = GRID_SI)    :: indices(_DARCY_P_SIZE)		!< point data indices
+			real (kind = GRID_SR)       :: r_indices(3)     !< point data indices
+			integer (kind = GRID_SI)    :: indices(3)		!< point data indices
 			integer                     :: i, j
 
-			call gm_A%read(element, A)
 			call gv_p%read(element, p)
+			call gv_rhs%read(element, rhs)
 			call gv_r%read(element, r_indices)
 
 			indices(:) = int(r_indices(:), kind=GRID_SI)
 			p = samoa_basis_p_dofs_to_values(p)
 
-            do i = 1, _DARCY_P_SIZE
+#           if (_DARCY_LAYERS > 0)
+                !TODO
+#           else
+                call gm_A%apply(element, [1.0_SR, 0.0_SR, 0.0_SR], A(:, 1))
+                call gm_A%apply(element, [0.0_SR, 1.0_SR, 0.0_SR], A(:, 2))
+                call gm_A%apply(element, [0.0_SR, 0.0_SR, 1.0_SR], A(:, 3))
+#           endif
+
+            do i = 1, 3
                 if (indices(i) .ge. 0) then
-                    do j = 1, _DARCY_P_SIZE
+
+                    do j = 1, 3
                         if (indices(j) .ge. 0) then
                             traversal%A(indices(j), indices(i)) = traversal%A(indices(j), indices(i)) + A(j, i)
                         else
                             traversal%rhs(indices(i)) = traversal%rhs(indices(i)) - A(j, i) * p(j)
                         end if
                     end do
-
-                    traversal%p(indices(i)) = p(i)
                end if
             end do
 		end subroutine
 
-		subroutine node_first_touch_op_array(traversal, section, nodes)
+		subroutine node_first_touch_op(traversal, section, nodes)
  			type(t_darcy_lse_output_traversal), intent(inout)	:: traversal
  			type(t_grid_section), intent(in)				    :: section
 			type(t_node_data), intent(inout)				    :: nodes(:)
 
-			integer (kind = GRID_SI)						    :: i, j
+			integer (kind = GRID_SI)						    :: i
 
-            do j = 1, size(nodes)
-                do i = 1, _DARCY_P_NODE_SIZE
-                    call pre_dof_op(traversal%i_point_data_index, nodes(j)%data_pers%r(i), nodes(j)%data_temp%is_dirichlet_boundary(i))
-                end do
+            do i = 1, size(nodes)
+                call inner_node_first_touch_op(traversal, section, nodes(i))
             end do
 		end subroutine
 
-		subroutine node_first_touch_op_scalar(traversal, section, node)
+		subroutine inner_node_first_touch_op(traversal, section, node)
  			type(t_darcy_lse_output_traversal), intent(inout)	:: traversal
  			type(t_grid_section), intent(in)				    :: section
 			type(t_node_data), intent(inout)				    :: node
 
 			integer (kind = GRID_SI)						    :: i
 
-			do i = 1, _DARCY_P_NODE_SIZE
-				call pre_dof_op(traversal%i_point_data_index, node%data_pers%r(i), .false.)
+			logical (kind = SL) :: is_dirichlet(_DARCY_LAYERS + 1)
+
+			call gv_is_dirichlet%read(node, is_dirichlet)
+
+			do i = 1, _DARCY_LAYERS + 1
+				call pre_dof_op(traversal%p, traversal%rhs, traversal%i_point_data_index, node%data_pers%p(i), node%data_pers%rhs(i), node%data_pers%r(i), is_dirichlet(i))
 			end do
 		end subroutine
 
-		elemental subroutine pre_dof_op(i_point_data_index, r, is_dirichlet)
- 			integer(kind = GRID_SI), intent(inout)			:: i_point_data_index
+		subroutine pre_dof_op(p_global, rhs_global, i_global, p, rhs, r, is_dirichlet)
+			real(kind = GRID_SR), intent(inout)				:: p_global(:)
+			real(kind = GRID_SR), intent(inout)				:: rhs_global(:)
+ 			integer(kind = GRID_SI), intent(inout)			:: i_global
+			real(kind = GRID_SR), intent(in)				:: p
+			real(kind = GRID_SR), intent(in)				:: rhs
 			real(kind = GRID_SR), intent(out)				:: r
-			logical, intent(in)                             :: is_dirichlet
+			logical (kind = SL), intent(in)                 :: is_dirichlet
 
             if (is_dirichlet) then
                 r = real(-1, GRID_SR)
             else
-                r = real(i_point_data_index, GRID_SR)
-                i_point_data_index = i_point_data_index + 1
+                r = real(i_global, GRID_SR)
+                p_global(i_global) = p
+                rhs_global(i_global) = rhs
+                i_global = i_global + 1
             end if
 		end subroutine
 	END MODULE

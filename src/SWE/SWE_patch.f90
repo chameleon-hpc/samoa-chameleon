@@ -25,8 +25,9 @@ MODULE SWE_PATCH
 		! coordinates of cells vertices, used for producing visual output.
 		REAL (kind = GRID_SR), DIMENSION(2,3,(_SWE_PATCH_ORDER*_SWE_PATCH_ORDER)) :: coords
 		
-		! one vector of 2x2 transformation matrices for each i_plotter_type, to avoid repeated computation of this
-		REAL (kind = GRID_SR), DIMENSION(_SWE_PATCH_NUM_EDGES_ALIGNMENT,2,2,-8:8) :: transform_matrices
+		! 2x2 transformation matrices for each i_plotter_type and orientation, to avoid repeated computation of this
+		! indices order would be this: (orientation, 2, 2, i_plotter_type), 2x2 would be the matrix
+		REAL (kind = GRID_SR), DIMENSION(3,2,2,-8:8) :: transform_matrices
 
 		! represents relationships between cells within a coarse patch and its two refined children
 		INTEGER, DIMENSION(_SWE_PATCH_ORDER_SQUARE,2) :: first_child, second_child
@@ -236,7 +237,13 @@ MODULE SWE_PATCH
 				tmp = geom%coords(:,1,i)
 				geom%coords(:,1,i) = geom%coords(:,2,i)
 				geom%coords(:,2,i) = tmp
+            else ! make the second vertex always the right angle -> needed by refine_2D_recursive
+                tmp = geom%coords(:,1,i)
+                geom%coords(:,1,i) = geom%coords(:,3,i)
+                geom%coords(:,3,i) = geom%coords(:,2,i)
+                geom%coords(:,2,i) = tmp                
 			end if
+			
 
 			!compute next points
 			col = col + 1
@@ -282,9 +289,9 @@ MODULE SWE_PATCH
 				end if
 				
 				! compute transformations matrices
-				do j=1,_SWE_PATCH_NUM_EDGES 
-					geom%transform_matrices(j,1,:,i) = normals(:,geom%edges_orientation(j))
-					geom%transform_matrices(j,2,:,i) = [ - normals(2,geom%edges_orientation(j)), normals(1,geom%edges_orientation(j)) ]
+				do j=1,3 
+					geom%transform_matrices(j,1,:,i) = normals(:,j)
+					geom%transform_matrices(j,2,:,i) = [ - normals(2,j), normals(1,j) ]
 				end do
             end if
         end do

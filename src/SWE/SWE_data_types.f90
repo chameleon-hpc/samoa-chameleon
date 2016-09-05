@@ -30,6 +30,10 @@
 		integer, PARAMETER :: GRID_SI = selected_int_kind(8)
 		integer, PARAMETER :: GRID_DI = selected_int_kind(16)
 
+        integer, PARAMETER :: SR = GRID_SR
+        integer, PARAMETER :: SI = GRID_SI
+        integer, PARAMETER :: DI = GRID_DI
+
 		real (kind = GRID_SR), parameter					:: g = 9.80665_GRID_SR		!< gravitational constant
                 real (kind = GRID_SR),parameter :: ref_triangle_size_inv = (2.0q0 * real(_SWE_PATCH_ORDER_SQUARE,kind=GRID_SR))
 
@@ -114,11 +118,11 @@
                           procedure :: dofs_to_vec_dg_p => dofs_to_vec_dg_p
 
 #               endif
-
 		END type num_cell_data_pers
 
 		!> Cell representation on an edge, this would typically be everything required from a cell to compute the flux function on an edge
 		type num_cell_rep
+
 #if defined(_SWE_PATCH)
 			type(t_state), DIMENSION(_SWE_EDGE_SIZE)				:: Q !TODO: remove this and others Qs --> must handle conflicts with t_gv_Q methods afterwards...
 			real (kind = GRID_SR), dimension (_SWE_PATCH_ORDER)		:: H, HU, HV, B !< edge stores ghost cells for communication of ghost cells
@@ -128,15 +132,11 @@
                         logical :: permute = .false.
 #endif
 
-#else
-			type(t_state), DIMENSION(_SWE_EDGE_SIZE)									:: Q						!< cell representation
-#endif
-		end type
+                     end type num_cell_rep
 
 		!> Cell update, this would typically be a flux function
 		type num_cell_update
 #if defined (_SWE_PATCH)
-			type(t_state), DIMENSION(_SWE_EDGE_SIZE)									:: Q  !TODO: remove this and others Qs --> must handle conflicts with t_gv_Q methods afterwards...
                         real (kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER)							:: H, HU, HV, B !< values of ghost cells
 #if defined (_SWE_DG)
                         type(t_state), DIMENSION(_SWE_DG_DOFS*(_SWE_DG_ORDER+1))   :: Q_DG_P
@@ -146,8 +146,7 @@
                         type(t_update), DIMENSION(_SWE_EDGE_SIZE)									:: flux						!< cell update
 		end type
 
-
-		!*************************p
+		!*************************
 		!Temporary per-Entity data
 		!*************************
 
@@ -174,8 +173,7 @@
 		type num_global_data
 			real (kind = GRID_SR)							:: r_time					!< simulation time
 			real (kind = GRID_SR)							:: r_dt						!< time step
-			real (kind = GRID_SR)							:: u_max					!< maximum wave velocity for cfl condition
-			integer (kind = BYTE)						    :: d_max					!< current maximum grid depth
+			real (kind = GRID_SR)							:: r_dt_new					!< new time step for the next iteration
 		end type
 
 		contains

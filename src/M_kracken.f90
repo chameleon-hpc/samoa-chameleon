@@ -23,7 +23,7 @@ module M_kracken_dictionary
 ! NOTE:   many parameters were reduced in size so as to just accomodate
 !         being used as a command line parser. In particular, some might
 !         want to change:
-!          ic=30          ! number of entries in language dictionary
+!          ic=50          ! number of entries in language dictionary
 !          IPvalue=1024   ! ilength of verb value
 
       implicit none
@@ -54,8 +54,8 @@ module M_kracken
    public :: kracken           ! define command and default parameter values
    public :: delim             ! parse a string and store tokens into an array
 
-   private :: parse_two        ! convenient call to parse() -- define defaults, then process user input
-   private :: parse            ! parse user command and store tokens into Language Dictionary
+   public :: parse_two         ! convenient call to parse() -- define defaults, then process user input
+   public :: parse             ! parse user command and store tokens into Language Dictionary
    private :: store            ! replace dictionary name's value (if allow=add add name if necessary)
    private :: bounce           ! find location (index) in Language Dictionary where VARNAME can be found
    private :: add_string       ! Add new string name to Language Library dictionary

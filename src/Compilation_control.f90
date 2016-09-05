@@ -20,6 +20,8 @@
 !> if true, element coordinates are not computed but stored in the nodes instead (which allows for irregular grids)
 !#define _STORE_NODE_COORDS
 
+# define _DARCY_INJ_PRESSURE
+# define _DARCY_PROD_PRESSURE
 
 !for the SWE scenario, a skeleton operator is required
 #if defined(_SWE) || defined(_NUMA) || defined(_FLASH)
@@ -30,22 +32,26 @@
 #define _SWE_CELL_SIZE				((_SWE_ORDER + 1) * (_SWE_ORDER + 2)) / 2
 #define _SWE_EDGE_SIZE 				(_SWE_ORDER + 1)
 
-#define _SWE_PATCH_ORDER_SQUARE		(_SWE_PATCH_ORDER*_SWE_PATCH_ORDER)
-#define _SWE_PATCH_NUM_EDGES			(3*_SWE_PATCH_ORDER*(_SWE_PATCH_ORDER+1)/2)
-! make sure of matrix alignment by rounding up the size of each column
-! these consider that vector width=512bit, should be updates for other architectures!
-#if defined(_SINGLE_PRECISION)
-#	define _VALUES_PER_VECTOR_INSTRUCTION 16
-#elif defined(_DOUBLE_PRECISION) 
-#	define _VALUES_PER_VECTOR_INSTRUCTION 8
-#elif defined(_QUAD_PRECISION) 
-#	define _VALUES_PER_VECTOR_INSTRUCTION 4
-#else
-#	define _VALUES_PER_VECTOR_INSTRUCTION 1
-#endif
-#define _SWE_PATCH_NUM_EDGES_ALIGNMENT ((_SWE_PATCH_NUM_EDGES + _VALUES_PER_VECTOR_INSTRUCTION - 1)/_VALUES_PER_VECTOR_INSTRUCTION*_VALUES_PER_VECTOR_INSTRUCTION)
+! SWE_PATCH definitions
+#define _SWE_PATCH_ORDER_SQUARE     (_SWE_PATCH_ORDER*_SWE_PATCH_ORDER)
+#define _SWE_PATCH_NUM_EDGES            (3*_SWE_PATCH_ORDER*(_SWE_PATCH_ORDER+1)/2)
 
-#define _NUMA_ORDER 					0
+! Number of Riemann Problems solver on each iteration of the SWE patch solvers.
+! --> See SWE/SWE_euler_timestep.f90 and SWE/SWE_patch_solvers.f90
+! Small numbers make sure that auxiliary arrays fit in the cache. 
+! This is specially important for the Xeon Phi, because of its smaller caches.
+#if defined(_SINGLE_PRECISION)
+#   define _SWE_PATCH_SOLVER_CHUNK_SIZE 16
+#elif defined(_DOUBLE_PRECISION) 
+#   define _SWE_PATCH_SOLVER_CHUNK_SIZE 8
+#elif defined(_QUAD_PRECISION) 
+#   define _SWE_PATCH_SOLVER_CHUNK_SIZE 4
+#else
+#   define _SWE_PATCH_SOLVER_CHUNK_SIZE 1
+#endif
+
+
+#define _NUMA_ORDER 				0
 #define _NUMA_CELL_SIZE				((_NUMA_ORDER + 1) * (_NUMA_ORDER + 2)) / 2
 #define _NUMA_EDGE_SIZE 			(_NUMA_ORDER + 1)
 
@@ -55,35 +61,20 @@
 #define _HEAT_EQ_EDGE_SIZE 			(_HEAT_EQ_ORDER - 1)
 #define _HEAT_EQ_NODE_SIZE			1
 
-#define _FLASH_ORDER 					0
+#define _FLASH_ORDER 				0
 #define _FLASH_CELL_SIZE			((_FLASH_ORDER + 1) * (_FLASH_ORDER + 2)) / 2
 #define _FLASH_EDGE_SIZE 			_FLASH_CELL_SIZE
 #define _FLASH_EDGE_QUAD_SIZE			_FLASH_CELL_SIZE
 
-#define _DARCY_P_ORDER				1
-#define _DARCY_P_SIZE				((_DARCY_P_ORDER + 1) * (_DARCY_P_ORDER + 2)) / 2
-#define _DARCY_P_CELL_SIZE			((_DARCY_P_ORDER - 1) * (_DARCY_P_ORDER - 2)) / 2
-#define _DARCY_P_EDGE_SIZE			(_DARCY_P_ORDER - 1)
-#define _DARCY_P_NODE_SIZE			1
-
-#define _DARCY_U_ORDER				_DARCY_P_ORDER - 1
-#if (_DARCY_U_ORDER > 0)
-#	define _DARCY_U_SIZE			((_DARCY_P_ORDER + 1) * (_DARCY_P_ORDER + 2)) / 2
-#	define _DARCY_U_CELL_SIZE		((_DARCY_P_ORDER - 1) * (_DARCY_P_ORDER - 2)) / 2
-#	define _DARCY_U_EDGE_SIZE		(_DARCY_P_ORDER - 1)
-#	define _DARCY_U_NODE_SIZE		1
-#else
-#	define _DARCY_U_SIZE			1
-#	define _DARCY_U_CELL_SIZE		1
-#	define _DARCY_U_EDGE_SIZE		0
-#	define _DARCY_U_NODE_SIZE		0
+#if defined(_DARCY)
+#   if defined(_ASAGI)
+#	    define _DARCY_INJECTOR_WELLS    1
+#	    define _DARCY_PRODUCER_WELLS    4
+#   else
+#	    define _DARCY_INJECTOR_WELLS    1
+#	    define _DARCY_PRODUCER_WELLS    1
+#   endif
 #endif
-
-#define _DARCY_FLOW_ORDER			1
-#define _DARCY_FLOW_SIZE			3
-#define _DARCY_FLOW_CELL_SIZE		0
-#define _DARCY_FLOW_EDGE_SIZE		0
-#define _DARCY_FLOW_NODE_SIZE		1
 
 !compiler-dependent macros (traditional vs. modern preprocessor)
 #	define _id(x) x
@@ -128,7 +119,6 @@
 #	define assert_v(x)				if (.not. all(x)) then; PRINT '(a, a, i0, a, a)', __FILE__, "(", __LINE__, "): Assertion failure: ", _stringify(x); flush(6); _raise(); end if
 #	define assert_veq(x, y)			if (.not. all(x .eq. y)) then; PRINT '(a, a, i0, a, a, a, a, a, (X, g0), (X, g0))', __FILE__, "(", __LINE__, "): Assertion failure: ", _stringify(x), " == ", _stringify(y), ": ", x, y; flush(6); _raise(); end if
 #	define assert_vne(x, y)			if (.not. any(x .ne. y)) then; PRINT '(a, a, i0, a, a, a, a, a, (X, g0), (X, g0))', __FILE__, "(", __LINE__, "): Assertion failure: ", _stringify(x), " != ", _stringify(y), ": ", x, y; flush(6); _raise(); end if
-#	define mpi_isend				mpi_issend
 #else
 #	define assert(x)
 #	define assert_pure(x)
@@ -153,3 +143,51 @@
 #define _log_close_file				call log_close_file
 #define _log_write(dl, f)			if (_DEBUG_LEVEL .ge. dl) write(g_log_file_unit,'(A, A, I0, A, I0, A)',advance='no') term_color(omp_get_thread_num() * size_MPI + rank_MPI), "(r", rank_MPI, ",t", omp_get_thread_num(), ") "; if (_DEBUG_LEVEL .ge. dl) write(g_log_file_unit, f)
 
+!Standard units:
+
+!> Unit meter, defined as the width and height of the full grid
+#define _UM     1.0_GRID_SR
+
+!> Second in simulation time
+#define _S      1.0_GRID_SR
+
+!> Kilogram (standard mass)
+#define _KG     1.0_GRID_SR
+
+!Derived units and their conversion rules:
+
+!> Meter
+#define _M      (_UM / cfg%scaling)
+!> Minutes (exact)
+#define _MIN    (_S * 60.0_GRID_SR)
+!> Hours (exact)
+#define _H      (_MIN * 60.0_GRID_SR)
+!> Days (exact)
+#define _D      (_H * 24.0_GRID_SR)
+!> Newton (exact)
+#define _N      (_KG * _M / (_S * _S))
+!> Pascal (exact)
+#define _PA     (_N / (_M * _M))
+!> Centipoise (exact)
+#define _CP     (_PA * 1.0e-3_GRID_SR)
+!> Barrel Oil (exact)
+#define _BBL    (((_INCH) ** 3) * 9702.0_GRID_SR)
+!> Inch (exact)
+#define _INCH   (_M * 0.0254_GRID_SR)
+!> Feet (exact)
+#define _FT     (_INCH * 12.0_GRID_SR)
+!> Pound (exact)
+#define _LB     (_KG * 0.45359237_GRID_SR)
+!> Pound Force (exact)
+#define _LBF    (_LB * _G)
+!> Pound Force Per Square Inch (exact)
+#define _PPSI   (_LBF / (_INCH ** 2))
+!> Millidarcy (exact)
+#define _MDY    (_DY * 1.0e-3_GRID_SR)
+!> Darcy (exact)
+#define _DY     ((_M ** 2) / 1.01325e12_GRID_SR)
+
+!Physical constants:
+
+!> Standard gravitational field (exact)
+#define _G      9.80665_GRID_SR * _M / (_S ** 2)

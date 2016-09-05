@@ -34,6 +34,7 @@ MODULE SWE_DG_matrices
 
 
 !DG_Predictor matrices
+#include "dg_matrices/s_m_1.incl"
 #include "dg_matrices/st_k_x_1.incl"
 #include "dg_matrices/st_k_y_1.incl"
 
@@ -43,6 +44,8 @@ MODULE SWE_DG_matrices
 #include "dg_matrices/st_w_k_t_1_1_lu_1.incl"
 #include "dg_matrices/st_w_k_t_1_1_lu_pivot_1.incl"
 
+#include "dg_matrices/basis_der_x_1.incl"
+#include "dg_matrices/basis_der_y_1.incl"
 ! #include "dg_matrices/st_k_t_1_0_1.incl"
 ! #include "dg_matrices/st_k_t_1_1_lu_1.incl"
 ! #include "dg_matrices/st_k_t_1_1_lu_pivot_1.incl"
@@ -57,6 +60,7 @@ MODULE SWE_DG_matrices
 #include "dg_matrices/mue_lu_pivot_2.incl"
 
 !DG_Solver matrices
+#include "dg_matrices/s_m_2.incl"
 #include "dg_matrices/s_k_x_2.incl"
 #include "dg_matrices/s_k_y_2.incl"
 
@@ -78,9 +82,8 @@ MODULE SWE_DG_matrices
 #include "dg_matrices/st_w_k_t_1_1_lu_2.incl"
 #include "dg_matrices/st_w_k_t_1_1_lu_pivot_2.incl"
 
-! #include "dg_matrices/st_k_t_1_0_4.incl"
-! #include "dg_matrices/st_k_t_1_1_lu_4.incl"
-! #include "dg_matrices/st_k_t_1_1_lu_pivot_4.incl"
+#include "dg_matrices/basis_der_x_2.incl"
+#include "dg_matrices/basis_der_y_2.incl"
 
 #endif
 
@@ -90,6 +93,8 @@ MODULE SWE_DG_matrices
 #include "dg_matrices/phi_4.incl"
 #include "dg_matrices/mue_lu_4.incl"
 #include "dg_matrices/mue_lu_pivot_4.incl"
+#include "dg_matrices/basis_der_x_4.incl"
+#include "dg_matrices/basis_der_y_4.incl"
 
 !DG_Solver matrices
 #include "dg_matrices/s_k_x_4.incl"
@@ -104,6 +109,8 @@ MODULE SWE_DG_matrices
 
 
 !DG_Predictor matrices
+#include "dg_matrices/s_m_4.incl"
+
 #include "dg_matrices/st_k_x_4.incl"
 #include "dg_matrices/st_k_y_4.incl"
 

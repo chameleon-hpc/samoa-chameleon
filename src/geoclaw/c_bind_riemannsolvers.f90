@@ -145,6 +145,7 @@ module c_bind_riemannsolvers
         call riemann_aug_JCP(i_maxIter,3,i_numberOfFWaves,i_hL,i_hR,i_huL,i_huR,i_hvL,i_hvR,i_bL,i_bR,uL,uR,vL,vR,delphi,sE1,sE2,i_dryTol,i_g,waveSpeeds,fWaves)
   end select
 
+
   !eliminate ghost fluxes for wall
   do waveNumber=1,i_numberOfFWaves
     waveSpeeds(waveNumber)=waveSpeeds(waveNumber)*wall(waveNumber)

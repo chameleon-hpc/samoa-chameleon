@@ -116,6 +116,8 @@
 				dest_element%cell%data_pers%HV = src_element%cell%data_pers%HV
 				dest_element%cell%data_pers%B = src_element%cell%data_pers%B
 
+#if defined (_SWE_DG)
+
 !                                call dest_element%cell%data_pers%convert_fv_to_dg()
 !                                call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry()
 !                                print*,"predict Transver"
@@ -123,7 +125,7 @@
 
 				dest_element%cell%data_pers%Q_DG = src_element%cell%data_pers%Q_DG
 				dest_element%cell%data_pers%Q_DG_P = src_element%cell%data_pers%Q_DG_P
-
+#endif
 
 #			else
 				call gv_Q%read( src_element%t_element_base, Q)
@@ -215,6 +217,7 @@
 						row = row + 1
 					end if
 				end do
+
     call dest_element%cell%data_pers%convert_fv_to_dg()
     call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry()
 !    print*,"predict refine"

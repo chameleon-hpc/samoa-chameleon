@@ -47,7 +47,6 @@
 
 			grid%r_time = 0.0_GRID_SR
 			grid%r_dt = 0.0_GRID_SR
-!			grid%r_dt = 1.0e-10_GRID_SR
 
 			grid%d_max = cfg%i_max_depth
 			grid%u_max = sqrt(g)
@@ -113,9 +112,13 @@
 !                                print *, "convered"
 !                                print *,"predict initialize"
 
-                                call dg_predictor(element,0.0_GRID_SR)
+                                where(element%cell%data_pers%Q_DG(:)%h <= cfg%dry_tolerance)
+                                   element%cell%data_pers%Q_DG(:)%h = cfg%dry_tolerance
+                                   element%cell%data_pers%Q_DG(:)%p(1) = 0.0_GRID_SR
+                                   element%cell%data_pers%Q_DG(:)%p(2) = 0.0_GRID_SR
+                                end where
 
-!                                print *,"predicted initialize"
+                                call dg_predictor(element,0.0_GRID_SR)
 
 !                                do i=1,_SWE_DG_DOFS*(_SWE_DG_ORDER+1)
 !                                print *,"ini_pred h",element%cell%data_pers%Q_DG_P(i)%h
@@ -254,7 +257,7 @@
 			!init height, momentum and bathymetry
 			Q%t_dof_state = get_initial_dof_state(section, x, lod)
 			Q%b = get_bathymetry(section, x, 0.0_GRID_SR, lod)
-		end function
+   		end function
 
 		function get_initial_dof_state(section, x, lod) result(Q)
 			type(t_grid_section), intent(inout)							:: section
@@ -265,11 +268,12 @@
 			real (kind = GRID_SR), dimension(2), parameter		:: dam_center = [0.5, 0.5]
 
 			real (kind = GRID_SR), parameter					:: dam_radius = 0.2
-			real (kind = GRID_SR), parameter					:: outer_height = 10.0
-                        real (kind = GRID_SR), parameter					:: inner_height = 10.0
+
+			real (kind = GRID_SR), parameter					:: outer_height = 8.0
+                        real (kind = GRID_SR), parameter					:: inner_height = 8.0
                         real (kind = GRID_SR)                               :: xs(2)
 
-            xs = cfg%scaling * x + cfg%offset
+                        xs = cfg%scaling * x + cfg%offset
 
 #			if defined(_ASAGI)
 				Q%h = 0.0_GRID_SR
@@ -277,30 +281,30 @@
 
 !                        Q%h = inner_height
 
-!                       Q%h=xs(2)*inner_height+outer_height
+!                        Q%h = inner_height*xs(1) + outer_height
 
-                         ! if (xs(2) < dam_center(2)) then
-                         !    Q%h=inner_height
-                         ! else
-                         !    Q%h=outer_height
-                         ! end if
-
-!                       if(NORM2(xs-dam_center) < dam_radius) then
-!                           Q%p = (abs(1- (xs-dam_center)/dam_radius) ) *inner_height
-!                           print *,Q%p
-!                        else
-!                           Q%p=0
-!                        end if
-                        
+ !                        Q%h=xs(2)*inner_height+outer_height
+ ! !                    if (xs(2) > dam_center(2)) then
+ !                        Q%h=xs(2)*inner_height-0.5*inner_height+outer_height
+ !                        else
+ !                        Q%h=outer_height
+ !                     end if
+! !
+                        if (xs(1) < dam_center(1)) then
+                            Q%h=inner_height
+                        else
+                            Q%h=outer_height
+                        end if
+                     
 !                        Q%h = 0.5_GRID_SR * (inner_height + outer_height) + (inner_height - outer_height) * sign(0.5_GRID_SR, (dam_radius ** 2) - dot_product(xs - dam_center, xs - dam_center))
 #			endif
 
-!gauss kurve
-                          if(NORM2(xs-dam_center)<dam_radius) then
-                             Q%h=1.0q0/(sqrt(2*3.1415q0))*exp((NORM2(xs-dam_center)/dam_radius*1.5q0)**2)*(1-NORM2(xs-dam_center)/dam_radius)*inner_height+outer_height
-                             else
-                                Q%h = outer_height
-                          end if
+! !gauss kurve
+!                            if(NORM2(xs-dam_center)<dam_radius) then
+!                               Q%h=1.0q0/(sqrt(2*3.1415q0))*exp((NORM2(xs-dam_center)/dam_radius*1.5q0)**2)*(1-NORM2(xs-dam_center)/dam_radius)*inner_height+outer_height
+!                               else
+!                                  Q%h = outer_height
+!                            end if
 
                           Q%p = 0.0_GRID_SR
 
@@ -348,13 +352,42 @@
 #               endif
 #			else
                 real (kind = GRID_SR), dimension(2), parameter		:: dam_center = [0.5, 0.5]
-                real (kind = GRID_SR), parameter					:: dam_radius = 0.1
-                real (kind = GRID_SR), parameter					:: outer_height = -5.0
-                real (kind = GRID_SR), parameter					:: inner_height = -5.0
+                real (kind = GRID_SR), parameter					:: dam_radius = 0.2
+                real (kind = GRID_SR), parameter					:: outer_height = 4.0
+                real (kind = GRID_SR), parameter					:: inner_height = 8.0
 !                real (kind = GRID_SR), parameter					:: inner_height = -500.0
 
+
+
                 xs(1:2) = cfg%scaling * x + cfg%offset
-				bathymetry = 0.5_GRID_SR * (inner_height + outer_height) + (inner_height - outer_height) * sign(0.5_GRID_SR, (dam_radius ** 2) - dot_product(xs(1:2) - dam_center, xs(1:2) - dam_center))
+
+		! 		bathymetry = 0.5_GRID_SR * (inner_height + outer_height) + (inner_height - outer_height) * sign(0.5_GRID_SR, (dam_radius ** 2) - dot_product(xs(1:2) - dam_center, xs(1:2) - dam_center))
+
+
+                bathymetry = inner_height*xs(1) + outer_height
+!                if(xs(1) < dam_center(1)) then
+!                   bathymetry = inner_height
+!                else
+!                   bathymetry = outer_height                   
+!                end if
+
+                ! if(xs(1) < dam_center(1)) then
+                !    bathymetry = inner_height
+                ! else if (xs(1) < dam_center(1)+dam_radius) then
+                !    bathymetry = inner_height-(xs(1)-dam_center(1))/dam_radius*(inner_height-outer_height)
+                ! else
+                !    bathymetry = outer_height                   
+                ! end if
+
+
+
+                ! !parboloid
+                ! if((xs(1)-dam_center(1))**2+(xs(2)-dam_center(2))**2 .le. dam_radius**2) then
+                ! bathymetry = outer_height - inner_height *( (xs(1)-0.5)**2+(xs(2)-0.5)**2) * 1.0/dam_radius**2
+                ! else 
+                ! bathymetry = outer_height - inner_height
+                ! end if
+
 #			endif
 		end function
   

@@ -76,9 +76,9 @@
                 _log_write(1, '(A, I0)') " SWE: output step: ", traversal%i_output_iteration
             end if
 
-               ! if(traversal%i_output_iteration .eq. 1) then
-               !    stop
-               ! end if
+!                if(traversal%i_output_iteration .eq. 1) then
+!                   stop
+!                end if
 
             call scatter(traversal%s_file_stamp, traversal%children%s_file_stamp)
             call scatter(traversal%i_output_iteration, traversal%children%i_output_iteration)

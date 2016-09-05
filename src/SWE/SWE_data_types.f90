@@ -57,17 +57,20 @@
 		!> cell state vector including bathymetry
 		type, extends(t_dof_state) :: t_state
 			real (kind = GRID_SR)													:: b						!< bathymetry
+#if defined(_SWE_DG)
+   real(kind=GRID_SR) b_x_g
+   real(kind=GRID_SR) b_y_g
+#endif
 
             contains
 
             procedure, pass :: add_state => state_add
             generic :: operator(+) => add_state
-		end type
+         end type t_state
 
 		!> update vector
 		type, extends(t_dof_state) :: t_update
 			real (kind = GRID_SR)													:: max_wave_speed			!< maximum wave speed required to compute the CFL condition
-
             contains
 
             procedure, pass :: add_update => update_add
@@ -90,7 +93,7 @@
 #		if defined(_SWE_PATCH)
 #                       if defined(_SWE_DG)
                         type(t_state), DIMENSION(_SWE_DG_DOFS)                     :: Q_DG
-                        type(t_dof_state), DIMENSION(_SWE_DG_DOFS*(_SWE_DG_ORDER+1))   :: Q_DG_P
+                        type(t_state), DIMENSION(_SWE_DG_DOFS*(_SWE_DG_ORDER+1))   :: Q_DG_P
 #                       endif
 			type(t_state), DIMENSION(_SWE_CELL_SIZE)			:: Q !TODO: remove this and others Qs --> must handle conflicts with t_gv_Q methods afterwards...
 			real (kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER_SQUARE)	:: H, HU, HV, B !< unknowns + bathymetry in triangular patch
@@ -121,7 +124,8 @@
 			real (kind = GRID_SR), dimension (_SWE_PATCH_ORDER)		:: H, HU, HV, B !< edge stores ghost cells for communication of ghost cells
 
 #if defined(_SWE_DG)
-                        type(t_dof_state), DIMENSION(_SWE_DG_DOFS*(_SWE_DG_ORDER+1))   :: Q_DG_P
+                        type(t_state), DIMENSION(_SWE_DG_DOFS*(_SWE_DG_ORDER+1))   :: Q_DG_P
+                        logical :: permute = .false.
 #endif
 
 #else
@@ -135,14 +139,15 @@
 			type(t_state), DIMENSION(_SWE_EDGE_SIZE)									:: Q  !TODO: remove this and others Qs --> must handle conflicts with t_gv_Q methods afterwards...
                         real (kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER)							:: H, HU, HV, B !< values of ghost cells
 #if defined (_SWE_DG)
-                        type(t_update), DIMENSION(_SWE_DG_DOFS*(_SWE_DG_ORDER+1))   :: Q_DG_P
+                        type(t_state), DIMENSION(_SWE_DG_DOFS*(_SWE_DG_ORDER+1))   :: Q_DG_P
+                        logical :: bnd=.false.
 #endif
 #endif	
                         type(t_update), DIMENSION(_SWE_EDGE_SIZE)									:: flux						!< cell update
 		end type
 
 
-		!*************************
+		!*************************p
 		!Temporary per-Entity data
 		!*************************
 
@@ -214,16 +219,8 @@
                    real(kind=GRID_SR)        :: q(_SWE_DG_DOFS,3)
                    real(kind=GRID_SR)        :: fv_temp(_SWE_PATCH_ORDER*_SWE_PATCH_ORDER,3)
 
-!                   associate(H_FV =>  dofs%H , H_DG   => dofs%Q_DG%h,&
-!                             HU_FV => dofs%HU, HU_DG  => dofs%Q_DG%p(1),&
-!                             HV_FV => dofs%HV, HV_DG  => dofs%Q_DG%p(2))
 
-!                   print*, "DG",H_DG,",",HU_DG,",",HV_DG
                    call dofs%dofs_to_vec_dg(q)
-!                   H_FV=matmul(phi,H_DG)*ref_triangle_size_inv
-!                   HU_FV=matmul(phi,HU_DG)*ref_triangle_size_inv
-!                   HV_FV=matmul(phi,HV_DG)*ref_triangle_size_inv
-                   !      dofs%B=matmul(phi,dofs%B_DG)*ref_triangle_size_inv
 
                    fv_temp=matmul(phi,q)*ref_triangle_size_inv
                    
@@ -231,15 +228,13 @@
                    dofs%HU=fv_temp(:,2)
                    dofs%HV=fv_temp(:,3)
 
-!                   print *,fv_temp
-!                   end associate
                  end subroutine convert_dg_to_fv
 
                  subroutine convert_fv_to_dg_bathymetry(dofs)
                    class(num_cell_data_pers) :: dofs
                    real(kind=GRID_SR) :: b_temp(_SWE_DG_DOFS +1),b_fv(_SWE_PATCH_ORDER_SQUARE)
 
-                   integer ::i
+                   integer ::i,j
                   
                    
                    b_temp(1:_SWE_DG_DOFS)= 2.0q0*matmul(transpose(phi),dofs%b)
@@ -247,11 +242,21 @@
                    b_temp(_SWE_DG_DOFS+1) = sum(dofs%b)
                    
                    b_temp = b_temp /ref_triangle_size_inv
-                   
+
+                  
                    call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,b_temp)
 
                    do i=1,_SWE_DG_DOFS
                       dofs%Q_DG(i)%b=b_temp(i)
+                   end do
+
+                   dofs%Q_DG(:)%b_x_g=matmul(basis_der_x,b_temp(1:_SWE_DG_DOFS))*g
+                   dofs%Q_DG(:)%b_y_g=matmul(basis_der_y,b_temp(1:_SWE_DG_DOFS))*g
+
+                   do i=0,_SWE_DG_ORDER
+                      dofs%Q_DG_P(1+_SWE_DG_DOFS*i:_SWE_DG_DOFS*(i+1))%b=dofs%Q_DG(:)%b
+                      dofs%Q_DG_P(1+_SWE_DG_DOFS*i:_SWE_DG_DOFS*(i+1))%b_x_g=dofs%Q_DG(:)%b_x_g
+                      dofs%Q_DG_P(1+_SWE_DG_DOFS*i:_SWE_DG_DOFS*(i+1))%b_y_g=dofs%Q_DG(:)%b_y_g
                    end do
 
                  end subroutine convert_fv_to_dg_bathymetry
@@ -264,7 +269,7 @@
 			type (t_state), intent(in)		:: Q2
 			type (t_state)					:: Q_out
 
-			Q_out = t_state(Q1%h + Q2%h, Q1%p + Q2%p, Q1%b + Q2%b)
+			Q_out = t_state(Q1%h + Q2%h, Q1%p + Q2%p, Q1%b + Q2%b,Q1%b_x_g + Q2%b_x_g,Q1%b_y_g + Q2%b_y_g)
 		end function
 
 		!adds two update vectors

@@ -238,9 +238,11 @@ elif env['swe_solver'] == 'hlle':
 if (int(env['swe_dg_order'])) > 0:
 	env['F90FLAGS'] += ' -D_SWE_DG'
 	env['F90FLAGS'] += ' -D_SWE_DG_ORDER=' + env['swe_dg_order']
+	env['F90FLAGS'] += ' -D_SWE_DG_DOFS=' + str(int( (int(env['swe_dg_order'])+1)*(int(env['swe_dg_order'])+2)/2))
 	if (int(env['swe_patch_order'])) > 1:
 		print "WARNING: DG options will override set patch options"
 	env['swe_patch_order'] = str(2* int(env['swe_dg_order']) + 1)
+
 
 #vectorization options for SWE scenario
 if env['no_vec']: 
@@ -285,7 +287,8 @@ if env['target'] == 'debug':
     env['F90FLAGS'] += ' -g -O0 -traceback -check all -debug all -fpe0'
     env['LINKFLAGS'] += ' -g -O0 -traceback -check all -debug all -fpe0'
   elif  env['compiler'] == 'gnu':
-    env['F90FLAGS'] += ' -g -O0 -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow'
+#    env['F90FLAGS'] += ' -g -O0 -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow -Wall -Wno-format'
+    env['F90FLAGS'] += ' -g -O0 -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow '
     env['LINKFLAGS'] += ' -g -O0'
 elif env['target'] == 'profile':
   env.SetDefault(debug_level = '1')
@@ -295,7 +298,7 @@ elif env['target'] == 'profile':
     env['F90FLAGS'] += ' -g -p -fast -inline-level=0 -funroll-loops -unroll -trace'
     env['LINKFLAGS'] += ' -g -p -O3 -ip -ipo -trace'
   elif  env['compiler'] == 'gnu':
-    env['F90FLAGS'] += '  -g -O3 -march=native -malign-double'
+    env['F90FLAGS'] += '  -g -O3 -march=native -Wa,-q -malign-double'
     env['LINKFLAGS'] += ' -g -O3'
 elif env['target'] == 'release':
   env.SetDefault(debug_level = '1')
@@ -305,8 +308,8 @@ elif env['target'] == 'release':
     env['F90FLAGS'] += ' -fast -fno-alias -align all -inline-level=2 -funroll-loops -unroll -no-inline-min-size -no-inline-max-size -no-inline-max-per-routine -no-inline-max-per-compile -no-inline-factor -no-inline-max-total-size'
     env['LINKFLAGS'] += ' -O3 -ip -ipo'
   elif  env['compiler'] == 'gnu':
-    env['F90FLAGS'] += ' -Ofast -march=native -malign-double -funroll-loops -fstrict-aliasing -finline-limit=2048'
-    env['LINKFLAGS'] += '  -Ofast -march=native -malign-double -funroll-loops -fstrict-aliasing -finline-limit=2048'
+    env['F90FLAGS'] += ' -Ofast -march=native -Wa,-q -malign-double -funroll-loops -fstrict-aliasing -finline-limit=2048'
+    env['LINKFLAGS'] += '  -Ofast -march=native -Wa,-q -malign-double -funroll-loops -fstrict-aliasing -finline-limit=2048'
 
 #In case the Intel compiler is active, add a vectorization report (can gnu do this too?)
 if env['compiler'] == 'intel':

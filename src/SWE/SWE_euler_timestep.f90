@@ -452,6 +452,7 @@
 				real(kind = GRID_SR), DIMENSION(_SWE_PATCH_NUM_EDGES_ALIGNMENT)			:: hL, huL, hvL, bL
 				real(kind = GRID_SR), DIMENSION(_SWE_PATCH_NUM_EDGES_ALIGNMENT)			:: hR, huR, hvR, bR
 				real(kind = GRID_SR), DIMENSION(_SWE_PATCH_NUM_EDGES_ALIGNMENT)			:: upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR
+				real(kind = GRID_SR), DIMENSION(_SWE_PATCH_NUM_EDGES_ALIGNMENT,2,2)		:: transf
 				!DIR$ ASSUME_ALIGNED hL: 64
 				!DIR$ ASSUME_ALIGNED hR: 64
 				!DIR$ ASSUME_ALIGNED huL: 64
@@ -466,6 +467,7 @@
 				!DIR$ ASSUME_ALIGNED upd_huR: 64
 				!DIR$ ASSUME_ALIGNED upd_hvL: 64
 				!DIR$ ASSUME_ALIGNED upd_hvR: 64
+				!DIR$ ASSUME_ALIGNED transf: 64
 				
 #				if !defined(_SWE_USE_PATCH_SOLVER) || defined(_SWE_DG)
 #if defined(_SWE_DG)
@@ -606,7 +608,9 @@
 					end do
 					
 #					if defined (_SWE_USE_PATCH_SOLVER)
-						associate(transf => geom%transform_matrices(:,:,:,element%cell%gemoetry%i_plotter_type))
+						transf = geom%transform_matrices(:,:,:,element%cell%geometry%i_plotter_type)
+						!associate(transf => geom%transform_matrices(:,:,:,element%cell%geometry%i_plotter_type))
+
 #							if defined(_SWE_FWAVE)
 								call compute_updates_fwave_simd(transf, hL, huL, hvL, bL, hR, huR, hvR, bR, upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR, maxWaveSpeed)
 #							elif defined(_SWE_HLLE)
@@ -616,8 +620,7 @@
 #								error "No valid SWE solver for patches/simd implementation has been defined!"
 								       !- !- !- !- !- !- !-!-!- !- !- !- !- !- !- !- !- ! !- !- !- !- !- !- !- !- !- !- print*, 
 #							endif
-						end associate
-!						section%u_max = max(section%u_max, maxWaveSpeed)
+						section%u_max = max(section%u_max, maxWaveSpeed)
 #					else					
 					! using original geoclaw solver
  					do i=1, _SWE_PATCH_NUM_EDGES

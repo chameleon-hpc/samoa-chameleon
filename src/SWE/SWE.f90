@@ -239,9 +239,8 @@
 				!initialize dofs and set refinement conditions
 				call swe%init_dofs%traverse(grid)
 
+				grid_info%i_cells = grid%get_cells(MPI_SUM, .true.)
                 if (rank_MPI == 0) then
-                    grid_info%i_cells = grid%get_cells(MPI_SUM, .false.)
-
                     !$omp master
 #                   if defined(_SWE_PATCH)
                         _log_write(1, "(A, I0, A, I0, A, I0, A)") " SWE: ", i_initial_step, " adaptions, ", grid_info%i_cells, " patches = ", grid_info%i_cells * _SWE_PATCH_ORDER_SQUARE, " cells"
@@ -251,7 +250,6 @@
                     !$omp end master
                 end if
 
-                grid_info%i_cells = grid%get_cells(MPI_SUM, .true.)
 				if (swe%init_dofs%i_refinements_issued .le. 0) then
 					exit
 				endif
@@ -351,9 +349,8 @@
                     !displace time-dependent bathymetry
                     call swe%displace%traverse(grid)
 
+                    grid_info%i_cells = grid%get_cells(MPI_SUM, .true.)
                     if (rank_MPI == 0) then
-                        grid_info%i_cells = grid%get_cells(MPI_SUM, .false.)
-
                         !$omp master
 #                       if defined (_SWE_PATCH)
                             _log_write(1, '(" SWE: EQ time step: ", I0, ", sim. time:", A, ", dt:", A, ", patches : " I0, " cells: ", I0)') i_time_step, trim(time_to_hrt(grid%r_time)), trim(time_to_hrt(grid%r_dt)), grid_info%i_cells, grid_info%i_cells * _SWE_PATCH_ORDER_SQUARE
@@ -407,9 +404,8 @@
 				!do a time step
 				call swe%euler%traverse(grid)
 
+                grid_info%i_cells = grid%get_cells(MPI_SUM, .true.)
                 if (rank_MPI == 0) then
-                    grid_info%i_cells = grid%get_cells(MPI_SUM, .false.)
-
                     !$omp master
 #                       if defined (_SWE_PATCH)
                             _log_write(1, '(" SWE: time step: ", I0, ", sim. time:", A, ", dt:", A, ", patches : " I0, " cells: ", I0)') i_time_step, trim(time_to_hrt(grid%r_time)), trim(time_to_hrt(grid%r_dt)), grid_info%i_cells, grid_info%i_cells * _SWE_PATCH_ORDER_SQUARE

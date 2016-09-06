@@ -565,15 +565,16 @@
                     
                     !set refinement condition -> Here I am using the same ones as in the original no-patches implementation, but considering only the max value.
                     element%cell%geometry%refinement = 0
-                    dQ_max_norm = maxval(dQ_HU*dQ_HU + dQ_HV*dQ_HV)
+                    dQ_max_norm = maxval(abs(dQ_H))
 
-                    if (element%cell%geometry%i_depth < cfg%i_max_depth .and. dQ_max_norm > (cfg%scaling * 2.0_GRID_SR) ** 2) then
+                    if (element%cell%geometry%i_depth < cfg%i_max_depth .and. dQ_max_norm > 5.0_GRID_SR * cfg%scaling * get_edge_size(cfg%i_max_depth)) then
                         element%cell%geometry%refinement = 1
                         traversal%i_refinements_issued = traversal%i_refinements_issued + 1_GRID_DI
-                    else if (element%cell%geometry%i_depth > cfg%i_min_depth .and. dQ_max_norm < (cfg%scaling * 1.0_GRID_SR) ** 2) then
+                    else if (element%cell%geometry%i_depth > cfg%i_min_depth .and. dQ_max_norm < 5.0_GRID_SR * cfg%scaling * get_edge_size(cfg%i_max_depth) / 8.0_SR) then
                         element%cell%geometry%refinement = -1
                     endif
-                    
+
+                    ! compute next dt
                     section%r_dt_new = min(section%r_dt_new, volume / (edge_lengths(2) * maxWaveSpeed) )
 
                 end associate

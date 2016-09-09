@@ -104,7 +104,7 @@
 		subroutine pre_traversal_grid_op(traversal, grid)
 			type(t_swe_euler_timestep_traversal), intent(inout)		:: traversal
    type(t_grid), intent(inout)							    :: grid
-
+            !! !!!!!!!print*,grid%r_dt                        
 			if (cfg%r_max_time > 0.0_SR) then
                 grid%r_dt = min(cfg%r_max_time, grid%r_dt)
             end if
@@ -112,6 +112,9 @@
 			if (cfg%r_output_time_step > 0.0_SR) then
                 grid%r_dt = min(cfg%r_output_time_step, grid%r_dt)
             end if
+
+            !! !!!!!!!print*,grid%r_dt                        
+
 
 #           if defined(_ASAGI)
                 !if we are in the earthquake phase, limit the simulation time step by the earthquake time step
@@ -129,7 +132,7 @@
 #			endif
 
 #endif
-                        
+                !!!!!!print*,grid%r_dt                        
 			call scatter(grid%r_dt, grid%sections%elements_alloc%r_dt)
    
 		end subroutine
@@ -152,7 +155,7 @@
             end if
 
             grid%r_dt = grid%r_dt_new
-
+            !!! !!!!!!!print*,grid%r_dt
 			call scatter(grid%r_time, grid%sections%elements_alloc%r_time)
 		end subroutine
 
@@ -262,7 +265,10 @@
                           end do
                        end do
                     end do
-                   
+!                    print*
+!                    print*,element%cell%data_pers%troubled
+!                    print*
+                    rep%troubled=element%cell%data_pers%troubled
 #endif				
 
                 
@@ -302,11 +308,16 @@
                          update1%Q_DG_P(:)%p(1)=rep2%Q_DG_P(:)%p(1)
                          update1%Q_DG_P(:)%p(2)=rep2%Q_DG_P(:)%p(2)
                          update1%Q_DG_P(:)%b   =rep2%Q_DG_P(:)%b
-
+                         update1%troubled      =rep2%troubled
                          update2%Q_DG_P(:)%h   =rep1%Q_DG_P(:)%h
                          update2%Q_DG_P(:)%p(1)=rep1%Q_DG_P(:)%p(1)
                          update2%Q_DG_P(:)%p(2)=rep1%Q_DG_P(:)%p(2)
                          update2%Q_DG_P(:)%b   =rep1%Q_DG_P(:)%b
+                         update2%troubled      =rep1%troubled
+                         ! print*
+                         ! print*, update1%troubled
+                         ! print*, update2%troubled                
+                         ! print*
 
 #endif
 
@@ -382,7 +393,7 @@
 
                        temp_update%Q_DG_P(:)%h = rep%Q_DG_P(:)%h
                        temp_update%Q_DG_P(:)%b = rep%Q_DG_P(:)%b
-
+                       update%troubled=rep%troubled
                        update%bnd=.true.
 
                        do i=1,(_SWE_DG_ORDER+1)*(_SWE_DG_DOFS)
@@ -520,52 +531,27 @@
 
 #                               if defined (_SWE_DG)
 
+                      ! print*
+                      ! print*,data%troubled
+                      ! print*,update1%troubled
+                      ! print*,update2%troubled
+                      ! print*,update3%troubled
+
+                  if(data%troubled.le.0) then
+                     if(.not.(update1%troubled.le.0 .and. update2%troubled.le.0 .and. update3%troubled.le.0)) then
+                       data%troubled=2
+                    else
+
                                 call compute_flux_pred(ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%edges(3)%normal,data%Q_DG_P,update1%Q_DG_P,flux1)
+                                maxWaveSpeed = max(maxWaveSpeed, maxval(flux1%max_wave_speed))
                                 call compute_flux_pred(ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%edges(2)%normal,data%Q_DG_P,update2%Q_DG_P,flux2)
+                                maxWaveSpeed = max(maxWaveSpeed, maxval(flux2%max_wave_speed))
                                 call compute_flux_pred(ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%edges(1)%normal,data%Q_DG_P,update3%Q_DG_P,flux3)
-
-                                !- !- print*,"solve"                                
-                                print*
-                                print*,abs(element%cell%geometry%i_plotter_type)
-                                print*
-                                print*,data%Q_DG(:)%b
-                                print*
-                                print*,update1%Q_DG_P(1:_SWE_DG_DOFS)%b
-                                print*,update1%B(:)
-                                print*
-                                print*,update2%Q_DG_P(1:_SWE_DG_DOFS)%b
-                                print*,update2%B(:)
-                                print*
-                                print*,update3%Q_DG_P(1:_SWE_DG_DOFS)%b
-                                print*,update3%B(:)
-                                print*
-
-                                if(.not.update1%bnd.and..not.update2%bnd.and..not.update3%bnd) then
-                                   stop
-                                endif
-
+                                maxWaveSpeed = max(maxWaveSpeed, maxval(flux3%max_wave_speed))
 
                                 call dg_solver(element,flux1,flux2,flux3,section%r_dt)
-                                
-
-                                 associate(Q_DG => element%cell%data_pers%Q_DG)
-!                                   if(.not.all(update1%Q_DG_P(:)%b <= minval(data%Q_DG_P(:)%b))) then
-                                   if(.not.all(update1%Q_DG_P(:)%b - data%Q_DG_P(:)%b < 0.5).and..not.update1%bnd.and..not.update2%bnd.and..not.update3%bnd) then
-                                      !- !- print*,Q_DG(:)%h
-                                      stop
-                                   end if
-                                  
- !                                 do i=1,_SWE_DG_DOFS                                     
-!                                     if(Q_DG(i)%h > cfg%dry_tolerance) then
-!                                        section%u_max = max(section%u_max,sqrt(g * Q_DG(i)%h) + max(Q_DG(i)%p(1)/Q_DG(i)%h,Q_DG(i)%p(2)/Q_DG(i)%h))
-!                                     end if
-!                                  end do
-                                  
-                                end associate
-                                !- !- print*,"predict"
-                                call dg_predictor(element,section%r_dt)
-                                !- !- print*,"done"
-
+                             end if
+                          end if
 #                               endif                
                     ! copy cell values to arrays edges_a and edges_b
                     ! obs: cells with id > number of cells are actually ghost cells and come from edges "updates"
@@ -651,7 +637,7 @@
 #                           else
                                 ! this should never happen -> SCons rules should avoid this before compiling
 #                               error "No valid SWE solver for patches/simd implementation has been defined!"
-                                    print *, 
+                                    ! ! !!! !!!!!!!print *, 
 #                           endif
 #                       else                    
                             ! using original geoclaw solver
@@ -719,7 +705,8 @@
                     
                     ! if the water level falls below the dry tolerance, set water surface to 0 and velocity to 0
                     where (data%H < data%B + cfg%dry_tolerance) 
-                        data%H = min(data%B, 0.0_GRID_SR)
+!                        data%H = min(data%B, 0.0_GRID_SR)
+                        data%H = data%B
                         data%HU = 0.0_GRID_SR
                         data%HV = 0.0_GRID_SR
                     end where
@@ -736,9 +723,26 @@
                     endif
 
                     ! compute next dt
+                    !!! !!!!!!!print*
+                    !! !!!!!!!print*,maxWaveSpeed
                     section%r_dt_new = min(section%r_dt_new, volume / (edge_lengths(2) * maxWaveSpeed) )
+                    maxWaveSpeed=0
+                    !!! !!!!!!!print*,section%r_dt_new
+#if defined (_SWE_DG)
+                
+                !detect troubled cell
+                print*,data%troubled
+                call data%set_troubled(cfg%dry_tolerance)
+                
+                !! !!!!!!!print*,"predict"
+                if(data%troubled.le.0) then
+                   call dg_predictor(element,section%r_dt)
+                end if
+                !! !!!!!!!print*,"done"
+#endif
 
                 end associate
+
 #           else
 			!local variables
 
@@ -751,7 +755,7 @@
 			if (element%cell%data_pers%Q(1)%h < element%cell%data_pers%Q(1)%b + cfg%dry_tolerance .and. dQ(1)%h > 0.0_GRID_SR) then
                 element%cell%data_pers%Q(1)%h = element%cell%data_pers%Q(1)%b + cfg%dry_tolerance
                 element%cell%data_pers%Q(1)%p = [0.0_GRID_SR, 0.0_GRID_SR]
-                !print '("Wetting:", 2(X, F0.0))', cfg%scaling * element%transform_data%custom_data%offset + cfg%offset
+                !! ! !!! !!!!!!!print '("Wetting:", 2(X, F0.0))', cfg%scaling * element%transform_data%custom_data%offset + cfg%offset
             end if
 
             call gv_Q%add(element, dQ)
@@ -815,11 +819,7 @@
                            NF3(i,2)=update3(i)%p(1)
                            NF3(i,3)=update3(i)%p(2)
                         end do
-                        nF1=nF1 *dt/dx
-                        nF2=nF2 *dt/dx
-                        nF3=nF3 *dt/dx
 
-                         !-!- !- !- !- !- !- !- !- !- ! !- !- !- !- !- !- !- !- !- !- print*,"s f1"
                         f1_hat = f1(q_p,(_SWE_DG_ORDER+1)*_SWE_DG_DOFS)
                         f2_hat = f2(q_p,(_SWE_DG_ORDER+1)*_SWE_DG_DOFS)
                         
@@ -830,68 +830,70 @@
                         volume_flux2=matmul(s_k_y,f2_s)
                         source= matmul(s_m,S_s)
 
-                        do j=0,_SWE_DG_ORDER
-                           source(j+1,:)=0
-                           source(_SWE_DG_DOFS-(j+1)*(j)/2,:)=0
-                           source(_SWE_DG_DOFS-(j+2)*(j+1)/2+1,:)=0
-                        end do
+                        ! do j=0,_SWE_DG_ORDER
+                        !    source(j+1,:)=0
+                        !    source(_SWE_DG_DOFS-(j+1)*(j)/2,:)=0
+                        !    source(_SWE_DG_DOFS-(j+2)*(j+1)/2+1,:)=0
+                        ! end do
 
                         bnd_flux_contrib=matmul(b_m_1,f2_s)+matmul(b_m_3,f1_s)-matmul(b_m_2,(f1_s+f2_s))/sqrt(2.0_GRID_SR)
 
-                        q_temp =  matmul(b_m_1,nF1) &
+                        q_temp = ( matmul(b_m_1,nF1) &
                              + matmul(b_m_2,nF2)  &
                              + matmul(b_m_3,nF3)  &
-                             - volume_flux1   *dt/dx     &
-                             - volume_flux2   *dt/dx     &
-                             - bnd_flux_contrib *dt/dx
+                             - volume_flux1          &
+                             - volume_flux2          &
+                             - bnd_flux_contrib)* dt/dx   &
+                             - source * dt/dx
 
-                        q_temp = q_temp 
-                        q_temp = q_temp + source *dt
-                        q_temp = q_temp 
+                            !!print*, "orig ",q
+                            !!print*, "dx ",dx
+                            !!print*, "dt ",dt
+                            !!print*, "bnd_flux ",matmul(b_m_1,nF1)+matmul(b_m_2,nF2) + matmul(b_m_3,nF3)  
+                        
+                            !!print*, "elt flux with boundary" ,volume_flux1 + volume_flux2 +bnd_flux_contrib
+                        
+                            !!print*, "elt flux ",volume_flux1 + volume_flux2 
+                            
+                            !!print*, "bnd flux contrib" , bnd_flux_contrib
+                            !!print*,
+                            !!print*, "Source ", matmul(s_m,S_s) * dt
+                            !!print*,
+                            !!print*, "Without Source",( matmul(b_m_1,nF1)+matmul(b_m_2,nF2) + matmul(b_m_3,nF3)  - volume_flux1  -volume_flux2  -bnd_flux_contrib) * dt/dx
+                            !!print*,
+                            !!print*,"b_x_g"
+                            !!print*,Q_DG%Q_DG_P(:)%b_x_g
+                            !!print*,"b_y_g"
+                            !!print*,Q_DG%Q_DG_P(:)%b_y_g
 
-                         print*, "orig ",q
-                         print*, "bnd_flux ",matmul(b_m_1,nF1)+matmul(b_m_2,nF2) + matmul(b_m_3,nF3)  
-                        
-                         print*, "elt flux ",volume_flux1 + volume_flux2 +bnd_flux_contrib
-                        
-                          print*, "elt flux no bnd",volume_flux1 + volume_flux2 
-                        
-                          print*, "bnd flux contrib" , bnd_flux_contrib
-                          print*, "Source ", matmul(s_m,S_s)
-                        
-                          print*, "Without Source", matmul(b_m_1,nF1)+matmul(b_m_2,nF2) + matmul(b_m_3,nF3)  - volume_flux1 -volume_flux2 -bnd_flux_contrib
-                        
-                          print*,
-                        
-                          print*, "bnd_flux1 ",matmul(b_m_1,nF1) 
-                          print*,
-                          print*, "bnd_flux2 ", matmul(b_m_2,nF2) 
-                          print*,
-                          print*, "bnd_flux3 ",matmul(b_m_3,nF3)  
-                          print*,
-                          print*, "num_flux1 ",nF1 
-                          print*,
-                          print*, "num_flux2 ",nF2 
-                          print*,
-                          print*, "num_flux3 ",nF3
-                          print*,
-                          print*, "elt_flux1 ",f1_s
-                          print*,
-                          print*, "elt_flux2 ",f2_s
-                          print*,
-                          print*, "elt_source",S_s
-                          print*,
-                          print*,"q_temp" , q_temp
-                          print*
-                        !                             stop
+                            !!print*,
+                              !!print*, "bnd_flux1 ",matmul(b_m_1,nF1) 
+                              !!print*,
+                              !!print*, "bnd_flux2 ", matmul(b_m_2,nF2) 
+                              !!print*,
+                              !!print*, "bnd_flux3 ",matmul(b_m_3,nF3)  
+                              !!print*,
+                              !!print*, "num_flux1 ",nF1 
+                              !!print*,
+                              !!print*, "num_flux2 ",nF2 
+                              !!print*,
+                              !!print*, "num_flux3 ",nF3
+                              !!print*,
+                              !!print*, "elt_flux1 ",f1_s
+                              !!print*,
+                              !!print*, "elt_flux2 ",f2_s
+                              !!print*,
+                             !!print*, "elt_source",S_s
+                             !!print*,
+                             !!print*,"q_temp" , q_temp
+                             !!print*
                              
                         call lusolve(s_m_lu, _SWE_DG_DOFS, s_m_lu_pivot,q_temp(:,1))
                         call lusolve(s_m_lu, _SWE_DG_DOFS, s_m_lu_pivot,q_temp(:,2))
                         call lusolve(s_m_lu, _SWE_DG_DOFS, s_m_lu_pivot,q_temp(:,3))
-                        !- !- ! !- !- !- !- !- !- !- !- !- !- !- print*, q_temp
+                        ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !!! !!!!!!!!print*, q_temp
 
                         q = q - q_temp
-                        
                         call Q_DG%vec_to_dofs_dg(q)
 
                       end associate
@@ -909,7 +911,7 @@
                         real(kind=GRID_SR),Dimension(_SWE_DG_DOFS*(_SWE_DG_ORDER+1),3)                                                              :: f1_hat,f1_s,f2_hat,f2_s,S_s
                         real(kind=GRID_SR) :: dx
                         real(kind=GRID_SR) :: epsilon
-                        ! !- !- !- !- !- !- !- !- !- !- !- print*,"predict"
+                        ! ! ! ! ! ! ! ! ! ! ! ! ! ! !!! !!!!!!!!print*,"predict"
                         associate(Q_DG =>element%cell%data_pers%Q_DG ,Q_DG_P =>element%cell%data_pers%Q_DG_P)
 
                         call element%cell%data_pers%dofs_to_vec_dg(q_0)
@@ -924,7 +926,7 @@
 
                         do while(epsilon > 1.0e-12_GRID_SR)
                            i=i+1
-                           !- !- !- ! !- !- !- !- !- !- !- !- !- !- !- print*,i
+                           ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !!! !!!!!!!!print*,i
                            !                        do i = 1,_SWE_DG_DOFS*_SWE_DG_DOFS
 
                            f1_hat = f1_not_drying(q_i,(_SWE_DG_ORDER+1)*_SWE_DG_DOFS)
@@ -933,7 +935,7 @@
                            f1_s=(jacobian_inv(1,1)*f1_hat+jacobian_inv(1,2)*f2_hat)/NORM2(jacobian_inv(:,1))
                            f2_s=(jacobian_inv(2,1)*f1_hat+jacobian_inv(2,2)*f2_hat)/NORM2(jacobian_inv(:,1))
 
-                           S_s =S(q_i,Q_DG_P(:)%b_x_g,Q_DG_P(:)%b_y_g,(_SWE_DG_ORDER+1)*_SWE_DG_DOFS)*dt
+                           S_s =S(q_i,Q_DG_P(:)%b_x_g,Q_DG_P(:)%b_y_g,(_SWE_DG_ORDER+1)*_SWE_DG_DOFS)*dt/dx
                            
                            f1_s = f1_s*dt/dx
                            f2_s = f2_s*dt/dx
@@ -942,7 +944,7 @@
                                   - matmul(st_w_k_t_1_0,q_i(1:_SWE_DG_DOFS,:))&
                                   - matmul(st_k_x,f1_s)&
                                   - matmul(st_k_y,f2_s)
-                           !- !- !- !- !- ! !- !- !- !- !- !- !- !- !- !- !- print*,q_temp
+                           ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !!! !!!!!!!!print*,q_temp
                            call lusolve(st_w_k_t_1_1_lu,_SWE_DG_ORDER*_SWE_DG_DOFS,st_w_k_t_1_1_lu_pivot ,q_temp(:,1))
                            call lusolve(st_w_k_t_1_1_lu,_SWE_DG_ORDER*_SWE_DG_DOFS,st_w_k_t_1_1_lu_pivot ,q_temp(:,2))
                            call lusolve(st_w_k_t_1_1_lu,_SWE_DG_ORDER*_SWE_DG_DOFS,st_w_k_t_1_1_lu_pivot ,q_temp(:,3))
@@ -958,32 +960,52 @@
                            end if
 
 
-!                            if(i > (_SWE_DG_ORDER+1)*_SWE_DG_DOFS) then
-!                                                   !- !- ! !- !- !- !- !- !- !- !- !- !- !- print*,"epsilon " , epsilon
-!                                                   exit
-!                                                   !- !- !- ! !- !- !- !- !- !- !- !- !- !- !- print*, "jacobian ", jacobian_inv
-!                                                   !- !- !- ! !- !- !- !- !- !- !- !- !- !- !- print*, "scal ", dt/dx
-!                                                   !- !- !- ! !- !- !- !- !- !- !- !- !- !- !- print*,"q_0 ", q_0
+                        !     if(i > (_SWE_DG_ORDER+1)*_SWE_DG_DOFS) then
+                           !print*,i
+                           !print*
+                           !print*,"epsilon " , epsilon
+                           !print*,"jacobian ", jacobian_inv
+                           !print*,"scal ", dt/dx
+                           !print*, dt
+                           !print*, dx
+                           !print*
+                           !print*,"q_0 ", q_0
+                           
+                           !print*                           
+                           !print*,"st_k_w_t ", matmul(st_w_k_t_1_0,q_i(1:_SWE_DG_DOFS,:))
+                           !print*,"st_k_x ",matmul(st_k_x,f1_s)
+                           !print*,"st_k_y ",matmul(st_k_y,f2_s)
+                           !print*,"st_m ",matmul(st_m,S_s)
+
+                           !print*,"Steady ",matmul(st_k_x,f1_s)+matmul(st_k_y,f2_s)-matmul(st_m,S_s)
+
+                           !print*,"q_temp " , matmul(st_m,S_s)- matmul(st_w_k_t_1_0,q_i(1:_SWE_DG_DOFS,:)) - matmul(st_k_x,f1_s) - matmul(st_k_y,f2_s)
+                           
+
+                           !print*
+                           
+                           !print*
+                           !print*,Q_DG(:)%b
+                           !print*,Q_DG(:)%b_x_g
+                           !print*,Q_DG(:)%b_y_g
+                           !print*
+                           !print*,"S_s 0 ", S_s(1:_SWE_DG_DOFS,:)
+                           !print*,"f1_s 0", f1_s(1:_SWE_DG_DOFS,:)
+                           !print*,"f2_s 0", f2_s(1:_SWE_DG_DOFS,:)
 
 
-!                                                   !- !- !- ! !- !- !- !- !- !- !- !- !- !- !- print*,"st_k_w_t", matmul(st_w_k_t_1_0,q_i(1:_SWE_DG_DOFS,:))
-!                                                   !- !- !- ! !- !- !- !- !- !- !- !- !- !- !- print*,"st_k_x ",matmul(st_k_x,f1_s)
-!                                                   !- !- !- ! !- !- !- !- !- !- !- !- !- !- !- print*,"st_k_y ",matmul(st_k_y,f2_s)
-
-!                                                   !- !- !- ! !- !- !- !- !- !- !- !- !- !- !- print*,"f1_hat ", f1_hat
-!                                                   !- !- !- ! !- !- !- !- !- !- !- !- !- !- !- print*,"f2_hat ", f2_hat
-
-!                                                   !- !- !- ! !- !- !- !- !- !- !- !- !- !- !- print*,"f1_s ", f1_s(1+_SWE_DG_DOFS:(_SWE_DG_ORDER+1)*_SWE_DG_DOFS,:)
-!                                                   !- !- !- ! !- !- !- !- !- !- !- !- !- !- !- print*,"f2_s ", f2_s(1+_SWE_DG_DOFS:(_SWE_DG_ORDER+1)*_SWE_DG_DOFS,:)
-!                                                   !- !- !- ! !- !- !- !- !- !- !- !- !- !- !- print*,"q_i", q_i(1+_SWE_DG_DOFS:(_SWE_DG_ORDER+1)*_SWE_DG_DOFS,:)
-
-!                                                   !- !- !- ! !- !- !- !- !- !- !- !- !- !- !- print*,"q_temp ", q_temp
-
- 
-!                                                end if
+                           !print*,"S_s ", S_s(1+_SWE_DG_DOFS:(_SWE_DG_ORDER+1)*_SWE_DG_DOFS,:)
+                           !print*,"f1_s ", f1_s(1+_SWE_DG_DOFS:(_SWE_DG_ORDER+1)*_SWE_DG_DOFS,:)
+                           !print*,"f2_s ", f2_s(1+_SWE_DG_DOFS:(_SWE_DG_ORDER+1)*_SWE_DG_DOFS,:)
+                           !print*,"q_i ", q_i(1+_SWE_DG_DOFS:(_SWE_DG_ORDER+1)*_SWE_DG_DOFS,:)
+                           !print*
+                           !print*,"q_temp lu", q_temp
+                           
+                           
+                        !                         end if
                           
-                           q_i(1+_SWE_DG_DOFS:(_SWE_DG_ORDER+1)*_SWE_DG_DOFS,:) = q_temp
-                        end do
+                            q_i(1+_SWE_DG_DOFS:(_SWE_DG_ORDER+1)*_SWE_DG_DOFS,:) = q_temp
+                         end do
 
 
                         end associate
@@ -991,7 +1013,7 @@
                         call element%cell%data_pers%vec_to_dofs_dg_p(q_i)
 
                         end  associate
-                        ! !- !- !- !- !- !- !- !- !- !- !- print*,"predict done"
+                        ! ! ! ! ! ! ! ! ! ! ! ! ! ! !!! !!!!!!!!print*,"predict done"
                 end subroutine dg_predictor
 
                 function f1_not_drying(q,N)
@@ -1083,9 +1105,6 @@
                   do i=1,N
                      S(i,2)=-q(i,1)*b_x_g(i)
                      S(i,3)=-q(i,1)*b_y_g(i) 
-                     !- !- !- !- !- !- !- !- !- print*,q(i,1)
-                     !- !- !- !- !- !- !- !- !- print*,b_x_g(i)
-                     !- !- !- !- !- !- !- !- !- print*,b_y_g(i)
                  end do
                   
                 end function S
@@ -1137,7 +1156,9 @@
             !This will cause a division by zero if the wave speeds are 0.
             !Bue to the min operator, the error will not affect the time step.
             !r_dt_new = min(r_dt_new, volume / dot_product(edge_lengths, fluxes%max_wave_speed))
+
             r_dt_new = min(r_dt_new, volume / (edge_lengths(2) * maxval(fluxes%max_wave_speed)))
+
 
             do i = 1, _SWE_CELL_SIZE
                 dQ(i)%t_dof_state = dQ(i)%t_dof_state * (-r_dt / volume)
@@ -1253,8 +1274,7 @@
                         integer ::i
 
 
-
-#if                    !(defined(_SWE_FWAVE)|defined(_SWE_SSQ_FWAVE)|defined(_SWE_AUG_RIEMANN))
+#if                    !(defined(_FWAVE_FLUX)|defined(_AUG_RIEMANN_FLUX)|defined(_HLLE_FLUX))
 
 			real(kind=GRID_SR)								:: vL, vR, alpha
                         real(kind=GRID_SR) :: max_wave_speedR
@@ -1312,16 +1332,11 @@
                         flux_r%p(2)=0
 
                         do i=1,_SWE_DG_DOFS*(_SWE_DG_ORDER+1)
-                           call compute_geoclaw_flux(normal, QL(i), QR(i), flux(i), flux_r(i))
+                           call compute_geoclaw_flux(normal, QL(i), QR(i), flux(i), flux_r(i),.false.)
                            ql_v(1,1)= QL(i)%h
                            ql_v(1,2:3)= QL(i)%p
                            f1l_s=f1(ql_v,1)
                            f2l_s=f2(ql_v,1)
-!                           s_s = S(ql_v,(/QL(i)%b_x_g/),(/QL(i)%b_y_g/),1)
-                           ! flux(i)%h    = normal(1)*f1l_s(1,1)+normal(2)*f2l_s(1,1) + flux(i)%h 
-                           ! flux(i)%p(1) = normal(1)*f1l_s(1,2)+normal(2)*f2l_s(1,2) + flux(i)%p(1)
-                           ! flux(i)%p(2) = normal(1)*f1l_s(1,3)+normal(2)*f2l_s(1,3) + flux(i)%p(2)
-
                         end do
 
 #endif
@@ -1331,23 +1346,37 @@
 
 
 		!> Augmented Riemann solver from geoclaw
-		subroutine compute_geoclaw_flux(normal, QL, QR, fluxL, fluxR)
+		subroutine compute_geoclaw_flux(normal, QL, QR, fluxL, fluxR,with_bathymetry_in)
 			type(t_state), intent(in)           :: QL, QR
 			type(t_update), intent(out)         :: fluxL, fluxR
 			real(kind = GRID_SR), intent(in)    :: normal(2)
+                        logical,optional,intent(in)         :: with_bathymetry_in
 
 			real(kind = GRID_SR)				:: transform_matrix(2, 2)
 			real(kind = GRID_SR)			    :: net_updatesL(3), net_updatesR(3), max_wave_speed
+                        logical         :: with_bathymetry_local
 			real(kind = GRID_SR)                :: pL(2), pR(2), hL, hR, bL, bR
+                        
+                        if(present(with_bathymetry_in))then
+                           with_bathymetry_local=with_bathymetry_in
+                        else
+                           with_bathymetry_local=.true.
+                        end if
+
 
 			transform_matrix(1, :) = normal
 			transform_matrix(2, :) = [-normal(2), normal(1)]
 
 			pL = matmul(transform_matrix, QL%p)
 			pR = matmul(transform_matrix, QR%p)
-
-                        hL = QL%h
-			hR = QR%h
+    
+                        if(with_bathymetry_local) then
+                           hL = QL%h-QL%b
+                           hR = QR%h-QR%b
+                        else
+                           hL = QL%h
+                           hR = QR%h
+                        end if
 
 			bL = QL%b
 			bR = QR%b
@@ -1369,35 +1398,35 @@
                 fluxR%max_wave_speed = max_wave_speed
                       
                 ! if(.not.(bL - bR)<1.0e-9)then
-                !    !- print*
-                !    !- print*,"hL"
-                !    !- print*,hL
-                !    !- print*,"hR"
-                !    !- print*,hR
-                !    !- print*
-                !    !- print*,"pL"
-                !    !- print*,pL
-                !    !- print*,"pR"
-                !    !- print*,pR
-                !    !- print*
-                !    !- print*,"bL"
-                !    !- print*,bL
-                !    !- print*,"bR"
-                !    !- print*,bR
-                !    !- print*
-                !    !- print*,"Bathymetry diff"
-                !    !- print*,bL- bR
-                !    !- print*
-                !    !- print*,"flux left h"
-                !    !- print*,fluxL%h
-                !    !- print*,"flux left p"
-                !    !- print*,fluxL%p
-                !    !- print*
-                !    !- print*,"flux right h"
-                !    !- print*,fluxR%h
-                !    !- print*,"flux right p"
-                !    !- print*,fluxR%p
-                !    !- print*
+                        !!!!!print*
+                        !!!!!print*,"hL"
+                        !!!!!print*,hL
+                        !!!!!print*,"hR"
+                        !!!!!print*,hR
+                        !!!!!print*
+                        !!!!!print*,"pL"
+                        !!!!!print*,pL
+                        !!!!!print*,"pR"
+                        !!!!!print*,pR
+                        !!!!!print*
+                        !!!!!print*,"bL"
+                        !!!!!print*,bL
+                        !!!!!print*,"bR"
+                        !!!!!print*,bR
+                        !!!!!print*
+                        !!!!!print*,"Bathymetry diff"
+                        !!!!!print*,bL- bR
+                        !!!!!print*
+                        !!!!!print*,"flux left h"
+                        !!!!!print*,fluxL%h
+                        !!!!!print*,"flux left p"
+                        !!!!!print*,fluxL%p
+                        !!!!!print*
+                        !!!!!print*,"flux right h"
+                        !!!!!print*,fluxR%h
+                        !!!!!print*,"flux right p"
+                        !!!!!print*,fluxR%p
+                        !!!!!print*
 
                 ! end if
 

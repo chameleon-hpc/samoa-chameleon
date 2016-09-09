@@ -33,6 +33,8 @@
 			integer (kind = GRID_SI)								:: section_index
 			integer (kind = BYTE)									:: depth
 			integer (kind = BYTE)									:: refinement
+                        integer (kind=BYTE) :: troubled
+
             integer (kind = BYTE)                                   :: i_plotter_type
 #           if defined(_SWE_PATCH)          
                 integer (kind = BYTE)                               :: id_in_patch
@@ -77,9 +79,9 @@
             end if
 
 
-!                if(traversal%i_output_iteration .eq. 1) then
-!                   stop
-!                end if
+                if(traversal%i_output_iteration .eq. 1) then
+                   stop
+                end if
 
             call scatter(traversal%s_file_stamp, traversal%sections%s_file_stamp)
             call scatter(traversal%i_output_iteration, traversal%sections%i_output_iteration)
@@ -131,6 +133,7 @@
                         e_io = vtk%VTK_VAR_XML('depth', 1_1, 1)
                         e_io = vtk%VTK_VAR_XML('refinement flag', 1_1, 1)
                         e_io = vtk%VTK_VAR_XML('i_plotter_type', 1_1, 1)
+                        e_io = vtk%VTK_VAR_XML('troubled', 1_1, 1)
 #                       if defined(_SWE_PATCH)
                             e_io = vtk%VTK_VAR_XML('id_in_patch', 1_1, 1)
 #                       endif
@@ -272,6 +275,7 @@
                         e_io = vtk%VTK_VAR_XML(i_cells, 'depth', traversal%cell_data%depth)
                         e_io = vtk%VTK_VAR_XML(i_cells, 'refinement flag', traversal%cell_data%refinement)
                         e_io = vtk%VTK_VAR_XML(i_cells, 'i_plotter_type', traversal%cell_data%i_plotter_type)
+                        e_io = vtk%VTK_VAR_XML(i_cells, 'troubled', traversal%cell_data%troubled)
 #                       if defined(_SWE_PATCH)                        
                             e_io = vtk%VTK_VAR_XML(i_cells, 'id_in_patch', traversal%cell_data%id_in_patch)
 #                       endif
@@ -311,10 +315,11 @@
 #			if defined(_SWE_PATCH)
 				type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE):: Q
 				integer											:: j, row, col, cell_id
+
 # if defined(_SWE_DG)				
-
-                                call element%cell%data_pers%convert_dg_to_fv()
-
+    if(element%cell%data_pers%troubled.eq.0) then
+       call element%cell%data_pers%convert_dg_to_fv()
+    end if
 # endif
                 
                 row=1
@@ -326,7 +331,7 @@
                     traversal%cell_data(traversal%i_cell_data_index)%depth = element%cell%geometry%i_depth
                     traversal%cell_data(traversal%i_cell_data_index)%i_plotter_type = element%cell%geometry%i_plotter_type
                     traversal%cell_data(traversal%i_cell_data_index)%refinement = element%cell%geometry%refinement
-
+                    traversal%cell_data(traversal%i_cell_data_index)%troubled = element%cell%data_pers%troubled
                     do i=1,3
                         traversal%point_data(traversal%i_point_data_index + i - 1)%coords = cfg%scaling * samoa_barycentric_to_world_point(element%transform_data, SWE_PATCH_geometry%coords(:,i, j)) + cfg%offset
                     end do
@@ -346,6 +351,7 @@
                     traversal%cell_data(traversal%i_cell_data_index)%Q%b = element%cell%data_pers%B(cell_id)
                     traversal%cell_data(traversal%i_cell_data_index)%Q%p(1) = element%cell%data_pers%HU(cell_id)
                     traversal%cell_data(traversal%i_cell_data_index)%Q%p(2) = element%cell%data_pers%HV(cell_id)
+
                     
                     ! prepare for next cell
                     traversal%i_cell_data_index = traversal%i_cell_data_index + 1
@@ -367,6 +373,7 @@
 			traversal%cell_data(traversal%i_cell_data_index)%depth = element%cell%geometry%i_depth
             traversal%cell_data(traversal%i_cell_data_index)%i_plotter_type = element%cell%geometry%i_plotter_type
 			traversal%cell_data(traversal%i_cell_data_index)%refinement = element%cell%geometry%refinement
+                    traversal%cell_data(traversal%i_cell_data_index)%troubled = merge(1,0,element%cell%data_pers%troubled)
 
 			select case (i_element_order)
 				case (2)

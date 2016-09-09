@@ -12,6 +12,7 @@
 		use SWE_euler_timestep
 
 		use Samoa_swe
+
 #       if defined(_SWE_PATCH)
             use SWE_PATCH
 #       endif
@@ -103,12 +104,7 @@
 #			endif
 
 #                       if defined(_SWE_DG)
-
-                                call element%cell%data_pers%convert_fv_to_dg()
-                                call element%cell%data_pers%convert_fv_to_dg_bathymetry()
-
-                                call dg_predictor(element,0.0_GRID_SR)
-
+                                call element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian)
 #                       endif
 
 
@@ -258,7 +254,9 @@
             real (kind = GRID_SR)								:: bathymetry				!< bathymetry
 
             real (kind = c_double)                              :: xs(3)
-
+            real(kind=GRID_SR)                                  :: inner_height=10.5, outer_height=6.0
+            real (kind = GRID_SR), parameter		            :: dam_radius=0.1
+            real(kind=GRID_SR),Dimension(2)                             :: dam_center=[0.5,0.5]
             xs(1:2) = real(cfg%scaling * x + cfg%offset, c_double)
 
 #			if defined(_ASAGI)
@@ -287,7 +285,28 @@
                     section%stats%r_asagi_time = section%stats%r_asagi_time + get_wtime()
 #               endif
 #			else
-				bathymetry = 0.0_SR
+
+!                    bathymetry=outer_height*(1-x(1)) + inner_height
+!                    bathymetry=inner_height
+
+                        ! if(NORM2(x-dam_center)<dam_radius) then
+                        !    bathymetry=1.0q0/(sqrt(2*3.1415q0))*exp((NORM2(x-dam_center)/dam_radius*1.5q0)**2)*(1-NORM2(x-dam_center)/dam_radius)*inner_height+outer_height
+                        ! else
+                        !    bathymetry = outer_height
+                        ! end if
+
+                        ! if(NORM2(x-dam_center)<dam_radius) then
+                        !    bathymetry=outer_height+inner_height
+                        ! else
+                        !    bathymetry = outer_height
+                        ! end if
+                    ! Dam Break
+                     if(x(1) < 0.3)then
+                        bathymetry=inner_height
+                     else
+                        bathymetry=outer_height
+                     end if
+!				bathymetry = 0.0_SR
 #			endif
 		end function
 	END MODULE
@@ -369,12 +388,26 @@
 #           if defined(_SWE_PATCH)
                 type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE)   :: Q
                 
+                Q(:)%b=element%cell%data_pers%B
+
                 call alpha_volume_op(traversal, section, element, Q)
                 
                 element%cell%data_pers%H = Q(:)%h
                 element%cell%data_pers%HU = Q(:)%p(1)
                 element%cell%data_pers%HV = Q(:)%p(2)
-                
+
+#if defined(_SWE_DG)                
+                call element%cell%data_pers%convert_fv_to_dg()
+
+                element%cell%data_pers%troubled = 0
+
+                call element%cell%data_pers%set_troubled(cfg%dry_tolerance)
+
+                if(element%cell%data_pers%troubled.le.0) then
+                   call dg_predictor(element,section%r_dt)
+                end if
+#endif
+
 #           else
             type(t_state), dimension(_SWE_CELL_SIZE)            :: Q
 
@@ -482,9 +515,9 @@
 			end if
 
 			!estimate initial time step
-
+			
 			where (Q%h - Q%b > 0.0_GRID_SR)
-				max_wave_speed = sqrt(g * (Q%h - Q%b)) + sqrt((Q%p(1) * Q%p(1) + Q%p(2) * Q%p(2)) / ((Q%h - Q%b) * (Q%h - Q%b)))
+                          	max_wave_speed = sqrt(g * (Q%h - Q%b)) + sqrt((Q%p(1) * Q%p(1) + Q%p(2) * Q%p(2)) / ((Q%h - Q%b) * (Q%h - Q%b)))
 			elsewhere
 				max_wave_speed = 0.0_GRID_SR
 			end where
@@ -492,10 +525,12 @@
             !This will cause a division by zero if the wave speeds are 0.
             !Bue to the min operator, the error will not affect the time step.
 #           if defined _SWE_PATCH
+
                 section%r_dt_new = min(section%r_dt_new, element%cell%geometry%get_volume() / (sum(element%cell%geometry%get_edge_sizes()) * maxval(max_wave_speed) * _SWE_PATCH_ORDER))
 #           else
                 section%r_dt_new = min(section%r_dt_new, element%cell%geometry%get_volume() / (sum(element%cell%geometry%get_edge_sizes()) * maxval(max_wave_speed)))
 #           endif
+
 		end subroutine
 
 		function get_initial_dof_state_at_element(section, element) result(Q)
@@ -513,8 +548,10 @@
 			type(t_grid_section), intent(inout)					:: section
 			real (kind = GRID_SR), intent(in)		            :: x(:)            !< position in world coordinates
 			type(t_dof_state)							        :: Q
-                        real (kind = GRID_SR), parameter		            :: hL = 1.0_SR, hR = 0.0_SR
-                        real (kind = GRID_SR)                               :: xs(2)
+                        real (kind = GRID_SR), parameter		            :: hL = 10.5_SR, hR = 13.0_SR
+                        real (kind = GRID_SR), parameter		            :: dam_radius=0.2
+                        real(kind=GRID_SR),Dimension(2)                             :: dam_center=[0.5,0.5]
+                        real (kind = GRID_SR)                                       :: xs(2)
 
                         xs = cfg%scaling * x + cfg%offset
 
@@ -522,12 +559,20 @@
 				Q%h = 0.0_GRID_SR
 #			else
 
-                        if (xs(1) < 0.0_SR) then
-                           Q%h = hL
-                        else
-                           Q%h = hR
-                        end if
+!dam break
+                         if (x(1) < 0.5_SR) then
+                            Q%h = hL
+                         else
+                            Q%h = hR
+                         end if
 
+!                           Q%h=x(1)*hR+hL
+!                        Q%h=hL
+                        ! if(NORM2(x-dam_center)<dam_radius) then
+                        !    Q%h=1.0q0/(sqrt(2*3.1415q0))*exp((NORM2(x-dam_center)/dam_radius*1.5q0)**2)*(1-NORM2(x-dam_center)/dam_radius)*hL+hR
+                        ! else
+                        !    Q%h = hR
+                        ! end if
 #			endif
 
 			Q%p = 0.0_GRID_SR

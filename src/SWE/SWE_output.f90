@@ -29,6 +29,7 @@
 			integer (kind = GRID_SI)								:: section_index
 			integer (kind = BYTE)								    :: depth
 			integer (kind = BYTE)								    :: refinement
+                        integer (kind= BYTE) ::troubled
 		end type
 
         type num_traversal_data
@@ -170,6 +171,7 @@
 
                     e_io = vtk%VTK_VAR(i_cells, 'grid_depth', int(traversal%cell_data%depth))
                     e_io = vtk%VTK_VAR(i_cells, 'refinement_flag', int(traversal%cell_data%refinement))
+                    e_io = vtk%VTK_VAR(i_cells, 'troubled', int(traversal%cell_data%troubled))
                 e_io = vtk%VTK_END()
 #           endif
 

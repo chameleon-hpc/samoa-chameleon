@@ -127,6 +127,7 @@
 
 				dest_element%cell%data_pers%Q_DG = src_element%cell%data_pers%Q_DG
 				dest_element%cell%data_pers%Q_DG_P = src_element%cell%data_pers%Q_DG_P
+				dest_element%cell%data_pers%troubled = src_element%cell%data_pers%troubled
 #endif
 
 #			else
@@ -196,10 +197,15 @@
                 
                 ! get bathymetry
                 dest_element%cell%data_pers%B = get_bathymetry_at_patch(section, dest_element%t_element_base, section%r_time)
-
+#if defined(_SWE_DG)
                 call dest_element%cell%data_pers%convert_fv_to_dg()
-                call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry()
-                call dg_predictor(dest_element,section%r_dt)
+                call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(dest_element%cell%geometry%i_plotter_type))%jacobian)
+                dest_element%cell%data_pers%troubled=0
+                call dest_element%cell%data_pers%set_troubled(cfg%dry_tolerance)
+                if(dest_element%cell%data_pers%troubled.eq.0) then
+                   call dg_predictor(dest_element,section%r_dt)
+                end if
+#endif
 
 #           else
 			call gv_Q%read( src_element%t_element_base, Q_in)
@@ -276,9 +282,15 @@
                         data%B = data%B * 0.25_GRID_SR
                     end if
 
+#if defined(_SWE_DG)
                     call dest_element%cell%data_pers%convert_fv_to_dg()
-                    call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry()
+                    call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(dest_element%cell%geometry%i_plotter_type))%jacobian)
+                dest_element%cell%data_pers%troubled=0
+                call dest_element%cell%data_pers%set_troubled(cfg%dry_tolerance)
+                if(dest_element%cell%data_pers%troubled.eq.0) then
                     call dg_predictor(dest_element,section%r_dt)
+                 end if
+#endif
 
 
                 end associate

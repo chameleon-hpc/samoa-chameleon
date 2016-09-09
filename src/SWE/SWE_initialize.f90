@@ -388,7 +388,8 @@
 #           if defined(_SWE_PATCH)
                 type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE)   :: Q
                 
-                Q(:)%b=element%cell%data_pers%B
+
+                Q(:)%b = element%cell%data_pers%B
 
                 call alpha_volume_op(traversal, section, element, Q)
                 

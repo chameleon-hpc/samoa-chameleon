@@ -542,6 +542,17 @@
                             end if
                         end do
                     end do 
+                    
+                    !set refinement condition -> Here I am using the same ones as in the original no-patches implementation, but considering only the max value.
+                    element%cell%geometry%refinement = 0
+                    dQ_max_norm = maxval(abs(dQ_H))
+
+                    if (element%cell%geometry%i_depth < cfg%i_max_depth .and. dQ_max_norm > 5.0_GRID_SR * cfg%scaling * get_edge_size(cfg%i_max_depth) / _SWE_PATCH_ORDER ) then
+                        element%cell%geometry%refinement = 1
+                        traversal%i_refinements_issued = traversal%i_refinements_issued + 1_GRID_DI
+                    else if (element%cell%geometry%i_depth > cfg%i_min_depth .and. dQ_max_norm < 5.0_GRID_SR * cfg%scaling * get_edge_size(cfg%i_max_depth) / (_SWE_PATCH_ORDER * 8.0_SR) ) then
+                        element%cell%geometry%refinement = -1
+                    endif
 
                     dQ_H = dQ_H * (-dt_div_volume)
                     dQ_HU = dQ_HU * (-dt_div_volume)
@@ -567,17 +578,6 @@
                         data%HV = 0.0_GRID_SR
                     end where
                     
-                    !set refinement condition -> Here I am using the same ones as in the original no-patches implementation, but considering only the max value.
-                    element%cell%geometry%refinement = 0
-                    dQ_max_norm = maxval(abs(dQ_H))
-
-                    if (element%cell%geometry%i_depth < cfg%i_max_depth .and. dQ_max_norm > 5.0_GRID_SR * cfg%scaling * get_edge_size(cfg%i_max_depth)) then
-                        element%cell%geometry%refinement = 1
-                        traversal%i_refinements_issued = traversal%i_refinements_issued + 1_GRID_DI
-                    else if (element%cell%geometry%i_depth > cfg%i_min_depth .and. dQ_max_norm < 5.0_GRID_SR * cfg%scaling * get_edge_size(cfg%i_max_depth) / 8.0_SR) then
-                        element%cell%geometry%refinement = -1
-                    endif
-
                     ! compute next dt
                     section%r_dt_new = min(section%r_dt_new, volume / (edge_lengths(2) * maxWaveSpeed) )
 

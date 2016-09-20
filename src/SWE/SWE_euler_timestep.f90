@@ -543,18 +543,22 @@
                         end do
                     end do 
 
+                    dQ_H = dQ_H * (-dt_div_volume)
+                    dQ_HU = dQ_HU * (-dt_div_volume)
+                    dQ_HV = dQ_HV * (-dt_div_volume)
+                    
                     ! if land is flooded, init water height to dry tolerance and
                     ! velocity to zero
-                    where (data%H < data%B + cfg%dry_tolerance .and. data%H + dQ_H > data%B + cfg%dry_tolerance)
+                    where (data%H < data%B + cfg%dry_tolerance .and. data%H + dQ_H > 0.0_GRID_SR)
                         data%H = data%B + cfg%dry_tolerance
                         data%HU = 0.0_GRID_SR
                         data%HV = 0.0_GRID_SR
                     end where
 
                     ! update unknowns
-                    data%H = data%H + dQ_H * (-dt_div_volume)
-                    data%HU = data%HU + dQ_HU * (-dt_div_volume)
-                    data%HV = data%HV + dQ_HV * (-dt_div_volume)
+                    data%H = data%H + dQ_H
+                    data%HU = data%HU + dQ_HU
+                    data%HV = data%HV + dQ_HV
                     
                     ! if the water level falls below the dry tolerance, set water surface to 0 and velocity to 0
                     where (data%H < data%B + cfg%dry_tolerance) 

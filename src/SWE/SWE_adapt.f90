@@ -120,14 +120,20 @@
 
 #if defined (_SWE_DG)
 
-!                                call dest_element%cell%data_pers%convert_fv_to_dg()
-!                                call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry()
-!                                print*,"predict Transver"
-!                                call dg_predictor(dest_element,section%r_dt)
 
+#if !defined(_SWE_DG_NODAL)                               
+				dest_element%cell%data_pers%b_x = src_element%cell%data_pers%b_x
+				dest_element%cell%data_pers%b_y = src_element%cell%data_pers%b_y
+#endif
 				dest_element%cell%data_pers%Q_DG = src_element%cell%data_pers%Q_DG
+                                dest_element%cell%data_pers%troubled=1
 				dest_element%cell%data_pers%Q_DG_P = src_element%cell%data_pers%Q_DG_P
 				dest_element%cell%data_pers%troubled = src_element%cell%data_pers%troubled
+
+                                if(dest_element%cell%data_pers%troubled.le.0) then
+                                call dg_predictor(dest_element%cell,section%r_dt,dest_element%cell%geometry%get_scaling())
+                                end if
+
 #endif
 
 #			else
@@ -198,12 +204,12 @@
                 ! get bathymetry
                 dest_element%cell%data_pers%B = get_bathymetry_at_patch(section, dest_element%t_element_base, section%r_time)
 #if defined(_SWE_DG)
-                call dest_element%cell%data_pers%convert_fv_to_dg()
+
                 call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(dest_element%cell%geometry%i_plotter_type))%jacobian)
-                dest_element%cell%data_pers%troubled=0
+                dest_element%cell%data_pers%troubled=1
                 call dest_element%cell%data_pers%set_troubled(cfg%dry_tolerance)
-                if(dest_element%cell%data_pers%troubled.eq.0) then
-                   call dg_predictor(dest_element,section%r_dt)
+                if(dest_element%cell%data_pers%troubled.le.0) then
+                   call dg_predictor(dest_element%cell,section%r_dt,dest_element%cell%geometry%get_scaling())
                 end if
 #endif
 
@@ -283,12 +289,12 @@
                     end if
 
 #if defined(_SWE_DG)
-                    call dest_element%cell%data_pers%convert_fv_to_dg()
+
                     call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(dest_element%cell%geometry%i_plotter_type))%jacobian)
-                dest_element%cell%data_pers%troubled=0
+                dest_element%cell%data_pers%troubled=1
                 call dest_element%cell%data_pers%set_troubled(cfg%dry_tolerance)
-                if(dest_element%cell%data_pers%troubled.eq.0) then
-                    call dg_predictor(dest_element,section%r_dt)
+                if(dest_element%cell%data_pers%troubled.le.0) then
+                   call dg_predictor(dest_element%cell,section%r_dt,dest_element%cell%geometry%get_scaling())                  
                  end if
 #endif
 

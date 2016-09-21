@@ -17,6 +17,21 @@ MODULE SWE_DG_matrices
 
 
 #if _SWE_DG_ORDER == 1
+!L2 projection
+#include "dg_matrices/st_gl_node_vals_1.incl"
+#include "dg_matrices/st_gl_weights_1.incl"
+#include "dg_matrices/st_der_x_gl_node_vals_1.incl"
+#include "dg_matrices/st_der_y_gl_node_vals_1.incl"
+
+#include "dg_matrices/s_der_x_gl_node_vals_1.incl"
+#include "dg_matrices/s_der_y_gl_node_vals_1.incl"
+
+#include "dg_matrices/st_m_lu_1.incl"
+#include "dg_matrices/st_m_lu_pivot_1.incl"
+
+
+#include "dg_matrices/bnd_gl_node_vals_1.incl"
+#include "dg_matrices/bnd_gl_weights_1.incl"
 
 !Conversion matrices
 #include "dg_matrices/phi_1.incl"
@@ -29,6 +44,15 @@ MODULE SWE_DG_matrices
 #include "dg_matrices/b_m_1_1.incl"
 #include "dg_matrices/b_m_2_1.incl"
 #include "dg_matrices/b_m_3_1.incl"
+
+#include "dg_matrices/b_kx_1_1.incl"
+#include "dg_matrices/b_kx_2_1.incl"
+#include "dg_matrices/b_kx_3_1.incl"
+
+#include "dg_matrices/b_ky_1_1.incl"
+#include "dg_matrices/b_ky_2_1.incl"
+#include "dg_matrices/b_ky_3_1.incl"
+
 #include "dg_matrices/s_m_lu_1.incl"
 #include "dg_matrices/s_m_lu_pivot_1.incl"
 
@@ -46,13 +70,24 @@ MODULE SWE_DG_matrices
 
 #include "dg_matrices/basis_der_x_1.incl"
 #include "dg_matrices/basis_der_y_1.incl"
-! #include "dg_matrices/st_k_t_1_0_1.incl"
-! #include "dg_matrices/st_k_t_1_1_lu_1.incl"
-! #include "dg_matrices/st_k_t_1_1_lu_pivot_1.incl"
 
 #endif
 
 #if _SWE_DG_ORDER == 2
+!L2 projection
+#include "dg_matrices/st_gl_node_vals_2.incl"
+#include "dg_matrices/st_gl_weights_2.incl"
+#include "dg_matrices/st_der_x_gl_node_vals_2.incl"
+#include "dg_matrices/st_der_y_gl_node_vals_2.incl"
+
+#include "dg_matrices/s_der_x_gl_node_vals_2.incl"
+#include "dg_matrices/s_der_y_gl_node_vals_2.incl"
+
+#include "dg_matrices/st_m_lu_2.incl"
+#include "dg_matrices/st_m_lu_pivot_2.incl"
+
+#include "dg_matrices/bnd_gl_node_vals_2.incl"
+#include "dg_matrices/bnd_gl_weights_2.incl"
 
 !Conversion matrices
 #include "dg_matrices/phi_2.incl"
@@ -88,6 +123,17 @@ MODULE SWE_DG_matrices
 #endif
 
 #if _SWE_DG_ORDER == 4
+!L2 projection
+#include "dg_matrices/st_gl_node_vals_4.incl"
+#include "dg_matrices/st_gl_weights_4.incl"
+#include "dg_matrices/st_der_x_gl_node_vals_4.incl"
+#include "dg_matrices/st_der_y_gl_node_vals_4.incl"
+
+#include "dg_matrices/s_der_x_gl_node_vals_4.incl"
+#include "dg_matrices/s_der_y_gl_node_vals_4.incl"
+
+#include "dg_matrices/st_m_lu_4.incl"
+#include "dg_matrices/st_m_lu_pivot_4.incl"
 
 !Conversion matrices
 #include "dg_matrices/phi_4.incl"
@@ -163,7 +209,7 @@ subroutine lusolve(mat,n,pivot,b)
  end do ! i loop
 
  return
- end subroutine lusolve
+end subroutine lusolve
 
-end MODULE SWE_DG_matrices
 #endif
+END MODULE SWE_DG_matrices

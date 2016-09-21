@@ -52,6 +52,10 @@ vars.AddVariables(
   
   BoolVariable( 'swe_patch_solver', 'use patch solver? if False, a original non-vectorizable geoclaw implementation will be used', False),
 
+  EnumVariable( 'swe_dg_basis', 'choice of basis polynomes and projection method', 'bernstein_nodal',
+                allowed_values=('bernstein_nodal','bernstein_l2')
+              ),
+
   EnumVariable( 'data_refinement', 'input data refinement method', 'integrate',
                 allowed_values=('integrate', 'sample')
               ),
@@ -239,7 +243,8 @@ elif env['flux_solver'] == 'lf':
 elif env['flux_solver'] == 'lfbath':
   env['F90FLAGS'] += ' -D_LF_BATH_FLUX'
 elif env['flux_solver'] == 'llf':
-  env['F90FLAGS'] += ' -D_LLF_FLUX'
+  env['F90FLAGS'] += ' -D_LLF_FLUX_DG'
+  env['F90FLAGS'] += ' -D_FWAVE_FLUX'
 elif env['flux_solver'] == 'llfbath':
   env['F90FLAGS'] += ' -D_LLF_BATH_FLUX'
 elif env['flux_solver'] == 'fwave':
@@ -252,6 +257,8 @@ elif env['flux_solver'] == 'hlle':
 # DG options for SWE scenario
 if (int(env['swe_dg_order'])) > 0:
 	env['F90FLAGS'] += ' -D_SWE_DG'
+        if(env['swe_dg_basis']=='bernstein_nodal'):
+          env['F90FLAGS'] += ' -D_SWE_DG_NODAL'
 	env['F90FLAGS'] += ' -D_SWE_DG_ORDER=' + env['swe_dg_order']
 	env['F90FLAGS'] += ' -D_SWE_DG_DOFS=' + str(int( (int(env['swe_dg_order'])+1)*(int(env['swe_dg_order'])+2)/2))
 	if (int(env['swe_patch_order'])) > 1:

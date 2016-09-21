@@ -79,9 +79,9 @@
             end if
 
 
-                if(traversal%i_output_iteration .eq. 1) then
-                   stop
-                end if
+                ! if(traversal%i_output_iteration .eq. 2) then
+                !    stop
+                ! end if
 
             call scatter(traversal%s_file_stamp, traversal%sections%s_file_stamp)
             call scatter(traversal%i_output_iteration, traversal%sections%i_output_iteration)
@@ -168,7 +168,7 @@
 			type(t_grid_section), intent(inout)							:: section
 
 			type(t_section_info)                                           :: grid_info
-			integer (kind = GRID_SI)									:: i_error, i_cells, i_points
+			integer (kind = GRID_SI)	:: i_error, i_cells, i_points
 
             grid_info = section%get_info()
 #           if defined (_SWE_PATCH)

@@ -34,7 +34,7 @@
         integer, PARAMETER :: DI = GRID_DI
 
 		real (kind = GRID_SR), parameter					:: g = 9.80665_GRID_SR		!< gravitational constant
-                real (kind = GRID_SR),parameter :: ref_triangle_size_inv = (2.0q0 * real(_SWE_PATCH_ORDER_SQUARE,kind=GRID_SR))
+                real (kind = GRID_SR),parameter :: ref_triangle_size_inv = (2.0q0 * real(_SWE_PATCH_ORDER_SQUARE,kind=kind(1.0q0)))
 
 
 		!***********************
@@ -60,11 +60,10 @@
 		!> cell state vector including bathymetry
 		type, extends(t_dof_state) :: t_state
 			real (kind = GRID_SR)													:: b						!< bathymetry
-#if defined(_SWE_DG)
-   real(kind=GRID_SR) b_x_g
-   real(kind=GRID_SR) b_y_g
+#if defined(_SWE_DG_NODAL)
+                        real(kind=GRID_SR)::       b_x_g
+                        real(kind=GRID_SR)::       b_y_g
 #endif
-
             contains
 
             procedure, pass :: add_state => state_add
@@ -97,7 +96,11 @@
 #                       if defined(_SWE_DG)
                         type(t_state), DIMENSION(_SWE_DG_DOFS)                     :: Q_DG
                         type(t_state), DIMENSION(_SWE_DG_DOFS*(_SWE_DG_ORDER+1))   :: Q_DG_P
-                        !troubled: 0 = not troubled 1= drying 2 = neighbour troubled
+#if !defined(_SWE_DG_NODAL)
+                        real(kind=GRID_SR) :: b_x(size(st_gl_node_vals,1)), b_y(size(st_gl_node_vals,1))
+#endif                       
+
+                        !troubled: -1 was troubled 0= not troubled 1= drying 2 = neighbour troubled
                         integer :: troubled
 #                       endif
 			type(t_state), DIMENSION(_SWE_CELL_SIZE)			:: Q !TODO: remove this and others Qs --> must handle conflicts with t_gv_Q methods afterwards...
@@ -131,7 +134,7 @@
 			real (kind = GRID_SR), dimension (_SWE_PATCH_ORDER)		:: H, HU, HV, B !< edge stores ghost cells for communication of ghost cells
 
 #if defined(_SWE_DG)
-                        type(t_state), DIMENSION(_SWE_DG_DOFS*(_SWE_DG_ORDER+1))   :: Q_DG_P
+                        type(t_state), DIMENSION((_SWE_DG_ORDER+1)*(_SWE_DG_ORDER+1))   :: Q_DG_P
                         integer :: troubled
 #endif
 #endif
@@ -143,7 +146,7 @@
 #if defined (_SWE_PATCH)
                         real (kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER)							:: H, HU, HV, B !< values of ghost cells
 #if defined (_SWE_DG)
-                        type(t_state), DIMENSION(_SWE_DG_DOFS*(_SWE_DG_ORDER+1))   :: Q_DG_P
+                        type(t_state), DIMENSION((_SWE_DG_ORDER+1)*(_SWE_DG_ORDER+1))   :: Q_DG_P
                         integer :: troubled
                         logical :: bnd=.false.
 #endif
@@ -184,15 +187,22 @@
 		contains
 #if defined (_SWE_DG)
 
-                 subroutine convert_fv_to_dg(dofs)
+                 subroutine convert_fv_to_dg(dofs,ini)
                    class(num_cell_data_pers) :: dofs
                    real(kind=GRID_SR) :: q(_SWE_PATCH_ORDER*_SWE_PATCH_ORDER,3),q_temp(_SWE_DG_DOFS+1,3)
                    real(kind=GRID_SR) :: h_temp(_SWE_DG_DOFS +1), hu_temp(_SWE_DG_DOFS +1), hv_temp(_SWE_DG_DOFS +1)
                    real(kind=GRID_SR) :: q_dg(_SWE_DG_DOFS,3)
-
+                   real(kind=GRID_SR) :: epsilon=0.0_GRID_SR
+                   logical,optional :: ini
+                   logical :: ini_local = .false.
+                   integer :: i,j
 
 !PATCHES store h+b DG not
-                   q(:,1)=dofs%H-dofs%B
+                   if(present(ini)) then
+                      ini_local= ini
+                   end if
+
+                   q(:,1)=dofs%H
                    q(:,2)=dofs%HU
                    q(:,3)=dofs%HV
 
@@ -201,14 +211,33 @@
                    q_temp(_SWE_DG_DOFS+1,1) = sum(q(:,1))
                    q_temp(_SWE_DG_DOFS+1,2) = sum(q(:,2))
                    q_temp(_SWE_DG_DOFS+1,3) = sum(q(:,3))
-                   
+
                    q_temp = q_temp /ref_triangle_size_inv
 
                    call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,q_temp(:,1))
                    call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,q_temp(:,2))
                    call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,q_temp(:,3))
-
+                   
                    q_dg=q_temp(1:_SWE_DG_DOFS,:)
+
+                   q_dg(:,1) = q_dg(:,1) - dofs%Q_DG(:)%B
+
+                   !smooth converted height, importrant for stready state
+                   if(ini_local) then
+                   do i=1,_SWE_DG_DOFS
+                      if(.not.q_dg(i,1).eq.0) then
+                         do j=i+1,_SWE_DG_DOFS
+                            epsilon=max(epsilon,(q_dg(i,1)-q_dg(j,1))/q_dg(i,1))
+                         end do
+                      end if
+                   end do
+
+                   if(epsilon < 1.5e-14) then
+                      q_dg(2:,1) = q_dg(1,1)
+                   end if
+                   
+                   end if
+
                    call dofs%vec_to_dofs_dg(q_dg)
                  end subroutine convert_fv_to_dg
                    
@@ -221,23 +250,38 @@
                    call dofs%dofs_to_vec_dg(q)
 
 
+                   q(:,1) = q(:,1)+dofs%Q_DG(:)%B
                    fv_temp=matmul(phi,q)*ref_triangle_size_inv
+
                    !PATCHES store h+b DG not
-                   dofs%H=fv_temp(:,1)+dofs%B
+                   dofs%H=fv_temp(:,1)
                    dofs%HU=fv_temp(:,2)
                    dofs%HV=fv_temp(:,3)
 
                  end subroutine convert_dg_to_fv
 
-                 subroutine convert_fv_to_dg_bathymetry(dofs,normals)
+                 subroutine convert_fv_to_dg_bathymetry(dofs,normals,ini)
                    class(num_cell_data_pers) :: dofs
                    real(kind=GRID_SR) :: b_temp(_SWE_DG_DOFS +1),b_fv(_SWE_PATCH_ORDER_SQUARE)
+#if defined(_SWE_DG_NODAL)                   
                    real(kind=GRID_SR) :: b_x_temp(_SWE_DG_DOFS)
                    real(kind=GRID_SR) :: b_y_temp(_SWE_DG_DOFS)
+#else
+                   real(kind=GRID_SR) :: b_x_temp(size(st_der_x_gl_node_vals,1))
+                   real(kind=GRID_SR) :: b_y_temp(size(st_der_y_gl_node_vals,1))
+
+#endif
                    real(kind=GRID_SR),intent(in) :: normals(2,2)
                    real(kind=GRID_SR) :: normals_normed(2,2)
                    integer ::i,j
-                  
+                   real(kind=GRID_SR) :: epsilon=0.0_GRID_SR
+                   logical,optional :: ini
+                   logical :: ini_local=.false.
+
+
+                   if(present(ini)) then
+                      ini_local=ini
+                   end if
                    normals_normed=normals/NORM2(normals(1:2,1))
 
                    b_temp(1:_SWE_DG_DOFS)= 2.0q0*matmul(transpose(phi),dofs%b)
@@ -249,22 +293,57 @@
                   
                    call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,b_temp)
 
+                   if(ini_local) then
+                   
+                   !smooth converted bathymetrie, importrant for stready state
+                   do i=1,_SWE_DG_DOFS
+                      if(.not.b_temp(i).eq.0) then
+                         do j=i+1,_SWE_DG_DOFS
+                            epsilon=max(epsilon,(b_temp(i)-b_temp(j))/b_temp(i))
+                         end do
+                      end if
+                   end do
+
+                   if(epsilon < 1.5e-14) then
+                      b_temp(2:) = b_temp(1)
+                   end if
+                   end if
+
                    do i=1,_SWE_DG_DOFS
                       dofs%Q_DG(i)%b=b_temp(i)
                    end do
 
-                   b_x_temp=matmul(basis_der_x,b_temp(1:_SWE_DG_DOFS))*g 
-                   b_y_temp=matmul(basis_der_y,b_temp(1:_SWE_DG_DOFS))*g
+                   do i=0,_SWE_DG_ORDER
+                      dofs%Q_DG_P(1+_SWE_DG_DOFS*i:_SWE_DG_DOFS*(i+1))%b=dofs%Q_DG(:)%b
+                   end do
+#if !defined(_SWE_DG_NODAL)
+
+                    b_x_temp=matmul(st_der_x_gl_node_vals,dofs%Q_DG_P(:)%b)
+                    b_y_temp=matmul(st_der_y_gl_node_vals,dofs%Q_DG_P(:)%b)
+
+!                    dofs%b_x=b_x_temp
+!                    dofs%b_y=b_y_temp
+
+                    dofs%b_x = normals_normed(1,1) * b_x_temp + normals_normed(1,2) * b_y_temp
+                    dofs%b_y = normals_normed(2,1) * b_x_temp + normals_normed(2,2) * b_y_temp
+                 
+                    ! do i=1,floor(sqrt(real(size(b_x_temp))))-1
+                    !    dofs%b_x_g(1+size(b_x_temp)*i:size(b_x_temp)*(i+1))=dofs%b_x_g(1:size(b_x_temp))
+                    !    dofs%b_y_g(1+size(b_x_temp)*i:size(b_x_temp)*(i+1))=dofs%b_y_g(1:size(b_x_temp))
+                    ! end do
+
+#else
+                   b_x_temp=matmul(basis_der_x,b_temp(1:_SWE_DG_DOFS))
+                   b_y_temp=matmul(basis_der_y,b_temp(1:_SWE_DG_DOFS))
 
                    dofs%Q_DG(:)%b_x_g=normals_normed(1,1) * b_x_temp + normals_normed(1,2) * b_y_temp
                    dofs%Q_DG(:)%b_y_g=normals_normed(2,1) * b_x_temp + normals_normed(2,2) * b_y_temp
 
                    do i=0,_SWE_DG_ORDER
-                      dofs%Q_DG_P(1+_SWE_DG_DOFS*i:_SWE_DG_DOFS*(i+1))%b=dofs%Q_DG(:)%b
                       dofs%Q_DG_P(1+_SWE_DG_DOFS*i:_SWE_DG_DOFS*(i+1))%b_x_g=dofs%Q_DG(:)%b_x_g
                       dofs%Q_DG_P(1+_SWE_DG_DOFS*i:_SWE_DG_DOFS*(i+1))%b_y_g=dofs%Q_DG(:)%b_y_g
                    end do
-
+#endif
                  end subroutine convert_fv_to_dg_bathymetry
 
 #endif                   
@@ -274,8 +353,11 @@
 			class (t_state), intent(in)		:: Q1
 			type (t_state), intent(in)		:: Q2
 			type (t_state)					:: Q_out
-
+#if !defined(_SWE_DG_NODAL)
+			Q_out = t_state(Q1%h + Q2%h, Q1%p + Q2%p, Q1%b + Q2%b)
+#else
 			Q_out = t_state(Q1%h + Q2%h, Q1%p + Q2%p, Q1%b + Q2%b,Q1%b_x_g + Q2%b_x_g,Q1%b_y_g + Q2%b_y_g)
+#endif
 		end function
 
 		!adds two update vectors
@@ -371,35 +453,48 @@
                   logical :: drying
                   real(kind=GRID_SR) :: dry_tolerance
                   
-!                  drying = .not.all(f%Q_DG(:)%h > cfg%dry_tolerance)
-!                  print*,"troubled"
-!                  print*,f%troubled
-
                   if(f%troubled.ge.1) then
-                     !to check if still drying
                      call f%convert_fv_to_dg()
                   end if
 
-                  ! check for drying
                   drying = .not.all(f%Q_DG(:)%h > dry_tolerance)
 
-                  !if cell starts to dry
-                  if (drying.and.(f%troubled.le.0)) then
-                     f%troubled= 1
-                     call f%convert_fv_to_dg()
-                  !if it is not drying any more   
-                  elseif (.not.drying.and.(f%troubled.eq.1)) then
-                     f%troubled=0
-                     call f%convert_fv_to_dg()
-                  !if a neighbour is drying
-                  elseif (.not.drying.and.(f%troubled.eq.2))then
-                     f%troubled=-1
-                     call f%convert_fv_to_dg()
-                  else 
-!                  f%troubled=0
-                  end if
-
-
+                  !if drying and already troubled stay troubled (fv solution is up to date)
+                  select case (f%troubled)
+                     case(-2)
+                        if (drying) then
+                           f%troubled= 1
+                           call f%convert_dg_to_fv()
+                        else
+                           f%troubled= 0
+                        end if
+                     case(-1)
+                        if (drying) then
+                           f%troubled= 1
+                           call f%convert_dg_to_fv()
+                        else
+                           f%troubled= 0
+                        end if
+                     case(0)
+                        if (drying) then
+                           f%troubled= 1
+                           call f%convert_dg_to_fv()
+                        end if
+                     case(1)
+                        if (.not.drying) then
+                           f%troubled= -2
+                        end if
+                     case(2)
+                        if (drying) then
+                           f%troubled= 1
+                        else
+                           f%troubled=-1
+                           call f%convert_fv_to_dg()
+                        end if
+                     case default
+                        print*,"unknown troubled state"
+                        stop
+                  end select
 
                 end subroutine
 

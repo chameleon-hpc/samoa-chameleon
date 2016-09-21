@@ -39,7 +39,7 @@
 #		define _GT_PRE_TRAVERSAL_GRID_OP		pre_traversal_grid_op
 #		define _GT_POST_TRAVERSAL_GRID_OP		post_traversal_grid_op
 #		define _GT_ELEMENT_OP					element_op
-#		define _GT_CELL_TO_EDGE_OP				cell_to_edge_op
+!#		define _GT_CELL_TO_EDGE_OP				cell_to_edge_op
 
 
 #		include "SFC_generic_traversal_ringbuffer.f90"
@@ -52,8 +52,9 @@
 			grid%r_dt = 0.0_GRID_SR
 
 			grid%r_dt_new = 0.0_GRID_SR
+!   cfg%dry_tolerance=cfg%dry_tolerance/10.0
 
-
+   
 !                        cfg%courant_number=1/Real(2*_SWE_DG_ORDER+1,GRID_SR)
 
 
@@ -102,11 +103,6 @@
 #			else
 				call gv_Q%write(element, Q)
 #			endif
-
-#                       if defined(_SWE_DG)
-                                call element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian)
-#                       endif
-
 
 		end subroutine
 
@@ -254,7 +250,7 @@
             real (kind = GRID_SR)								:: bathymetry				!< bathymetry
 
             real (kind = c_double)                              :: xs(3)
-            real(kind=GRID_SR)                                  :: inner_height=10.5, outer_height=6.0
+            real(kind=GRID_SR)                                  :: inner_height=2.00_GRID_SR, outer_height=-1.30_GRID_SR
             real (kind = GRID_SR), parameter		            :: dam_radius=0.1
             real(kind=GRID_SR),Dimension(2)                             :: dam_center=[0.5,0.5]
             xs(1:2) = real(cfg%scaling * x + cfg%offset, c_double)
@@ -286,7 +282,7 @@
 #               endif
 #			else
 
-!                    bathymetry=outer_height*(1-x(1)) + inner_height
+!                    bathymetry=(outer_height-inner_height)*(1-x(1)) + inner_height
 !                    bathymetry=inner_height
 
                         ! if(NORM2(x-dam_center)<dam_radius) then
@@ -301,11 +297,12 @@
                         !    bathymetry = outer_height
                         ! end if
                     ! Dam Break
-                     if(x(1) < 0.3)then
-                        bathymetry=inner_height
-                     else
-                        bathymetry=outer_height
-                     end if
+                       if((x(1)-0.25)**2+(x(2)-0.5)**2 < 0.05)then
+!                       if((x(1)) < 0.65)then
+                          bathymetry=inner_height
+                       else
+                          bathymetry=outer_height
+                       end if
 !				bathymetry = 0.0_SR
 #			endif
 		end function
@@ -341,8 +338,7 @@
 #		define _GT_PRE_TRAVERSAL_GRID_OP		pre_traversal_grid_op
 #		define _GT_POST_TRAVERSAL_GRID_OP		post_traversal_grid_op
 #		define _GT_ELEMENT_OP					element_op
-
-#		define _GT_CELL_TO_EDGE_OP				cell_to_edge_op
+!#		define _GT_CELL_TO_EDGE_OP				cell_to_edge_op
 
 #		include "SFC_generic_traversal_ringbuffer.f90"
 
@@ -398,15 +394,16 @@
                 element%cell%data_pers%HV = Q(:)%p(2)
 
 #if defined(_SWE_DG)                
-                call element%cell%data_pers%convert_fv_to_dg()
 
-                element%cell%data_pers%troubled = 0
 
+
+                call element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian,.true.)
+                
+                call element%cell%data_pers%convert_fv_to_dg(.true.)
+
+                element%cell%data_pers%troubled = 1
                 call element%cell%data_pers%set_troubled(cfg%dry_tolerance)
 
-                if(element%cell%data_pers%troubled.le.0) then
-                   call dg_predictor(element,section%r_dt)
-                end if
 #endif
 
 #           else
@@ -549,7 +546,7 @@
 			type(t_grid_section), intent(inout)					:: section
 			real (kind = GRID_SR), intent(in)		            :: x(:)            !< position in world coordinates
 			type(t_dof_state)							        :: Q
-                        real (kind = GRID_SR), parameter		            :: hL = 10.5_SR, hR = 13.0_SR
+                        real (kind = GRID_SR), parameter		            :: hL = 1.20_GRID_SR, hR = 1.30_GRID_SR
                         real (kind = GRID_SR), parameter		            :: dam_radius=0.2
                         real(kind=GRID_SR),Dimension(2)                             :: dam_center=[0.5,0.5]
                         real (kind = GRID_SR)                                       :: xs(2)
@@ -561,24 +558,28 @@
 #			else
 
 !dam break
-                         if (x(1) < 0.5_SR) then
-                            Q%h = hL
-                         else
-                            Q%h = hR
-                         end if
 
-!                           Q%h=x(1)*hR+hL
-!                        Q%h=hL
-                        ! if(NORM2(x-dam_center)<dam_radius) then
-                        !    Q%h=1.0q0/(sqrt(2*3.1415q0))*exp((NORM2(x-dam_center)/dam_radius*1.5q0)**2)*(1-NORM2(x-dam_center)/dam_radius)*hL+hR
-                        ! else
-                        !    Q%h = hR
-                        ! end if
+!     if (abs(x(1)-0.5) < 0.2_GRID_SR .and.abs(x(2)-0.5) < 0.2_GRID_SR) then
+    if (x(1)  < 0.6_GRID_SR) then
+       Q%h = hR
+    else
+       Q%h = hL
+    end if
+    
+!    Q%h=(1-x(1))*(hl-hR)+hL
+
+!                         Q%h=hL
+                        !   if(NORM2(x-dam_center)<dam_radius) then
+                        !      Q%h=1.0q0/(sqrt(2*3.1415q0))*exp((NORM2(x-dam_center)/dam_radius*1.5q0)**2)*(1-NORM2(x-dam_center)/dam_radius)*hL+hR
+                        !   else
+                        !      Q%h = hR
+                        !  end if
 #			endif
 
 			Q%p = 0.0_GRID_SR
-		end function
-   
+		end function get_initial_dof_state_at_position
+
+
 	END MODULE
 #endif
 

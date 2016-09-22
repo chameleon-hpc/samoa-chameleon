@@ -871,6 +871,7 @@
                         real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,3) :: source,source_2
                         real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,3):: bnd_flux_l,bnd_flux_m,bnd_flux_r
 #if defined(_SWE_DG_NODAL)
+                        real(kind=GRID_SR),Dimension(_SWE_DG_DOFS*(_SWE_DG_ORDER+1)) :: b_x,b_y
 #else
                         real(kind=GRID_SR),Dimension(size(st_gl_node_vals,1)) :: b_x,b_y
                         real(kind=GRID_SR),Dimension(size(st_gl_node_vals,1),3) :: q_v
@@ -954,17 +955,11 @@
 #endif
 
 #if defined(_SWE_DG_NODAL)
-                        do i=0,_SWE_DG_ORDER
-                           h_x_temp(1+i*_SWE_DG_DOFS:(1+i)*_SWE_DG_DOFS) = matmul(basis_der_x,q_p(1:_SWE_DG_DOFS,1))
-                           h_y_temp(1+i*_SWE_DG_DOFS:(1+i)*_SWE_DG_DOFS) = matmul(basis_der_y,q_p(1:_SWE_DG_DOFS,1))
-                        end do
-                        
-                        h_x= jacobian(1,1) * h_x_temp + jacobian(1,2) * h_y_temp
-                        h_y= jacobian(2,1) * h_x_temp + jacobian(2,2) * h_y_temp
-!                        h_x=0
-!                        h_y=0
 
-                        S_s =S(q_p,Q_DG_P(:)%b_x_g,Q_DG_P(:)%b_y_g,_SWE_DG_DOFS*(_SWE_DG_ORDER+1))
+                        b_x=Q_DG_P(:)%b_x
+                        b_y=Q_DG_P(:)%b_y
+
+                        S_s =S(q_p,b_x,b_y,_SWE_DG_DOFS*(_SWE_DG_ORDER+1))
 
                         f1_hat=f1(q_p,_SWE_DG_DOFS*(_SWE_DG_ORDER+1))
                         f2_hat=f2(q_p,_SWE_DG_DOFS*(_SWE_DG_ORDER+1))
@@ -1119,14 +1114,6 @@
                             !!print*,"pred bathy"
                             !!print*,element%cell%data_pers%Q_DG_P(:)%b
                             !!print*
-                            !!print*,"h_x"
-                            !!print*,h_x
-                            !!print*,"b_x"
-                            !!print*,Q_DG_P%b_x_g
-                            !!print*,"h_y"
-                            !!print*,h_y
-                            !!print*,"b_y"
-                            !!print*,Q_DG_P%b_y_g
                             !!print*,"q_temp",q_temp
                             !!print*
 
@@ -1165,9 +1152,9 @@
 
                         real(kind=GRID_SR),Dimension(2,2) :: jacobian,jacobian_inv
 #if defined(_SWE_DG_NODAL)
-                        real(kind=GRID_SR),Dimension(_SWE_DG_DOFS*(_SWE_DG_ORDER+1)) :: h_x,h_y,h_x_temp,h_y_temp
+                        real(kind=GRID_SR),Dimension(_SWE_DG_DOFS*(_SWE_DG_ORDER+1)) :: b_x,b_y
 #else
-                        real(kind=GRID_SR),Dimension(size(st_gl_node_vals,1)) :: h_x,h_y,b_x,b_y,h_x_temp,h_y_temp
+                        real(kind=GRID_SR),Dimension(size(st_gl_node_vals,1)) :: b_x,b_y
                         real(kind=GRID_SR),Dimension(size(st_gl_node_vals,1),3) :: q_v
                         integer :: st_nodes = size(st_gl_node_vals,1)
                         integer :: s_nodes = size(s_der_x_gl_node_vals,1)
@@ -1199,19 +1186,9 @@
                            f1_hat = f1(q_i,(_SWE_DG_ORDER+1)*_SWE_DG_DOFS)
                            f2_hat = f2(q_i,(_SWE_DG_ORDER+1)*_SWE_DG_DOFS)
 
-                           do i=0,_SWE_DG_ORDER
-                              h_x_temp(1+i*_SWE_DG_DOFS:(1+i)*_SWE_DG_DOFS) = matmul(basis_der_x,q_i(1:_SWE_DG_DOFS,1))
-                              h_y_temp(1+i*_SWE_DG_DOFS:(1+i)*_SWE_DG_DOFS) = matmul(basis_der_y,q_i(1:_SWE_DG_DOFS,1))
-                           end do
-
-                           h_x= jacobian(1,1) * h_x_temp + jacobian(1,2) * h_y_temp
-                           h_y= jacobian(2,1) * h_x_temp + jacobian(2,2) * h_y_temp
-                           h_x=0
-                           h_y=0
-                           f1_mom_der_hat=f1_mom_der(q_i,h_x,_SWE_DG_DOFS*(_SWE_DG_ORDER+1))
-                           f2_mom_der_hat=f2_mom_der(q_i,h_y,_SWE_DG_DOFS*(_SWE_DG_ORDER+1))
-
-                           S_s =S(q_i,Q_DG_P(:)%b_x_g,Q_DG_P(:)%b_y_g,_SWE_DG_DOFS*(_SWE_DG_ORDER+1))
+                           b_x = Q_DG_P(:)%b_x
+                           b_y = Q_DG_P(:)%b_y
+                           S_s =S(q_i,b_x,b_y,_SWE_DG_DOFS*(_SWE_DG_ORDER+1))
                            source=matmul(st_m,S_s)
 
 #else
@@ -1337,69 +1314,6 @@
                         ! ! ! ! ! ! ! ! ! ! ! ! ! ! !!! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!print*,"predict done"
                end subroutine dg_predictor
 
-               function f1_mom_der(q,h_x,N)
-                 real(kind=GRID_SR) :: f1_mom_der(N,3)
-                 real(kind=GRID_SR) :: q(N,3),h_x(N)
-                 integer:: N,i
-
-                 f1_mom_der(:,:)=0
-                 do i=1,N
-                    f1_mom_der(i,2)=g*q(i,1)*h_x(i)
-                 end do
-               end function
-
-               function f2_mom_der(q,h_y,N)
-                 real(kind=GRID_SR) :: f2_mom_der(N,3)
-                 real(kind=GRID_SR) :: q(N,3),h_y(N)
-                 integer:: N,i
-
-                 f2_mom_der(:,:)=0
-                 do i=1,N
-                    f2_mom_der(i,3)=g*q(i,1)*h_y(i)
-                 end do
-               end function
-
-               function f1_speed(q,N)
-                 integer :: N
-                 real(kind=GRID_SR) ,intent(in) ::q(N,3)
-                 real(kind=GRID_SR)             ::f1_speed(N,3)
-                 integer                        ::i
-                 
-                 f1_speed(:,1) = q(:,2)
-                 do i=1,N
-                    if(q(i,1).eq.0) then
-                       f1_speed(i,1) = 0
-                       f1_speed(i,2) = 0
-                       f1_speed(i,3) = 0
-                    else
-!                       f1_speed(i,2) = q(i,2)**2/q(i,1) + 0.5_GRID_SR * g * q(i,1)**2
-                       f1_speed(i,2) = q(i,2)**2/q(i,1)
-                       f1_speed(i,3) = q(i,2)*q(i,3)/q(i,1)
-                    end if
-                 end do
-                 
-               end function f1_speed
-                
-               function f2_speed(q,N)
-                 integer :: N
-                 real(kind=GRID_SR) ,intent(in) ::q(N,3)
-                 real(kind=GRID_SR)             ::f2_speed(N,3)
-                 integer                        ::i
-                 
-                 f2_speed(:,1) = q(:,3)
-                 do i=1,N
-                    if(q(i,1).eq.0) then
-                       f2_speed(i,1) = 0
-                       f2_speed(i,2) = 0
-                       f2_speed(i,3) = 0
-                    else
-                       f2_speed(i,2) = q(i,2)*q(i,3)/q(i,1)
-!                       f2_speed(i,3) = q(i,3)**2/q(i,1) + 0.5_GRID_SR * g * q(i,1)**2
-                       f2_speed(i,3) = q(i,3)**2/q(i,1)
-                    end if
-                 end do
-                 
-               end function f2_speed
 
                function f1(q,N)
                  integer :: N

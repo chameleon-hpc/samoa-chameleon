@@ -16,6 +16,11 @@
             use SWE_PATCH
 #       endif
 
+        ! No ASAGI -> Artificial scenario selector 
+#       if !defined(_ASAGI)
+            use SWE_Scenario
+#       endif 
+
 		implicit none
 
         type num_traversal_data
@@ -267,7 +272,7 @@
                     section%stats%r_asagi_time = section%stats%r_asagi_time + get_wtime()
 #               endif
 #			else
-				bathymetry = 0.0_SR
+				bathymetry = SWE_Scenario_get_bathymetry(xs)
 #			endif
 		end function
 	END MODULE
@@ -283,6 +288,11 @@
 #       if defined(_SWE_PATCH)
             use SWE_PATCH
 #       endif
+
+        ! No ASAGI -> Artificial scenario selector 
+#       if !defined(_ASAGI)
+            use SWE_Scenario
+#       endif 
 
 		implicit none
 
@@ -496,7 +506,6 @@
 			real (kind = GRID_SR), intent(in)		            :: x(:)            !< position in world coordinates
 			type(t_dof_state)							        :: Q
 
-            real (kind = GRID_SR), parameter		            :: hL = 1.0_SR, hR = 0.0_SR
             real (kind = GRID_SR)                               :: xs(2)
 
             xs = cfg%scaling * x + cfg%offset
@@ -504,11 +513,7 @@
 #			if defined(_ASAGI)
 				Q%h = 0.0_GRID_SR
 #			else
-				if (xs(1) < 0.0_SR) then
-                    Q%h = hL
-                else
-                    Q%h = hR
-                end if
+                Q = SWE_Scenario_get_initial_Q(xs)
 #			endif
 
 			Q%p = 0.0_GRID_SR

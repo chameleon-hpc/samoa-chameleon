@@ -29,10 +29,10 @@
 		integer, PARAMETER :: GRID_SI = selected_int_kind(8)
 		integer, PARAMETER :: GRID_DI = selected_int_kind(16)
 
-        integer, PARAMETER :: SR = GRID_SR
-        integer, PARAMETER :: SI = GRID_SI
-        integer, PARAMETER :: DI = GRID_DI
-
+                integer, PARAMETER :: SR = GRID_SR
+                integer, PARAMETER :: SI = GRID_SI
+                integer, PARAMETER :: DI = GRID_DI
+  
 		real (kind = GRID_SR), parameter					:: g = 9.80665_GRID_SR		!< gravitational constant
                 real (kind = GRID_SR),parameter :: ref_triangle_size_inv = (2.0q0 * real(_SWE_PATCH_ORDER_SQUARE,kind=kind(1.0q0)))
 
@@ -61,8 +61,8 @@
 		type, extends(t_dof_state) :: t_state
 			real (kind = GRID_SR)													:: b						!< bathymetry
 #if defined(_SWE_DG_NODAL)
-                        real(kind=GRID_SR)::       b_x_g
-                        real(kind=GRID_SR)::       b_y_g
+                        real(kind=GRID_SR) ::       b_x
+                        real(kind=GRID_SR) ::       b_y
 #endif
             contains
 
@@ -135,6 +135,7 @@
 
 #if defined(_SWE_DG)
                         type(t_state), DIMENSION((_SWE_DG_ORDER+1)*(_SWE_DG_ORDER+1))   :: Q_DG_P
+                        real(kind=GRID_SR),Dimension(3) :: min_val,max_val
                         integer :: troubled
 #endif
 #endif
@@ -147,6 +148,7 @@
                         real (kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER)							:: H, HU, HV, B !< values of ghost cells
 #if defined (_SWE_DG)
                         type(t_state), DIMENSION((_SWE_DG_ORDER+1)*(_SWE_DG_ORDER+1))   :: Q_DG_P
+                        real(kind=GRID_SR),Dimension(3) :: min_val,max_val
                         integer :: troubled
                         logical :: bnd=.false.
 #endif
@@ -202,7 +204,7 @@
                       ini_local= ini
                    end if
 
-                   q(:,1)=dofs%H
+                   q(:,1)=dofs%H-dofs%b
                    q(:,2)=dofs%HU
                    q(:,3)=dofs%HV
 
@@ -220,43 +222,52 @@
                    
                    q_dg=q_temp(1:_SWE_DG_DOFS,:)
 
-                   q_dg(:,1) = q_dg(:,1) - dofs%Q_DG(:)%B
+                   q_dg(:,1)  = q_dg(:,1)
+
 
                    !smooth converted height, importrant for stready state
                    if(ini_local) then
-                   do i=1,_SWE_DG_DOFS
-                      if(.not.q_dg(i,1).eq.0) then
-                         do j=i+1,_SWE_DG_DOFS
-                            epsilon=max(epsilon,(q_dg(i,1)-q_dg(j,1))/q_dg(i,1))
-                         end do
+                      do i=1,_SWE_DG_DOFS
+                         if(.not.q_dg(i,1).eq.0) then
+                            do j=i+1,_SWE_DG_DOFS
+                               epsilon=max(epsilon,(q_dg(i,1)-q_dg(j,1))/q_dg(i,1))
+                            end do
+                         end if
+                      end do
+                      
+                      if(epsilon < 1.5e-14) then
+                         q_dg(2:,1) = q_dg(1,1)
                       end if
-                   end do
-
-                   if(epsilon < 1.5e-14) then
-                      q_dg(2:,1) = q_dg(1,1)
-                   end if
-                   
                    end if
 
                    call dofs%vec_to_dofs_dg(q_dg)
+
                  end subroutine convert_fv_to_dg
                    
-                 subroutine convert_dg_to_fv(dofs)
+                 subroutine convert_dg_to_fv(dofs,dry_tolerance)
                    class(num_cell_data_pers) :: dofs
                    real(kind=GRID_SR)        :: q(_SWE_DG_DOFS,3)
                    real(kind=GRID_SR)        :: fv_temp(_SWE_PATCH_ORDER*_SWE_PATCH_ORDER,3)
+                  real(kind=GRID_SR) :: dry_tolerance
+
 
 
                    call dofs%dofs_to_vec_dg(q)
-
-
-                   q(:,1) = q(:,1)+dofs%Q_DG(:)%B
-                   fv_temp=matmul(phi,q)*ref_triangle_size_inv
+                   q(:,1)  = q(:,1) + dofs%Q_DG(:)%b
 
                    !PATCHES store h+b DG not
+                   fv_temp=matmul(phi,q)*ref_triangle_size_inv
+
                    dofs%H=fv_temp(:,1)
                    dofs%HU=fv_temp(:,2)
                    dofs%HV=fv_temp(:,3)
+
+                  where (dofs%H <= dofs%B + dry_tolerance) 
+                     dofs%H = min(dofs%B, 0.0_GRID_SR)
+                     dofs%HU = 0.0_GRID_SR
+                     dofs%HV = 0.0_GRID_SR
+                  end where
+
 
                  end subroutine convert_dg_to_fv
 
@@ -295,18 +306,19 @@
 
                    if(ini_local) then
                    
-                   !smooth converted bathymetrie, importrant for stready state
-                   do i=1,_SWE_DG_DOFS
-                      if(.not.b_temp(i).eq.0) then
-                         do j=i+1,_SWE_DG_DOFS
-                            epsilon=max(epsilon,(b_temp(i)-b_temp(j))/b_temp(i))
-                         end do
+                      !smooth converted bathymetrie, importrant for stready state
+                      do i=1,_SWE_DG_DOFS
+                         if(.not.b_temp(i).eq.0) then
+                            do j=i+1,_SWE_DG_DOFS
+                               epsilon=max(epsilon,(b_temp(i)-b_temp(j))/b_temp(i))
+                            end do
+                         end if
+                      end do
+                      
+                      if(epsilon < 1.5e-14) then
+                         b_temp(2:) = b_temp(1)
                       end if
-                   end do
-
-                   if(epsilon < 1.5e-14) then
-                      b_temp(2:) = b_temp(1)
-                   end if
+                      
                    end if
 
                    do i=1,_SWE_DG_DOFS
@@ -336,12 +348,12 @@
                    b_x_temp=matmul(basis_der_x,b_temp(1:_SWE_DG_DOFS))
                    b_y_temp=matmul(basis_der_y,b_temp(1:_SWE_DG_DOFS))
 
-                   dofs%Q_DG(:)%b_x_g=normals_normed(1,1) * b_x_temp + normals_normed(1,2) * b_y_temp
-                   dofs%Q_DG(:)%b_y_g=normals_normed(2,1) * b_x_temp + normals_normed(2,2) * b_y_temp
+                   dofs%Q_DG(:)%b_x=normals_normed(1,1) * b_x_temp + normals_normed(1,2) * b_y_temp
+                   dofs%Q_DG(:)%b_y=normals_normed(2,1) * b_x_temp + normals_normed(2,2) * b_y_temp
 
                    do i=0,_SWE_DG_ORDER
-                      dofs%Q_DG_P(1+_SWE_DG_DOFS*i:_SWE_DG_DOFS*(i+1))%b_x_g=dofs%Q_DG(:)%b_x_g
-                      dofs%Q_DG_P(1+_SWE_DG_DOFS*i:_SWE_DG_DOFS*(i+1))%b_y_g=dofs%Q_DG(:)%b_y_g
+                      dofs%Q_DG_P(1+_SWE_DG_DOFS*i:_SWE_DG_DOFS*(i+1))%b_x=dofs%Q_DG(:)%b_x
+                      dofs%Q_DG_P(1+_SWE_DG_DOFS*i:_SWE_DG_DOFS*(i+1))%b_y=dofs%Q_DG(:)%b_y
                    end do
 #endif
                  end subroutine convert_fv_to_dg_bathymetry
@@ -356,7 +368,7 @@
 #if !defined(_SWE_DG_NODAL)
 			Q_out = t_state(Q1%h + Q2%h, Q1%p + Q2%p, Q1%b + Q2%b)
 #else
-			Q_out = t_state(Q1%h + Q2%h, Q1%p + Q2%p, Q1%b + Q2%b,Q1%b_x_g + Q2%b_x_g,Q1%b_y_g + Q2%b_y_g)
+			Q_out = t_state(Q1%h + Q2%h, Q1%p + Q2%p, Q1%b + Q2%b,Q1%b_x + Q2%b_x,Q1%b_y + Q2%b_y)
 #endif
 		end function
 
@@ -448,54 +460,75 @@
                       end subroutine vec_to_dofs_dg_p
 
                 subroutine set_troubled(f,dry_tolerance)
-
                   class (num_cell_data_pers),intent(inout) 		        :: f
                   logical :: drying
                   real(kind=GRID_SR) :: dry_tolerance
-                  
-                  if(f%troubled.ge.1) then
-                     call f%convert_fv_to_dg()
+
+                  ! if(f%troubled.ge.1) then
+                  !    call f%convert_fv_to_dg()
+                  ! end if
+
+                  if(f%troubled.eq.0) then
+                     call f%convert_dg_to_fv(dry_tolerance)
                   end if
 
-                  drying = .not.all(f%Q_DG(:)%h > dry_tolerance)
+                  drying = .not.all(f%h-min(f%b,0.0_GRID_SR) > dry_tolerance)
 
                   !if drying and already troubled stay troubled (fv solution is up to date)
                   select case (f%troubled)
-                     case(-2)
+                     ! case(-2)
+                     !    if (drying) then
+                     !       f%troubled= 1
+                     !       call f%convert_dg_to_fv(dry_tolerance)
+                     !    else
+                     !       f%troubled= 0
+                     !    end if
+                     case(-3:-1)
                         if (drying) then
                            f%troubled= 1
-                           call f%convert_dg_to_fv()
-                        else
-                           f%troubled= 0
-                        end if
-                     case(-1)
-                        if (drying) then
-                           f%troubled= 1
-                           call f%convert_dg_to_fv()
+                           call f%convert_dg_to_fv(dry_tolerance)
                         else
                            f%troubled= 0
                         end if
                      case(0)
                         if (drying) then
                            f%troubled= 1
-                           call f%convert_dg_to_fv()
+                           call f%convert_dg_to_fv(dry_tolerance)
                         end if
                      case(1)
                         if (.not.drying) then
-                           f%troubled= -2
+                           f%troubled= -1
+                           call f%convert_fv_to_dg()
+
+                           if(.not.all(f%Q_DG%h > dry_tolerance))then
+                              f%troubled=1
+                           end if
                         end if
                      case(2)
                         if (drying) then
                            f%troubled= 1
                         else
-                           f%troubled=-1
+                           f%troubled=-2
                            call f%convert_fv_to_dg()
+
+                           if(.not.all(f%Q_DG%h > dry_tolerance))then
+                              f%troubled=1
+                           end if
+                        end if
+                     case(3)
+                        if(drying) then
+                           f%troubled= 1
+                        else
+                           f%troubled= -3
+                           call f%convert_fv_to_dg()
+                           if(.not.all(f%Q_DG%h > dry_tolerance))then
+                              f%troubled=1
+                           end if
                         end if
                      case default
                         print*,"unknown troubled state"
                         stop
-                  end select
-
+                     end select
                 end subroutine
 
 	END MODULE SWE_data_types

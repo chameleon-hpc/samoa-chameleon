@@ -1,6 +1,7 @@
 scenario='swe'
 swe_dg_order='1'
 swe_dg_basis='bernstein_l2'
+#swe_dg_basis='bernstein_nodal'
 #flux_solver='llf'
 #flux_solver='fwave'
 flux_solver='hlle'

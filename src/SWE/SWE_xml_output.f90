@@ -80,7 +80,7 @@
 
 
                 ! if(traversal%i_output_iteration .eq. 2) then
-                !    stop
+                !     stop
                 ! end if
 
             call scatter(traversal%s_file_stamp, traversal%sections%s_file_stamp)
@@ -316,12 +316,7 @@
 				type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE):: Q
 				integer											:: j, row, col, cell_id
 
-# if defined(_SWE_DG)				
-    if(element%cell%data_pers%troubled.eq.0) then
-       call element%cell%data_pers%convert_dg_to_fv()
-    end if
-# endif
-                
+               
                 row=1
                 col=1
 

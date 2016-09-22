@@ -250,7 +250,7 @@
             real (kind = GRID_SR)								:: bathymetry				!< bathymetry
 
             real (kind = c_double)                              :: xs(3)
-            real(kind=GRID_SR)                                  :: inner_height=2.00_GRID_SR, outer_height=-1.30_GRID_SR
+            real(kind=GRID_SR)                                  :: inner_height=1.20_GRID_SR, outer_height=1.10_GRID_SR
             real (kind = GRID_SR), parameter		            :: dam_radius=0.1
             real(kind=GRID_SR),Dimension(2)                             :: dam_center=[0.5,0.5]
             xs(1:2) = real(cfg%scaling * x + cfg%offset, c_double)
@@ -282,8 +282,8 @@
 #               endif
 #			else
 
-!                    bathymetry=(outer_height-inner_height)*(1-x(1)) + inner_height
-!                    bathymetry=inner_height
+ !                   bathymetry=(outer_height-inner_height)*(1-x(1)) + inner_height
+                    bathymetry=inner_height
 
                         ! if(NORM2(x-dam_center)<dam_radius) then
                         !    bathymetry=1.0q0/(sqrt(2*3.1415q0))*exp((NORM2(x-dam_center)/dam_radius*1.5q0)**2)*(1-NORM2(x-dam_center)/dam_radius)*inner_height+outer_height
@@ -297,13 +297,16 @@
                         !    bathymetry = outer_height
                         ! end if
                     ! Dam Break
-                       if((x(1)-0.25)**2+(x(2)-0.5)**2 < 0.05)then
-!                       if((x(1)) < 0.65)then
-                          bathymetry=inner_height
-                       else
-                          bathymetry=outer_height
-                       end if
+!                       if((x(1)-0.25)**2+(x(2)-0.5)**2 < 0.05)then
+
+                       ! if((x(1)) < 0.4)then
+                       !    bathymetry=inner_height
+                       ! else
+                       !    bathymetry=outer_height
+                       ! end if
+                       bathymetry=bathymetry*cfg%scaling
 !				bathymetry = 0.0_SR
+
 #			endif
 		end function
 	END MODULE
@@ -384,7 +387,6 @@
 #           if defined(_SWE_PATCH)
                 type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE)   :: Q
                 
-
                 Q(:)%b = element%cell%data_pers%B
 
                 call alpha_volume_op(traversal, section, element, Q)
@@ -393,16 +395,24 @@
                 element%cell%data_pers%HU = Q(:)%p(1)
                 element%cell%data_pers%HV = Q(:)%p(2)
 
+
+                where (element%cell%data_pers%H <= element%cell%data_pers%B + cfg%dry_tolerance) 
+                   element%cell%data_pers%H  = element%cell%data_pers%B
+                   element%cell%data_pers%HU = 0.0_GRID_SR
+                   element%cell%data_pers%HV = 0.0_GRID_SR
+                end where
+
 #if defined(_SWE_DG)                
 
 
 
                 call element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian,.true.)
                 
-                call element%cell%data_pers%convert_fv_to_dg(.true.)
+!                call element%cell%data_pers%convert_fv_to_dg(.true.)
 
                 element%cell%data_pers%troubled = 1
                 call element%cell%data_pers%set_troubled(cfg%dry_tolerance)
+                
 
 #endif
 
@@ -557,15 +567,22 @@
 				Q%h = 0.0_GRID_SR
 #			else
 
-!dam break
-
-!     if (abs(x(1)-0.5) < 0.2_GRID_SR .and.abs(x(2)-0.5) < 0.2_GRID_SR) then
-    if (x(1)  < 0.6_GRID_SR) then
-       Q%h = hR
-    else
-       Q%h = hL
-    end if
+    !dam break
+     ! if (x(1)  < 0.6_GRID_SR) then
+     !    Q%h = hL
+     ! else
+     !    Q%h = hR
+     ! end if
     
+!     if (abs(x(1)-0.5) < 0.2_GRID_SR .and.abs(x(2)-0.5) < 0.2_GRID_SR) then
+!    if (x(1)  < 0.6_GRID_SR) then
+      if (x(1)  < 0.4_GRID_SR) then
+         Q%h = hL
+      else
+         Q%h = (x(1)-0.4_GRID_SR)/(0.6_GRID_SR)*(hR-hL)+hL
+     end if
+! !
+!    Q%h = Q%h *cfg%scaling
 !    Q%h=(1-x(1))*(hl-hR)+hL
 
 !                         Q%h=hL
@@ -575,7 +592,7 @@
                         !      Q%h = hR
                         !  end if
 #			endif
-
+    Q%h = Q%h *cfg%scaling
 			Q%p = 0.0_GRID_SR
 		end function get_initial_dof_state_at_position
 

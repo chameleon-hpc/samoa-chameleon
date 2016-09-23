@@ -131,14 +131,16 @@
 			integer, dimension(:), intent(in)											:: refinement_path
 			
 #           if defined(_SWE_PATCH)
-                real (kind=GRID_SR), dimension(_SWE_PATCH_ORDER_SQUARE)                     :: H_in, HU_in, HV_in
+                real (kind=GRID_SR), dimension(_SWE_PATCH_ORDER_SQUARE)                     :: H_in, HU_in, HV_in, B_in
                 real (kind=GRID_SR), dimension(_SWE_PATCH_ORDER_SQUARE)                     :: H_out, HU_out, HV_out, B_out
                 integer                                                                     :: i_plotter_type, j, row, col, cell_id
                 integer, DIMENSION(_SWE_PATCH_ORDER_SQUARE,2)                               :: child
                 real (kind = GRID_SR), DIMENSION(2)                                         :: r_coords     !< cell coords within patch
+                logical, save, DIMENSION(_SWE_PATCH_ORDER_SQUARE)                           :: dry_cell_in, dry_cell_out
 #           else
                 type(t_state), dimension(_SWE_CELL_SIZE)                                    :: Q_in
                 type(t_state), dimension(_SWE_CELL_SIZE, 2)                                 :: Q_out
+                logical                                                                     :: dry_cell
 #           endif
 			integer					:: i
 			
@@ -146,7 +148,10 @@
                 H_in = src_element%cell%data_pers%H
                 HU_in = src_element%cell%data_pers%HU
                 HV_in = src_element%cell%data_pers%HV
+                B_in = src_element%cell%data_pers%B
                 i_plotter_type = src_element%cell%geometry%i_plotter_type
+                
+                dry_cell_in = .false.
                 
                 do i=1, size(refinement_path)
                     ! compute 1st or 2nd child depending on orientation and refinement_path(i)
@@ -165,6 +170,14 @@
                         H_out(j) = 0.5*( H_in(child(j,1)) + H_in(child(j,2)) )
                         HU_out(j) = 0.5*( HU_in(child(j,1)) + HU_in(child(j,2)) )
                         HV_out(j) = 0.5*( HV_in(child(j,1)) + HV_in(child(j,2)) )
+                        
+                        ! find out if resulting fine cell was derived from a dry cell
+                        if (i == 1 .and. (H_in(child(j,1)) < B_in(child(j,1)) + cfg%dry_tolerance .or. H_in(child(j,2)) < B_in(child(j,2)) + cfg%dry_tolerance)) then
+                            dry_cell_out(j) = .true.
+                        end if
+                        if (i == 2 .and. (dry_cell_in(child(j,1)) .or. dry_cell_in(child(j,2)))) then
+                            dry_cell_out(j) = .true.
+                        end if
                     end do
                     
                     ! refined patches will have inverse orientation
@@ -174,6 +187,7 @@
                     H_in = H_out
                     HU_in = HU_out
                     HV_in = HV_out
+                    dry_cell_in = dry_cell_out
                 end do
                 
                 ! store results in dest_element
@@ -183,11 +197,28 @@
                 
                 ! get bathymetry
                 dest_element%cell%data_pers%B = get_bathymetry_at_patch(section, dest_element%t_element_base, section%r_time)
+                
+#               if defined(_ASAGI)
+                    ! if cell was initially dry, we need to check if the fine cells should be initialized with h=0
+                    where (dry_cell_out(:))
+                        dest_element%cell%data_pers%H = max (0.0_GRID_SR, dest_element%cell%data_pers%B)
+                        dest_element%cell%data_pers%HU = 0.0_GRID_SR
+                        dest_element%cell%data_pers%HV = 0.0_GRID_SR
+                    end where
+#               endif
+                
 #           else
 			call gv_Q%read( src_element%t_element_base, Q_in)
-
+			
             !convert momentum to velocity
 			!Q_in(1)%p = 1.0_GRID_SR / (Q_in(1)%h - Q_in(1)%b) * Q_in(1)%p
+			
+			! find out if resulting fine cell was derived from a dry cell
+			if (Q_in(1)%h < Q_in(1)%b + cfg%dry_tolerance) then
+                dry_cell = .true.
+            else
+                dry_cell = .false.
+			end if
 
 			do i = 1, size(refinement_path)
 				call t_basis_Q_split(Q_in%h, 	Q_out(:, 1)%h, 		Q_out(:, 2)%h)
@@ -196,11 +227,19 @@
 
 				Q_in = Q_out(:, refinement_path(i))
 			end do
-
+			
             !convert velocity back to momentum
 			!Q_in(1)%p = (Q_in(1)%h - Q_in(1)%b) * Q_in(1)%p
 
             Q_in%b = get_bathymetry_at_element(section, dest_element%t_element_base, section%r_time)
+            
+#           if defined(_ASAGI)
+                ! if cell was initially dry, we need to check if the fine cells should be initialized with h=0
+                if (dry_cell) then
+                    Q_in%h = max(0.0_GRID_SR, Q_in%b)
+                    Q_in(1)%p = [0.0_GRID_SR, 0.0_GRID_SR]
+                end if
+#           endif
 
 			call gv_Q%write( dest_element%t_element_base, Q_in)
 #           endif
@@ -216,8 +255,10 @@
 #           if defined(_SWE_PATCH)
                 integer                                                                     :: j
                 integer, DIMENSION(_SWE_PATCH_ORDER_SQUARE,2)                               :: child
+                logical, save, DIMENSION(_SWE_PATCH_ORDER_SQUARE)                           :: dry_cell
 #           else
                 type(t_state), dimension(_SWE_CELL_SIZE)                                :: Q_out
+                logical, save                                                           :: dry_cell
 #           endif
 
 #           if defined(_SWE_PATCH)
@@ -229,6 +270,10 @@
                     child = SWE_PATCH_GEOMETRY%first_child
                 else
                     child = SWE_PATCH_GEOMETRY%second_child
+                end if
+                
+                if (refinement_path(1) == 1) then 
+                    dry_cell = .false.
                 end if
 
                 associate (data => dest_element%cell%data_pers)
@@ -247,6 +292,10 @@
                             data%HU(child(i,j)) = data%HU(child(i,j)) + src_element%cell%data_pers%HU(i)
                             data%HV(child(i,j)) = data%HV(child(i,j)) + src_element%cell%data_pers%HV(i)
                             data%B(child(i,j)) = data%B(child(i,j)) + src_element%cell%data_pers%B(i)
+                            
+                            if (src_element%cell%data_pers%H(i) < src_element%cell%data_pers%B(i) + cfg%dry_tolerance) then
+                                dry_cell(child(i,j)) = .true.
+                            end if
                         end do
                     end do
 
@@ -256,17 +305,36 @@
                         data%HU = data%HU * 0.25_GRID_SR
                         data%HV = data%HV * 0.25_GRID_SR
                         data%B = data%B * 0.25_GRID_SR
+                        
+#                       if defined(_ASAGI)
+                            ! if one of the cells was dry, we need to check if the coarsen cell should be initialized with h=0
+                            where (dry_cell(:))
+                                data%H = max (0.0_GRID_SR, data%B)
+                                data%HU = 0.0_GRID_SR
+                                data%HV = 0.0_GRID_SR
+                            end where
+#                       endif
                     end if
-
+                    
                 end associate
 
 
 #           else
 
 			!state vector
-
+			
 			i = refinement_path(1)
 			call gv_Q%read( src_element%t_element_base, traversal%Q_in(:, i))
+			
+			! reset dry_cell to false
+			if (i == 1) then
+                dry_cell = .false.
+            end if
+            
+            !check if one of the cells is dry
+            if (traversal%Q_in(1, i)%h < traversal%Q_in(1, i)%b + cfg%dry_tolerance) then
+                dry_cell = .true.
+            end if
 
             !convert momentum to velocity
 			!traversal%Q_in(1, i)%p = 1.0_GRID_SR / (traversal%Q_in(1, i)%h - traversal%Q_in(1, i)%b) * traversal%Q_in(1, i)%p
@@ -279,6 +347,14 @@
 
                 !convert velocity back to momentum
                 !Q_out(1)%p = (Q_out(1)%h - Q_out(1)%b) * Q_out(1)%p
+                
+#               if defined(_ASAGI)
+                    ! if one of the cells was dry, we need to check if the coarsen cell should be initialized with h=0
+                    if (dry_cell) then
+                        Q_out(1)%h = max(0.0_GRID_SR, Q_out(1)%b)
+                        Q_out(1)%p = [0.0_GRID_SR, 0.0_GRID_SR]
+                    end if
+#               endif
 
 				call gv_Q%write( dest_element%t_element_base, Q_out)
 			end if

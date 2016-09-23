@@ -571,9 +571,9 @@
                     data%HU = data%HU + dQ_HU
                     data%HV = data%HV + dQ_HV
                     
-                    ! if the water level falls below the dry tolerance, set water surface to 0 and velocity to 0
+                    ! if the water level falls below the dry tolerance, set water level to 0 and velocity to 0
                     where (data%H < data%B + cfg%dry_tolerance) 
-                        data%H = min(data%B, 0.0_GRID_SR)
+                        data%H = data%B
                         data%HU = 0.0_GRID_SR
                         data%HV = 0.0_GRID_SR
                     end where
@@ -599,9 +599,9 @@
 
             call gv_Q%add(element, dQ)
 
-			!if the water level falls below the dry tolerance, set water surface to 0 and velocity to 0
+			!if the water level falls below the dry tolerance, set water level to 0 and velocity to 0
 			if (element%cell%data_pers%Q(1)%h < element%cell%data_pers%Q(1)%b + cfg%dry_tolerance) then
-                element%cell%data_pers%Q(1)%h = min(element%cell%data_pers%Q(1)%b, 0.0_GRID_SR)
+                element%cell%data_pers%Q(1)%h = element%cell%data_pers%Q(1)%b
                 element%cell%data_pers%Q(1)%p = [0.0_GRID_SR, 0.0_GRID_SR]
            end if
 #          endif

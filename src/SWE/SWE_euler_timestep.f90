@@ -560,7 +560,7 @@
                     
                     ! if land is flooded, init water height to dry tolerance and
                     ! velocity to zero
-                    where (data%H < data%B + cfg%dry_tolerance .and. data%H + dQ_H > 0.0_GRID_SR)
+                    where (data%H < data%B + cfg%dry_tolerance .and. dQ_H > 0.0_GRID_SR)
                         data%H = data%B + cfg%dry_tolerance
                         data%HU = 0.0_GRID_SR
                         data%HV = 0.0_GRID_SR

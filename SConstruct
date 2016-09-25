@@ -51,6 +51,10 @@ vars.AddVariables(
   ( 'swe_patch_order', 'order of triangular patches, 1=no_patches', 1),
   
   BoolVariable( 'swe_patch_solver', 'use patch solver? if False, a original non-vectorizable geoclaw implementation will be used', False),
+  
+  EnumVariable( 'swe_scenario', 'artificial scenario for SWE (only considered when not using ASAGI)', 'radial_dam_break',
+                allowed_values=('radial_dam_break', 'linear_dam_break', 'oscillating_lake')
+              ),
 
   EnumVariable( 'swe_dg_basis', 'choice of basis polynomes and projection method', 'bernstein_nodal',
                 allowed_values=('bernstein_nodal','bernstein_l2')
@@ -280,6 +284,15 @@ if (int(env['swe_patch_order'])) > 1 and env['swe_patch_solver']:
     if env['flux_solver'] != 'hlle' and env['flux_solver'] != 'fwave' and env['flux_solver'] != 'aug_riemann':
         print "Error: Only hlle, fwave and aug_riemann solvers are available as patch solvers. Try using another solver or setting swe_patch_solver=True"
         Exit(-1)
+        
+#Select artificial scenario for SWE (if not using ASAGI)
+if env['swe_scenario'] == 'radial_dam_break':
+  env['F90FLAGS'] += ' -D_SWE_SCENARIO_RADIAL_DAM_BREAK'
+elif env['swe_scenario'] == 'linear_dam_break':
+  env['F90FLAGS'] += ' -D_SWE_SCENARIO_LINEAR_DAM_BREAK'
+elif env['swe_scenario'] == 'oscillating_lake':
+  env['F90FLAGS'] += ' -D_SWE_SCENARIO_OSCILLATING_LAKE'
+
 
 #Choose a mobility term
 if env['mobility'] == 'linear':

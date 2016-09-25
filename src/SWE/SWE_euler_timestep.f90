@@ -537,11 +537,10 @@
                 dQ_HU = 0.0_GRID_SR
                 dQ_HV = 0.0_GRID_SR
                 maxWaveSpeed = 0.0_GRID_SR
-                volume = cfg%scaling * cfg%scaling * element%cell%geometry%get_volume() / (_SWE_PATCH_ORDER_SQUARE)
 
                 volume = cfg%scaling * cfg%scaling * element%cell%geometry%get_volume() / (_SWE_PATCH_ORDER_SQUARE)
 !                volume = element%cell%geometry%get_volume() / (_SWE_PATCH_ORDER_SQUARE)
-                dt_div_volume = section%r_dt / volume
+!                dt_div_volume = section%r_dt / volume
                 edge_lengths = cfg%scaling * element%cell%geometry%get_edge_sizes() / _SWE_PATCH_ORDER
 !                edge_lengths = element%cell%geometry%get_edge_sizes() / _SWE_PATCH_ORDER
                 
@@ -614,8 +613,6 @@
                      if(.not.all(data%H< max_neighbour(1)+delta(1).and.data%H >min_neighbour(1)-delta(1)) .or.&
                        .not.all(data%HU< max_neighbour(2)+delta(2).and.data%HU>min_neighbour(2)-delta(2)) .or.&
                        .not.all(data%HV< max_neighbour(3)+delta(3).and.data%HV>min_neighbour(3)-delta(3))) then
-                        
-
                         
                         data%H=H_old
                         data%HU=HU_old
@@ -783,24 +780,24 @@
                     ! if land is flooded, init water height to dry tolerance and
                     ! velocity to zero
 
-                    where (data%H < data%B + cfg%dry_tolerance .and. data%H + dQ_H > data%B + cfg%dry_tolerance)
-                        data%H = data%B+cfg%dry_tolerance
-                        data%HU = 0.0_GRID_SR
-                        data%HV = 0.0_GRID_SR
-                    end where
+                     where (data%H < data%B + cfg%dry_tolerance .and. data%H + dQ_H > data%B)
+                          data%H = data%B+cfg%dry_tolerance
+                          data%HU = 0.0_GRID_SR
+                          data%HV = 0.0_GRID_SR
+                      end where
 
-                    ! update unknowns
+ !                    ! update unknowns
                     data%H = data%H + dQ_H
                     data%HU = data%HU + dQ_HU
                     data%HV = data%HV + dQ_HV
                     
-                    ! if the water level falls below the dry tolerance, set water surface to 0 and velocity to 0
-                    where (data%H <= data%B + cfg%dry_tolerance) 
-!                        data%H = min(data%B, 0.0_GRID_SR)
-                        data%H = data%B
-                        data%HU = 0.0_GRID_SR
-                        data%HV = 0.0_GRID_SR
-                    end where
+ !                    ! if the water level falls below the dry tolerance, set water surface to 0 and velocity to 0
+                      where (data%H <= data%B+cfg%dry_tolerance) 
+  !                        data%H = min(data%B, 0.0_GRID_SR)
+                          data%H = data%B
+                          data%HU = 0.0_GRID_SR
+                          data%HV = 0.0_GRID_SR
+                      end where
                     
                     ! compute next dt
 
@@ -819,7 +816,7 @@
                    do i=1,_SWE_DG_DOFS
                       maxWaveSpeed =  sqrt(g * (data%Q_DG(i)%h)) + maxval(abs(data%Q_DG(i)%p/data%Q_DG(i)%h))
                       !print*,maxWaveSpeed
-                      section%r_dt_new = min(section%r_dt_new,  element%transform_data%custom_data%scaling * cfg%scaling / (maxWaveSpeed* (_SWE_DG_ORDER*4.0_GRID_SR +2.0_GRID_SR)))
+                      section%r_dt_new = min(section%r_dt_new,cfg%scaling*  element%transform_data%custom_data%scaling  / (maxWaveSpeed* (_SWE_DG_ORDER*4.0_GRID_SR +2.0_GRID_SR)))
                    end do
                 end if
 
@@ -936,7 +933,7 @@
                         call Q_DG%dofs_to_vec_dg_p(q_p)
 
                         dx=element%transform_data%custom_data%scaling*cfg%scaling
-
+!                        dx=element%transform_data%custom_data%scaling
 
 #if defined(_SWE_DG_NODAL)
                         nF1=0
@@ -1217,7 +1214,7 @@
                            q_i(1+i*_SWE_DG_DOFS:(i+1)*_SWE_DG_DOFS,:) = q_0
                         end do
                         dx=dx_in*cfg%scaling
-
+!                        dx=dx_in
                         epsilon=1.0_GRID_SR                          
                         i=0
 

@@ -183,6 +183,7 @@ MODULE SWE_Scenario_oscillating_lake
         real (kind = GRID_SR) :: bathymetry
         
         bathymetry = 0.1 * (x(1)*x(1) + x(2)*x(2))
+
     end function
     
     function SWE_Scenario_get_initial_Q(x) result(Q)
@@ -215,6 +216,7 @@ MODULE SWE_Scenario_oscillating_lake
             Q%h = min(b, 0.0_GRID_SR)
             Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
         end if
+
     end function
 
 END MODULE SWE_Scenario_oscillating_lake

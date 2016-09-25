@@ -17,6 +17,11 @@
             use SWE_PATCH
 #       endif
 
+        ! No ASAGI -> Artificial scenario selector 
+#       if !defined(_ASAGI)
+            use SWE_Scenario
+#       endif 
+
 		implicit none
 
         type num_traversal_data
@@ -282,31 +287,34 @@
 #               endif
 #			else
 
- !                   bathymetry=(outer_height-inner_height)*(1-x(1)) + inner_height
-                    bathymetry=inner_height
 
-                        ! if(NORM2(x-dam_center)<dam_radius) then
-                        !    bathymetry=1.0q0/(sqrt(2*3.1415q0))*exp((NORM2(x-dam_center)/dam_radius*1.5q0)**2)*(1-NORM2(x-dam_center)/dam_radius)*inner_height+outer_height
-                        ! else
-                        !    bathymetry = outer_height
-                        ! end if
+!  !                   bathymetry=(outer_height-inner_height)*(1-x(1)) + inner_height
+!                     bathymetry=inner_height
 
-                        ! if(NORM2(x-dam_center)<dam_radius) then
-                        !    bathymetry=outer_height+inner_height
-                        ! else
-                        !    bathymetry = outer_height
-                        ! end if
-                    ! Dam Break
-!                       if((x(1)-0.25)**2+(x(2)-0.5)**2 < 0.05)then
+!                         ! if(NORM2(x-dam_center)<dam_radius) then
+!                         !    bathymetry=1.0q0/(sqrt(2*3.1415q0))*exp((NORM2(x-dam_center)/dam_radius*1.5q0)**2)*(1-NORM2(x-dam_center)/dam_radius)*inner_height+outer_height
+!                         ! else
+!                         !    bathymetry = outer_height
+!                         ! end if
 
-                       ! if((x(1)) < 0.4)then
-                       !    bathymetry=inner_height
-                       ! else
-                       !    bathymetry=outer_height
-                       ! end if
-                       bathymetry=bathymetry*cfg%scaling
-!				bathymetry = 0.0_SR
+!                         ! if(NORM2(x-dam_center)<dam_radius) then
+!                         !    bathymetry=outer_height+inner_height
+!                         ! else
+!                         !    bathymetry = outer_height
+!                         ! end if
+!                     ! Dam Break
 
+                       if((x(1)-0.25)**2+(x(2)-0.5)**2 < 0.05)then
+
+!                        ! if((x(1)) < 0.4)then
+                           bathymetry=inner_height
+                        else
+                           bathymetry=outer_height
+                        end if
+!                        bathymetry=bathymetry*cfg%scaling
+! !				bathymetry = 0.0_SR
+
+!				bathymetry = SWE_Scenario_get_bathymetry(xs)
 #			endif
 		end function
 	END MODULE
@@ -322,6 +330,11 @@
 #       if defined(_SWE_PATCH)
             use SWE_PATCH
 #       endif
+
+        ! No ASAGI -> Artificial scenario selector 
+#       if !defined(_ASAGI)
+            use SWE_Scenario
+#       endif 
 
 		implicit none
 
@@ -561,39 +574,45 @@
                         real(kind=GRID_SR),Dimension(2)                             :: dam_center=[0.5,0.5]
                         real (kind = GRID_SR)                                       :: xs(2)
 
-                        xs = cfg%scaling * x + cfg%offset
+            xs = cfg%scaling * x + cfg%offset
+
 
 #			if defined(_ASAGI)
 				Q%h = 0.0_GRID_SR
 #			else
 
+!                Q = SWE_Scenario_get_initial_Q(xs)
+#			endif
+
+
     !dam break
-     ! if (x(1)  < 0.6_GRID_SR) then
-     !    Q%h = hL
-     ! else
-     !    Q%h = hR
-     ! end if
-    
-!     if (abs(x(1)-0.5) < 0.2_GRID_SR .and.abs(x(2)-0.5) < 0.2_GRID_SR) then
-!    if (x(1)  < 0.6_GRID_SR) then
-      if (x(1)  < 0.4_GRID_SR) then
+      if (x(1)  < 0.6_GRID_SR) then
          Q%h = hL
       else
-         Q%h = (x(1)-0.4_GRID_SR)/(0.6_GRID_SR)*(hR-hL)+hL
-     end if
-! !
-!    Q%h = Q%h *cfg%scaling
-!    Q%h=(1-x(1))*(hl-hR)+hL
+         Q%h = hR
+      end if
 
-!                         Q%h=hL
-                        !   if(NORM2(x-dam_center)<dam_radius) then
-                        !      Q%h=1.0q0/(sqrt(2*3.1415q0))*exp((NORM2(x-dam_center)/dam_radius*1.5q0)**2)*(1-NORM2(x-dam_center)/dam_radius)*hL+hR
-                        !   else
-                        !      Q%h = hR
-                        !  end if
-#			endif
-    Q%h = Q%h *cfg%scaling
-			Q%p = 0.0_GRID_SR
+
+!     if (abs(x(1)-0.5) < 0.2_GRID_SR .and.abs(x(2)-0.5) < 0.2_GRID_SR) then
+! !    if (x(1)  < 0.6_GRID_SR) then
+!       if (x(1)  < 0.4_GRID_SR) then
+!          Q%h = hL
+!       else
+!          Q%h = (x(1)-0.4_GRID_SR)/(0.6_GRID_SR)*(hR-hL)+hL
+!      end if
+! ! !
+! !    Q%h = Q%h *cfg%scaling
+! !    Q%h=(1-x(1))*(hl-hR)+hL
+
+! !                         Q%h=hL
+!                         !   if(NORM2(x-dam_center)<dam_radius) then
+!                         !      Q%h=1.0q0/(sqrt(2*3.1415q0))*exp((NORM2(x-dam_center)/dam_radius*1.5q0)**2)*(1-NORM2(x-dam_center)/dam_radius)*hL+hR
+!                         !   else
+!                         !      Q%h = hR
+!                         !  end if
+! #			endif
+!     Q%h = Q%h *cfg%scaling
+ 			Q%p = 0.0_GRID_SR
 		end function get_initial_dof_state_at_position
 
 

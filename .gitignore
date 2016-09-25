@@ -4,6 +4,8 @@ doxygen
 Samoa.layout
 Samoa.cbp
 .sconsign.dblite
+.DS_Store
+\#*\#
 *~
 *.nc
 *.dat

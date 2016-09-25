@@ -23,6 +23,11 @@
             use SWE_PATCH
 #       endif
 		use Samoa_swe
+		
+        ! No ASAGI -> Artificial scenario selector 
+#       if !defined(_ASAGI)
+            use SWE_Scenario
+#       endif 
 
 		implicit none
 
@@ -172,8 +177,8 @@
                     end if
                end associate
 #           else
-                cfg%scaling = 10.0_GRID_SR
-                cfg%offset = cfg%scaling * [-0.5_GRID_SR, -0.5_GRID_SR]
+                cfg%scaling = SWE_Scenario_get_scaling()
+                cfg%offset = SWE_Scenario_get_offset()
 #			endif
 		end subroutine
 

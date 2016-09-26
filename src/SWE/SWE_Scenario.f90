@@ -197,7 +197,7 @@ MODULE SWE_Scenario_oscillating_lake
         sinwt = 0.0 ! t = 0
         coswt = 1.0 ! t = 0
         
-        Q%h = max( 0.0_GRID_SR, 0.05 * (2*x(1)*coswt + 2*x(2)*sinwt + 0.075  - b ) ) 
+        Q%h = max( 0.0_GRID_SR, 0.05 * (2*x(1)*coswt + 2*x(2)*sinwt) + 0.075  - b )
         
         Q%p(1) = -0.5*w*sinwt * (Q%h) 
         Q%p(2) =  0.5*w*coswt * (Q%h)

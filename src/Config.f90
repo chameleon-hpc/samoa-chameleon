@@ -42,6 +42,13 @@ module config
         logical                                 :: l_serial_lb                                      !< if true, MPI load balancing is serialized, if false a distributed algorithm is used
         double precision                        :: r_adapt_time_step					            !< grid output time step
         integer			        	            :: i_adapt_time_steps			                            !< number of time steps between each linear solver solution
+        integer                                 :: i_lb_frequency                                   !< load balancing frequency: it will be applied every X steps
+        integer                                 :: i_lb_hh_ratio                                    !< load balancing frequency: it will be applied every X steps
+        ! load balancing for heterogeneous hardware (HH):
+        logical                                 :: l_lb_hh                                          !< if true, MPI load balancing can distribute the load unevenly
+        logical                                 :: l_lb_hh_auto                                     !< if true, MPI load balancing considers the performance of each rank and distributes load accordingly
+        double precision                        :: r_lb_hh_threshold                                !< if imbalance < threshold, load balancing is skipped
+
 
 	    logical 				                :: l_gridoutput			                            !< grid output on/off
 	    character(256)				            :: output_dir			                            !< output directory
@@ -154,6 +161,7 @@ module config
 
         write(arguments, '(A)') "-v .false. --version .false. -h .false. --help .false."
         write(arguments, '(A, A)') trim(arguments),   " -lbtime .false. -lbsplit .false. -lbserial .false. -lbcellweight 1.0d0 -lbbndweight 0.0d0"
+        write(arguments, '(A, A)') trim(arguments),   " -lbhh .false. -lbfreq 1 -lbhhthreshold 0.1 -lbhhauto .false. -lbhhratio 50 "
         write(arguments, '(A, A)') trim(arguments),  " -asagihints 2 -phases 1 -tadapt -1.0 -nadapt 1 -asciioutput_width 60 -output_dir output -asciioutput .false. -xmloutput .false. -stestpoints '' -noprint .false. -sections 4"
         write(arguments, '(A, A, I0)') trim(arguments), " -threads ", omp_get_max_threads()
 
@@ -236,6 +244,11 @@ module config
         config%r_boundary_weight = rget('samoa_lbbndweight')
         config%l_split_sections = lget('samoa_lbsplit')
         config%l_serial_lb = lget('samoa_lbserial')
+        config%i_lb_frequency = iget('samoa_lbfreq')
+        config%l_lb_hh = lget('samoa_lbhh')
+        config%l_lb_hh_auto = lget('samoa_lbhhauto')
+        config%r_lb_hh_threshold = rget('samoa_lbhhthreshold')
+        config%i_lb_hh_ratio = iget('samoa_lbhhratio')
         config%i_sections_per_thread = iget('samoa_sections')
         config%i_asagi_mode = iget('samoa_asagihints')
         config%i_adapt_time_steps = iget('samoa_nadapt')
@@ -322,6 +335,10 @@ module config
                 PRINT '(A, L, A)',      "	-lbtime                 if true, load is estimated by time measurements, if false load is estimated by cell count (value: ", config%l_timed_load, ")"
                 PRINT '(A, L, A)',      "	-lbsplit                if true, MPI load balancing may split sections, if false sections are treated as atomic units (value: ", config%l_split_sections, ")"
                 PRINT '(A, L, A)',      "	-lbserial               if true, MPI load balancing is serialized, if false a distributed algorithm is used (value: ", config%l_serial_lb, ")"
+                PRINT '(A, I0, A)',      "  -lbfreq                 load balancing frequency: it will be applied every X steps (value: ", config%i_lb_frequency, ")"
+                PRINT '(A, L, A)',      "   -lbhh                   if true, MPI load balancing can distribute the loa unevenly (value: ", config%l_lb_hh, ")"
+                PRINT '(A, L, A)',      "   -lbhhauto               if true, MPI load balancing considers the performance of each rank and distributes load accordingly (value: ", config%l_lb_hh_auto, ")"
+                PRINT '(A, F0.3, A)',   "   -lbhhthreshold          if imbalance < threshold, load balancing is skipped (value: ", config%r_lb_hh_threshold, ")"
                 PRINT '(A, F0.3, A)',  "	-lbcellweight           cell weight for the count-based load estimate (value: ", config%r_cell_weight, ")"
                 PRINT '(A, F0.3, A)',  "	-lbbndweight            boundary weight for the count-based load estimate (value: ", config%r_boundary_weight, ")"
                 PRINT '(A, I0, A)',    "	-nadapt <value>         remeshing time step interval, less than 0: disabled (value: ", config%i_adapt_time_steps, ")"
@@ -499,7 +516,8 @@ module config
             _log_write(0, '(" SWE: Patches: No")')
 #       endif
 
-        _log_write(0, '(" Load balancing: timed load estimate: ", A, ", split sections: ", A, ", serial: ", A)') logical_to_char(config%l_timed_load), logical_to_char(config%l_split_sections), logical_to_char(config%l_serial_lb)
+        _log_write(0, '(" Load balancing: timed load estimate: ", A, ", split sections: ", A, ", serial: ", A, ", frequency: ", I0)') logical_to_char(config%l_timed_load), logical_to_char(config%l_split_sections), logical_to_char(config%l_serial_lb), config%i_lb_frequency
+        _log_write(0, '(" Load balancing: for heterogenous hardware (HH): ", A, ", threshold: ", F0.3, ", auto: ", A)') logical_to_char(config%l_lb_hh), config%r_lb_hh_threshold, logical_to_char(config%l_lb_hh_auto)
         _log_write(0, '(" Load balancing: cell weight: ", F0.2, ", boundary weight: ", F0.2)') config%r_cell_weight, config%r_boundary_weight
 
         _log_write(0, '(" Scenario: max time steps: ", I0, ", max time: ", ES9.2, ", output step: ", ES9.2)') config%i_max_time_steps, config%r_max_time, config%r_output_time_step

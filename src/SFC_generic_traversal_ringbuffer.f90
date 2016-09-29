@@ -434,6 +434,10 @@ subroutine traverse(traversal, grid)
 
     call thread_stats%stop_time(barrier_time)
     call thread_stats%stop_time(traversal_time)
+    
+    !$omp critical
+        time_test = time_test + thread_stats%get_time(traversal_time)
+    !$omp end critical
 
     do i_section = i_first_local_section, i_last_local_section
         call set_stats_counters(traversal%sections(i_section)%stats, grid%sections%elements_alloc(i_section))

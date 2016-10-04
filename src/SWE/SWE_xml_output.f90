@@ -433,6 +433,11 @@
 			traversal%i_cell_data_index = traversal%i_cell_data_index + 1
 #           endif
 
+                ! set water height of dry cells to zero
+                where (traversal%cell_data(:)%Q%h < traversal%cell_data(:)%Q%b + cfg%dry_tolerance )
+                    traversal%cell_data(:)%Q%h = min(0.0_GRID_SR, traversal%cell_data(:)%Q%b)
+                end where
+
 		end subroutine
 	END MODULE
 #endif

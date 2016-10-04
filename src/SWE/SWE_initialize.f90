@@ -263,7 +263,7 @@
 
 #			if defined(_ASAGI)
 #               if defined(_ASAGI_TIMING)
-                    section%stats%r_asagi_time = section%stats%r_asagi_time - get_wtime()
+                    call section%stats%start_time(asagi_time)
 #               endif
 
 				if (asagi_grid_min(cfg%afh_bathymetry, 0) <= xs(1) .and. asagi_grid_min(cfg%afh_bathymetry, 1) <= xs(2) &
@@ -284,7 +284,7 @@
                 end if
 
 #               if defined(_ASAGI_TIMING)
-                    section%stats%r_asagi_time = section%stats%r_asagi_time + get_wtime()
+                    call section%stats%stop_time(asagi_time)
 #               endif
 #			else
 
@@ -495,8 +495,21 @@
                         row = row + 1
                     end if
                 end do
+                
+                ! dry cells
+                where (element%cell%data_pers%H < element%cell%data_pers%B + cfg%dry_tolerance) 
+                    element%cell%data_pers%H  = element%cell%data_pers%B
+                    element%cell%data_pers%HU = 0.0_GRID_SR
+                    element%cell%data_pers%HV = 0.0_GRID_SR
+                end where
 #           else			
 			Q%t_dof_state = get_initial_dof_state_at_element(section, element)
+			
+            ! dry cells
+            if (Q(1)%h < Q(1)%b + cfg%dry_tolerance) then
+                Q%h  = Q%b
+                Q(1)%p(:) = [0.0_GRID_SR, 0.0_GRID_SR]
+            end if
 #           endif
 
 			element%cell%geometry%refinement = 0

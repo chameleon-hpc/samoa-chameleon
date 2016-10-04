@@ -196,30 +196,19 @@ MODULE SWE_Scenario_oscillating_lake
 
         b = SWE_Scenario_get_bathymetry(x)
         
-        ! limit water to a circle with radius 1.5
-        if (x(1)*x(1) + x(2) * x(2) > 2.25) then
-            Q%h = 0.0_GRID_SR
-            Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
-            return
-        endif
-        
         t = 0.0
         w = sqrt(0.2 * g)
         sinwt = 0.0 ! t = 0
         coswt = 1.0 ! t = 0
         
-        Q%h = max( 0.0_GRID_SR, 0.05 * (2*x(1)*coswt + 2*x(2)*sinwt) + 0.075  - b  ) 
+        Q%h = max( 0.0_GRID_SR, 0.05 * (2*x(1)*coswt + 2*x(2)*sinwt) + 0.075  - b )
         
         Q%p(1) = -0.5*w*sinwt * (Q%h) 
         Q%p(2) =  0.5*w*coswt * (Q%h)
+
         
         Q%h = Q%h + b
         
-        if (Q%h < b + cfg%dry_tolerance) then
-            Q%h = min(b, 0.0_GRID_SR)
-            Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
-        end if
-
     end function
 
 END MODULE SWE_Scenario_oscillating_lake

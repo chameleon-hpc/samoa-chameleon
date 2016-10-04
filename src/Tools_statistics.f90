@@ -52,6 +52,7 @@ module Tools_statistics
 		procedure, public, pass :: start_time => t_statistics_start_time
 		procedure, public, pass :: stop_time => t_statistics_stop_time
 		procedure, public, pass :: get_time => t_statistics_get_time
+		procedure, public, pass :: add_time => t_statistics_add_time
 		procedure, public, pass :: clear_time => t_statistics_clear_time
 
         procedure, public, pass :: scale => t_statistics_scale
@@ -248,6 +249,17 @@ module Tools_statistics
 
 		time_value = s%time_stats(time_type)
     end function
+    
+    elemental subroutine t_statistics_add_time(s, time_type, time_value)
+        class(t_statistics), intent(inout)         :: s
+        integer, intent(in)                     :: time_type
+        double precision, intent(in)            :: time_value
+
+        assert_pure(time_type > 0)
+        assert_pure(time_type < STATS_TYPE_END_TIME_COUNTER)
+
+        s%time_stats(time_type) = s%time_stats(time_type) + time_value
+    end subroutine
 
     elemental subroutine t_statistics_clear_time(s, time_type)
         class(t_statistics), intent(inout)			        :: s

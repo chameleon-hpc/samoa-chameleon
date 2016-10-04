@@ -208,9 +208,6 @@
                 call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(dest_element%cell%geometry%i_plotter_type))%jacobian)
                 dest_element%cell%data_pers%troubled=1
                 call dest_element%cell%data_pers%set_troubled(cfg%dry_tolerance)
-                if(dest_element%cell%data_pers%troubled.le.0) then
-                   call dg_predictor(dest_element%cell,section%r_dt,dest_element%cell%geometry%get_scaling())
-                end if
 #endif
 
 #           else
@@ -291,11 +288,8 @@
 #if defined(_SWE_DG)
 
                     call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(dest_element%cell%geometry%i_plotter_type))%jacobian)
-                dest_element%cell%data_pers%troubled=1
-                call dest_element%cell%data_pers%set_troubled(cfg%dry_tolerance)
-                if(dest_element%cell%data_pers%troubled.le.0) then
-                   call dg_predictor(dest_element%cell,section%r_dt,dest_element%cell%geometry%get_scaling())                  
-                 end if
+                    dest_element%cell%data_pers%troubled=1
+                    call dest_element%cell%data_pers%set_troubled(cfg%dry_tolerance)
 #endif
 
 

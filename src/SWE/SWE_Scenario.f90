@@ -180,8 +180,9 @@ MODULE SWE_Scenario_oscillating_lake
     
     function SWE_Scenario_get_bathymetry(x) result(bathymetry)
         real (kind = GRID_SR), intent(in) :: x(2)
+        real (kind = GRID_SR):: x_scal(2)
         real (kind = GRID_SR) :: bathymetry
-        
+
         bathymetry = 0.1 * (x(1)*x(1) + x(2)*x(2))
 
     end function
@@ -190,7 +191,9 @@ MODULE SWE_Scenario_oscillating_lake
         real (kind = GRID_SR), intent(in) :: x(2)
         type(t_dof_state) :: Q
         double precision :: w, t, sinwt, coswt, b
+        double precision :: x_scal(2)
         
+
         b = SWE_Scenario_get_bathymetry(x)
         
         ! limit water to a circle with radius 1.5
@@ -205,7 +208,7 @@ MODULE SWE_Scenario_oscillating_lake
         sinwt = 0.0 ! t = 0
         coswt = 1.0 ! t = 0
         
-        Q%h = max( 0.0_GRID_SR, 0.05 * (2*x(1)*coswt + 2*x(2)*sinwt + 0.075  - b ) ) 
+        Q%h = max( 0.0_GRID_SR, 0.05 * (2*x(1)*coswt + 2*x(2)*sinwt) + 0.075  - b  ) 
         
         Q%p(1) = -0.5*w*sinwt * (Q%h) 
         Q%p(2) =  0.5*w*coswt * (Q%h)

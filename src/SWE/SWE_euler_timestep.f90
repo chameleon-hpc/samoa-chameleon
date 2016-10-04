@@ -120,7 +120,6 @@
                     grid%r_dt = min(grid%r_dt, cfg%dt_eq)
                 end if
 #           endif
-                grid%r_dt =  grid%r_dt
                 call scatter(grid%r_dt, grid%sections%elements_alloc%r_dt)
    
 		end subroutine
@@ -540,7 +539,7 @@
 
                 volume = cfg%scaling * cfg%scaling * element%cell%geometry%get_volume() / (_SWE_PATCH_ORDER_SQUARE)
 !                volume = element%cell%geometry%get_volume() / (_SWE_PATCH_ORDER_SQUARE)
-!                dt_div_volume = section%r_dt / volume
+                dt_div_volume = section%r_dt / volume
                 edge_lengths = cfg%scaling * element%cell%geometry%get_edge_sizes() / _SWE_PATCH_ORDER
 !                edge_lengths = element%cell%geometry%get_edge_sizes() / _SWE_PATCH_ORDER
                 
@@ -583,9 +582,9 @@
                      call compute_flux_pred(ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%edges(2)%normal,edge_m,update2%Q_DG_P,flux2)
                      
                      call compute_flux_pred(ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%edges(1)%normal,edge_r,update3%Q_DG_P,flux3)
-                     !!print*,"solving"
+
                      call dg_solver(element,flux1,flux2,flux3,section%r_dt)
-                     !!print*,"solved"
+
                     
                      H_old =element%cell%data_pers%H
                      HU_old=element%cell%data_pers%HU
@@ -610,15 +609,29 @@
 
                      call element%cell%data_pers%convert_dg_to_fv(cfg%dry_tolerance)
                      
-                     if(.not.all(data%H< max_neighbour(1)+delta(1).and.data%H >min_neighbour(1)-delta(1)) .or.&
-                       .not.all(data%HU< max_neighbour(2)+delta(2).and.data%HU>min_neighbour(2)-delta(2)) .or.&
-                       .not.all(data%HV< max_neighbour(3)+delta(3).and.data%HV>min_neighbour(3)-delta(3))) then
+                     if(.false.) then
+                     ! if(.not.all(data%H< max_neighbour(1)+delta(1).and.data%H >min_neighbour(1)-delta(1)) .or.&
+                     !   .not.all(data%HU< max_neighbour(2)+delta(2).and.data%HU>min_neighbour(2)-delta(2)) .or.&
+                     !   .not.all(data%HV< max_neighbour(3)+delta(3).and.data%HV>min_neighbour(3)-delta(3))) then
                         
                         data%H=H_old
                         data%HU=HU_old
                         data%HV=HV_old
                         
                         data%troubled=3
+                     else
+                        !refinement condition
+                        ! copied from fv version -> we need to reconstruct dQ_h
+                        dQ_max_norm = maxval(abs(data%H-H_old) / section%r_dt)
+                        
+                        if (element%cell%geometry%i_depth < cfg%i_max_depth .and. dQ_max_norm > 5.0_GRID_SR * cfg%scaling * get_edge_size(cfg%i_max_depth) / _SWE_PATCH_ORDER ) then
+                           element%cell%geometry%refinement = 1
+                           traversal%i_refinements_issued = traversal%i_refinements_issued + 1_GRID_DI
+
+                        else if (element%cell%geometry%i_depth > cfg%i_min_depth .and. dQ_max_norm < 5.0_GRID_SR * cfg%scaling * get_edge_size(cfg%i_max_depth) / (_SWE_PATCH_ORDER * 8.0_SR) ) then
+                           element%cell%geometry%refinement = -1
+                        endif
+                        
                      end if
                   end if
                end if
@@ -779,13 +792,13 @@
                     
                     ! if land is flooded, init water height to dry tolerance and
                     ! velocity to zero
-
-                     where (data%H < data%B + cfg%dry_tolerance .and. data%H + dQ_H > data%B)
-                          data%H = data%B+cfg%dry_tolerance
-                          data%HU = 0.0_GRID_SR
-                          data%HV = 0.0_GRID_SR
-                      end where
-
+                    
+                    where (data%H < data%B + cfg%dry_tolerance .and. dQ_H > 0.0_GRID_SR)
+                       data%H = data%B+cfg%dry_tolerance
+                       data%HU = 0.0_GRID_SR
+                       data%HV = 0.0_GRID_SR
+                    end where
+                    
  !                    ! update unknowns
                     data%H = data%H + dQ_H
                     data%HU = data%HU + dQ_HU
@@ -793,24 +806,19 @@
                     
  !                    ! if the water level falls below the dry tolerance, set water surface to 0 and velocity to 0
                       where (data%H <= data%B+cfg%dry_tolerance) 
-  !                        data%H = min(data%B, 0.0_GRID_SR)
                           data%H = data%B
                           data%HU = 0.0_GRID_SR
                           data%HV = 0.0_GRID_SR
                       end where
                     
                     ! compute next dt
-
                     section%r_dt_new = min(section%r_dt_new, volume / (edge_lengths(2) * maxWaveSpeed) )
                     maxWaveSpeed=0
 #if defined (_SWE_DG)
-                    !!print*,"fv done"
                 end if
-                !detect troubled cell
-                
-                !!print*,data%troubled
+
                 call data%set_troubled(cfg%dry_tolerance)
-                !!print*,data%troubled
+
                 !consider new dg cells in r_dt
                 if(data%troubled .le. 0) then
                    do i=1,_SWE_DG_DOFS
@@ -860,9 +868,9 @@
 #if defined(_SWE_DG)       
 
                         if(cell%data_pers%troubled.le.0) then
-                           !!print*,"FirstTouch"
+
                            call dg_predictor(cell,section%r_dt,cell%geometry%get_scaling())
-                           !!print*,"solved"
+
                         end if
 
 !                           !stop
@@ -1028,10 +1036,6 @@
 
                            call lusolve(st_m_lu,_SWE_DG_DOFS*(_SWE_DG_ORDER+1),st_m_lu_pivot,f1_hat(:,3))
                            call lusolve(st_m_lu,_SWE_DG_DOFS*(_SWE_DG_ORDER+1),st_m_lu_pivot,f2_hat(:,3))
-
-!                           call lusolve(st_m_lu,_SWE_DG_DOFS*(_SWE_DG_ORDER+1),st_m_lu_pivot,S_s(:,1))
-!                           call lusolve(st_m_lu,_SWE_DG_DOFS*(_SWE_DG_ORDER+1),st_m_lu_pivot,S_s(:,2))
-!                           call lusolve(st_m_lu,_SWE_DG_DOFS*(_SWE_DG_ORDER+1),st_m_lu_pivot,S_s(:,3))
 
 #endif                        
                         f1_s=(jacobian_inv(1,1)*f1_hat+jacobian_inv(1,2)*f2_hat)

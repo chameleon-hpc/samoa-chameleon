@@ -263,7 +263,7 @@
                    dofs%HV=fv_temp(:,3)
 
                   where (dofs%H <= dofs%B + dry_tolerance) 
-                     dofs%H = min(dofs%B, 0.0_GRID_SR)
+                     dofs%H = dofs%B
                      dofs%HU = 0.0_GRID_SR
                      dofs%HV = 0.0_GRID_SR
                   end where
@@ -330,19 +330,11 @@
                    end do
 #if !defined(_SWE_DG_NODAL)
 
-                    b_x_temp=matmul(st_der_x_gl_node_vals,dofs%Q_DG_P(:)%b)
-                    b_y_temp=matmul(st_der_y_gl_node_vals,dofs%Q_DG_P(:)%b)
-
-!                    dofs%b_x=b_x_temp
-!                    dofs%b_y=b_y_temp
-
-                    dofs%b_x = normals_normed(1,1) * b_x_temp + normals_normed(1,2) * b_y_temp
-                    dofs%b_y = normals_normed(2,1) * b_x_temp + normals_normed(2,2) * b_y_temp
-                 
-                    ! do i=1,floor(sqrt(real(size(b_x_temp))))-1
-                    !    dofs%b_x_g(1+size(b_x_temp)*i:size(b_x_temp)*(i+1))=dofs%b_x_g(1:size(b_x_temp))
-                    !    dofs%b_y_g(1+size(b_x_temp)*i:size(b_x_temp)*(i+1))=dofs%b_y_g(1:size(b_x_temp))
-                    ! end do
+                   b_x_temp=matmul(st_der_x_gl_node_vals,dofs%Q_DG_P(:)%b)
+                   b_y_temp=matmul(st_der_y_gl_node_vals,dofs%Q_DG_P(:)%b)
+                   
+                   dofs%b_x = normals_normed(1,1) * b_x_temp + normals_normed(1,2) * b_y_temp
+                   dofs%b_y = normals_normed(2,1) * b_x_temp + normals_normed(2,2) * b_y_temp
 
 #else
                    b_x_temp=matmul(basis_der_x,b_temp(1:_SWE_DG_DOFS))
@@ -464,25 +456,13 @@
                   logical :: drying
                   real(kind=GRID_SR) :: dry_tolerance
 
-                  ! if(f%troubled.ge.1) then
-                  !    call f%convert_fv_to_dg()
-                  ! end if
-
                   if(f%troubled.eq.0) then
                      call f%convert_dg_to_fv(dry_tolerance)
                   end if
 
                   drying = .not.all(f%h-min(f%b,0.0_GRID_SR) > dry_tolerance)
 
-                  !if drying and already troubled stay troubled (fv solution is up to date)
                   select case (f%troubled)
-                     ! case(-2)
-                     !    if (drying) then
-                     !       f%troubled= 1
-                     !       call f%convert_dg_to_fv(dry_tolerance)
-                     !    else
-                     !       f%troubled= 0
-                     !    end if
                      case(-3:-1)
                         if (drying) then
                            f%troubled= 1
@@ -499,7 +479,6 @@
                         if (.not.drying) then
                            f%troubled= -1
                            call f%convert_fv_to_dg()
-
                            if(.not.all(f%Q_DG%h > dry_tolerance))then
                               f%troubled=1
                            end if
@@ -529,6 +508,7 @@
                         print*,"unknown troubled state"
                         stop
                      end select
+
                 end subroutine
 
 	END MODULE SWE_data_types

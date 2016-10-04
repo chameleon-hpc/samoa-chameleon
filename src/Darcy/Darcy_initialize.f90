@@ -288,7 +288,7 @@
             assert_le(x(1), 1.0); assert_le(x(2), 1.0)
 
 #           if defined(_ASAGI_TIMING)
-                section%stats%r_asagi_time = section%stats%r_asagi_time - get_wtime()
+                call section%stats%start_time(asagi_time)
 #           endif
 
 #           if defined(_ASAGI)
@@ -331,7 +331,7 @@
             porosity = porosity * (1.0_SR - cfg%S_wr - cfg%S_nr)
 
 #           if defined(_ASAGI_TIMING)
-                section%stats%r_asagi_time = section%stats%r_asagi_time + get_wtime()
+                call section%stats%stop_time(asagi_time)
 #           endif
 		end subroutine
 

@@ -248,7 +248,7 @@
 
 #			if defined(_ASAGI)
 #               if defined(_ASAGI_TIMING)
-                    section%stats%r_asagi_time = section%stats%r_asagi_time - get_wtime()
+                    call section%stats%start_time(asagi_time)
 #               endif
 
 				if (asagi_grid_min(cfg%afh_bathymetry, 0) <= xs(1) .and. asagi_grid_min(cfg%afh_bathymetry, 1) <= xs(2) &
@@ -269,7 +269,7 @@
                 end if
 
 #               if defined(_ASAGI_TIMING)
-                    section%stats%r_asagi_time = section%stats%r_asagi_time + get_wtime()
+                    call section%stats%stop_time(asagi_time)
 #               endif
 #			else
 				bathymetry = SWE_Scenario_get_bathymetry(xs)

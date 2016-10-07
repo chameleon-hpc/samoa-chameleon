@@ -36,6 +36,7 @@ module SFC_edge_traversal
     end interface
     
     integer :: i_steps_since_last_lb = 0 !TODO: this should be somewhere else
+    
     public i_steps_since_last_lb
 
 	contains
@@ -94,7 +95,6 @@ module SFC_edge_traversal
             i_sum_cells_prev = 0
             i_eff_dest_cells = src_grid%dest_cells - i_dest_sections * min_section_size
             assert(i_eff_dest_cells .ge. 0 .or. i_dest_sections == 1)
-
             do i_dest_section = 1, i_dest_sections
                 !Set the number of cells to the difference of partial sums. This guarantees, that there are exactly src_grid%dest_cells cells in total.
 
@@ -2386,16 +2386,31 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
 
             type(t_grid_section), pointer					:: section
             type(t_comm_interface), pointer                 :: comm
-            type(t_comm_interface)                 			:: old_comm
             integer						                    :: i_error, send_tag, recv_tag, i_sections, new_rank, new_section, requests(2)
             integer (kind = GRID_SI)						:: i_first_local_section, i_last_local_section, i_section, i_comm
             integer (BYTE)						            :: i_color
 
+            
 	        call src_grid%get_local_sections(i_first_local_section, i_last_local_section)
 
 	        !Since the other processes cannot possibly know if something changed between two neighbors,
 	        !we have to send this information to all neighbors
+	        
+	        
+	        ! first, have a backup of the old neighbors ids, to avoid mixing updated and old data
+	        do i_section = i_first_local_section, i_last_local_section
+                section => src_grid%sections%elements_alloc(i_section)
+                do i_color = RED, GREEN
+                    do i_comm = 1, section%comms(i_color)%get_size()
+                        comm => section%comms(i_color)%elements(i_comm)
+                        
+                        comm%old_neighbor_rank = comm%neighbor_rank
+                        comm%old_neighbor_section = comm%neighbor_section
+                    end do
+                end do
+	        end do
 
+	        ! if the neighbor is in other MPI rank, we need to send info via MPI
 	        do i_section = i_first_local_section, i_last_local_section
 	            section => src_grid%sections%elements_alloc(i_section)
 	            assert_eq(section%index, i_section)
@@ -2412,27 +2427,25 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
 	                    comm => section%comms(i_color)%elements(i_comm)
 	                    _log_write(4, '(6X, A)') trim(comm%to_string())
 
-						old_comm = comm
-
 	                    comm%local_rank = new_rank
 	                    comm%local_section = new_section
 
-	                    if (comm%neighbor_rank .ge. 0) then
-							assert_lt(old_comm%local_section, ishft(1, 15))
+	                    if (comm%old_neighbor_rank .ge. 0 .and. rank_MPI .ne. comm%old_neighbor_rank) then
+							assert_lt(i_section, ishft(1, 15))
 							assert_lt(old_comm%neighbor_section, ishft(1, 15))
-					        send_tag = ishft(old_comm%local_section, 15) + old_comm%neighbor_section
-					        recv_tag = ishft(old_comm%neighbor_section, 15) + old_comm%local_section
+					        send_tag = ishft(i_section, 15) + comm%old_neighbor_section
+					        recv_tag = ishft(comm%old_neighbor_section, 15) + i_section
 
-	                        _log_write(4, '(7X, A, I0, X, I0, A, I0, X, I0, A, I0)') "send from: ", comm%local_rank, comm%local_section,  " to  : ", comm%neighbor_rank, comm%neighbor_section, " send tag: ", send_tag
-	                        _log_write(4, '(7X, A, I0, X, I0, A, I0, X, I0, A, I0)') "recv to  : ", comm%local_rank, comm%local_section, " from: ", comm%neighbor_rank, comm%neighbor_section, " recv tag: ", recv_tag
+	                        _log_write(4, '(7X, A, I0, X, I0, A, I0, X, I0, A, I0)') "send from: ", comm%local_rank, comm%local_section,  " to  : ", comm%old_neighbor_rank, comm%old_neighbor_section, " send tag: ", send_tag
+	                        _log_write(4, '(7X, A, I0, X, I0, A, I0, X, I0, A, I0)') "recv to  : ", comm%local_rank, comm%local_section, " from: ", comm%old_neighbor_rank, comm%old_neighbor_section, " recv tag: ", recv_tag
 
 	                        assert_veq(comm%send_requests, MPI_REQUEST_NULL)
 	                        assert_veq(comm%recv_requests, MPI_REQUEST_NULL)
 
-	                        call mpi_irecv(comm%neighbor_rank,           1, MPI_INTEGER, old_comm%neighbor_rank, recv_tag, MPI_COMM_WORLD, comm%recv_requests(1), i_error); assert_eq(i_error, 0)
-	                        call mpi_irecv(comm%neighbor_section,        1, MPI_INTEGER, old_comm%neighbor_rank, recv_tag, MPI_COMM_WORLD, comm%recv_requests(2), i_error); assert_eq(i_error, 0)
-	                        call mpi_isend(comm%local_rank,              1, MPI_INTEGER, old_comm%neighbor_rank, send_tag, MPI_COMM_WORLD, comm%send_requests(1), i_error); assert_eq(i_error, 0)
-	                        call mpi_isend(comm%local_section,           1, MPI_INTEGER, old_comm%neighbor_rank, send_tag, MPI_COMM_WORLD, comm%send_requests(2), i_error); assert_eq(i_error, 0)
+	                        call mpi_irecv(comm%neighbor_rank,           1, MPI_INTEGER, comm%old_neighbor_rank, recv_tag, MPI_COMM_WORLD, comm%recv_requests(1), i_error); assert_eq(i_error, 0)
+	                        call mpi_irecv(comm%neighbor_section,        1, MPI_INTEGER, comm%old_neighbor_rank, recv_tag, MPI_COMM_WORLD, comm%recv_requests(2), i_error); assert_eq(i_error, 0)
+	                        call mpi_isend(comm%local_rank,              1, MPI_INTEGER, comm%old_neighbor_rank, send_tag, MPI_COMM_WORLD, comm%send_requests(1), i_error); assert_eq(i_error, 0)
+	                        call mpi_isend(comm%local_section,           1, MPI_INTEGER, comm%old_neighbor_rank, send_tag, MPI_COMM_WORLD, comm%send_requests(2), i_error); assert_eq(i_error, 0)
 
 	                        assert_vne(comm%send_requests, MPI_REQUEST_NULL)
 	                        assert_vne(comm%recv_requests, MPI_REQUEST_NULL)
@@ -2441,7 +2454,6 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
 	            end do
 	        end do
 
-	        !$omp barrier
 
 	        !wait until all sections sent and received their communication changes
 	        do i_section = i_first_local_section, i_last_local_section
@@ -2456,9 +2468,9 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
 
 	                    _log_write(4, '(6X, A)') trim(comm%to_string())
 
-	                    if (comm%neighbor_rank .ge. 0) then
-	                        _log_write(4, '(7X, A, I0, X, I0, A, I0, X, I0)') "wait from: ", comm%local_rank, comm%local_section, " to  : ", comm%neighbor_rank, comm%neighbor_section
-	                        _log_write(4, '(7X, A, I0, X, I0, A, I0, X, I0)') "wait to  : ", comm%local_rank, comm%local_section, " from: ", comm%neighbor_rank, comm%neighbor_section
+	                    if (comm%old_neighbor_rank .ge. 0 .and. rank_MPI .ne. comm%old_neighbor_rank) then
+	                        _log_write(4, '(7X, A, I0, X, I0, A, I0, X, I0)') "wait from: ", comm%local_rank, comm%local_section, " to  : ", comm%old_neighbor_rank, comm%old_neighbor_section
+	                        _log_write(4, '(7X, A, I0, X, I0, A, I0, X, I0)') "wait to  : ", comm%local_rank, comm%local_section, " from: ", comm%old_neighbor_rank, comm%old_neighbor_section
 
 	                        assert_vne(comm%send_requests, MPI_REQUEST_NULL)
 	                        assert_vne(comm%recv_requests, MPI_REQUEST_NULL)
@@ -2472,6 +2484,23 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
 	                end do
 	            end do
 	        end do
+	        
+            !$omp barrier
+            
+            ! update the remaining neighbor data (both sections in this same rank)
+            do i_section = i_first_local_section, i_last_local_section
+                section => src_grid%sections%elements_alloc(i_section)
+                do i_color = RED, GREEN
+                    do i_comm = 1, section%comms(i_color)%get_size()
+                        comm => section%comms(i_color)%elements(i_comm)
+                        
+                        if (comm%old_neighbor_rank .ge. 0 .and. rank_MPI .eq. comm%old_neighbor_rank) then
+                            comm%neighbor_rank = i_rank_out(comm%old_neighbor_section)
+                            comm%neighbor_section = i_section_index_out(comm%old_neighbor_section)
+                        end if
+                    end do
+                end do
+            end do
         end subroutine
 
 		subroutine send_recv_section_infos(src_grid, dest_grid, i_rank_out, i_rank_in)

@@ -96,6 +96,8 @@
 #                       if defined(_SWE_DG)
                         type(t_state), DIMENSION(_SWE_DG_DOFS)                     :: Q_DG
                         type(t_state), DIMENSION(_SWE_DG_DOFS*(_SWE_DG_ORDER+1))   :: Q_DG_P
+                        real(kind=GRID_SR) :: dt
+
 #if !defined(_SWE_DG_NODAL)
                         real(kind=GRID_SR) :: b_x(size(st_gl_node_vals,1)), b_y(size(st_gl_node_vals,1))
 #endif                       
@@ -168,6 +170,9 @@
 		!> temporary scenario data on an edge (deleted after each traversal)
 		type num_edge_data_temp
 			integer (kind = BYTE), dimension(0)										:: dummy					!< no data
+#if defined(_SWE_DG)
+                        real(kind=GRID_SR) :: dt
+#endif                       
 		END type num_edge_data_temp
 
 		!> temporary scenario data on a cell (deleted after each traversal)
@@ -200,6 +205,7 @@
                    integer :: i,j
 
 !PATCHES store h+b DG not
+!                   print*,"convert"
                    if(present(ini)) then
                       ini_local= ini
                    end if
@@ -221,9 +227,6 @@
                    call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,q_temp(:,3))
                    
                    q_dg=q_temp(1:_SWE_DG_DOFS,:)
-
-                   q_dg(:,1)  = q_dg(:,1)
-
 
                    !smooth converted height, importrant for stready state
                    if(ini_local) then
@@ -248,14 +251,13 @@
                    class(num_cell_data_pers) :: dofs
                    real(kind=GRID_SR)        :: q(_SWE_DG_DOFS,3)
                    real(kind=GRID_SR)        :: fv_temp(_SWE_PATCH_ORDER*_SWE_PATCH_ORDER,3)
-                  real(kind=GRID_SR) :: dry_tolerance
-
-
+                   real(kind=GRID_SR) :: dry_tolerance
 
                    call dofs%dofs_to_vec_dg(q)
-                   q(:,1)  = q(:,1) + dofs%Q_DG(:)%b
 
                    !PATCHES store h+b DG not
+                   q(:,1)  = q(:,1) + dofs%Q_DG(:)%b
+
                    fv_temp=matmul(phi,q)*ref_triangle_size_inv
 
                    dofs%H=fv_temp(:,1)
@@ -267,7 +269,6 @@
                      dofs%HU = 0.0_GRID_SR
                      dofs%HV = 0.0_GRID_SR
                   end where
-
 
                  end subroutine convert_dg_to_fv
 
@@ -293,7 +294,7 @@
                    if(present(ini)) then
                       ini_local=ini
                    end if
-                   normals_normed=normals/NORM2(normals(1:2,1))
+                   normals_normed=normals/NORM2(normals(1,1:2))
 
                    b_temp(1:_SWE_DG_DOFS)= 2.0q0*matmul(transpose(phi),dofs%b)
                    
@@ -460,7 +461,7 @@
                      call f%convert_dg_to_fv(dry_tolerance)
                   end if
 
-                  drying = .not.all(f%h-min(f%b,0.0_GRID_SR) > dry_tolerance)
+                  drying = .not.all(f%h-f%b > dry_tolerance)
 
                   select case (f%troubled)
                      case(-3:-1)
@@ -498,18 +499,20 @@
                         if(drying) then
                            f%troubled= 1
                         else
-                           f%troubled= -3
+                           f%troubled=-3
                            call f%convert_fv_to_dg()
                            if(.not.all(f%Q_DG%h > dry_tolerance))then
                               f%troubled=1
                            end if
                         end if
                      case default
-                        print*,"unknown troubled state"
+                        !print*,"unknown troubled state"
                         stop
                      end select
 
-                end subroutine
+                  f%troubled=0
+
+                end subroutine set_troubled
 
 	END MODULE SWE_data_types
 #endif

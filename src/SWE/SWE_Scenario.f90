@@ -44,9 +44,128 @@ MODULE SWE_Scenario_template
         Q%h = 0.0_GRID_SR
     end function
 
-END MODULE SWE_Scenario_radial_dam_break
+END MODULE SWE_Scenario_template
 #endif
 
+
+#if defined (_SWE_SCENARIO_GAUSSIAN_CURVE)
+MODULE SWE_Scenario_gaussian_curve
+    use Samoa_swe
+    public SWE_Scenario_get_scaling, SWE_Scenario_get_offset, SWE_Scenario_get_bathymetry, SWE_Scenario_get_initial_Q
+    contains
+
+    function SWE_Scenario_get_scaling() result(scaling)
+        real (kind = GRID_SR) :: scaling
+        
+        scaling = 20.0_GRID_SR
+    end function
+
+    function SWE_Scenario_get_offset() result(offset)
+        real (kind = GRID_SR) :: offset(2)
+        
+        offset = SWE_Scenario_get_scaling() * [-0.5_GRID_SR, -0.5_GRID_SR]
+    end function
+    
+    function SWE_Scenario_get_bathymetry(x) result(bathymetry)
+        real (kind = GRID_SR), intent(in) :: x(2)
+        real (kind = GRID_SR) :: bathymetry
+        
+        bathymetry = 0.0_GRID_SR
+    end function
+    
+    function SWE_Scenario_get_initial_Q(x) result(Q)
+        real (kind = GRID_SR), intent(in) :: x(2)
+        real (kind = GRID_SR) :: height_offset=4.0_GRID_SR
+        real (kind = GRID_SR) :: curve_height=2.0_GRID_SR
+        type(t_dof_state) :: Q
+        
+        Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
+
+        if(NORM2(x)<8.0_GRID_SR) then
+           Q%h = 1/6.28 * exp(-0.5_GRID_SR*(x(1)**2+x(2)**2)) * 8.0_GRID_SR *curve_height + height_offset
+        else
+           Q%h=height_offset
+        end if
+    end function
+
+  END MODULE SWE_Scenario_gaussian_curve
+#endif
+
+#if defined (_SWE_SCENARIO_SPLASHING_POOL)
+MODULE SWE_Scenario_splashing_pool
+    use Samoa_swe
+    public SWE_Scenario_get_scaling, SWE_Scenario_get_offset, SWE_Scenario_get_bathymetry, SWE_Scenario_get_initial_Q
+    contains
+
+    function SWE_Scenario_get_scaling() result(scaling)
+        real (kind = GRID_SR) :: scaling
+        
+        scaling = 20.0_GRID_SR
+    end function
+
+    function SWE_Scenario_get_offset() result(offset)
+        real (kind = GRID_SR) :: offset(2)
+        
+        offset = SWE_Scenario_get_scaling() * [-0.5_GRID_SR, -0.5_GRID_SR]
+    end function
+    
+    function SWE_Scenario_get_bathymetry(x) result(bathymetry)
+        real (kind = GRID_SR), intent(in) :: x(2)
+        real (kind = GRID_SR) :: bathymetry
+        real (kind = GRID_SR) :: height_offset=4.0_GRID_SR
+                
+        bathymetry = 0.0_GRID_SR
+    end function
+    
+    function SWE_Scenario_get_initial_Q(x) result(Q)
+        real (kind = GRID_SR), intent(in) :: x(2)
+        real (kind = GRID_SR) :: height_offset=4.0_GRID_SR
+        real (kind = GRID_SR) :: curve_height=1.0_GRID_SR
+        type(t_dof_state) :: Q
+        
+        Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
+
+        Q%h = 0.5+x(1) / cfg%scaling *curve_height + height_offset
+    end function
+
+  END MODULE SWE_Scenario_splashing_pool
+#endif
+
+
+#if defined (_SWE_SCENARIO_RESTING_LAKE)
+MODULE SWE_Scenario_resting_lake
+    use Samoa_swe
+    public SWE_Scenario_get_scaling, SWE_Scenario_get_offset, SWE_Scenario_get_bathymetry, SWE_Scenario_get_initial_Q
+    contains
+
+    function SWE_Scenario_get_scaling() result(scaling)
+        real (kind = GRID_SR) :: scaling
+        scaling = 10.0_GRID_SR
+    end function
+
+    function SWE_Scenario_get_offset() result(offset)
+        real (kind = GRID_SR) :: offset(2)
+        
+        offset = SWE_Scenario_get_scaling() * [-0.5_GRID_SR, -0.5_GRID_SR]
+    end function
+    
+    function SWE_Scenario_get_bathymetry(x) result(bathymetry)
+        real (kind = GRID_SR), intent(in) :: x(2)
+        real (kind = GRID_SR) :: bathymetry
+        
+        bathymetry = -1.0_GRID_SR
+    end function
+    
+    function SWE_Scenario_get_initial_Q(x) result(Q)
+        real (kind = GRID_SR), intent(in) :: x(2)
+        type(t_dof_state) :: Q
+        
+        Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
+        Q%h = 5.0_GRID_SR
+    end function
+
+END MODULE SWE_Scenario_resting_lake
+#endif
 
 
 !********************
@@ -223,6 +342,12 @@ MODULE SWE_Scenario
         USE SWE_Scenario_linear_dam_break
 #   elif defined(_SWE_SCENARIO_OSCILLATING_LAKE)
         USE SWE_Scenario_oscillating_lake
+#   elif defined(_SWE_SCENARIO_RESTING_LAKE)
+        USE SWE_Scenario_resting_lake
+#   elif defined(_SWE_SCENARIO_GAUSSIAN_CURVE)
+        USE SWE_Scenario_gaussian_curve
+#   elif defined(_SWE_SCENARIO_SPLASHING_POOL)
+        USE SWE_Scenario_splashing_pool
 #   endif
 
 END MODULE SWE_Scenario

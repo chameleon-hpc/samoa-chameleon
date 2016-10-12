@@ -53,8 +53,12 @@ vars.AddVariables(
   BoolVariable( 'swe_patch_solver', 'use patch solver? if False, a original non-vectorizable geoclaw implementation will be used', False),
   
   EnumVariable( 'swe_scenario', 'artificial scenario for SWE (only considered when not using ASAGI)', 'radial_dam_break',
-                allowed_values=('radial_dam_break', 'linear_dam_break', 'oscillating_lake')
-              ),
+                allowed_values=('gaussian_curve',
+                                'splashing_pool',
+                                'radial_dam_break',
+                                'linear_dam_break',
+                                'oscillating_lake',
+                                'resting_lake')),
 
   EnumVariable( 'swe_dg_basis', 'choice of basis polynomes and projection method', 'bernstein_nodal',
                 allowed_values=('bernstein_nodal','bernstein_l2')
@@ -292,6 +296,14 @@ elif env['swe_scenario'] == 'linear_dam_break':
   env['F90FLAGS'] += ' -D_SWE_SCENARIO_LINEAR_DAM_BREAK'
 elif env['swe_scenario'] == 'oscillating_lake':
   env['F90FLAGS'] += ' -D_SWE_SCENARIO_OSCILLATING_LAKE'
+elif env['swe_scenario'] == 'resting_lake':
+  env['F90FLAGS'] += ' -D_SWE_SCENARIO_RESTING_LAKE'
+elif env['swe_scenario'] == 'gaussian_curve':
+  env['F90FLAGS'] += ' -D_SWE_SCENARIO_GAUSSIAN_CURVE'
+elif env['swe_scenario'] == 'splashing_pool':
+  env['F90FLAGS'] += ' -D_SWE_SCENARIO_SPLASHING_POOL'
+
+
 
 
 #Choose a mobility term

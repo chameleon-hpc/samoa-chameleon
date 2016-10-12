@@ -57,10 +57,6 @@
 			grid%r_dt = 0.0_GRID_SR
 
 			grid%r_dt_new = 0.0_GRID_SR
-!   cfg%dry_tolerance=cfg%dry_tolerance/10.0
-
-   
-!                        cfg%courant_number=1/Real(2*_SWE_DG_ORDER+1,GRID_SR)
 
 
             call scatter(grid%r_time, grid%sections%elements_alloc%r_time)
@@ -318,6 +314,8 @@
 				bathymetry = SWE_Scenario_get_bathymetry(xs)
 #			endif
 		end function
+
+
 	END MODULE
 
 	MODULE SWE_Initialize_Dofs
@@ -331,6 +329,10 @@
 #       if defined(_SWE_PATCH)
             use SWE_PATCH
 #       endif
+
+# if defined(_SWE_DG)           
+            use SWE_DG_predictor
+# endif          
 
         ! No ASAGI -> Artificial scenario selector 
 #       if !defined(_ASAGI)
@@ -421,12 +423,16 @@
 
 
                 call element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian,.true.)
-                
-!                call element%cell%data_pers%convert_fv_to_dg(.true.)
 
-                element%cell%data_pers%troubled = 1
-                call element%cell%data_pers%set_troubled(cfg%dry_tolerance)
+                call element%cell%data_pers%convert_fv_to_dg(.true.)
                 
+                if(.not.all(element%cell%data_pers%h-element%cell%data_pers%b > cfg%dry_tolerance) .or.&
+                   .not.all(element%cell%data_pers%Q_DG%H > cfg%dry_tolerance) )then
+                      element%cell%data_pers%troubled = 1
+                   else
+                      element%cell%data_pers%troubled = 0                      
+                      call dg_predictor(element%cell,section%r_dt,element%cell%geometry%get_scaling())
+                end if
 
 #endif
 

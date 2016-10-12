@@ -79,9 +79,9 @@
             end if
 
 
-                ! if(traversal%i_output_iteration .eq. 2) then
-                !     stop
-                ! end if
+                  ! if(traversal%i_output_iteration .eq. 1) then
+                  !     stop
+                  ! end if
 
             call scatter(traversal%s_file_stamp, traversal%sections%s_file_stamp)
             call scatter(traversal%i_output_iteration, traversal%sections%i_output_iteration)
@@ -97,7 +97,6 @@
 			integer(4)										:: i_rank, i_section, e_io
 			logical                                         :: l_exists
             type(t_vtk_writer)                              :: vtk
-
 #           if defined(_MPI)
                 call mpi_barrier(MPI_COMM_WORLD, i_error); assert_eq(i_error, 0)
 #           endif
@@ -363,12 +362,12 @@
 
 			call gv_Q%read(element, Q)
 
-            traversal%cell_data(traversal%i_cell_data_index)%rank = rank_MPI
-            traversal%cell_data(traversal%i_cell_data_index)%section_index = section%index
+                        traversal%cell_data(traversal%i_cell_data_index)%rank = rank_MPI
+                        traversal%cell_data(traversal%i_cell_data_index)%section_index = section%index
 			traversal%cell_data(traversal%i_cell_data_index)%depth = element%cell%geometry%i_depth
-            traversal%cell_data(traversal%i_cell_data_index)%i_plotter_type = element%cell%geometry%i_plotter_type
-			traversal%cell_data(traversal%i_cell_data_index)%refinement = element%cell%geometry%refinement
-                    traversal%cell_data(traversal%i_cell_data_index)%troubled = merge(1,0,element%cell%data_pers%troubled)
+                        traversal%cell_data(traversal%i_cell_data_index)%i_plotter_type = element%cell%geometry%i_plotter_type
+                        traversal%cell_data(traversal%i_cell_data_index)%refinement = element%cell%geometry%refinement
+                        traversal%cell_data(traversal%i_cell_data_index)%troubled = element%cell%data_pers%troubled
 
 			select case (i_element_order)
 				case (2)
@@ -434,6 +433,7 @@
 #           endif
 
                 ! set water height of dry cells to zero
+
                 where (traversal%cell_data(:)%Q%h < traversal%cell_data(:)%Q%b + cfg%dry_tolerance )
                     traversal%cell_data(:)%Q%h = min(0.0_GRID_SR, traversal%cell_data(:)%Q%b)
                 end where

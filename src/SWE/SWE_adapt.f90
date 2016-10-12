@@ -17,6 +17,9 @@
 #       if defined (_SWE_PATCH)
             use SWE_PATCH
 #       endif
+#if defined(_SWE_DG)
+            use SWE_dg_predictor
+#endif
 
 		implicit none
 
@@ -26,7 +29,8 @@
 #           else
                 type(t_state), dimension(_SWE_CELL_SIZE, 2)                         :: Q_in
 #           endif
-        end type
+        end type num_traversal_data
+
 
 		type(t_gv_Q)							:: gv_Q
 		type(t_lfs_flux)						:: lfs_flux
@@ -118,28 +122,27 @@
 				dest_element%cell%data_pers%HV = src_element%cell%data_pers%HV
 				dest_element%cell%data_pers%B = src_element%cell%data_pers%B
 
-#if defined (_SWE_DG)
-
-
-#if !defined(_SWE_DG_NODAL)                               
-				dest_element%cell%data_pers%b_x = src_element%cell%data_pers%b_x
-				dest_element%cell%data_pers%b_y = src_element%cell%data_pers%b_y
-#endif
-				dest_element%cell%data_pers%Q_DG = src_element%cell%data_pers%Q_DG
-                                dest_element%cell%data_pers%troubled=1
-				dest_element%cell%data_pers%Q_DG_P = src_element%cell%data_pers%Q_DG_P
-				dest_element%cell%data_pers%troubled = src_element%cell%data_pers%troubled
-
-                                if(dest_element%cell%data_pers%troubled.le.0) then
-                                call dg_predictor(dest_element%cell,section%r_dt,dest_element%cell%geometry%get_scaling())
-                                end if
-
-#endif
-
 #			else
 				call gv_Q%read( src_element%t_element_base, Q)
 				call gv_Q%write( dest_element%t_element_base, Q)
 #			endif
+#if defined (_SWE_DG)
+     
+#if !defined(_SWE_DG_NODAL)                               
+                                dest_element%cell%data_pers%b_x = src_element%cell%data_pers%b_x
+                                dest_element%cell%data_pers%b_y = src_element%cell%data_pers%b_y
+#else
+                                dest_element%cell%data_pers%Q_DG_P%b_x = src_element%cell%data_pers%Q_DG_P%b_x
+                                dest_element%cell%data_pers%Q_DG_P%b_y = src_element%cell%data_pers%Q_DG_P%b_y
+#endif
+                                dest_element%cell%data_pers%Q_DG = src_element%cell%data_pers%Q_DG
+                                dest_element%cell%data_pers%troubled=src_element%cell%data_pers%troubled
+
+                                if(dest_element%cell%data_pers%troubled.le.0) then
+                                   dest_element%cell%data_pers%Q_DG_P = src_element%cell%data_pers%Q_DG_P
+                                end if
+#endif
+
 
 		end subroutine
 
@@ -149,7 +152,7 @@
 			type(t_traversal_element), intent(inout)									:: src_element
 			type(t_traversal_element), intent(inout)									:: dest_element
 			integer, dimension(:), intent(in)											:: refinement_path
-			
+
 #           if defined(_SWE_PATCH)
 
                 real (kind=GRID_SR), dimension(_SWE_PATCH_ORDER_SQUARE)                     :: H_in, HU_in, HV_in, B_in
@@ -165,6 +168,10 @@
 
 #           endif
    integer					:: i
+
+#if defined(_SWE_DG)			
+                   call dest_element%cell%data_pers%convert_dg_to_fv(cfg%dry_tolerance)
+#endif
 			
 #           if defined (_SWE_PATCH)
                 H_in = src_element%cell%data_pers%H
@@ -220,7 +227,6 @@
                 ! get bathymetry
                 dest_element%cell%data_pers%B = get_bathymetry_at_patch(section, dest_element%t_element_base, section%r_time)
 
-                
 #               if defined(_ASAGI)
                     ! if cell was initially dry, we need to check if the fine cells should be initialized with h=0
                     where (dry_cell_out(:))
@@ -229,13 +235,6 @@
                         dest_element%cell%data_pers%HV = 0.0_GRID_SR
                     end where
 #               endif
-
-#if defined(_SWE_DG)
-
-                call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(dest_element%cell%geometry%i_plotter_type))%jacobian)
-                dest_element%cell%data_pers%troubled=1
-                call dest_element%cell%data_pers%set_troubled(cfg%dry_tolerance)
-#endif
 
 
 
@@ -275,6 +274,21 @@
 
 			call gv_Q%write( dest_element%t_element_base, Q_in)
 #           endif
+
+#if defined(_SWE_DG)
+                    
+                call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(dest_element%cell%geometry%i_plotter_type))%jacobian)
+
+                call dest_element%cell%data_pers%convert_fv_to_dg
+
+                dest_element%cell%data_pers%troubled=0
+
+!                call dest_element%cell%data_pers%set_troubled(cfg%dry_tolerance)
+
+
+#endif
+
+
 		end subroutine
 
 		subroutine coarsen_op(traversal, section, src_element, dest_element, refinement_path)
@@ -292,6 +306,12 @@
                 type(t_state), dimension(_SWE_CELL_SIZE)                                :: Q_out
                 logical, save                                                           :: dry_cell
 #           endif
+
+# if defined(_SWE_DG)
+                call dest_element%cell%data_pers%convert_dg_to_fv(cfg%dry_tolerance)
+#endif
+
+
 
 #           if defined(_SWE_PATCH)
                 !IMPORTANT: in the current samoa implementation, this subroutine is always called first with refinement_path=1, and then =2.
@@ -348,14 +368,6 @@
 #                       endif
                     end if
 
-#if defined(_SWE_DG)
-
-                    call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(dest_element%cell%geometry%i_plotter_type))%jacobian)
-                    dest_element%cell%data_pers%troubled=1
-                    call dest_element%cell%data_pers%set_troubled(cfg%dry_tolerance)
-#endif
-
-
                 end associate
 
 
@@ -399,6 +411,16 @@
 				call gv_Q%write( dest_element%t_element_base, Q_out)
 			end if
 #           endif
+
+#if defined(_SWE_DG)
+                call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(dest_element%cell%geometry%i_plotter_type))%jacobian)
+
+                call dest_element%cell%data_pers%convert_fv_to_dg()
+
+                dest_element%cell%data_pers%troubled=0
+
+#endif
+
 		end subroutine
 
         pure subroutine node_write_op(local_node, neighbor_node)
@@ -415,5 +437,7 @@
 
             !do nothing
         end subroutine
+
 	END MODULE
 #endif
+

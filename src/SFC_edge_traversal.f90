@@ -887,6 +887,7 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
         integer                                         :: mpi_edge_type, mpi_node_type, mpi_edge_extent, mpi_node_extent, mpi_edge_size, mpi_node_size
         integer (BYTE)							        :: i_color
         type(t_comm_interface), pointer			        :: comm
+        integer :: best_size, i_edge, msg_size
 
 #        if defined(_MPI)
             if (present(mpi_edge_type_optional)) then
@@ -908,7 +909,9 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
                 mpi_node_size = 1
                 mpi_node_extent = sizeof(section%boundary_nodes(RED)%elements(1))
             end if
-
+            
+            best_size = max(1, 4096/max(1,mpi_edge_extent)) ! best number of edges per message, if avoiding messages > 4KB
+            
             _log_write(4, '(4X, A, I0)') "send mpi boundary: section ", section%index
 
             do i_color = RED, GREEN
@@ -935,11 +938,26 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
 
                         _log_write(5, '(7X, A, I0, X, I0, A, I0, X, I0, A, I0)') "send from: ", comm%local_rank, comm%local_section,  " to  : ", comm%neighbor_rank, comm%neighbor_section, " send tag: ", send_tag
 
+                        
+                        
                         if (comm%i_edges * mpi_edge_size > 0) then
+                            if (cfg%l_avoid) then ! avoid messages larger than 4KB -> split into multiple messages
+                                do i_edge = 1, comm%i_edges, best_size
+                                    send_tag = ishft(comm%local_section, 20) + ishft(comm%neighbor_section,6) + i_edge
+                                    recv_tag = ishft(comm%neighbor_section, 20) + ishft(comm%local_section,6) + i_edge
+                                    msg_size = min(best_size, comm%i_edges - i_edge + 1) ! but don't send more than necessary!
+                                    call mpi_isend(comm%p_local_edges(i_edge : i_edge), msg_size * mpi_edge_extent, mpi_edge_type, comm%neighbor_rank, send_tag, MPI_COMM_WORLD, comm%send_requests(1), i_error); assert_eq(i_error, 0)
+                                end do
+                            else
                             assert_eq(comm%send_requests(1), MPI_REQUEST_NULL)
                             call mpi_isend(get_c_pointer(comm%p_local_edges), comm%i_edges * mpi_edge_extent, mpi_edge_type, comm%neighbor_rank, send_tag, MPI_COMM_WORLD, comm%send_requests(1), i_error); assert_eq(i_error, 0)
                             assert_ne(comm%send_requests(1), MPI_REQUEST_NULL)
+                            end if
                         end if
+                        
+                        send_tag = ishft(comm%local_section, 14) + comm%neighbor_section
+                        recv_tag = ishft(comm%neighbor_section, 14) + comm%local_section
+
 
                         if (comm%i_nodes * mpi_node_size > 0) then
                             assert_eq(comm%send_requests(2), MPI_REQUEST_NULL)
@@ -961,6 +979,7 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
         integer                                         :: mpi_edge_type, mpi_node_type, mpi_edge_extent, mpi_node_extent, mpi_edge_size, mpi_node_size
         integer (BYTE)							        :: i_color
         type(t_comm_interface), pointer			        :: comm
+        integer :: best_size, i_edge, msg_size
 
 #        if defined(_MPI)
             if (present(mpi_edge_type_optional)) then
@@ -982,7 +1001,10 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
                 mpi_node_size = 1
                 mpi_node_extent = sizeof(section%boundary_nodes(RED)%elements(1))
             end if
+            
+            best_size = max(1, 4096/max(1,mpi_edge_extent)) ! best number of edges per message, if avoiding messages > 4KB
 
+            
             _log_write(4, '(4X, A, I0)') "recv mpi boundary: section ", section%index
 
              do i_color = RED, GREEN
@@ -1010,10 +1032,24 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
                         _log_write(5, '(7X, A, I0, X, I0, A, I0, X, I0, A, I0)') "recv to  : ", comm%local_rank, comm%local_section, " from: ", comm%neighbor_rank, comm%neighbor_section, " recv tag: ", recv_tag
 
                         if (comm%i_edges * mpi_edge_size > 0) then
+                            if (cfg%l_avoid) then ! avoid messages larger than 4KB -> split into multiple messages
+                                do i_edge = 1, comm%i_edges, best_size
+                                    send_tag = ishft(comm%local_section, 20) + ishft(comm%neighbor_section,6) + i_edge
+                                    recv_tag = ishft(comm%neighbor_section, 20) + ishft(comm%local_section,6) + i_edge
+                                    msg_size = min(best_size, comm%i_edges - i_edge + 1) ! but don't send more than necessary!
+
+                                    call mpi_irecv(comm%p_neighbor_edges(i_edge : i_edge), msg_size * mpi_edge_extent, mpi_edge_type, comm%neighbor_rank, recv_tag, MPI_COMM_WORLD, comm%recv_requests(1), i_error); assert_eq(i_error, 0)
+                                end do
+                            
+                            else
                             assert_eq(comm%recv_requests(1), MPI_REQUEST_NULL)
                             call mpi_irecv(get_c_pointer(comm%p_neighbor_edges), comm%i_edges * mpi_edge_extent, mpi_edge_type, comm%neighbor_rank, recv_tag, MPI_COMM_WORLD, comm%recv_requests(1), i_error); assert_eq(i_error, 0)
                             assert_ne(comm%recv_requests(1), MPI_REQUEST_NULL)
+                            end if
                         end if
+                        
+                        send_tag = ishft(comm%local_section, 14) + comm%neighbor_section
+                        recv_tag = ishft(comm%neighbor_section, 14) + comm%local_section
 
                         if (comm%i_nodes * mpi_node_size > 0) then
                             assert_eq(comm%recv_requests(2), MPI_REQUEST_NULL)

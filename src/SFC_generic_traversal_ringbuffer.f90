@@ -451,7 +451,7 @@ subroutine traverse(traversal, grid)
     end do
     
     !$omp critical
-        time_test = time_test + thread_stats%get_time(pre_compute_time) + thread_stats%get_time(inner_compute_time) + thread_stats%get_time(post_compute_time)
+        grid%r_computation_time_since_last_LB = grid%r_computation_time_since_last_LB + thread_stats%get_time(pre_compute_time) + thread_stats%get_time(inner_compute_time) + thread_stats%get_time(post_compute_time)
     !$omp end critical
 
     traversal%threads(i_thread)%stats = traversal%threads(i_thread)%stats + thread_stats

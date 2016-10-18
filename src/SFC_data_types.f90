@@ -33,10 +33,6 @@ MODULE SFC_data_types
 #	endif
 
     implicit none
-    
-    ! TODO: this should be somewhere else, probably an attribute of t_grid
-    double precision :: time_test
-    public time_test
 
 	!constants
 
@@ -130,6 +126,10 @@ MODULE SFC_data_types
         integer (kind = GRID_DI)	                        :: dest_cells, last_dest_cell
         integer (kind = GRID_DI)                            :: load, partial_load
         logical	                                            :: l_conform
+        
+        ! info for load balancing
+        double precision                                    :: r_computation_time_since_last_LB ! used for computing throughput on automatic & heterog. LB
+        integer                                             :: i_steps_since_last_LB
 
         contains
 

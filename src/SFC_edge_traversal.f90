@@ -34,10 +34,6 @@ module SFC_edge_traversal
             logical                             :: l_conform
         end function
     end interface
-    
-    integer :: i_steps_since_last_lb = 0 !TODO: this should be somewhere else
-    
-    public i_steps_since_last_lb
 
 	contains
 
@@ -1416,15 +1412,15 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
 
 	        _log_write(2, '(4X, "load balancing: imbalance above threshold? yes: ", F0.3, " > ", F0.3)') dble(i_max_load) * size_MPI / dble(i_total_load) - 1.0d0, r_max_imbalance
 
-                        !$omp single
-                i_steps_since_last_lb = mod(i_steps_since_last_lb + 1, cfg%i_lb_frequency)
+            !$omp single
+                grid%i_steps_since_last_LB = mod(grid%i_steps_since_last_LB + 1, cfg%i_lb_frequency)
                 
                 my_load = sum(grid%sections%elements_alloc(:)%load)
                 _log_write(1, '(4X, "Rank ", I0, " has ", I0)'), rank_MPI, my_load
             !$omp end single
             
             ! check if LB should be performed now
-            if (i_steps_since_last_lb .eq. 0) then
+            if (grid%i_steps_since_last_LB .eq. 0) then
                 if (rank_MPI == 0) then
                     !$omp single
                     _log_write(1, '(4X, "Time for LB...")')
@@ -1630,9 +1626,9 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
                     ! now we need to actually compute the throughput
                     
                     ! compute throughput based on time for the last steps (from the average thread)
-                    my_computation_time = time_test / size(grid%threads%elements(:))
+                    my_computation_time = grid%r_computation_time_since_last_LB / size(grid%threads%elements(:))
                     
-                    time_test = 0
+                    grid%r_computation_time_since_last_LB = 0
                     
                     my_throughput = my_load / max(my_computation_time, 1.0e-6) ! avoid division by zero
                     

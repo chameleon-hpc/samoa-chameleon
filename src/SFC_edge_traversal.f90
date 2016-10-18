@@ -1605,13 +1605,13 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
         
             my_load = sum(grid%sections%elements_alloc(:)%load)
 
-            ! if cfg%l_lb_hh_auto is not set, then use this 50-25-25 distribution
+            ! if cfg%l_lb_hh_auto is not set, use Host/MIC ratio chosen by user (option -lbhhratio HOST MIC, default is 1 1)
             if (cfg%l_lb_hh_auto .eqv. .false.) then
-                if (mod(rank_MPI,3) == 0) then 
-                    my_throughput = cfg%i_lb_hh_ratio
-                else
-                    my_throughput = (100 - cfg%i_lb_hh_ratio)/2
-                end if
+#               if defined (__MIC__)
+                    my_throughput = cfg%r_lb_hh_ratio(2)
+#               else
+                    my_throughput = cfg%r_lb_hh_ratio(1)
+#               endif
             else
                 
                 ! if at least one rank has zero load, distribute the load evenly so that it is possible to compute 
@@ -2270,7 +2270,7 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
                         end if
                     end if
                     max_imbalance = max_imbalance - 1 ! 0 = perfectly balanced
-                else if (cfg%i_lb_hh_ratio .ne. 0 .and. cfg%i_lb_hh_ratio .ne. 100) then
+                else 
                     max_imbalance = 1 ! if this rank is empty, it is not balanced
                 end if
 

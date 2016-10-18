@@ -1620,7 +1620,6 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
                 
                 ! if at least one rank has zero load, distribute the load evenly so that it is possible to compute 
                 ! the throughput for every rank at the next iteration
-                
                 min_load = my_load
                 call reduce(min_load, MPI_MIN)
 
@@ -1628,12 +1627,11 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
                     my_throughput = 1
 
                 else
-                    
                     ! now we need to actually compute the throughput
                     
                     ! compute throughput based on time for the last steps (from the average thread)
                     my_computation_time = time_test / size(grid%threads%elements(:))
-
+                    
                     time_test = 0
                     
                     my_throughput = my_load / max(my_computation_time, 1.0e-6) ! avoid division by zero
@@ -2235,17 +2233,7 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
                     total_load = sum(rank_load)
                 endif
                 
-                !call MPI_bcast(total_load, 1, MPI_INTEGER8, 0, MPI_COMM_WORLD, i_error); assert_eq(i_error, 0)
-                ! MPI_bcast is not working properly on SuperMUC nodes, so I am using the "manual" broadcasting below:
-                if (rank_MPI == 0) then
-                    ! 0 sends to all others
-                    do i = 1, size_MPI - 1
-                        call MPI_Send(total_load, 1, MPI_INTEGER8, i, 0, MPI_COMM_WORLD, i_error); assert_eq(i_error, 0)
-                    end do
-                else
-                    ! all others receive from 0
-                    call MPI_Recv(total_load, 1, MPI_INTEGER8, 0, 0, MPI_COMM_WORLD, status, i_error); assert_eq(i_error, 0)
-                end if
+                call MPI_bcast(total_load, 1, MPI_INTEGER8, 0, MPI_COMM_WORLD, i_error); assert_eq(i_error, 0)
                          
                 !gather load
                 if (rank_MPI == 0) then

@@ -589,10 +589,6 @@ subroutine traverse_grids(traversal, src_grid, dest_grid)
 
     call thread_stats%stop_time(traversal_time)
     
-    !$omp critical
-        time_test = time_test + thread_stats%get_time(traversal_time)
-    !$omp end critical
-
     do i_dest_section = i_first_local_section, i_last_local_section
         call set_stats_counters_dest(traversal%sections(i_dest_section)%stats, dest_grid%sections%elements_alloc(i_dest_section))
 
@@ -605,6 +601,10 @@ subroutine traverse_grids(traversal, src_grid, dest_grid)
 
         thread_stats = thread_stats + traversal%sections(i_dest_section)%stats
     end do
+    
+    !$omp critical
+        !time_test = time_test + thread_stats%get_time(pre_compute_time) + thread_stats%get_time(inner_compute_time) + thread_stats%get_time(post_compute_time)
+    !$omp end critical
 
     traversal%threads(i_thread)%stats = traversal%threads(i_thread)%stats + thread_stats
     dest_grid%threads%elements(i_thread)%stats = dest_grid%threads%elements(i_thread)%stats + thread_stats

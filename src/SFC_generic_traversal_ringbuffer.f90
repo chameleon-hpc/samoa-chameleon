@@ -357,10 +357,10 @@ subroutine traverse(traversal, grid)
 
     call thread_stats%start_time(sync_time)
     call duplicate_boundary_data(grid, edge_write_wrapper_op, node_write_wrapper_op)
-    call thread_stats%stop_time(sync_time)
 
     !wait until all boundary data has been copied
     !$omp barrier
+    call thread_stats%stop_time(sync_time)
 
     do i_section = i_first_local_section, i_last_local_section
 #       if defined(_OPENMP_TASKS)
@@ -389,6 +389,7 @@ subroutine traverse(traversal, grid)
             !$omp end task
 #       endif
     end do
+    call thread_stats%start_time(sync_time)
 
 #   if defined(_OPENMP_TASKS)
         !$omp taskwait
@@ -396,6 +397,7 @@ subroutine traverse(traversal, grid)
 
     !wait until all computation is done
     !$omp barrier
+    call thread_stats%stop_time(sync_time)
 
     !sync and call post traversal operator
     call thread_stats%start_time(sync_time)
@@ -408,7 +410,6 @@ subroutine traverse(traversal, grid)
 #   else
         call collect_boundary_data(grid, edge_merge_wrapper_op, node_merge_wrapper_op, mpi_node_type_optional=traversal%mpi_node_type, mpi_edge_type_optional=traversal%mpi_edge_type)
 #   endif
-    call thread_stats%stop_time(sync_time)
 
     do i_section = i_first_local_section, i_last_local_section
         assert_eq(i_section, grid%sections%elements_alloc(i_section)%index)
@@ -420,6 +421,7 @@ subroutine traverse(traversal, grid)
     call grid%reverse()
 
     !$omp barrier
+    call thread_stats%stop_time(sync_time)
 
     call thread_stats%start_time(barrier_time)
 

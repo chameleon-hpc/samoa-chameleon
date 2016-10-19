@@ -305,7 +305,7 @@ subroutine traverse_in_place(traversal, grid)
 #	    if !defined(_GT_INPUT_DEST)
 	        !exchange source grid sections with neighbors
             call thread_stats%start_time(load_balancing_time)
-		    call distribute_load(grid, 0.0)
+		    call distribute_load(grid)
             call thread_stats%stop_time(load_balancing_time)
 #	    endif
     end if
@@ -347,7 +347,7 @@ subroutine traverse_in_place(traversal, grid)
 
 	        !exchange destination grid sections with neighbors
             call thread_stats%start_time(load_balancing_time)
-		    call distribute_load(grid, 0.0)
+		    call distribute_load(grid)
             call thread_stats%stop_time(load_balancing_time)
 #	    endif
     end if

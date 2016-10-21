@@ -22,7 +22,7 @@
 
         type num_traversal_data
 #           if defined (_SWE_PATCH)
-                type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE, 2)                    :: Q_in
+                logical, DIMENSION(_SWE_PATCH_ORDER_SQUARE)                         :: dry_cell ! used only in coarsen operator
 #           else
                 type(t_state), dimension(_SWE_CELL_SIZE, 2)                         :: Q_in
 #           endif
@@ -136,7 +136,7 @@
                 integer                                                                     :: i_plotter_type, j, row, col, cell_id
                 integer, DIMENSION(_SWE_PATCH_ORDER_SQUARE,2)                               :: child
                 real (kind = GRID_SR), DIMENSION(2)                                         :: r_coords     !< cell coords within patch
-                logical, save, DIMENSION(_SWE_PATCH_ORDER_SQUARE)                           :: dry_cell_in, dry_cell_out
+                logical, DIMENSION(_SWE_PATCH_ORDER_SQUARE)                                 :: dry_cell_in, dry_cell_out
 #           else
                 type(t_state), dimension(_SWE_CELL_SIZE)                                    :: Q_in
                 type(t_state), dimension(_SWE_CELL_SIZE, 2)                                 :: Q_out
@@ -152,6 +152,7 @@
                 i_plotter_type = src_element%cell%geometry%i_plotter_type
                 
                 dry_cell_in = .false.
+                dry_cell_out = .false.
                 
                 do i=1, size(refinement_path)
                     ! compute 1st or 2nd child depending on orientation and refinement_path(i)
@@ -255,10 +256,8 @@
 #           if defined(_SWE_PATCH)
                 integer                                                                     :: j
                 integer, DIMENSION(_SWE_PATCH_ORDER_SQUARE,2)                               :: child
-                logical, save, DIMENSION(_SWE_PATCH_ORDER_SQUARE)                           :: dry_cell
 #           else
                 type(t_state), dimension(_SWE_CELL_SIZE)                                :: Q_out
-                logical, save                                                           :: dry_cell
 #           endif
 
 #           if defined(_SWE_PATCH)
@@ -273,9 +272,9 @@
                 end if
                 
                 if (refinement_path(1) == 1) then 
-                    dry_cell = .false.
+                    traversal%dry_cell = .false.
                 end if
-
+                
                 associate (data => dest_element%cell%data_pers)
                     ! initialize all values with zero - the final value is an average of 4 children's cells
                     if (refinement_path(1) == 1) then
@@ -294,7 +293,7 @@
                             data%B(child(i,j)) = data%B(child(i,j)) + src_element%cell%data_pers%B(i)
                             
                             if (src_element%cell%data_pers%H(i) < src_element%cell%data_pers%B(i) + cfg%dry_tolerance) then
-                                dry_cell(child(i,j)) = .true.
+                                traversal%dry_cell(child(i,j)) = .true.
                             end if
                         end do
                     end do
@@ -308,7 +307,7 @@
                         
 #                       if defined(_ASAGI)
                             ! if one of the cells was dry, we need to check if the coarsen cell should be initialized with h=0
-                            where (dry_cell(:))
+                            where (traversal%dry_cell(:))
                                 data%H = max (0.0_GRID_SR, data%B)
                                 data%HU = 0.0_GRID_SR
                                 data%HV = 0.0_GRID_SR
@@ -318,23 +317,12 @@
                     
                 end associate
 
-
 #           else
 
 			!state vector
 			
 			i = refinement_path(1)
 			call gv_Q%read( src_element%t_element_base, traversal%Q_in(:, i))
-			
-			! reset dry_cell to false
-			if (i == 1) then
-                dry_cell = .false.
-            end if
-            
-            !check if one of the cells is dry
-            if (traversal%Q_in(1, i)%h < traversal%Q_in(1, i)%b + cfg%dry_tolerance) then
-                dry_cell = .true.
-            end if
 
             !convert momentum to velocity
 			!traversal%Q_in(1, i)%p = 1.0_GRID_SR / (traversal%Q_in(1, i)%h - traversal%Q_in(1, i)%b) * traversal%Q_in(1, i)%p
@@ -349,8 +337,8 @@
                 !Q_out(1)%p = (Q_out(1)%h - Q_out(1)%b) * Q_out(1)%p
                 
 #               if defined(_ASAGI)
-                    ! if one of the cells was dry, we need to check if the coarsen cell should be initialized with h=0
-                    if (dry_cell) then
+                    ! if one of the input cells was dry, we need to check if the coarse cell should be initialized with h=0
+                    if (traversal%Q_in(1, 1)%h < traversal%Q_in(1, 1)%b + cfg%dry_tolerance .or. traversal%Q_in(1, 2)%h < traversal%Q_in(1, 2)%b + cfg%dry_tolerance) then
                         Q_out(1)%h = max(0.0_GRID_SR, Q_out(1)%b)
                         Q_out(1)%p = [0.0_GRID_SR, 0.0_GRID_SR]
                     end if

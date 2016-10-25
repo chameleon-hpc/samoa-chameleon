@@ -66,7 +66,7 @@
 
 #		define _GT_ELEMENT_OP						element_op
 
-#		define _GT_CELL_TO_EDGE_OP				    cell_to_edge_op
+!#		define _GT_CELL_TO_EDGE_OP				    cell_to_edge_op
 
 #		include "SFC_generic_traversal_ringbuffer.f90"
 
@@ -79,10 +79,9 @@
             end if
 
 
-                  ! if(traversal%i_output_iteration .eq. 1) then
-                  !     stop
-                  ! end if
-
+            ! if(traversal%i_output_iteration .eq. 3) then
+            !    stop
+            ! end if
             call scatter(traversal%s_file_stamp, traversal%sections%s_file_stamp)
             call scatter(traversal%i_output_iteration, traversal%sections%i_output_iteration)
 
@@ -314,7 +313,12 @@
 #			if defined(_SWE_PATCH)
 				type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE):: Q
 				integer											:: j, row, col, cell_id
-
+#if defined(_SWE_DG)    
+    type(num_cell_data_pers) :: data_temp
+    if(element%cell%data_pers%troubled .le. 0) then
+       call element%cell%data_pers%convert_dg_to_fv()
+    end if
+#endif
                
                 row=1
                 col=1
@@ -326,6 +330,14 @@
                     traversal%cell_data(traversal%i_cell_data_index)%i_plotter_type = element%cell%geometry%i_plotter_type
                     traversal%cell_data(traversal%i_cell_data_index)%refinement = element%cell%geometry%refinement
                     traversal%cell_data(traversal%i_cell_data_index)%troubled = element%cell%data_pers%troubled
+
+                    ! traversal%cell_data(traversal%i_cell_data_index)%troubled = 0
+                    ! do i=1,size(element%edges)
+                    !    if(element%edges(i)%ptr%data_pers%troubled)then
+                    !       traversal%cell_data(traversal%i_cell_data_index)%troubled = traversal%cell_data(traversal%i_cell_data_index)%troubled +1
+                    !    end if
+                    ! end do
+
                     do i=1,3
                         traversal%point_data(traversal%i_point_data_index + i - 1)%coords = cfg%scaling * samoa_barycentric_to_world_point(element%transform_data, SWE_PATCH_geometry%coords(:,i, j)) + cfg%offset
                     end do
@@ -367,7 +379,7 @@
 			traversal%cell_data(traversal%i_cell_data_index)%depth = element%cell%geometry%i_depth
                         traversal%cell_data(traversal%i_cell_data_index)%i_plotter_type = element%cell%geometry%i_plotter_type
                         traversal%cell_data(traversal%i_cell_data_index)%refinement = element%cell%geometry%refinement
-                        traversal%cell_data(traversal%i_cell_data_index)%troubled = element%cell%data_pers%troubled
+                        traversal%cell_data(traversal%i_cell_data_index)%troubled =  element%cell%data_pers%troubled
 
 			select case (i_element_order)
 				case (2)
@@ -437,7 +449,7 @@
                 where (traversal%cell_data(:)%Q%h < traversal%cell_data(:)%Q%b + cfg%dry_tolerance )
                     traversal%cell_data(:)%Q%h = min(0.0_GRID_SR, traversal%cell_data(:)%Q%b)
                 end where
-
+                
 		end subroutine
 	END MODULE
 #endif

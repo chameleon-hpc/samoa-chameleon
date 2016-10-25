@@ -19,6 +19,7 @@
 		use SWE_ascii_output
 		use SWE_point_output
                 use SWE_dg_predictor
+                use SWE_dg_timestep
 		use SWE_euler_timestep
 #       if defined(_SWE_PATCH)
             use SWE_PATCH
@@ -45,7 +46,8 @@
 	        type(t_swe_point_output_traversal)	    :: point_output
 
             type(t_swe_euler_timestep_traversal)    :: euler
-            type(t_swe_dg_predictor_traversal)    :: dg_predictor
+            type(t_swe_dg_predictor_traversal)      :: dg_predictor
+            type(t_swe_dg_timestep_traversal)       :: dg_timestep
             type(t_swe_adaption_traversal)          :: adaption
 
             contains
@@ -97,6 +99,7 @@
             call swe%xml_output%create()
             call swe%ascii_output%create()
             call swe%dg_predictor%create()
+            call swe%dg_timestep%create()
             call swe%euler%create()
             call swe%adaption%create()
 		end subroutine
@@ -199,6 +202,7 @@
             call swe%ascii_output%destroy()
             call swe%point_output%destroy()
             call swe%dg_predictor%destroy()
+            call swe%dg_timestep%destroy()
             call swe%euler%destroy()
             call swe%adaption%destroy()
 
@@ -284,7 +288,7 @@
 
 				i_initial_step = i_initial_step + 1
 			end do
-   call swe%dg_predictor%traverse(grid)
+
             grid_info = grid%get_info(MPI_SUM, .true.)
 
             if (rank_MPI == 0) then
@@ -347,15 +351,18 @@
 
                     i_time_step = i_time_step + 1
 
+                    call swe%dg_predictor%traverse(grid)
 
                     if (cfg%i_adapt_time_steps > 0 .and. mod(i_time_step, cfg%i_adapt_time_steps) == 0) then
                         !refine grid
                         call swe%adaption%traverse(grid)
                     end if
 
-                    !do an euler time step
-                    call swe%dg_predictor%traverse(grid)
+                    call swe%dg_timestep%traverse(grid)
+
+
                     call swe%euler%traverse(grid)
+
 
                     !displace time-dependent bathymetry
                     call swe%displace%traverse(grid)
@@ -408,19 +415,22 @@
 				i_time_step = i_time_step + 1
 
 
+!                print*,"dg_pred"
+                call swe%dg_predictor%traverse(grid)
+!                call swe%xml_output%traverse(grid)
+!                print*,"adapt"
                 if (cfg%i_adapt_time_steps > 0 .and. mod(i_time_step, cfg%i_adapt_time_steps) == 0) then
-                    !refine grid
                     call swe%adaption%traverse(grid)
                 end if
+!                call swe%xml_output%traverse(grid)
 
+!                print*,"dg time"
+                call swe%dg_timestep%traverse(grid)
+!                call swe%xml_output%traverse(grid)
 
-                    ! if(cfg%l_gridoutput) then
-                    !     call swe%xml_output%traverse(grid)
-                    ! end if
-
+!                print*,"euler"                
                 call swe%euler%traverse(grid)
-
-                call swe%dg_predictor%traverse(grid)
+!                call swe%xml_output%traverse(grid)
 
                 grid_info%i_cells = grid%get_cells(MPI_SUM, .true.)
                 if (rank_MPI == 0) then

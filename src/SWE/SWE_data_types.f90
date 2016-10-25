@@ -87,6 +87,11 @@
 		!> persistent scenario data on an edge
 		type num_edge_data_pers
 			integer (kind = BYTE), dimension(0)											:: dummy					!< no data
+
+#if defined(_SWE_DG)
+                 logical :: troubled
+#endif                       
+
 		END type num_edge_data_pers
 
 		!> persistent scenario data on a cell
@@ -102,7 +107,7 @@
                         real(kind=GRID_SR) :: b_x(size(st_gl_node_vals,1)), b_y(size(st_gl_node_vals,1))
 #endif                       
 
-                        !troubled: -1 was troubled 0= not troubled 1= drying 2 = neighbour troubled
+                        integer :: troubled_old
                         integer :: troubled
 #                       endif
 			type(t_state), DIMENSION(_SWE_CELL_SIZE)			:: Q !TODO: remove this and others Qs --> must handle conflicts with t_gv_Q methods afterwards...
@@ -116,10 +121,8 @@
 
                           procedure :: convert_fv_to_dg => convert_fv_to_dg
                           procedure :: convert_dg_to_fv => convert_dg_to_fv
+                          procedure :: convert_dg_to_fv_bathymetry => convert_dg_to_fv_bathymetry
                           procedure :: convert_fv_to_dg_bathymetry => convert_fv_to_dg_bathymetry
-                          
-                          procedure :: set_troubled => set_troubled
-                          
                           procedure :: vec_to_dofs_dg => vec_to_dofs_dg
                           procedure :: vec_to_dofs_dg_p => vec_to_dofs_dg_p
                           procedure :: dofs_to_vec_dg  => dofs_to_vec_dg
@@ -170,9 +173,6 @@
 		!> temporary scenario data on an edge (deleted after each traversal)
 		type num_edge_data_temp
 			integer (kind = BYTE), dimension(0)										:: dummy					!< no data
-#if defined(_SWE_DG)
-                        real(kind=GRID_SR) :: dt
-#endif                       
 		END type num_edge_data_temp
 
 		!> temporary scenario data on a cell (deleted after each traversal)
@@ -211,6 +211,7 @@
                    end if
 
                    q(:,1)=dofs%H-dofs%b
+!                   q(:,1)=dofs%H
                    q(:,2)=dofs%HU
                    q(:,3)=dofs%HV
 
@@ -225,7 +226,7 @@
                    call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,q_temp(:,1))
                    call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,q_temp(:,2))
                    call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,q_temp(:,3))
-                   
+!                   q_temp(1:_SWE_DG_DOFS,1)=q_temp(1:_SWE_DG_DOFS,1) - dofs%Q_DG%b
                    q_dg=q_temp(1:_SWE_DG_DOFS,:)
 
                    !smooth converted height, importrant for stready state
@@ -247,30 +248,38 @@
 
                  end subroutine convert_fv_to_dg
                    
-                 subroutine convert_dg_to_fv(dofs,dry_tolerance)
+                 subroutine convert_dg_to_fv(dofs)
                    class(num_cell_data_pers) :: dofs
                    real(kind=GRID_SR)        :: q(_SWE_DG_DOFS,3)
                    real(kind=GRID_SR)        :: fv_temp(_SWE_PATCH_ORDER*_SWE_PATCH_ORDER,3)
-                   real(kind=GRID_SR) :: dry_tolerance
 
                    call dofs%dofs_to_vec_dg(q)
 
                    !PATCHES store h+b DG not
-                   q(:,1)  = q(:,1) + dofs%Q_DG(:)%b
+!                   q(:,1)  = q(:,1) + dofs%Q_DG%b
 
                    fv_temp=matmul(phi,q)*ref_triangle_size_inv
 
-                   dofs%H=fv_temp(:,1)
+                   dofs%H=fv_temp(:,1) +dofs%B
                    dofs%HU=fv_temp(:,2)
                    dofs%HV=fv_temp(:,3)
 
-                  where (dofs%H <= dofs%B + dry_tolerance) 
-                     dofs%H = dofs%B
-                     dofs%HU = 0.0_GRID_SR
-                     dofs%HV = 0.0_GRID_SR
-                  end where
-
                  end subroutine convert_dg_to_fv
+
+                 subroutine convert_dg_to_fv_bathymetry(dofs)
+                   class(num_cell_data_pers) :: dofs
+                   real(kind=GRID_SR)        :: q(_SWE_DG_DOFS)
+                   real(kind=GRID_SR)        :: fv_temp(_SWE_PATCH_ORDER*_SWE_PATCH_ORDER)
+
+                   q = dofs%Q_DG%B
+
+                   fv_temp=matmul(phi,q)*ref_triangle_size_inv
+
+                   dofs%B=fv_temp
+
+                 end subroutine convert_dg_to_fv_bathymetry
+
+
 
                  subroutine convert_fv_to_dg_bathymetry(dofs,normals,ini)
                    class(num_cell_data_pers) :: dofs
@@ -451,68 +460,6 @@
                         end do
 
                       end subroutine vec_to_dofs_dg_p
-
-                subroutine set_troubled(f,dry_tolerance)
-                  class (num_cell_data_pers),intent(inout) 		        :: f
-                  logical :: drying
-                  real(kind=GRID_SR) :: dry_tolerance
-
-                  if(f%troubled.eq.0) then
-                     call f%convert_dg_to_fv(dry_tolerance)
-                  end if
-
-                  drying = .not.all(f%h-f%b > dry_tolerance)
-
-                  select case (f%troubled)
-                     case(-3:-1)
-                        if (drying) then
-                           f%troubled= 1
-                           call f%convert_dg_to_fv(dry_tolerance)
-                        else
-                           f%troubled= 0
-                        end if
-                     case(0)
-                        if (drying) then
-                           f%troubled= 1
-                           call f%convert_dg_to_fv(dry_tolerance)
-                        end if
-                     case(1)
-                        if (.not.drying) then
-                           f%troubled= -1
-                           call f%convert_fv_to_dg()
-                           if(.not.all(f%Q_DG%h > dry_tolerance))then
-                              f%troubled=1
-                           end if
-                        end if
-                     case(2)
-                        if (drying) then
-                           f%troubled= 1
-                        else
-                           f%troubled=-2
-                           call f%convert_fv_to_dg()
-
-                           if(.not.all(f%Q_DG%h > dry_tolerance))then
-                              f%troubled=1
-                           end if
-                        end if
-                     case(3)
-                        if(drying) then
-                           f%troubled= 1
-                        else
-                           f%troubled=-3
-                           call f%convert_fv_to_dg()
-                           if(.not.all(f%Q_DG%h > dry_tolerance))then
-                              f%troubled=1
-                           end if
-                        end if
-                     case default
-                        !print*,"unknown troubled state"
-                        stop
-                     end select
-
-                  f%troubled=0
-
-                end subroutine set_troubled
 
 	END MODULE SWE_data_types
 #endif

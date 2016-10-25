@@ -1,5 +1,5 @@
 scenario='swe'
-swe_dg_order='1'
+swe_dg_order='2'
 #swe_dg_basis='bernstein_l2'
 swe_dg_basis='bernstein_nodal'
 #swe_scenario='splashing_pool'

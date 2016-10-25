@@ -412,11 +412,11 @@
                 element%cell%data_pers%HV = Q(:)%p(2)
 
 
-                where (element%cell%data_pers%H <= element%cell%data_pers%B + cfg%dry_tolerance) 
-                   element%cell%data_pers%H  = element%cell%data_pers%B
-                   element%cell%data_pers%HU = 0.0_GRID_SR
-                   element%cell%data_pers%HV = 0.0_GRID_SR
-                end where
+                ! where (element%cell%data_pers%H <= element%cell%data_pers%B + cfg%dry_tolerance) 
+                !    element%cell%data_pers%H  = element%cell%data_pers%B
+                !    element%cell%data_pers%HU = 0.0_GRID_SR
+                !    element%cell%data_pers%HV = 0.0_GRID_SR
+                ! end where
 
 #if defined(_SWE_DG)                
 
@@ -424,15 +424,22 @@
 
                 call element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian,.true.)
 
-                call element%cell%data_pers%convert_fv_to_dg(.true.)
+!                call element%cell%data_pers%convert_fv_to_dg(.true.)
+                call element%cell%data_pers%convert_fv_to_dg()
                 
-                if(.not.all(element%cell%data_pers%h-element%cell%data_pers%b > cfg%dry_tolerance) .or.&
-                   .not.all(element%cell%data_pers%Q_DG%H > cfg%dry_tolerance) )then
+                if(.not.all(element%cell%data_pers%h-element%cell%data_pers%b > cfg%dry_tolerance * 100.0) .or.&
+                   .not.all(element%cell%data_pers%Q_DG%H > cfg%dry_tolerance * 100.0) )then
                       element%cell%data_pers%troubled = 1
+                      element%cell%data_pers%Q_DG_P(:)%H=0
+                      element%cell%data_pers%Q_DG_P(:)%p(1)=0
+                      element%cell%data_pers%Q_DG_P(:)%p(2)=0
+                      element%cell%data_pers%Q_DG_P(1:_SWE_DG_DOFS) = element%cell%data_pers%Q_DG
+                      
                    else
                       element%cell%data_pers%troubled = 0                      
                       call dg_predictor(element%cell,section%r_dt,element%cell%geometry%get_scaling())
                 end if
+!                element%cell%data_pers%troubled = 1                      
 
 #endif
 
@@ -598,7 +605,7 @@
 
 
 #			if defined(_ASAGI)
-				Q%h = 0.0_GRID_SR
+p				Q%h = 0.0_GRID_SR
 #			else
 
     Q = SWE_Scenario_get_initial_Q(xs)

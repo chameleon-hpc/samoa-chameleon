@@ -179,7 +179,9 @@
 
 #if defined(_SWE_DG)			
           !            print*,"refine"
-          call dest_element%cell%data_pers%convert_dg_to_fv()
+          if(dest_element%cell%data_pers%troubled.le.0) then
+             call dest_element%cell%data_pers%convert_dg_to_fv()
+          end if
 #endif
 
 #           if defined (_SWE_PATCH)
@@ -337,7 +339,10 @@
 
 # if defined(_SWE_DG)
           !                print*,"coarsen"
-          call dest_element%cell%data_pers%convert_dg_to_fv()
+          if(dest_element%cell%data_pers%troubled.le.0) then
+             call dest_element%cell%data_pers%convert_dg_to_fv()
+          end if
+
 #endif
 
 

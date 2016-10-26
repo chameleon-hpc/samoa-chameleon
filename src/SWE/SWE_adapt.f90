@@ -1,4 +1,4 @@
-! Sam(oa)² - SFCs and Adaptive Meshes for Oceanic And Other Applications
+  ! Sam(oa)² - SFCs and Adaptive Meshes for Oceanic And Other Applications
 ! Copyright (C) 2010 Oliver Meister, Kaveh Rahnema
 ! This program is licensed under the GPL, for details see the file LICENSE
 
@@ -6,31 +6,31 @@
 #include "Compilation_control.f90"
 
 #if defined(_SWE)
-	MODULE SWE_Adapt
-		use SFC_edge_traversal
-		use Conformity
-
-		use Samoa_swe
-		use Tools_noise
-		use SWE_initialize_bathymetry
-		use SWE_euler_timestep
-#       if defined (_SWE_PATCH)
-            use SWE_PATCH
-#       endif
+  MODULE SWE_Adapt
+    use SFC_edge_traversal
+    use Conformity
+    
+    use Samoa_swe
+    use Tools_noise
+    use SWE_initialize_bathymetry
+    use SWE_euler_timestep
+#if defined (_SWE_PATCH)
+    use SWE_PATCH
+#endif
 #if defined(_SWE_DG)
-            use SWE_dg_predictor
-            use SWE_dg_timestep
+    use SWE_dg_predictor
+    use SWE_dg_timestep
 #endif
 
-		implicit none
+    implicit none
 
-        type num_traversal_data
-#           if defined (_SWE_PATCH)
-                type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE, 2)                    :: Q_in
-#           else
-                type(t_state), dimension(_SWE_CELL_SIZE, 2)                         :: Q_in
-#           endif
-        end type num_traversal_data
+    type num_traversal_data
+#if defined (_SWE_PATCH)
+       logical, DIMENSION(_SWE_PATCH_ORDER_SQUARE)                         :: dry_cell ! used only in coarsen operator
+#else
+       type(t_state), dimension(_SWE_CELL_SIZE, 2)                         :: Q_in
+#endif
+    end type num_traversal_data
 
 
 		type(t_gv_Q)							:: gv_Q
@@ -153,22 +153,22 @@
 
 
         end subroutine transfer_op
+        
 
         subroutine refine_op(traversal, section, src_element, dest_element, refinement_path)
-          type(t_swe_adaption_traversal), intent(inout)	                            :: traversal
-          type(t_grid_section), intent(inout)										    :: section
-          type(t_traversal_element), intent(inout)									:: src_element
-          type(t_traversal_element), intent(inout)									:: dest_element
-          integer, dimension(:), intent(in)											:: refinement_path
-
+          type(t_swe_adaption_traversal), intent(inout)	                        :: traversal
+          type(t_grid_section), intent(inout)					:: section
+          type(t_traversal_element), intent(inout)				:: src_element
+          type(t_traversal_element), intent(inout)				:: dest_element
+          integer, dimension(:), intent(in)					:: refinement_path
+          
 #           if defined(_SWE_PATCH)
-
-          real (kind=GRID_SR), dimension(_SWE_PATCH_ORDER_SQUARE)                     :: H_in, HU_in, HV_in, B_in
-          real (kind=GRID_SR), dimension(_SWE_PATCH_ORDER_SQUARE)                     :: H_out, HU_out, HV_out, B_out
-          integer                                                                     :: i_plotter_type, j, row, col, cell_id
-          integer, DIMENSION(_SWE_PATCH_ORDER_SQUARE,2)                               :: child
-          real (kind = GRID_SR), DIMENSION(2)                                         :: r_coords     !< cell coords within patch
-          logical, save, DIMENSION(_SWE_PATCH_ORDER_SQUARE)                           :: dry_cell_in, dry_cell_out
+                real (kind=GRID_SR), dimension(_SWE_PATCH_ORDER_SQUARE)                     :: H_in, HU_in, HV_in, B_in
+                real (kind=GRID_SR), dimension(_SWE_PATCH_ORDER_SQUARE)                     :: H_out, HU_out, HV_out, B_out
+                integer                                                                     :: i_plotter_type, j, row, col, cell_id
+                integer, DIMENSION(_SWE_PATCH_ORDER_SQUARE,2)                               :: child
+                real (kind = GRID_SR), DIMENSION(2)                                         :: r_coords     !< cell coords within patch
+                logical, DIMENSION(_SWE_PATCH_ORDER_SQUARE)                                 :: dry_cell_in, dry_cell_out
 #           else
           type(t_state), dimension(_SWE_CELL_SIZE)                                    :: Q_in
           type(t_state), dimension(_SWE_CELL_SIZE, 2)                                 :: Q_out
@@ -184,60 +184,61 @@
           end if
 #endif
 
-#           if defined (_SWE_PATCH)
-          H_in = src_element%cell%data_pers%H
-          HU_in = src_element%cell%data_pers%HU
-          HV_in = src_element%cell%data_pers%HV
-          B_in = src_element%cell%data_pers%B
-          i_plotter_type = src_element%cell%geometry%i_plotter_type
-
-          dry_cell_in = .false.
-
-          do i=1, size(refinement_path)
-             ! compute 1st or 2nd child depending on orientation and refinement_path(i)
-             ! and store it in output arrays.
-             ! Store it in input arrays for next refinement.
-
-             ! decide which child is being computed (first = left to hypot, second = right to hypot.)
-             if ( (refinement_path(i) == 1 .and. i_plotter_type>0) .or. (refinement_path(i) == 2 .and. i_plotter_type<0)) then
-                child = SWE_PATCH_GEOMETRY%first_child
-             else
-                child = SWE_PATCH_GEOMETRY%second_child
-             end if
-
-             ! the child patch values are always averages of two values from the parent patch
-             do j=1, _SWE_PATCH_ORDER_SQUARE
-                H_out(j) = 0.5*( H_in(child(j,1)) + H_in(child(j,2)) )
-                HU_out(j) = 0.5*( HU_in(child(j,1)) + HU_in(child(j,2)) )
-                HV_out(j) = 0.5*( HV_in(child(j,1)) + HV_in(child(j,2)) )
-
-                ! find out if resulting fine cell was derived from a dry cell
-                if (i == 1 .and. (H_in(child(j,1)) < B_in(child(j,1)) + cfg%dry_tolerance .or. H_in(child(j,2)) < B_in(child(j,2)) + cfg%dry_tolerance)) then
-                   dry_cell_out(j) = .true.
-                end if
-                if (i == 2 .and. (dry_cell_in(child(j,1)) .or. dry_cell_in(child(j,2)))) then
-                   dry_cell_out(j) = .true.
-                end if
-             end do
-
-             ! refined patches will have inverse orientation
-             i_plotter_type = -1 * i_plotter_type
-
-             ! copy to input arrays for next iteration
-             H_in = H_out
-             HU_in = HU_out
-             HV_in = HV_out
-             dry_cell_in = dry_cell_out
-          end do
-
-          ! store results in dest_element
-          dest_element%cell%data_pers%H = H_out
-          dest_element%cell%data_pers%HU = HU_out
-          dest_element%cell%data_pers%HV = HV_out
-
-          ! get bathymetry
-          dest_element%cell%data_pers%B = get_bathymetry_at_patch(section, dest_element%t_element_base, section%r_time)
-
+#     if defined (_SWE_PATCH)
+                H_in = src_element%cell%data_pers%H
+                HU_in = src_element%cell%data_pers%HU
+                HV_in = src_element%cell%data_pers%HV
+                B_in = src_element%cell%data_pers%B
+                i_plotter_type = src_element%cell%geometry%i_plotter_type
+                
+                dry_cell_in = .false.
+                dry_cell_out = .false.
+                
+                do i=1, size(refinement_path)
+                    ! compute 1st or 2nd child depending on orientation and refinement_path(i)
+                    ! and store it in output arrays.
+                    ! Store it in input arrays for next refinement.
+                    
+                    ! decide which child is being computed (first = left to hypot, second = right to hypot.)
+                    if ( (refinement_path(i) == 1 .and. i_plotter_type>0) .or. (refinement_path(i) == 2 .and. i_plotter_type<0)) then
+                        child = SWE_PATCH_GEOMETRY%first_child
+                    else
+                        child = SWE_PATCH_GEOMETRY%second_child
+                    end if
+                    
+                    ! the child patch values are always averages of two values from the parent patch
+                    do j=1, _SWE_PATCH_ORDER_SQUARE
+                        H_out(j) = 0.5*( H_in(child(j,1)) + H_in(child(j,2)) )
+                        HU_out(j) = 0.5*( HU_in(child(j,1)) + HU_in(child(j,2)) )
+                        HV_out(j) = 0.5*( HV_in(child(j,1)) + HV_in(child(j,2)) )
+                        
+                        ! find out if resulting fine cell was derived from a dry cell
+                        if (i == 1 .and. (H_in(child(j,1)) < B_in(child(j,1)) + cfg%dry_tolerance .or. H_in(child(j,2)) < B_in(child(j,2)) + cfg%dry_tolerance)) then
+                            dry_cell_out(j) = .true.
+                        end if
+                        if (i == 2 .and. (dry_cell_in(child(j,1)) .or. dry_cell_in(child(j,2)))) then
+                            dry_cell_out(j) = .true.
+                        end if
+                    end do
+                    
+                    ! refined patches will have inverse orientation
+                    i_plotter_type = -1 * i_plotter_type
+                    
+                    ! copy to input arrays for next iteration
+                    H_in = H_out
+                    HU_in = HU_out
+                    HV_in = HV_out
+                    dry_cell_in = dry_cell_out
+                end do
+                
+                ! store results in dest_element
+                dest_element%cell%data_pers%H = H_out
+                dest_element%cell%data_pers%HU = HU_out
+                dest_element%cell%data_pers%HV = HV_out
+                
+                ! get bathymetry
+                dest_element%cell%data_pers%B = get_bathymetry_at_patch(section, dest_element%t_element_base, section%r_time)
+                
 #               if defined(_ASAGI)
           ! if cell was initially dry, we need to check if the fine cells should be initialized with h=0
           where (dry_cell_out(:))
@@ -246,13 +247,6 @@
              dest_element%cell%data_pers%HV = 0.0_GRID_SR
           end where
 #               endif
-
-          where (dry_cell_out(:))
-             dest_element%cell%data_pers%H = max (0.0_GRID_SR, dest_element%cell%data_pers%B)
-             dest_element%cell%data_pers%HU = 0.0_GRID_SR
-             dest_element%cell%data_pers%HV = 0.0_GRID_SR
-          end where
-
 
 #           else
           call gv_Q%read( src_element%t_element_base, Q_in)
@@ -317,8 +311,6 @@
           end if
 
 #endif
-
-
         end subroutine refine_op
 
         subroutine coarsen_op(traversal, section, src_element, dest_element, refinement_path)
@@ -329,12 +321,10 @@
           integer, dimension(:), intent(in)											:: refinement_path
           integer                                                                     :: i
 #           if defined(_SWE_PATCH)
-          integer                                                                     :: j
-          integer, DIMENSION(_SWE_PATCH_ORDER_SQUARE,2)                               :: child
-          logical, save, DIMENSION(_SWE_PATCH_ORDER_SQUARE)                           :: dry_cell
+                integer                                                                     :: j
+                integer, DIMENSION(_SWE_PATCH_ORDER_SQUARE,2)                               :: child
 #           else
-          type(t_state), dimension(_SWE_CELL_SIZE)                                :: Q_out
-          logical, save                                                           :: dry_cell
+                type(t_state), dimension(_SWE_CELL_SIZE)                                :: Q_out
 #           endif
 
 # if defined(_SWE_DG)
@@ -346,112 +336,92 @@
 #endif
 
 
-
 #           if defined(_SWE_PATCH)
-          !IMPORTANT: in the current samoa implementation, this subroutine is always called first with refinement_path=1, and then =2.
-          ! The below implementation supposes this. If the samoa core implementation changes, this may become invalid!
 
-          ! find out children order based on geometry
-          if ((refinement_path(1) == 1 .and. dest_element%cell%geometry%i_plotter_type>0) .or. (refinement_path(1) == 2 .and. dest_element%cell%geometry%i_plotter_type<0)) then
-             child = SWE_PATCH_GEOMETRY%first_child
-          else
-             child = SWE_PATCH_GEOMETRY%second_child
-          end if
+                !IMPORTANT: in the current samoa implementation, this subroutine is always called first with refinement_path=1, and then =2.
+                ! The below implementation supposes this. If the samoa core implementation changes, this may become invalid!
 
-          if (refinement_path(1) == 1) then 
-             dry_cell = .false.
-          end if
-
-          associate (data => dest_element%cell%data_pers)
-            ! initialize all values with zero - the final value is an average of 4 children's cells
-          if (refinement_path(1) == 1) then
-             data%H = 0.0_GRID_SR
-             data%HU = 0.0_GRID_SR
-             data%HV = 0.0_GRID_SR
-             data%B = 0.0_GRID_SR
-          end if
-
-          ! sum all values to their respective cells
-          do i=1, _SWE_PATCH_ORDER_SQUARE
-             do j=1, 2
-                data%H(child(i,j)) = data%H(child(i,j)) + src_element%cell%data_pers%H(i)
-                data%HU(child(i,j)) = data%HU(child(i,j)) + src_element%cell%data_pers%HU(i)
-                data%HV(child(i,j)) = data%HV(child(i,j)) + src_element%cell%data_pers%HV(i)
-                data%B(child(i,j)) = data%B(child(i,j)) + src_element%cell%data_pers%B(i)
-
-                if (src_element%cell%data_pers%H(i) < src_element%cell%data_pers%B(i) + cfg%dry_tolerance) then
-                   dry_cell(child(i,j)) = .true.
+                ! find out children order based on geometry
+                if ((refinement_path(1) == 1 .and. dest_element%cell%geometry%i_plotter_type>0) .or. (refinement_path(1) == 2 .and. dest_element%cell%geometry%i_plotter_type<0)) then
+                    child = SWE_PATCH_GEOMETRY%first_child
+                else
+                    child = SWE_PATCH_GEOMETRY%second_child
                 end if
-             end do
-          end do
+                
+                if (refinement_path(1) == 1) then 
+                    traversal%dry_cell = .false.
+                end if
+                
+                associate (data => dest_element%cell%data_pers)
+                    ! initialize all values with zero - the final value is an average of 4 children's cells
+                    if (refinement_path(1) == 1) then
+                        data%H = 0.0_GRID_SR
+                        data%HU = 0.0_GRID_SR
+                        data%HV = 0.0_GRID_SR
+                        data%B = 0.0_GRID_SR
+                    end if
 
-          ! divide by 4 to compute the average of the 4 values
-          if (refinement_path(1) == 2) then
-             data%H = data%H * 0.25_GRID_SR
-             data%HU = data%HU * 0.25_GRID_SR
-             data%HV = data%HV * 0.25_GRID_SR
-             data%B = data%B * 0.25_GRID_SR
+                    ! sum all values to their respective cells
+                    do i=1, _SWE_PATCH_ORDER_SQUARE
+                        do j=1, 2
+                            data%H(child(i,j)) = data%H(child(i,j)) + src_element%cell%data_pers%H(i)
+                            data%HU(child(i,j)) = data%HU(child(i,j)) + src_element%cell%data_pers%HU(i)
+                            data%HV(child(i,j)) = data%HV(child(i,j)) + src_element%cell%data_pers%HV(i)
+                            data%B(child(i,j)) = data%B(child(i,j)) + src_element%cell%data_pers%B(i)
+                            
+                            if (src_element%cell%data_pers%H(i) < src_element%cell%data_pers%B(i) + cfg%dry_tolerance) then
+                                traversal%dry_cell(child(i,j)) = .true.
+                            end if
+                        end do
+                    end do
 
+                    ! divide by 4 to compute the average of the 4 values
+                    if (refinement_path(1) == 2) then
+                        data%H = data%H * 0.25_GRID_SR
+                        data%HU = data%HU * 0.25_GRID_SR
+                        data%HV = data%HV * 0.25_GRID_SR
+                        data%B = data%B * 0.25_GRID_SR
+                        
 #                       if defined(_ASAGI)
-             ! if one of the cells was dry, we need to check if the coarsen cell should be initialized with h=0
-             where (dry_cell(:))
-                data%H = max (0.0_GRID_SR, data%B)
-                data%HU = 0.0_GRID_SR
-                data%HV = 0.0_GRID_SR
-             end where
+                            ! if one of the cells was dry, we need to check if the coarsen cell should be initialized with h=0
+                            where (traversal%dry_cell(:))
+                                data%H = max (0.0_GRID_SR, data%B)
+                                data%HU = 0.0_GRID_SR
+                                data%HV = 0.0_GRID_SR
+                            end where
+
 #                       endif
-
-             where (dry_cell(:))
-                data%H = max (0.0_GRID_SR, data%B)
-                data%HU = 0.0_GRID_SR
-                data%HV = 0.0_GRID_SR
-             end where
-
           end if
 
         end associate
 
-
 #           else
 
         !state vector
-
+        
         i = refinement_path(1)
         call gv_Q%read( src_element%t_element_base, traversal%Q_in(:, i))
+        
+            !convert momentum to velocity
+			!traversal%Q_in(1, i)%p = 1.0_GRID_SR / (traversal%Q_in(1, i)%h - traversal%Q_in(1, i)%b) * traversal%Q_in(1, i)%p
 
-        ! reset dry_cell to false
-        if (i == 1) then
-           dry_cell = .false.
-        end if
+			if (i > 1) then
+				call t_basis_Q_merge(traversal%Q_in(:, 1)%h,		traversal%Q_in(:, 2)%h,		Q_out%h)
+				call t_basis_Q_merge(traversal%Q_in(:, 1)%p(1),	    traversal%Q_in(:, 2)%p(1),	Q_out%p(1))
+				call t_basis_Q_merge(traversal%Q_in(:, 1)%p(2),	    traversal%Q_in(:, 2)%p(2),	Q_out%p(2))
+				call t_basis_Q_merge(traversal%Q_in(:, 1)%b,		traversal%Q_in(:, 2)%b,		Q_out%b)
 
-        !check if one of the cells is dry
-        if (traversal%Q_in(1, i)%h < traversal%Q_in(1, i)%b + cfg%dry_tolerance) then
-           dry_cell = .true.
-        end if
+                !convert velocity back to momentum
+                !Q_out(1)%p = (Q_out(1)%h - Q_out(1)%b) * Q_out(1)%p
+                
+#               if defined(_ASAGI)
+                    ! if one of the input cells was dry, we need to check if the coarse cell should be initialized with h=0
+                    if (traversal%Q_in(1, 1)%h < traversal%Q_in(1, 1)%b + cfg%dry_tolerance .or. traversal%Q_in(1, 2)%h < traversal%Q_in(1, 2)%b + cfg%dry_tolerance) then
+                        Q_out(1)%h = max(0.0_GRID_SR, Q_out(1)%b)
+                        Q_out(1)%p = [0.0_GRID_SR, 0.0_GRID_SR]
+                    end if
+#               endif
 
-        !convert momentum to velocity
-        !traversal%Q_in(1, i)%p = 1.0_GRID_SR / (traversal%Q_in(1, i)%h - traversal%Q_in(1, i)%b) * traversal%Q_in(1, i)%p
-
-        if (i > 1) then
-           call t_basis_Q_merge(traversal%Q_in(:, 1)%h,		traversal%Q_in(:, 2)%h,		Q_out%h)
-           call t_basis_Q_merge(traversal%Q_in(:, 1)%p(1),	    traversal%Q_in(:, 2)%p(1),	Q_out%p(1))
-           call t_basis_Q_merge(traversal%Q_in(:, 1)%p(2),	    traversal%Q_in(:, 2)%p(2),	Q_out%p(2))
-           call t_basis_Q_merge(traversal%Q_in(:, 1)%b,		traversal%Q_in(:, 2)%b,		Q_out%b)
-
-           !convert velocity back to momentum
-           !Q_out(1)%p = (Q_out(1)%h - Q_out(1)%b) * Q_out(1)%p
-
-#         if defined(_ASAGI)
-           ! if one of the cells was dry, we need to check if the coarsen cell should be initialized with h=0
-           if (dry_cell) then
-              Q_out(1)%h = max(0.0_GRID_SR, Q_out(1)%b)
-              Q_out(1)%p = [0.0_GRID_SR, 0.0_GRID_SR]
-           end if
-#         endif
-
-           call gv_Q%write( dest_element%t_element_base, Q_out)
-        end if
-#         endif
 
 #if defined(_SWE_DG)
         call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(dest_element%cell%geometry%i_plotter_type))%jacobian)
@@ -496,3 +466,4 @@
     END MODULE
 #endif
 
+    

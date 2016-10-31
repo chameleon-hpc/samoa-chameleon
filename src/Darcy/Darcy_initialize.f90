@@ -252,7 +252,7 @@
                     end if
 #               endif
 #           elif defined(_ADAPT_SAMPLE)
-                x(1:2) = samoa_barycentric_to_world_point(dest_element%transform_data, [1.0_SR / 3.0_SR, 1.0_SR / 3.0_SR])
+                x(1:2) = samoa_barycentric_to_world_point(element%transform_data, [1.0_SR / 3.0_SR, 1.0_SR / 3.0_SR])
 
 #               if (_DARCY_LAYERS > 0)
                     do level = 1, _DARCY_LAYERS

@@ -269,12 +269,13 @@ if (int(env['swe_patch_order'])) > 1 and env['swe_patch_solver']:
         Exit(-1)
         
 #Select artificial scenario for SWE (if not using ASAGI)
-if env['swe_scenario'] == 'radial_dam_break':
-  env['F90FLAGS'] += ' -D_SWE_SCENARIO_RADIAL_DAM_BREAK'
-elif env['swe_scenario'] == 'linear_dam_break':
-  env['F90FLAGS'] += ' -D_SWE_SCENARIO_LINEAR_DAM_BREAK'
-elif env['swe_scenario'] == 'oscillating_lake':
-  env['F90FLAGS'] += ' -D_SWE_SCENARIO_OSCILLATING_LAKE'
+if env['scenario'] == 'swe':
+  if env['swe_scenario'] == 'radial_dam_break':
+    env['F90FLAGS'] += ' -D_SWE_SCENARIO_RADIAL_DAM_BREAK'
+  elif env['swe_scenario'] == 'linear_dam_break':
+    env['F90FLAGS'] += ' -D_SWE_SCENARIO_LINEAR_DAM_BREAK'
+  elif env['swe_scenario'] == 'oscillating_lake':
+    env['F90FLAGS'] += ' -D_SWE_SCENARIO_OSCILLATING_LAKE'
 
 
 #Choose a mobility term

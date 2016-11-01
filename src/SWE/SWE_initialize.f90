@@ -242,7 +242,7 @@
 			real (kind = GRID_SR), intent(in)		            :: t						!< simulation time
             real (kind = GRID_SR)								:: bathymetry				!< bathymetry
 
-            real (kind = c_double)                              :: xs(3)
+            real (kind = GRID_SR)                              :: xs(3)
 
             xs(1:2) = real(cfg%scaling * x + cfg%offset, c_double)
 

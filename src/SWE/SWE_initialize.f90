@@ -242,7 +242,7 @@
 			real (kind = GRID_SR), intent(in)		            :: t						!< simulation time
             real (kind = GRID_SR)								:: bathymetry				!< bathymetry
 
-            real (kind = GRID_SR)                              :: xs(3)
+            real (kind = c_double)                              :: xs(3)
 
             xs(1:2) = real(cfg%scaling * x + cfg%offset, c_double)
 
@@ -272,7 +272,7 @@
                     call section%stats%stop_time(asagi_time)
 #               endif
 #			else
-				bathymetry = SWE_Scenario_get_bathymetry(xs)
+				bathymetry = SWE_Scenario_get_bathymetry(real(xs,GRID_SR))
 #			endif
 		end function
 	END MODULE

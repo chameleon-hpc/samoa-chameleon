@@ -462,12 +462,12 @@
 
                     x = samoa_barycentric_to_world_point(element%transform_data, [1.0_SR/3.0_SR, 1.0_SR/3.0_SR])
 #                   if defined (_SWE_PATCH)
-                        dQ_norm = sum(abs(get_bathymetry_at_patch(section, element, real(cfg%t_max_eq + 1.0, GRID_SR) ) - element%cell%data_pers%B))
+                        dQ_norm = maxval(abs(get_bathymetry_at_patch(section, element, real(cfg%t_max_eq + 1.0, GRID_SR) ) - element%cell%data_pers%B))
 #                   else
                         dQ_norm = abs(get_bathymetry_at_element(section, element, real(cfg%t_max_eq + 1.0, GRID_SR) ) - Q(1)%b)
 #                   endif
 
-                    if (dQ_norm > 0.0_GRID_SR) then
+                    if (dQ_norm > 100.0_SR *cfg%dry_tolerance) then
                         element%cell%geometry%refinement = 1
                         traversal%i_refinements_issued = traversal%i_refinements_issued + 1
                     end if

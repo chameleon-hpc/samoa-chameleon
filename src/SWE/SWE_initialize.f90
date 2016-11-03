@@ -272,7 +272,7 @@
                     call section%stats%stop_time(asagi_time)
 #               endif
 #			else
-				bathymetry = SWE_Scenario_get_bathymetry(real(xs,GRID_SR))
+				bathymetry = SWE_Scenario_get_bathymetry(real(xs, GRID_SR))
 #			endif
 		end function
 	END MODULE

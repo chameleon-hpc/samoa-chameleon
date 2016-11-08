@@ -360,7 +360,6 @@
 
                     call swe%dg_timestep%traverse(grid)
 
-
                     call swe%euler%traverse(grid)
 
 
@@ -415,7 +414,7 @@
 				i_time_step = i_time_step + 1
 
 
-!                print*,"dg_pred"
+                print*,"dg_pred"
                 call swe%dg_predictor%traverse(grid)
 !                call swe%xml_output%traverse(grid)
 !                print*,"adapt"
@@ -424,14 +423,14 @@
                 end if
 !                call swe%xml_output%traverse(grid)
 
-!                print*,"dg time"
+                print*,"dg time"
                 call swe%dg_timestep%traverse(grid)
 !                call swe%xml_output%traverse(grid)
 
-!                print*,"euler"                
+                print*,"euler"                
                 call swe%euler%traverse(grid)
 !                call swe%xml_output%traverse(grid)
-
+                print*,"done"
                 grid_info%i_cells = grid%get_cells(MPI_SUM, .true.)
                 if (rank_MPI == 0) then
                     !$omp master
@@ -442,26 +441,28 @@
 #                       endif
                     !$omp end master
                 end if
+                print*,"output"
+                !output grid
+                if ((cfg%i_output_time_steps > 0 .and. mod(i_time_step, cfg%i_output_time_steps) == 0) .or. &
+                     (cfg%r_output_time_step >= 0.0_GRID_SR .and. grid%r_time >= r_time_next_output)) then
+                   
+                   if (cfg%l_ascii_output) then
+                      call swe%ascii_output%traverse(grid)
+                   end if
+                   
+                   if(cfg%l_gridoutput) then
+                      call swe%xml_output%traverse(grid)
+                   end if
+                   
+                   if (cfg%l_pointoutput) then
+                      call swe%point_output%traverse(grid)
+                   end if
+                   print*,cfg%r_output_time_step
+                   print*,r_time_next_output
+                   r_time_next_output = r_time_next_output + cfg%r_output_time_step
+                end if
 
-				!output grid
-				if ((cfg%i_output_time_steps > 0 .and. mod(i_time_step, cfg%i_output_time_steps) == 0) .or. &
-				    (cfg%r_output_time_step >= 0.0_GRID_SR .and. grid%r_time >= r_time_next_output)) then
-
-                    if (cfg%l_ascii_output) then
-             	       call swe%ascii_output%traverse(grid)
-               	    end if
-
-                    if(cfg%l_gridoutput) then
-                        call swe%xml_output%traverse(grid)
-                    end if
-
-                    if (cfg%l_pointoutput) then
-                        call swe%point_output%traverse(grid)
-                    end if
-
-					r_time_next_output = r_time_next_output + cfg%r_output_time_step
-				end if
-
+                print*,"output done"
                 !print stats
                 if ((cfg%r_max_time >= 0.0d0 .and. grid%r_time * cfg%i_stats_phases >= i_stats_phase * cfg%r_max_time) .or. &
                     (cfg%i_max_time_steps >= 0 .and. i_time_step * cfg%i_stats_phases >= i_stats_phase * cfg%i_max_time_steps)) then

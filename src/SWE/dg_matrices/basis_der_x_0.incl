@@ -1,0 +1,3 @@
+real(kind=GRID_SR), Parameter :: basis_der_x(_SWE_DG_DOFS,_SWE_DG_DOFS)= reshape((/&
+  0.00000000000000000E+00_GRID_SR&
+/),(/_SWE_DG_DOFS,_SWE_DG_DOFS/))

@@ -315,9 +315,11 @@
 				integer											:: j, row, col, cell_id
 #if defined(_SWE_DG)    
     type(num_cell_data_pers) :: data_temp
+    !print*,"convert"
     if(element%cell%data_pers%troubled .le. 0) then
        call element%cell%data_pers%convert_dg_to_fv()
     end if
+    !print*,"convert done"
 #endif
                
                 row=1
@@ -329,8 +331,9 @@
                     traversal%cell_data(traversal%i_cell_data_index)%depth = element%cell%geometry%i_depth
                     traversal%cell_data(traversal%i_cell_data_index)%i_plotter_type = element%cell%geometry%i_plotter_type
                     traversal%cell_data(traversal%i_cell_data_index)%refinement = element%cell%geometry%refinement
+                    !print*,"troubled"
                     traversal%cell_data(traversal%i_cell_data_index)%troubled = element%cell%data_pers%troubled
-
+                    !print*,"troubled done"
                     ! traversal%cell_data(traversal%i_cell_data_index)%troubled = 0
                     ! do i=1,size(element%edges)
                     !    if(element%edges(i)%ptr%data_pers%troubled)then
@@ -446,10 +449,12 @@
 
                 ! set water height of dry cells to zero
 
-                where (traversal%cell_data(:)%Q%h < traversal%cell_data(:)%Q%b + cfg%dry_tolerance )
-                    traversal%cell_data(:)%Q%h = min(0.0_GRID_SR, traversal%cell_data(:)%Q%b)
-                end where
-                
-		end subroutine
-	END MODULE
+               where (traversal%cell_data(:)%Q%h < traversal%cell_data(:)%Q%b + cfg%dry_tolerance )
+                  traversal%cell_data(:)%Q%h = min(0.0_GRID_SR, traversal%cell_data(:)%Q%b)
+               end where
+
+               ! end do
+
+             end subroutine element_op
+           END MODULE SWE_xml_output
 #endif

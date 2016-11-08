@@ -411,18 +411,11 @@
                 element%cell%data_pers%HU = Q(:)%p(1)
                 element%cell%data_pers%HV = Q(:)%p(2)
 
-
-                ! where (element%cell%data_pers%H <= element%cell%data_pers%B + cfg%dry_tolerance) 
-                !    element%cell%data_pers%H  = element%cell%data_pers%B
-                !    element%cell%data_pers%HU = 0.0_GRID_SR
-                !    element%cell%data_pers%HV = 0.0_GRID_SR
-                ! end where
-
 #if defined(_SWE_DG)                
 
 
 
-                call element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian,.true.)
+                call element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian)
 
 !                call element%cell%data_pers%convert_fv_to_dg(.true.)
                 call element%cell%data_pers%convert_fv_to_dg()
@@ -437,9 +430,10 @@
                       
                    else
                       element%cell%data_pers%troubled = 0                      
-                      call dg_predictor(element%cell,section%r_dt,element%cell%geometry%get_scaling())
+!                      call dg_predictor(element%cell,section%r_dt,element%cell%geometry%get_scaling())
                 end if
-!                element%cell%data_pers%troubled = 1                      
+
+                element%cell%data_pers%troubled = 1                      
 
 #endif
 

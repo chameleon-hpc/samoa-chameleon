@@ -60,7 +60,7 @@
         subroutine create_node_mpi_type(mpi_node_type)
           integer, intent(out)            :: mpi_node_type
 
-#           if defined(_MPI)
+#if defined(_MPI)
           type(t_node_data)                       :: node
           integer                                 :: blocklengths(2), types(2), disps(2), type_size, i_error
           integer (kind = MPI_ADDRESS_KIND)       :: lb, ub
@@ -83,7 +83,7 @@
           assert_eq(0, lb)
           assert_eq(0, type_size)
           assert_eq(sizeof(node), ub)
-#           endif
+#endif
         end subroutine
         
         subroutine post_traversal_grid_op(traversal, grid)
@@ -110,25 +110,25 @@
           type(t_traversal_element), intent(inout)									:: src_element
           type(t_traversal_element), intent(inout)									:: dest_element
 
-#			if defined(_SWE_PATCH)
+#if defined(_SWE_PATCH)
           type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE)						:: Q
           real (kind = GRID_SR), dimension(_SWE_PATCH_ORDER_SQUARE)				:: H, HU, HV, B
           integer :: i
-#			else
+#else
           type(t_state), dimension(_SWE_CELL_SIZE)								:: Q
 
-#			endif
+#endif
 
-#			if defined (_SWE_PATCH)
+#if defined (_SWE_PATCH)
           dest_element%cell%data_pers%H = src_element%cell%data_pers%H
           dest_element%cell%data_pers%HU = src_element%cell%data_pers%HU
           dest_element%cell%data_pers%HV = src_element%cell%data_pers%HV
           dest_element%cell%data_pers%B = src_element%cell%data_pers%B
 
-#			else
+#else
           call gv_Q%read( src_element%t_element_base, Q)
           call gv_Q%write( dest_element%t_element_base, Q)
-#			endif
+#endif
 #if defined (_SWE_DG)
 
 #if !defined(_SWE_DG_NODAL)                               
@@ -150,8 +150,6 @@
           dest_element%cell%data_pers%troubled_old=src_element%cell%data_pers%troubled_old
 
 #endif
-
-
         end subroutine transfer_op
         
 
@@ -162,19 +160,19 @@
           type(t_traversal_element), intent(inout)				:: dest_element
           integer, dimension(:), intent(in)					:: refinement_path
           
-#           if defined(_SWE_PATCH)
+#if defined(_SWE_PATCH)
                 real (kind=GRID_SR), dimension(_SWE_PATCH_ORDER_SQUARE)                     :: H_in, HU_in, HV_in, B_in
                 real (kind=GRID_SR), dimension(_SWE_PATCH_ORDER_SQUARE)                     :: H_out, HU_out, HV_out, B_out
                 integer                                                                     :: i_plotter_type, j, row, col, cell_id
                 integer, DIMENSION(_SWE_PATCH_ORDER_SQUARE,2)                               :: child
                 real (kind = GRID_SR), DIMENSION(2)                                         :: r_coords     !< cell coords within patch
                 logical, DIMENSION(_SWE_PATCH_ORDER_SQUARE)                                 :: dry_cell_in, dry_cell_out
-#           else
+#else
           type(t_state), dimension(_SWE_CELL_SIZE)                                    :: Q_in
           type(t_state), dimension(_SWE_CELL_SIZE, 2)                                 :: Q_out
           logical                                                                     :: dry_cell
 
-#           endif
+#endif
           integer					:: i
 
 #if defined(_SWE_DG)			
@@ -184,7 +182,7 @@
           end if
 #endif
 
-#     if defined (_SWE_PATCH)
+#if defined (_SWE_PATCH)
                 H_in = src_element%cell%data_pers%H
                 HU_in = src_element%cell%data_pers%HU
                 HV_in = src_element%cell%data_pers%HV
@@ -239,16 +237,16 @@
                 ! get bathymetry
                 dest_element%cell%data_pers%B = get_bathymetry_at_patch(section, dest_element%t_element_base, section%r_time)
                 
-#               if defined(_ASAGI)
+#if defined(_ASAGI)
           ! if cell was initially dry, we need to check if the fine cells should be initialized with h=0
           where (dry_cell_out(:))
              dest_element%cell%data_pers%H = max (0.0_GRID_SR, dest_element%cell%data_pers%B)
              dest_element%cell%data_pers%HU = 0.0_GRID_SR
              dest_element%cell%data_pers%HV = 0.0_GRID_SR
           end where
-#               endif
+#endif
 
-#           else
+#else
           call gv_Q%read( src_element%t_element_base, Q_in)
 
           !convert momentum to velocity
@@ -274,16 +272,16 @@
 
           Q_in%b = get_bathymetry_at_element(section, dest_element%t_element_base, section%r_time)
 
-#           if defined(_ASAGI)
+#if defined(_ASAGI)
           ! if cell was initially dry, we need to check if the fine cells should be initialized with h=0
           if (dry_cell) then
              Q_in%h = max(0.0_GRID_SR, Q_in%b)
              Q_in(1)%p = [0.0_GRID_SR, 0.0_GRID_SR]
           end if
-#           endif
+#endif
 
           call gv_Q%write( dest_element%t_element_base, Q_in)
-#           endif
+#endif
 
 #if defined(_SWE_DG)
 
@@ -320,14 +318,14 @@
           type(t_traversal_element), intent(inout)									:: dest_element
           integer, dimension(:), intent(in)											:: refinement_path
           integer                                                                     :: i
-#           if defined(_SWE_PATCH)
+#if defined(_SWE_PATCH)
                 integer                                                                     :: j
                 integer, DIMENSION(_SWE_PATCH_ORDER_SQUARE,2)                               :: child
-#           else
+#else
                 type(t_state), dimension(_SWE_CELL_SIZE)                                :: Q_out
-#           endif
+#endif
 
-# if defined(_SWE_DG)
+#if defined(_SWE_DG)
           !                print*,"coarsen"
           if(dest_element%cell%data_pers%troubled.le.0) then
              call dest_element%cell%data_pers%convert_dg_to_fv()
@@ -336,7 +334,7 @@
 #endif
 
 
-#           if defined(_SWE_PATCH)
+#if defined(_SWE_PATCH)
 
                 !IMPORTANT: in the current samoa implementation, this subroutine is always called first with refinement_path=1, and then =2.
                 ! The below implementation supposes this. If the samoa core implementation changes, this may become invalid!
@@ -382,48 +380,51 @@
                         data%HV = data%HV * 0.25_GRID_SR
                         data%B = data%B * 0.25_GRID_SR
                         
-#                       if defined(_ASAGI)
+#if defined(_ASAGI)
                             ! if one of the cells was dry, we need to check if the coarsen cell should be initialized with h=0
-                            where (traversal%dry_cell(:))
-                                data%H = max (0.0_GRID_SR, data%B)
-                                data%HU = 0.0_GRID_SR
-                                data%HV = 0.0_GRID_SR
-                            end where
+                        where (traversal%dry_cell(:))
+                           data%H = max (0.0_GRID_SR, data%B)
+                           data%HU = 0.0_GRID_SR
+                           data%HV = 0.0_GRID_SR
+                        end where
+#endif
 
-#                       endif
           end if
 
         end associate
 
-#           else
+#else
 
         !state vector
         
         i = refinement_path(1)
         call gv_Q%read( src_element%t_element_base, traversal%Q_in(:, i))
         
-            !convert momentum to velocity
-			!traversal%Q_in(1, i)%p = 1.0_GRID_SR / (traversal%Q_in(1, i)%h - traversal%Q_in(1, i)%b) * traversal%Q_in(1, i)%p
-
-			if (i > 1) then
-				call t_basis_Q_merge(traversal%Q_in(:, 1)%h,		traversal%Q_in(:, 2)%h,		Q_out%h)
-				call t_basis_Q_merge(traversal%Q_in(:, 1)%p(1),	    traversal%Q_in(:, 2)%p(1),	Q_out%p(1))
-				call t_basis_Q_merge(traversal%Q_in(:, 1)%p(2),	    traversal%Q_in(:, 2)%p(2),	Q_out%p(2))
-				call t_basis_Q_merge(traversal%Q_in(:, 1)%b,		traversal%Q_in(:, 2)%b,		Q_out%b)
-
-                !convert velocity back to momentum
-                !Q_out(1)%p = (Q_out(1)%h - Q_out(1)%b) * Q_out(1)%p
-                
-#               if defined(_ASAGI)
-                    ! if one of the input cells was dry, we need to check if the coarse cell should be initialized with h=0
-                    if (traversal%Q_in(1, 1)%h < traversal%Q_in(1, 1)%b + cfg%dry_tolerance .or. traversal%Q_in(1, 2)%h < traversal%Q_in(1, 2)%b + cfg%dry_tolerance) then
-                        Q_out(1)%h = max(0.0_GRID_SR, Q_out(1)%b)
-                        Q_out(1)%p = [0.0_GRID_SR, 0.0_GRID_SR]
-                    end if
-#               endif
-
-
+        !convert momentum to velocity
+        !traversal%Q_in(1, i)%p = 1.0_GRID_SR / (traversal%Q_in(1, i)%h - traversal%Q_in(1, i)%b) * traversal%Q_in(1, i)%p
+        
+        if (i > 1) then
+           call t_basis_Q_merge(traversal%Q_in(:, 1)%h,		traversal%Q_in(:, 2)%h,		Q_out%h)
+           call t_basis_Q_merge(traversal%Q_in(:, 1)%p(1),	    traversal%Q_in(:, 2)%p(1),	Q_out%p(1))
+           call t_basis_Q_merge(traversal%Q_in(:, 1)%p(2),	    traversal%Q_in(:, 2)%p(2),	Q_out%p(2))
+           call t_basis_Q_merge(traversal%Q_in(:, 1)%b,		traversal%Q_in(:, 2)%b,		Q_out%b)
+           
+           !convert velocity back to momentum
+           !Q_out(1)%p = (Q_out(1)%h - Q_out(1)%b) * Q_out(1)%p
+           
+#if defined(_ASAGI)
+           ! if one of the input cells was dry, we need to check if the coarse cell should be initialized with h=0
+           if (traversal%Q_in(1, 1)%h < traversal%Q_in(1, 1)%b + cfg%dry_tolerance .or. traversal%Q_in(1, 2)%h < traversal%Q_in(1, 2)%b + cfg%dry_tolerance) then
+              Q_out(1)%h = max(0.0_GRID_SR, Q_out(1)%b)
+              Q_out(1)%p = [0.0_GRID_SR, 0.0_GRID_SR]
+           end if
+#endif
+           call gv_Q%write( dest_element%t_element_base, Q_out)
+        end if
+#endif
+           
 #if defined(_SWE_DG)
+
         call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(dest_element%cell%geometry%i_plotter_type))%jacobian)
 
         call dest_element%cell%data_pers%convert_fv_to_dg()

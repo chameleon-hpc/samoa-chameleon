@@ -114,7 +114,7 @@ MODULE SWE_Scenario_splashing_pool
         real (kind = GRID_SR) :: bathymetry
         real (kind = GRID_SR) :: height_offset=4.0_GRID_SR
                 
-        bathymetry = 0.0_GRID_SR
+        bathymetry = 0.5+x(1) / cfg%scaling 
     end function
     
     function SWE_Scenario_get_initial_Q(x) result(Q)
@@ -153,7 +153,7 @@ MODULE SWE_Scenario_resting_lake
         real (kind = GRID_SR), intent(in) :: x(2)
         real (kind = GRID_SR) :: bathymetry
         
-        bathymetry = -1.0_GRID_SR
+        bathymetry = -1.5 + x(1)/5
     end function
     
     function SWE_Scenario_get_initial_Q(x) result(Q)
@@ -249,7 +249,7 @@ MODULE SWE_Scenario_linear_dam_break
         real (kind = GRID_SR), intent(in) :: x(2)
         type(t_dof_state) :: Q
         
-        real (kind = GRID_SR), parameter :: hL = 1.0_GRID_SR, hR = 0.0_GRID_SR
+        real (kind = GRID_SR), parameter :: hL = 1.0_GRID_SR, hR = 0.5_GRID_SR
         
         Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
         
@@ -334,6 +334,123 @@ END MODULE SWE_Scenario_oscillating_lake
 #endif
 
 
+#if defined(_SWE_SCENARIO_PARABOLIC_ISLE)
+MODULE SWE_Scenario_resting_isle
+    use Samoa_swe
+    public SWE_Scenario_get_scaling, SWE_Scenario_get_offset, SWE_Scenario_get_bathymetry, SWE_Scenario_get_initial_Q
+    contains
+
+    function SWE_Scenario_get_scaling() result(scaling)
+        real (kind = GRID_SR) :: scaling
+        
+        scaling = 10.0_GRID_SR
+    end function
+
+    function SWE_Scenario_get_offset() result(offset)
+        real (kind = GRID_SR) :: offset(2)
+        
+        offset = SWE_Scenario_get_scaling() * [-0.5_GRID_SR, -0.5_GRID_SR]
+    end function
+    
+    function SWE_Scenario_get_bathymetry(x) result(bathymetry)
+        real (kind = GRID_SR), intent(in) :: x(2)
+        real (kind = GRID_SR) :: bathymetry
+        
+        if(NORM2(x) <= 3.0) then
+           bathymetry = -10.0_GRID_SR + 20.0 * (1.0_GRID_SR- (NORM2(x)/3.0_GRID_SR)**(_SWE_DG_ORDER/2*2))
+           !bathymetry = -10.0_GRID_SR + cos(3.1415 * 0.5 * NORM2(x)/5.0)**2 * 20.0
+        else
+           bathymetry = -10.0_GRID_SR
+        end if
+        
+        ! if(norm2(x)<2.0)then
+        !    bathymetry = -10.0 + (4-(x(1)**2 + x(2)**2))*15.0
+        ! end if
+
+
+    end function
+    
+    function SWE_Scenario_get_initial_Q(x) result(Q)
+        real (kind = GRID_SR), intent(in) :: x(2)
+        type(t_dof_state) :: Q
+        
+        Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
+        Q%h = 0.0_GRID_SR
+        ! if (SWE_Scenario_get_bathymetry(x) > 0 ) then
+        !    Q%h=SWE_Scenario_get_bathymetry(x)
+        ! end if
+!         if(x(1)<-4.0.and.x(1)>-4.5)then
+!            Q%h = 4.0+1.5_GRID_SR
+! !           Q%h = -2.0+2.0_GRID_SR/0.25**2* (0.25**2-(x(1)+4.25)**2)
+!         else
+!            Q%h = 4.0_GRID_SR
+!         end if
+    end function
+
+END MODULE SWE_Scenario_resting_isle
+#endif
+
+
+#if defined(_SWE_SCENARIO_SINGLE_WAVE)
+MODULE SWE_Scenario_single_wave_on_the_beach
+    use Samoa_swe
+    public SWE_Scenario_get_scaling, SWE_Scenario_get_offset, SWE_Scenario_get_bathymetry, SWE_Scenario_get_initial_Q
+    contains
+
+    function SWE_Scenario_get_scaling() result(scaling)
+        real (kind = GRID_SR) :: scaling
+        
+        scaling = 200.0_GRID_SR
+    end function
+
+    function SWE_Scenario_get_offset() result(offset)
+        real (kind = GRID_SR) :: offset(2)
+        
+        offset = SWE_Scenario_get_scaling() * [-0.5_GRID_SR, -0.5_GRID_SR]
+    end function
+    
+    function SWE_Scenario_get_bathymetry(x) result(bathymetry)
+        real (kind = GRID_SR), intent(in) :: x(2)
+        real (kind = GRID_SR) :: bathymetry
+        real (kind = GRID_SR) :: x_0(2)
+        real (kind = GRID_SR) :: desc=0.5
+        real (kind = GRID_SR) :: depth=-25.0
+                
+        x_0 =[0.0,0.0]
+
+        if(x(1)< x_0(1)) then
+           bathymetry = depth
+        else
+           bathymetry = depth+x(1)*desc
+        end if
+        
+    end function
+    
+    function SWE_Scenario_get_initial_Q(x) result(Q)
+        real (kind = GRID_SR), intent(in) :: x(2)
+        type(t_dof_state) :: Q
+        real(kind=GRID_SR) :: d = 20.0
+        real(kind=GRID_SR) :: H = 2.0
+        real(kind=GRID_SR) :: x_s(2) = [-25,-25]
+        real(kind=GRID_SR) :: sech
+        real(kind=GRID_SR) :: gamma
+        real(kind=GRID_SR) :: z
+        
+        gamma=sqrt(3*H/(4*d))
+        z = gamma*(x(1)-x_s(1))/d
+        sech=2/(exp(z)+exp(-z))
+
+        Q%h=sech**2 * (H) + d
+
+        Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
+    end function
+
+END MODULE SWE_Scenario_single_wave_on_the_beach
+#endif
+
+
+
+
 MODULE SWE_Scenario
 
 #   if defined(_SWE_SCENARIO_RADIAL_DAM_BREAK)
@@ -348,6 +465,10 @@ MODULE SWE_Scenario
         USE SWE_Scenario_gaussian_curve
 #   elif defined(_SWE_SCENARIO_SPLASHING_POOL)
         USE SWE_Scenario_splashing_pool
+#   elif defined(_SWE_SCENARIO_PARABOLIC_ISLE)
+        USE SWE_Scenario_resting_isle
+#   elif defined(_SWE_SCENARIO_SINGLE_WAVE)
+        USE SWE_Scenario_single_wave_on_the_beach
 #   endif
 
 END MODULE SWE_Scenario

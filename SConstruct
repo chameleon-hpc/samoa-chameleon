@@ -58,7 +58,9 @@ vars.AddVariables(
                                 'radial_dam_break',
                                 'linear_dam_break',
                                 'oscillating_lake',
-                                'resting_lake')),
+                                'resting_lake',
+                                'parabolic_isle',
+                                'linear_beach')),
 
   EnumVariable( 'swe_dg_basis', 'choice of basis polynomes and projection method', 'bernstein_nodal',
                 allowed_values=('bernstein_nodal','bernstein_l2')
@@ -302,6 +304,10 @@ elif env['swe_scenario'] == 'gaussian_curve':
   env['F90FLAGS'] += ' -D_SWE_SCENARIO_GAUSSIAN_CURVE'
 elif env['swe_scenario'] == 'splashing_pool':
   env['F90FLAGS'] += ' -D_SWE_SCENARIO_SPLASHING_POOL'
+elif env['swe_scenario'] == 'parabolic_isle':
+  env['F90FLAGS'] += ' -D_SWE_SCENARIO_PARABOLIC_ISLE'
+elif env['swe_scenario'] == 'linear_beach':
+  env['F90FLAGS'] += ' -D_SWE_SCENARIO_SINGLE_WAVE'
 
 
 

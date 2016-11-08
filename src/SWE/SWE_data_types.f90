@@ -340,11 +340,11 @@
                    end do
 #if !defined(_SWE_DG_NODAL)
 
-                   b_x_temp=matmul(st_der_x_gl_node_vals,dofs%Q_DG_P(:)%b)
-                   b_y_temp=matmul(st_der_y_gl_node_vals,dofs%Q_DG_P(:)%b)
+                   ! b_x_temp=matmul(st_der_x_gl_node_vals,dofs%Q_DG_P(:)%b)
+                   ! b_y_temp=matmul(st_der_y_gl_node_vals,dofs%Q_DG_P(:)%b)
                    
-                   dofs%b_x = normals_normed(1,1) * b_x_temp + normals_normed(1,2) * b_y_temp
-                   dofs%b_y = normals_normed(2,1) * b_x_temp + normals_normed(2,2) * b_y_temp
+                   ! dofs%b_x = normals_normed(1,1) * b_x_temp + normals_normed(1,2) * b_y_temp
+                   ! dofs%b_y = normals_normed(2,1) * b_x_temp + normals_normed(2,2) * b_y_temp
 
 #else
                    b_x_temp=matmul(basis_der_x,b_temp(1:_SWE_DG_DOFS))

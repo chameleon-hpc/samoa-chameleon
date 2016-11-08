@@ -1,0 +1,480 @@
+ #kracken>:E-R-R-O-R: UNKNOWN OPTION samoa_tsteps
+ #kracken>:samoa parameters are
+ #kracken>: -xmloutput .false.
+ #kracken>: -v .false.
+ #kracken>: -tout -1.0d0
+ #kracken>: -tmax 3600.0d0
+ #kracken>: -threads 1
+ #kracken>: -tadapt -1.0
+ #kracken>: -stestpoints ''
+ #kracken>: -sections 4
+ #kracken>: -phases 1
+ #kracken>: -output_dir output
+ #kracken>: -oo
+ #kracken>: -nout -1
+ #kracken>: -noprint .false.
+ #kracken>: -nmax -1
+ #kracken>: -nadapt 1
+ #kracken>: -lbtime .false.
+ #kracken>: -lbsplit .false.
+ #kracken>: -lbserial .false.
+ #kracken>: -lbcellweight 1.0d0
+ #kracken>: -lbbndweight 0.0d0
+ #kracken>: -h .false.
+ #kracken>: -fdispl data/tohoku_static/displ.nc
+ #kracken>: -fbath data/tohoku_static/bath.nc
+ #kracken>: -dstart 0
+ #kracken>: -drytolerance 0.01d0
+ #kracken>: -dmin 0
+ #kracken>: -dmax 14
+ #kracken>: -courant 0.45d0
+ #kracken>: -asciioutput_width 60
+ #kracken>: -asciioutput .false.
+ #kracken>: -asagihints 2
+ #kracken>: --version .false.
+ #kracken>: --help .false.
+[97m(r0,t0)  sam(oa)²: Space filling curves and Adaptive Meshes for Oceanic and Other Applications
+[97m(r0,t0)  Scenario: SWE
+[97m(r0,t0)  OpenMP: Yes, with tasks, threads: 1, procs: 8
+[97m(r0,t0)  MPI: No
+[97m(r0,t0)  ASAGI: No
+[97m(r0,t0)  Debug Level: 1
+[97m(r0,t0)  Assertions: No
+[97m(r0,t0)  Precision: Double
+[97m(r0,t0)  Compiler: GNU
+[97m(r0,t0)  Sections per thread: 4
+[97m(r0,t0)  Adaptivity: min depth: 6, max depth: 6, start depth: 0
+[97m(r0,t0)  SWE: Patches: Yes, order: 3, using patch solver: No
+[97m(r0,t0)  Load balancing: timed load estimate:  No, split sections:  No, serial:  No
+[97m(r0,t0)  Load balancing: cell weight: 1.00, boundary weight: .00
+[97m(r0,t0)  Scenario: max time steps: -1, max time:  3.60E+03, output step:  0.00E+00
+[97m(r0,t0)  Scenario: output directory: output
+[97m(r0,t0)  Scenario: courant number: .450
+[97m(r0,t0)  Scenario: Flux solver: HLLE
+[97m(r0,t0)  Scenario: Input data refinement: Sample
+[97m(r0,t0)  SWE: dry_tolerance:  1.0E-05
+[97m(r0,t0) 
+[97m(r0,t0)  SWE: setting initial values and a priori refinement..
+[97m(r0,t0)  
+[97m(r0,t0)  SWE: 0 adaptions, 2 patches = 18 cells
+[97m(r0,t0)  SWE: output step: 0
+[97m(r0,t0)  SWE: 1 adaptions, 4 patches = 36 cells
+[97m(r0,t0)  SWE: output step: 1
+[97m(r0,t0)  SWE: 2 adaptions, 8 patches = 72 cells
+[97m(r0,t0)  SWE: output step: 2
+[97m(r0,t0)  SWE: 3 adaptions, 16 patches = 144 cells
+[97m(r0,t0)  SWE: output step: 3
+[97m(r0,t0)  SWE: 4 adaptions, 32 patches = 288 cells
+[97m(r0,t0)  SWE: output step: 4
+[97m(r0,t0)  SWE: 5 adaptions, 64 patches = 576 cells
+[97m(r0,t0)  SWE: output step: 5
+[97m(r0,t0)  SWE: 6 adaptions, 128 patches = 1152 cells
+[97m(r0,t0)  SWE: done.
+[97m(r0,t0)  
+[97m(r0,t0)   Info:
+[97m(r0,t0) 
+[97m(r0,t0)   Cells                         :           128
+[97m(r0,t0)   Crossed edges                 :           124
+[97m(r0,t0)   Inner color edges             :            36
+[97m(r0,t0)   Boundary edges (red/green)    :            38            26
+[97m(r0,t0)   Stack edges (red/green)       :             4             3
+[97m(r0,t0)   Inner nodes                   :             0
+[97m(r0,t0)   Boundary nodes (red/green)    :            34            30
+[97m(r0,t0)   Stack nodes (red/green)       :             4             3
+[97m(r0,t0)   Comms (red/green)             :            14            20
+[97m(r0,t0)   Partition quality (1.0: perfect, infinity: worst): 2.2761
+[97m(r0,t0)  
+[97m(r0,t0)  SWE: output step: 6
+[97m(r0,t0)  
+[97m(r0,t0)  Phase statistics:
+[97m(r0,t0)  
+[97m(r0,t0)  Init:                           #travs: 20 time: .0025 s (comp: .0022 s (pre: .0001 s inner: .0021 s post: .0001 s) asagi: .0000 s sync: .0001 s barr: .0000 s) ET: .1009 M/s  MT: .1122 GB/s
+[97m(r0,t0)  Displace:                       #travs: 0 time: .0000 s (comp: .0000 s (pre: .0000 s inner: .0000 s post: .0000 s) asagi: .0000 s sync: .0000 s barr: .0000 s) ET: -1.0000 M/s  MT: -1.0000 GB/s
+[97m(r0,t0)  Time steps:                     #travs: 0 time: .0000 s (comp: .0000 s (pre: .0000 s inner: .0000 s post: .0000 s) asagi: .0000 s sync: .0000 s barr: .0000 s) ET: -1.0000 M/s  MT: -1.0000 GB/s
+[97m(r0,t0)  Adaptions:                      #travs: 19 time: .0045 s (comp: .0039 s (pre: .0000 s inner: .0039 s post: .0000 s) asagi: .0000 s sync: .0001 s barr: .0000 s update distances: .0001 s update neighbors: .0005 s) integrity: .0005 s load balancing: .0000 s (de)allocation: .0009 s ET: .0557 M/s  MT: .0617 GB/s
+[97m(r0,t0)  Grid:                           #travs: 63 time: .2097 s (comp: .2049 s (pre: .0010 s inner: .0085 s post: .1954 s) asagi: .0000 s sync: .0002 s barr: .0037 s update distances: .0000 s update neighbors: .0000 s) integrity: .0000 s load balancing: .0000 s (de)allocation: .0000 s ET: .0042 M/s  MT: .0047 GB/s
+[97m(r0,t0)  Element throughput:                   0.0377 M/s
+[97m(r0,t0)  Memory throughput:                    0.0416 GB/s
+[97m(r0,t0)  Cell update throughput:               0.0000 M/s
+[97m(r0,t0)  Flux solver throughput:               0.0000 M/s
+[97m(r0,t0)  Asagi time:                           0.0000 s
+[97m(r0,t0)  Phase time:                           0.2118 s
+[97m(r0,t0)  
+[97m(r0,t0)  SWE: running time steps..
+[97m(r0,t0)  
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 1, sim. time: 438µs 419ns, dt: 21ms 168µs 784ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 7
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 2, sim. time: 21ms 607µs 204ns, dt: 29ms 873µs 952ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 8
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 3, sim. time: 51ms 481µs 157ns, dt: 29ms 755µs 456ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 9
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 4, sim. time: 81ms 236µs 613ns, dt: 29ms 625µs 193ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 10
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 5, sim. time: 110ms 861µs 807ns, dt: 29ms 500µs 543ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 11
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 6, sim. time: 140ms 362µs 351ns, dt: 29ms 390µs 474ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 12
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 7, sim. time: 169ms 752µs 825ns, dt: 29ms 298µs 380ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 13
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 8, sim. time: 199ms 51µs 206ns, dt: 29ms 224µs 463ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 14
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 9, sim. time: 228ms 275µs 670ns, dt: 29ms 167µs 375ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 15
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 10, sim. time: 257ms 443µs 45ns, dt: 29ms 125µs 203ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 16
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 11, sim. time: 286ms 568µs 249ns, dt: 29ms 95µs 964ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 17
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 12, sim. time: 315ms 664µs 214ns, dt: 29ms 77µs 822ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 18
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 13, sim. time: 344ms 742µs 37ns, dt: 29ms 69µs 159ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 19
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 14, sim. time: 373ms 811µs 197ns, dt: 29ms 25µs 324ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 20
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 15, sim. time: 402ms 836µs 521ns, dt: 28ms 928µs 601ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 21
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 16, sim. time: 431ms 765µs 123ns, dt: 28ms 833µs 54ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 22
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 17, sim. time: 460ms 598µs 178ns, dt: 28ms 741µs 87ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 23
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 18, sim. time: 489ms 339µs 266ns, dt: 28ms 654µs 801ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 24
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 19, sim. time: 517ms 994µs 68ns, dt: 28ms 575µs 888ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 25
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 20, sim. time: 546ms 569µs 956ns, dt: 28ms 505µs 586ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 26
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 21, sim. time: 575ms 75µs 542ns, dt: 28ms 444µs 678ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 27
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 22, sim. time: 603ms 520µs 221ns, dt: 28ms 393µs 524ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 28
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 23, sim. time: 631ms 913µs 746ns, dt: 28ms 352µs 124ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 29
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 24, sim. time: 660ms 265µs 870ns, dt: 28ms 320µs 183ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 30
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 25, sim. time: 688ms 586µs 53ns, dt: 28ms 297µs 195ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 31
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 26, sim. time: 716ms 883µs 248ns, dt: 28ms 268µs 972ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 32
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 27, sim. time: 745ms 152µs 221ns, dt: 28ms 201µs 840ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 33
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 28, sim. time: 773ms 354µs 62ns, dt: 28ms 119µs 899ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 34
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 29, sim. time: 801ms 473µs 961ns, dt: 28ms 40µs 230ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 35
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 30, sim. time: 829ms 514µs 192ns, dt: 27ms 964µs 33ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 36
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 31, sim. time: 857ms 478µs 226ns, dt: 27ms 892µs 382ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 37
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 32, sim. time: 885ms 370µs 608ns, dt: 27ms 826µs 189ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 38
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 33, sim. time: 913ms 196µs 797ns, dt: 27ms 766µs 178ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 39
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 34, sim. time: 940ms 962µs 976ns, dt: 27ms 712µs 885ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 40
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 35, sim. time: 968ms 675µs 861ns, dt: 27ms 666µs 651ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 41
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 36, sim. time: 996ms 342µs 513ns, dt: 27ms 627µs 645ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 42
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 37, sim. time: 1s 23ms 970µs, dt: 27ms 595µs 872ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 43
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 38, sim. time: 1s 51ms 566µs, dt: 27ms 567µs 516ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 44
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 39, sim. time: 1s 79ms 133µs, dt: 27ms 517µs 41ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 45
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 40, sim. time: 1s 106ms 650µs, dt: 27ms 460µs 814ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 46
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 41, sim. time: 1s 134ms 111µs, dt: 27ms 388µs 484ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 47
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 42, sim. time: 1s 161ms 499µs, dt: 27ms 318µs 245ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 48
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 43, sim. time: 1s 188ms 818µs, dt: 27ms 250µs 822ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 49
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 44, sim. time: 1s 216ms 68µs, dt: 27ms 186µs 876ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 50
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 45, sim. time: 1s 243ms 255µs, dt: 27ms 126µs 986ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 51
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 46, sim. time: 1s 270ms 382µs, dt: 27ms 71µs 649ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 52
+   0.0000000000000000     
+   0.0000000000000000     
+ output done
+ dg_pred
+ dg time
+ euler
+[97m(r0,t0)  SWE: time step: 47, sim. time: 1s 297ms 454µs, dt: 27ms 21µs 268ns, patches : 128 cells: 1152
+[97m(r0,t0)  SWE: output step: 53
+   0.0000000000000000     
+   0.0000000000000000     
+ output done

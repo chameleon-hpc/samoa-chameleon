@@ -18,12 +18,16 @@
 		use SWE_xml_output
 		use SWE_ascii_output
 		use SWE_point_output
-                use SWE_dg_predictor
-                use SWE_dg_timestep
 		use SWE_euler_timestep
 #       if defined(_SWE_PATCH)
             use SWE_PATCH
 #       endif
+
+#if defined(_SWE_DG)
+                use SWE_dg_predictor
+                use SWE_dg_timestep
+#endif
+
 		use Samoa_swe
 		
         ! No ASAGI -> Artificial scenario selector 
@@ -46,9 +50,12 @@
 	        type(t_swe_point_output_traversal)	    :: point_output
 
             type(t_swe_euler_timestep_traversal)    :: euler
+            type(t_swe_adaption_traversal)          :: adaption
+
+#if defined(_SWE_DG)
             type(t_swe_dg_predictor_traversal)      :: dg_predictor
             type(t_swe_dg_timestep_traversal)       :: dg_timestep
-            type(t_swe_adaption_traversal)          :: adaption
+#endif
 
             contains
 
@@ -98,10 +105,12 @@
             call swe%output%create()
             call swe%xml_output%create()
             call swe%ascii_output%create()
-            call swe%dg_predictor%create()
-            call swe%dg_timestep%create()
             call swe%euler%create()
             call swe%adaption%create()
+#if defined(_SWE_DG)
+            call swe%dg_predictor%create()
+            call swe%dg_timestep%create()
+#endif
 		end subroutine
 
 		subroutine load_scenario(grid)
@@ -201,10 +210,13 @@
             call swe%xml_output%destroy()
             call swe%ascii_output%destroy()
             call swe%point_output%destroy()
-            call swe%dg_predictor%destroy()
-            call swe%dg_timestep%destroy()
             call swe%euler%destroy()
             call swe%adaption%destroy()
+
+#if defined(_SWE_DG)
+            call swe%dg_predictor%destroy()
+            call swe%dg_timestep%destroy()
+#endif
 
 #			if defined(_ASAGI)
 				call asagi_grid_close(cfg%afh_displacement)
@@ -350,16 +362,16 @@
                     end if
 
                     i_time_step = i_time_step + 1
-
+#if defined(_SWE_DG)
                     call swe%dg_predictor%traverse(grid)
-
+#endif
                     if (cfg%i_adapt_time_steps > 0 .and. mod(i_time_step, cfg%i_adapt_time_steps) == 0) then
                         !refine grid
                         call swe%adaption%traverse(grid)
                     end if
-
+#if defined(_SWE_DG)
                     call swe%dg_timestep%traverse(grid)
-
+#endif
                     call swe%euler%traverse(grid)
 
 
@@ -414,23 +426,18 @@
 				i_time_step = i_time_step + 1
 
 
-                print*,"dg_pred"
+#if defined(_SWE_DG)
                 call swe%dg_predictor%traverse(grid)
-!                call swe%xml_output%traverse(grid)
-!                print*,"adapt"
+#endif
                 if (cfg%i_adapt_time_steps > 0 .and. mod(i_time_step, cfg%i_adapt_time_steps) == 0) then
                     call swe%adaption%traverse(grid)
                 end if
-!                call swe%xml_output%traverse(grid)
 
-                print*,"dg time"
+#if defined(_SWE_DG)
                 call swe%dg_timestep%traverse(grid)
-!                call swe%xml_output%traverse(grid)
-
-                print*,"euler"                
+#endif
                 call swe%euler%traverse(grid)
-!                call swe%xml_output%traverse(grid)
-                print*,"done"
+
                 grid_info%i_cells = grid%get_cells(MPI_SUM, .true.)
                 if (rank_MPI == 0) then
                     !$omp master
@@ -441,7 +448,7 @@
 #                       endif
                     !$omp end master
                 end if
-                print*,"output"
+
                 !output grid
                 if ((cfg%i_output_time_steps > 0 .and. mod(i_time_step, cfg%i_output_time_steps) == 0) .or. &
                      (cfg%r_output_time_step >= 0.0_GRID_SR .and. grid%r_time >= r_time_next_output)) then
@@ -457,12 +464,11 @@
                    if (cfg%l_pointoutput) then
                       call swe%point_output%traverse(grid)
                    end if
-                   print*,cfg%r_output_time_step
-                   print*,r_time_next_output
+
                    r_time_next_output = r_time_next_output + cfg%r_output_time_step
                 end if
 
-                print*,"output done"
+
                 !print stats
                 if ((cfg%r_max_time >= 0.0d0 .and. grid%r_time * cfg%i_stats_phases >= i_stats_phase * cfg%r_max_time) .or. &
                     (cfg%i_max_time_steps >= 0 .and. i_time_step * cfg%i_stats_phases >= i_stats_phase * cfg%i_max_time_steps)) then

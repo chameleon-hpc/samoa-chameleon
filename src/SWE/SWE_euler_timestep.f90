@@ -396,6 +396,7 @@
             real(kind = GRID_SR), DIMENSION(_SWE_PATCH_SOLVER_CHUNK_SIZE)           :: hR, huR, hvR, bR
             real(kind = GRID_SR), DIMENSION(_SWE_PATCH_SOLVER_CHUNK_SIZE)           :: upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR
             real(kind = GRID_SR), DIMENSION(_SWE_PATCH_SOLVER_CHUNK_SIZE,2,2)       :: transf
+            real(kind= GRID_SR) :: maxWaveSpeeds (_SWE_PATCH_ORDER_SQUARE)
 
 #if !defined (_SWE_USE_PATCH_SOLVER)
             type(t_state), dimension(_SWE_PATCH_SOLVER_CHUNK_SIZE)      :: edges_a, edges_b
@@ -408,7 +409,6 @@
             real(kind= GRID_SR):: dt,dx,delta(3),max_neighbour(3),min_neighbour(3),data_max_val(3),data_min_val(3)
             integer:: indx,indx_mir,k
             real (kind = GRID_SR), dimension (_SWE_PATCH_ORDER_SQUARE):: H_old, HU_old, HV_old
-            real(kind= GRID_SR) :: maxWaveSpeeds (_SWE_PATCH_ORDER_SQUARE)
             logical :: drying,troubled
 #endif
 
@@ -1369,7 +1369,7 @@
  end subroutine cell_update_op
 
 END MODULE SWE_DG_predictor
-#endif
+
 
 
 MODULE SWE_DG_timestep
@@ -2468,4 +2468,5 @@ end subroutine compute_geoclaw_flux_pred
 
 END MODULE SWE_DG_timestep
 
+#endif
 #endif

@@ -357,7 +357,7 @@ MODULE SWE_Scenario_resting_isle
         real (kind = GRID_SR) :: bathymetry
         
         if(NORM2(x) <= 3.0) then
-           bathymetry = -10.0_GRID_SR + 20.0 * (1.0_GRID_SR- (NORM2(x)/3.0_GRID_SR)**(_SWE_DG_ORDER/2*2))
+           bathymetry = -10.0_GRID_SR + 20.0 * (1.0_GRID_SR- (NORM2(x)/3.0_GRID_SR)**(2))
            !bathymetry = -10.0_GRID_SR + cos(3.1415 * 0.5 * NORM2(x)/5.0)**2 * 20.0
         else
            bathymetry = -10.0_GRID_SR

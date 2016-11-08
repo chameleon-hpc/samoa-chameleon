@@ -111,7 +111,7 @@ MODULE SWE_DG_matrices
 #include "dg_matrices/s_m_lu_pivot_2.incl"
 
 #include "dg_matrices/basis_der_x_2.incl"
-#include "dg_matrices/basis_der_y_2.incl"
+#include "dg_matrices/basis_der_y_2 .incl"
 
 
 !DG_Predictor matrices
@@ -217,5 +217,6 @@ subroutine lusolve(mat,n,pivot,b)
  return
 end subroutine lusolve
 
-#endif
 END MODULE SWE_DG_matrices
+#endif
+

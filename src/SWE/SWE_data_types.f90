@@ -7,6 +7,7 @@
 
 #if defined(_SWE)
 	MODULE SWE_data_types
+		implicit none
 #if defined(_SWE_DG)
                 use SWE_DG_matrices
 # else
@@ -23,7 +24,7 @@
 #           error "No floating point precision is chosen!"
 #       endif
 #endif
-		implicit none
+
 		integer, PARAMETER :: BYTE = selected_int_kind(1)
 		integer, PARAMETER :: SHORT = selected_int_kind(4)
 		integer, PARAMETER :: GRID_SI = selected_int_kind(8)
@@ -409,6 +410,7 @@
 			f_out = t_dof_state(s * f%h, s * f%p)
 		end function
 
+#if defined(_SWE_DG)                
 		!multiplies a scalar with a dof state vector
                 subroutine dofs_to_vec_dg(f,q)
                         integer ::i
@@ -460,6 +462,6 @@
                         end do
 
                       end subroutine vec_to_dofs_dg_p
-
+#endif
 	END MODULE SWE_data_types
 #endif

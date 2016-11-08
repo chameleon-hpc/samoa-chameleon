@@ -114,8 +114,15 @@
 #               endif
 #           endif
 
+#if defined(_SWE_DG)
+                call element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian)
+                call element%cell%data_pers%convert_fv_to_dg()
+#endif
+
+
             !no coarsening while the earthquake takes place
 			element%cell%geometry%refinement = max(0, element%cell%geometry%refinement)
+   
 		end subroutine
 	END MODULE
 #endif

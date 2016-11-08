@@ -48,8 +48,11 @@
 #		define _GT_REFINE_OP				refine_op
 #		define _GT_COARSEN_OP				coarsen_op
 
+#if defined(_SWE_DG)
 #		define _GT_CELL_TO_EDGE_OP			cell_to_edge_op_dg
-
+#else
+#		define _GT_CELL_TO_EDGE_OP			cell_to_edge_op
+#endif
 #		define _GT_NODE_MPI_TYPE
 
 #		define _GT_NODE_WRITE_OP			node_write_op

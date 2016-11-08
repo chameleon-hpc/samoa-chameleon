@@ -33,7 +33,10 @@
 			integer (kind = GRID_SI)								:: section_index
 			integer (kind = BYTE)									:: depth
 			integer (kind = BYTE)									:: refinement
+
+#if defined(_SWE_DG)
                         integer (kind=BYTE) :: troubled
+#endif
 
             integer (kind = BYTE)                                   :: i_plotter_type
 #           if defined(_SWE_PATCH)          
@@ -131,7 +134,9 @@
                         e_io = vtk%VTK_VAR_XML('depth', 1_1, 1)
                         e_io = vtk%VTK_VAR_XML('refinement flag', 1_1, 1)
                         e_io = vtk%VTK_VAR_XML('i_plotter_type', 1_1, 1)
+#if defined(_SWE_DG)
                         e_io = vtk%VTK_VAR_XML('troubled', 1_1, 1)
+#endif
 #                       if defined(_SWE_PATCH)
                             e_io = vtk%VTK_VAR_XML('id_in_patch', 1_1, 1)
 #                       endif
@@ -273,7 +278,9 @@
                         e_io = vtk%VTK_VAR_XML(i_cells, 'depth', traversal%cell_data%depth)
                         e_io = vtk%VTK_VAR_XML(i_cells, 'refinement flag', traversal%cell_data%refinement)
                         e_io = vtk%VTK_VAR_XML(i_cells, 'i_plotter_type', traversal%cell_data%i_plotter_type)
+#if defined(_SWE_DG)
                         e_io = vtk%VTK_VAR_XML(i_cells, 'troubled', traversal%cell_data%troubled)
+#endif
 #                       if defined(_SWE_PATCH)                        
                             e_io = vtk%VTK_VAR_XML(i_cells, 'id_in_patch', traversal%cell_data%id_in_patch)
 #                       endif
@@ -332,7 +339,9 @@
                     traversal%cell_data(traversal%i_cell_data_index)%i_plotter_type = element%cell%geometry%i_plotter_type
                     traversal%cell_data(traversal%i_cell_data_index)%refinement = element%cell%geometry%refinement
                     !print*,"troubled"
+#if defined(_SWE_DG)
                     traversal%cell_data(traversal%i_cell_data_index)%troubled = element%cell%data_pers%troubled
+#endif
                     !print*,"troubled done"
                     ! traversal%cell_data(traversal%i_cell_data_index)%troubled = 0
                     ! do i=1,size(element%edges)
@@ -448,10 +457,13 @@
 #           endif
 
                 ! set water height of dry cells to zero
-
-               where (traversal%cell_data(:)%Q%h < traversal%cell_data(:)%Q%b + cfg%dry_tolerance )
-                  traversal%cell_data(:)%Q%h = min(0.0_GRID_SR, traversal%cell_data(:)%Q%b)
-               end where
+               ! if(traversal%cell_data(i)%Q%h < traversal%cell_data(i)%Q%b + cfg%dry_tolerance )then
+               !     traversal%cell_data(i)%Q%h = min(0.0_GRID_SR, traversal%cell_data(i)%Q%b)
+               ! end if
+               ! print*,"."
+               ! ! where (traversal%cell_data(:)%Q%h < traversal%cell_data(:)%Q%b + cfg%dry_tolerance )
+               ! !    traversal%cell_data(:)%Q%h = min(0.0_GRID_SR, traversal%cell_data(:)%Q%b)
+               ! ! end where
 
                ! end do
 

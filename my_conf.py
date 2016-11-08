@@ -1,5 +1,6 @@
 scenario='swe'
-swe_dg_order='2'
+swe_patch_order='3'
+#swe_dg_order='2'
 #swe_dg_basis='bernstein_l2'
 #swe_dg_basis='bernstein_nodal'
 swe_scenario='parabolic_isle'

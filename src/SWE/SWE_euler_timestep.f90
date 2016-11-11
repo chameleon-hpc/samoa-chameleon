@@ -108,7 +108,7 @@
           type(t_grid), intent(inout)		                :: grid
 
           if (cfg%r_max_time > 0.0_SR) then
-             grid%r_dt = min(cfg%r_max_time, grid%r_dt)
+             grid%r_dt = min(cfg%r_max_time-grid%r_time, grid%r_dt)
           end if
           
           if (cfg%r_output_time_step > 0.0_SR) then
@@ -1006,7 +1006,7 @@
      type(t_grid), intent(inout)							    :: grid
      
      if (cfg%r_max_time > 0.0_SR) then
-        grid%r_dt = min(cfg%r_max_time, grid%r_dt)
+        grid%r_dt = min(cfg%r_max_time-grid%r_time, grid%r_dt)
      end if
      
      if (cfg%r_output_time_step > 0.0_SR) then

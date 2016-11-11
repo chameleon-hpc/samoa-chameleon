@@ -458,7 +458,7 @@ MODULE  SWE_Convergence_test
     function SWE_Scenario_get_scaling() result(scaling)
         real (kind = GRID_SR) :: scaling
         
-        scaling = 200.0_GRID_SR
+        scaling = 8.0_GRID_SR
     end function
 
     function SWE_Scenario_get_offset() result(offset)

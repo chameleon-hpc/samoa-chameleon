@@ -382,9 +382,9 @@
                     if (rank_MPI == 0) then
                         !$omp master
 #                       if defined (_SWE_PATCH)
-                            _log_write(1, '(" SWE: EQ time step: ", I0, ", sim. time:", A, ", dt:", A, ", patches : " I0, " cells: ", I0)') i_time_step, trim(time_to_hrt(grid%r_time)), trim(time_to_hrt(grid%r_dt)), grid_info%i_cells, grid_info%i_cells * _SWE_PATCH_ORDER_SQUARE
+                            _log_write(1, '(" SWE: EQ time step: ", I0, ", sim. time:", A, ", dt:", A, ", patches : " I0, " cells: ", I0)') i_time_step, trim(time_to_hrt(DBLE(grid%r_time))), trim(time_to_hrt(DBLE(grid%r_dt))), grid_info%i_cells, grid_info%i_cells * _SWE_PATCH_ORDER_SQUARE
 #                       else
-                            _log_write(1, '(" SWE: EQ time step: ", I0, ", sim. time:", A, ", dt:", A, ", cells: ", I0)') i_time_step, trim(time_to_hrt(grid%r_time)), trim(time_to_hrt(grid%r_dt)), grid_info%i_cells
+                            _log_write(1, '(" SWE: EQ time step: ", I0, ", sim. time:", A, ", dt:", A, ", cells: ", I0)') i_time_step, trim(time_to_hrt(DBLE(grid%r_time))), trim(time_to_hrt(DBLE(grid%r_dt))), grid_info%i_cells
 #                       endif
 
                         !$omp end master
@@ -442,9 +442,9 @@
                 if (rank_MPI == 0) then
                     !$omp master
 #                       if defined (_SWE_PATCH)
-                            _log_write(1, '(" SWE: time step: ", I0, ", sim. time:", A, ", dt:", A, ", patches : " I0, " cells: ", I0)') i_time_step, trim(time_to_hrt(grid%r_time)), trim(time_to_hrt(grid%r_dt)), grid_info%i_cells, grid_info%i_cells * _SWE_PATCH_ORDER_SQUARE
+                            _log_write(1, '(" SWE: time step: ", I0, ", sim. time:", A, ", dt:", A, ", patches : " I0, " cells: ", I0)') i_time_step, trim(time_to_hrt(DBLE(grid%r_time))), trim(time_to_hrt(DBLE(grid%r_dt))), grid_info%i_cells, grid_info%i_cells * _SWE_PATCH_ORDER_SQUARE
 #                       else
-                            _log_write(1, '(" SWE: time step: ", I0, ", sim. time:", A, ", dt:", A, ", cells: ", I0)') i_time_step, trim(time_to_hrt(grid%r_time)), trim(time_to_hrt(grid%r_dt)), grid_info%i_cells
+                            _log_write(1, '(" SWE: time step: ", I0, ", sim. time:", A, ", dt:", A, ", cells: ", I0)') i_time_step, trim(time_to_hrt(DBLE(grid%r_time))), trim(time_to_hrt(DBLE(grid%r_dt))), grid_info%i_cells
 #                       endif
                     !$omp end master
                 end if
@@ -524,11 +524,13 @@
                             _log_write(0, '(A, T34, F12.4, A)') " Element throughput: ", 1.0d-6 * dble(grid%stats%get_counter(traversed_cells)) * (_SWE_PATCH_ORDER_SQUARE)  / t_phase, " M/s"
                             _log_write(0, '(A, T34, F12.4, A)') " Memory throughput: ", dble(grid%stats%get_counter(traversed_memory)) * (_SWE_PATCH_ORDER_SQUARE)  / ((1024 * 1024 * 1024) * t_phase), " GB/s"
                             _log_write(0, '(A, T34, F12.4, A)') " Cell update throughput: ", 1.0d-6 * dble(swe%euler%stats%get_counter(traversed_cells)) * (_SWE_PATCH_ORDER_SQUARE)  / t_phase, " M/s"
+                            _log_write(0, '(A, T34, F12.4, A)') " Total cell updates: ", 1.0d-6 * dble(swe%euler%stats%get_counter(traversed_cells)) * (_SWE_PATCH_ORDER_SQUARE), " millions"
                             _log_write(0, '(A, T34, F12.4, A)') " Flux solver throughput: ", 1.0d-6 * dble(swe%euler%stats%get_counter(traversed_edges)) * (_SWE_PATCH_NUM_EDGES)   / t_phase, " M/s"
 #                       else
                             _log_write(0, '(A, T34, F12.4, A)') " Element throughput: ", 1.0d-6 * dble(grid%stats%get_counter(traversed_cells)) / t_phase, " M/s"
                             _log_write(0, '(A, T34, F12.4, A)') " Memory throughput: ", dble(grid%stats%get_counter(traversed_memory)) / ((1024 * 1024 * 1024) * t_phase), " GB/s"
                             _log_write(0, '(A, T34, F12.4, A)') " Cell update throughput: ", 1.0d-6 * dble(swe%euler%stats%get_counter(traversed_cells)) / t_phase, " M/s"
+                            _log_write(0, '(A, T34, F12.4, A)') " Total cell updates: ", 1.0d-6 * dble(swe%euler%stats%get_counter(traversed_cells)), " millions"
                             _log_write(0, '(A, T34, F12.4, A)') " Flux solver throughput: ", 1.0d-6 * dble(swe%euler%stats%get_counter(traversed_edges)) / t_phase, " M/s"
 #                       endif
                         _log_write(0, '(A, T34, F12.4, A)') " Asagi time:", grid%stats%get_time(asagi_time), " s"

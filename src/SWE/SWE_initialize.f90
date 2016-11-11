@@ -283,35 +283,7 @@
                     call section%stats%stop_time(asagi_time)
 #               endif
 #			else
-
-
-!  !                   bathymetry=(outer_height-inner_height)*(1-x(1)) + inner_height
-!                     bathymetry=inner_height
-
-!                         ! if(NORM2(x-dam_center)<dam_radius) then
-!                         !    bathymetry=1.0q0/(sqrt(2*3.1415q0))*exp((NORM2(x-dam_center)/dam_radius*1.5q0)**2)*(1-NORM2(x-dam_center)/dam_radius)*inner_height+outer_height
-!                         ! else
-!                         !    bathymetry = outer_height
-!                         ! end if
-
-!                         ! if(NORM2(x-dam_center)<dam_radius) then
-!                         !    bathymetry=outer_height+inner_height
-!                         ! else
-!                         !    bathymetry = outer_height
-!                         ! end if
-!                     ! Dam Break
-
-!                        if((x(1)-0.25)**2+(x(2)-0.5)**2 < 0.05)then
-
-! !                        ! if((x(1)) < 0.4)then
-!                            bathymetry=inner_height
-!                         else
-!                            bathymetry=outer_height
-!                         end if
-!                        bathymetry=bathymetry*cfg%scaling
-! !				bathymetry = 0.0_SR
-
-				bathymetry = SWE_Scenario_get_bathymetry(xs)
+                    bathymetry = SWE_Scenario_get_bathymetry(real(xs, GRID_SR))
 #			endif
 		end function
 
@@ -532,12 +504,12 @@
 
                     x = samoa_barycentric_to_world_point(element%transform_data, [1.0_SR/3.0_SR, 1.0_SR/3.0_SR])
 #                   if defined (_SWE_PATCH)
-                        dQ_norm = sum(abs(get_bathymetry_at_patch(section, element, cfg%t_max_eq + 1.0_SR) - element%cell%data_pers%B))
+                        dQ_norm = maxval(abs(get_bathymetry_at_patch(section, element, real(cfg%t_max_eq + 1.0, GRID_SR) ) - element%cell%data_pers%B))
 #                   else
-                        dQ_norm = abs(get_bathymetry_at_element(section, element, cfg%t_max_eq + 1.0_SR) - Q(1)%b)
+                        dQ_norm = abs(get_bathymetry_at_element(section, element, real(cfg%t_max_eq + 1.0, GRID_SR) ) - Q(1)%b)
 #                   endif
 
-                    if (dQ_norm > 0.0_GRID_SR) then
+                    if (dQ_norm > 100.0_SR *cfg%dry_tolerance) then
                         element%cell%geometry%refinement = 1
                         traversal%i_refinements_issued = traversal%i_refinements_issued + 1
                     end if

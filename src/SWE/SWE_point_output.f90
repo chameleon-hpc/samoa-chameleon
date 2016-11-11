@@ -13,6 +13,9 @@
 
 		use Samoa_swe
 		use SWE_euler_timestep
+#       if defined (_SWE_PATCH)
+            use SWE_patch
+#       endif
 
 		implicit none
 
@@ -232,13 +235,51 @@
 		integer (kind = GRID_SI)							:: i,j
 		type(t_state), dimension(_SWE_CELL_SIZE)			:: Q
 		type(t_state), dimension(6)							:: Q_test
-		real (kind = GRID_SR) 						        :: h, b, p(2), local_coord(2), epsvec(2), eps, distvec(2), dist
+		real (kind = GRID_SR) 						        :: h, b, p(2), local_coord(2), epsvec(2), eps, distvec(2), dist, center(2)
 
 		call gv_Q%read(element, Q)
 
         epsvec = samoa_world_to_barycentric_vector(element%transform_data, [0.001_GRID_SR, 0.0_GRID_SR])
         eps = sqrt(dot_product(epsvec, epsvec))
 
+#       if defined (_SWE_PATCH)
+
+#if defined(_SWE_DG)        
+        if(element%cell%data_pers%troubled .le. 0) then
+           call element%cell%data_pers%convert_dg_to_fv()
+        end if
+#endif
+            associate(data => element%cell%data_pers, geom => SWE_PATCH_geometry)
+                do i=1, size(r_testpoints, dim=1)
+                    !check ob koordinaten in aktueller zelle
+                    local_coord = samoa_world_to_barycentric_point(element%transform_data, [r_testpoints(i,1), r_testpoints(i,2)])
+                    if (local_coord(1) + eps >= 0.0_GRID_SR .and. local_coord(2) + eps >= 0.0_GRID_SR .and. local_coord(1) + local_coord(2) - eps <= 1.0_GRID_SR) then
+                        do j=1, _SWE_PATCH_ORDER_SQUARE
+                            ! compute center of cell #j in patch
+                            center(1) = sum(geom%coords(1,:,j)) / 3.0_GRID_SR
+                            center(2) = sum(geom%coords(2,:,j)) / 3.0_GRID_SR
+
+                            distvec = samoa_barycentric_to_world_point(element%transform_data, center) - [r_testpoints(i,1), r_testpoints(i,2)]
+                            dist = sqrt(dot_product(distvec, distvec))
+
+                            if (dist < r_testpoints(i,7)) then
+                                h = data%H(j)
+                                b = data%B(j)
+                                p(1) = data%HU(j)
+                                p(2) = data%HV(j)
+
+                                r_testpoints(i,3) = p(1)
+                                r_testpoints(i,4) = p(2)
+                                r_testpoints(i,5) = h
+                                r_testpoints(i,6) = b
+                                r_testpoints(i,7) = dist
+                                r_testpoints(i,8) = section%r_time / (24.0_SR * 60.0_SR * 60.0_SR) + 70.2422_SR !convert to days since start of year for comparison with buoy data
+                            end if
+                        end do
+                    end if
+                end do
+            end associate
+#       else
 		do i=1, size(r_testpoints, dim=1)
 			!check ob koordinaten in aktueller zelle
 			local_coord = samoa_world_to_barycentric_point(element%transform_data, [r_testpoints(i,1), r_testpoints(i,2)])
@@ -262,6 +303,7 @@
                 end if
 			end if
 		end do
+#       endif
 
 	end subroutine
 	END MODULE

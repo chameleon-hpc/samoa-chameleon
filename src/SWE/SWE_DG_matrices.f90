@@ -111,7 +111,7 @@ MODULE SWE_DG_matrices
 #include "dg_matrices/s_m_lu_pivot_2.incl"
 
 #include "dg_matrices/basis_der_x_2.incl"
-#include "dg_matrices/basis_der_y_2 .incl"
+#include "dg_matrices/basis_der_y_2.incl"
 
 
 !DG_Predictor matrices
@@ -126,6 +126,62 @@ MODULE SWE_DG_matrices
 
 #include "dg_matrices/basis_der_st_x_2.incl"
 #include "dg_matrices/basis_der_st_y_2.incl"
+
+#endif
+
+
+#if _SWE_DG_ORDER == 3
+!L2 projection
+#include "dg_matrices/st_gl_node_vals_3.incl"
+#include "dg_matrices/st_gl_weights_3.incl"
+#include "dg_matrices/st_der_x_gl_node_vals_3.incl"
+#include "dg_matrices/st_der_y_gl_node_vals_3.incl"
+
+#include "dg_matrices/s_der_x_gl_node_vals_3.incl"
+#include "dg_matrices/s_der_y_gl_node_vals_3.incl"
+
+#include "dg_matrices/st_m_lu_3.incl"
+#include "dg_matrices/st_m_lu_pivot_3.incl"
+
+!Conversion matrices
+#include "dg_matrices/phi_3.incl"
+#include "dg_matrices/mue_lu_3.incl"
+#include "dg_matrices/mue_lu_pivot_3.incl"
+#include "dg_matrices/basis_der_x_3.incl"
+#include "dg_matrices/basis_der_y_3.incl"
+
+!DG_Solver matrices
+#include "dg_matrices/s_k_x_3.incl"
+#include "dg_matrices/s_k_y_3.incl"
+
+#include "dg_matrices/b_m_1_3.incl"
+#include "dg_matrices/b_m_2_3.incl"
+#include "dg_matrices/b_m_3_3.incl"
+
+#include "dg_matrices/s_m_lu_3.incl"
+#include "dg_matrices/s_m_lu_pivot_3.incl"
+
+
+!DG_Predictor matrices
+#include "dg_matrices/s_m_3.incl"
+
+#include "dg_matrices/st_k_x_3.incl"
+#include "dg_matrices/st_k_y_3.incl"
+
+#include "dg_matrices/st_m_3.incl"
+
+#include "dg_matrices/st_w_k_t_1_0_3.incl"
+#include "dg_matrices/st_w_k_t_1_1_lu_3.incl"
+#include "dg_matrices/st_w_k_t_1_1_lu_pivot_3.incl"
+
+
+#include "dg_matrices/basis_der_st_x_3.incl"
+#include "dg_matrices/basis_der_st_y_3.incl"
+
+! #include "dg_matrices/st_k_t_1_0_3.incl"
+! #include "dg_matrices/st_k_t_1_1_lu_3.incl"
+! #include "dg_matrices/st_k_t_1_1_lu_pivot_3.incl"
+
 #endif
 
 #if _SWE_DG_ORDER == 4
@@ -172,10 +228,8 @@ MODULE SWE_DG_matrices
 #include "dg_matrices/st_w_k_t_1_1_lu_4.incl"
 #include "dg_matrices/st_w_k_t_1_1_lu_pivot_4.incl"
 
-! #include "dg_matrices/st_k_t_1_0_4.incl"
-! #include "dg_matrices/st_k_t_1_1_lu_4.incl"
-! #include "dg_matrices/st_k_t_1_1_lu_pivot_4.incl"
-
+#include "dg_matrices/basis_der_st_x_4.incl"
+#include "dg_matrices/basis_der_st_y_4.incl"
 #endif
 
 contains 

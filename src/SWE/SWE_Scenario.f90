@@ -449,6 +449,51 @@ END MODULE SWE_Scenario_single_wave_on_the_beach
 #endif
 
 
+#if defined(_SWE_SCENARIO_CONVERGENCE_TEST)
+MODULE  SWE_Convergence_test
+    use Samoa_swe
+    public SWE_Scenario_get_scaling, SWE_Scenario_get_offset, SWE_Scenario_get_bathymetry, SWE_Scenario_get_initial_Q
+    contains
+
+    function SWE_Scenario_get_scaling() result(scaling)
+        real (kind = GRID_SR) :: scaling
+        
+        scaling = 200.0_GRID_SR
+    end function
+
+    function SWE_Scenario_get_offset() result(offset)
+        real (kind = GRID_SR) :: offset(2)
+        
+        offset = SWE_Scenario_get_scaling() * [-0.5_GRID_SR, -0.5_GRID_SR]
+    end function
+    
+    function SWE_Scenario_get_bathymetry(x) result(bathymetry)
+        real (kind = GRID_SR), intent(in) :: x(2)
+        real (kind = GRID_SR) :: bathymetry
+        
+        bathymetry=2.0_GRID_SR - sin(8*atan(1.0)*x(1)) - cos(8*atan(1.0)*x(2))
+                
+    end function
+    
+    function SWE_Scenario_get_initial_Q(x) result(Q)
+        real (kind = GRID_SR), intent(in) :: x(2)
+        type(t_dof_state) :: Q
+        real(kind=GRID_SR) :: d = 20.0
+        real(kind=GRID_SR) :: H = 2.0
+        real(kind=GRID_SR) :: x_s(2) = [-25,-25]
+        real(kind=GRID_SR) :: sech
+        real(kind=GRID_SR) :: gamma
+        real(kind=GRID_SR) :: z
+        
+        Q%h= 10.0_GRID_SR + exp(sin(8*atan(1.0))*x(1))*cos(8*atan(1.0)*x(2)) + SWE_Scenario_get_bathymetry(x)
+
+        Q%p(1) = sin(cos(8*atan(1.0)*x(1)))*sin(8*atan(1.0)*x(2))
+        Q%p(2) = cos(sin(8*atan(1.0)*x(1)))*cos(8*atan(1.0)*x(1))
+    end function
+
+END MODULE SWE_Convergence_test
+#endif
+
 
 
 MODULE SWE_Scenario
@@ -469,6 +514,8 @@ MODULE SWE_Scenario
         USE SWE_Scenario_resting_isle
 #   elif defined(_SWE_SCENARIO_SINGLE_WAVE)
         USE SWE_Scenario_single_wave_on_the_beach
+#   elif defined(_SWE_SCENARIO_CONVERGENCE_TEST)
+        USE SWE_Convergence_test
 #   endif
 
 END MODULE SWE_Scenario

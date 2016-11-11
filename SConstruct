@@ -60,7 +60,8 @@ vars.AddVariables(
                                 'oscillating_lake',
                                 'resting_lake',
                                 'parabolic_isle',
-                                'linear_beach')),
+                                'linear_beach',
+                                'convergence')),
 
   EnumVariable( 'swe_dg_basis', 'choice of basis polynomes and projection method', 'bernstein_nodal',
                 allowed_values=('bernstein_nodal','bernstein_l2')
@@ -308,8 +309,8 @@ elif env['swe_scenario'] == 'parabolic_isle':
   env['F90FLAGS'] += ' -D_SWE_SCENARIO_PARABOLIC_ISLE'
 elif env['swe_scenario'] == 'linear_beach':
   env['F90FLAGS'] += ' -D_SWE_SCENARIO_SINGLE_WAVE'
-
-
+elif env['swe_scenario'] == 'convergence':
+  env['F90FLAGS'] += ' -D_SWE_SCENARIO_CONVERGENCE_TEST'
 
 
 #Choose a mobility term

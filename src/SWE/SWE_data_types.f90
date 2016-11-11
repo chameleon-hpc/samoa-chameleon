@@ -7,10 +7,11 @@
 
 #if defined(_SWE)
 	MODULE SWE_data_types
-		implicit none
 #if defined(_SWE_DG)
                 use SWE_DG_matrices
+		implicit none
 # else
+		implicit none
 		PUBLIC
 
 		!data precision

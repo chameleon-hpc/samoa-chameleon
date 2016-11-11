@@ -173,12 +173,12 @@
 #if defined (_SWE_DG)           
                 data_temp = element%cell%data_pers
 
-                if(edge%data_pers%troubled) then
-                   if(element%cell%data_pers%troubled.le.0) then
-                      !recover DG from predictor
-                      data_temp%Q_DG = element%cell%data_pers%Q_DG_P(1:_SWE_DG_DOFS)
-                      call data_temp%convert_dg_to_fv()
-                   end if
+!                if(edge%data_pers%troubled) then
+                if(element%cell%data_pers%troubled.le.0) then
+                   !recover DG from predictor
+                   data_temp%Q_DG = element%cell%data_pers%Q_DG_P(1:_SWE_DG_DOFS)
+                   call data_temp%convert_dg_to_fv()
+                end if
 #endif
 #           else
                 call gv_Q%read(element, Q)
@@ -251,7 +251,6 @@
               end select
             end associate
 #if defined(_SWE_DG)
-            end if
 #endif
 #           else
             rep%Q(1) = Q(1)
@@ -1094,13 +1093,13 @@
            H_y(_SWE_DG_DOFS * j + 1: _SWE_DG_DOFS * (j+1))= matmul(basis_der_y,q_i(_SWE_DG_DOFS * j + 1: _SWE_DG_DOFS * (j+1),1)+b(_SWE_DG_DOFS * j + 1: _SWE_DG_DOFS * (j+1)))
         end do
 
-        where(q_i(:,1).ne.0 .and. abs(H_x/q_i(:,1))< 1.0e-14)
-           H_x = 0.0_GRID_SR
-        end where
+        ! where(q_i(:,1).ne.0 .and. abs(H_x/q_i(:,1))< 1.0e-14)
+        !    H_x = 0.0_GRID_SR
+        ! end where
 
-        where(q_i(:,1).ne.0 .and. abs(H_y/q_i(:,1))< 1.0e-14)
-           H_y = 0.0_GRID_SR
-        end where
+        ! where(q_i(:,1).ne.0 .and. abs(H_y/q_i(:,1))< 1.0e-14)
+        !    H_y = 0.0_GRID_SR
+        ! end where
 
         !print*,"ders"
         !print*,H_x
@@ -1212,17 +1211,17 @@
 
      ! q_i(:,2) = q_i(:,2) *q_i(:,1)
      ! ! q_i(:,3) = q_i(:,3) *q_i(:,1)
-     do i=1,_SWE_DG_DOFS
-        if(q_0(i,1).ne.0.0_GRID_SR)then
-        do j=0,_SWE_DG_ORDER
-           if(abs(q_i(i+j*_SWE_DG_DOFS,1)-q_0(i,1))/q_0(i,1) < 1.0e-14)then
-              q_i(i+j*_SWE_DG_DOFS,1)=q_0(i,1)
-           end if
-        end do
-        else if(abs(q_i(i+j*(_SWE_DG_DOFS),1)) < 1.0e-14)then
-              q_i(i+j*_SWE_DG_DOFS,1)=q_0(i,1)
-           end if
-     end do
+     ! do i=1,_SWE_DG_DOFS
+     !    if(q_0(i,1).ne.0.0_GRID_SR)then
+     !    do j=0,_SWE_DG_ORDER
+     !       if(abs(q_i(i+j*_SWE_DG_DOFS,1)-q_0(i,1))/q_0(i,1) < 1.0e-14)then
+     !          q_i(i+j*_SWE_DG_DOFS,1)=q_0(i,1)
+     !       end if
+     !    end do
+     !    else if(abs(q_i(i+j*(_SWE_DG_DOFS),1)) < 1.0e-14)then
+     !          q_i(i+j*_SWE_DG_DOFS,1)=q_0(i,1)
+     !       end if
+     ! end do
 
      call cell%data_pers%vec_to_dofs_dg_p(q_i)
    end  associate
@@ -1789,7 +1788,7 @@ MODULE SWE_DG_timestep
        delta(2) = max(0.1_GRID_SR,max_neighbour(2)-min_neighbour(2))
        delta(3) = max(0.1_GRID_SR,max_neighbour(3)-min_neighbour(3))
        
-       delta=delta*1.0e-2_GRID_SR
+       delta=delta*1.0e-3_GRID_SR
 !       !!!!!!print*,"solver"
        call dg_solver(element,flux1,flux2,flux3,section%r_dt)
 
@@ -1800,9 +1799,9 @@ MODULE SWE_DG_timestep
        HU=data%HU
        HV=data%HV
 
-       troubled=.false.
+!       troubled=.false.
 
-!       troubled=.not.all(data%H< max_neighbour(1)+delta(1).and.data%H >min_neighbour(1)-delta(1))
+       troubled=.not.all(data%H< max_neighbour(1)+delta(1).and.data%H >min_neighbour(1)-delta(1))
 
 !       troubled=&
 !            .not.all(data%H< max_neighbour(1)+delta(1).and.data%H >min_neighbour(1)-delta(1)) .or.&
@@ -1994,34 +1993,34 @@ end subroutine cell_update_op_dg
     flux_r%p(2)=0
 
     do i=1,(_SWE_DG_ORDER+1)**2
-       epsilon=1.0e-14
-       if(abs(QL(i)%p(1))<epsilon)then
-          QL(i)%p(1)=0.0_GRID_SR
-       end if
-       if(abs(QR(i)%p(1))<epsilon)then
-          QR(i)%p(1)=0.0_GRID_SR
-       end if
-       if(abs(QL(i)%p(2))<epsilon)then
-          QL(i)%p(2)=0.0_GRID_SR
-       end if
-       if(abs(QR(i)%p(2))<epsilon)then
-          QR(i)%p(2)=0.0_GRID_SR
-       end if
-       if(QL(i)%b.ne.0) then
-          if(abs(QL(i)%b-QR(i)%b)/QL(i)%b < epsilon)then
-             QL(i)%b=QR(i)%b
-          end if
-       else if(abs((QL(i)%b-QR(i)%b)) < epsilon)then
-             QL(i)%b=QR(i)%b
-       end if
+    !    epsilon=1.0e-14
+    !    if(abs(QL(i)%p(1))<epsilon)then
+    !       QL(i)%p(1)=0.0_GRID_SR
+    !    end if
+    !    if(abs(QR(i)%p(1))<epsilon)then
+    !       QR(i)%p(1)=0.0_GRID_SR
+    !    end if
+    !    if(abs(QL(i)%p(2))<epsilon)then
+    !       QL(i)%p(2)=0.0_GRID_SR
+    !    end if
+    !    if(abs(QR(i)%p(2))<epsilon)then
+    !       QR(i)%p(2)=0.0_GRID_SR
+    !    end if
+    !    if(QL(i)%b.ne.0) then
+    !       if(abs(QL(i)%b-QR(i)%b)/QL(i)%b < epsilon)then
+    !          QL(i)%b=QR(i)%b
+    !       end if
+    !    else if(abs((QL(i)%b-QR(i)%b)) < epsilon)then
+    !          QL(i)%b=QR(i)%b
+    !    end if
 
-       if(QL(i)%h.ne.0) then
-          if(abs(QL(i)%h-QR(i)%h)/QL(i)%b < epsilon)then
-             QL(i)%h=QR(i)%h
-          end if
-       else if(abs(QL(i)%h-QR(i)%h) < epsilon)then
-          QL(i)%h=QR(i)%h
-       end if
+    !    if(QL(i)%h.ne.0) then
+    !       if(abs(QL(i)%h-QR(i)%h)/QL(i)%b < epsilon)then
+    !          QL(i)%h=QR(i)%h
+    !       end if
+    !    else if(abs(QL(i)%h-QR(i)%h) < epsilon)then
+    !       QL(i)%h=QR(i)%h
+    !    end if
 
 
 
@@ -2151,13 +2150,13 @@ end subroutine cell_update_op_dg
     H_y=matmul(basis_der_st_y,Q_DG_P(:)%h+Q_DG_P(:)%B)
 
 
-    where(q_p(:,1).ne.0 .and. abs(H_x/q_p(:,1))< 1.0e-14)
-       H_x = 0.0_GRID_SR
-    end where
+    ! where(q_p(:,1).ne.0 .and. abs(H_x/q_p(:,1))< 1.0e-14)
+    !    H_x = 0.0_GRID_SR
+    ! end where
 
-    where(q_p(:,1).ne.0 .and. abs(H_y/q_p(:,1))< 1.0e-14)
-       H_y = 0.0_GRID_SR
-    end where
+    ! where(q_p(:,1).ne.0 .and. abs(H_y/q_p(:,1))< 1.0e-14)
+    !    H_y = 0.0_GRID_SR
+    ! end where
 
 
     source_temp=0

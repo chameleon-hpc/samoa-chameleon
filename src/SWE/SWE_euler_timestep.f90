@@ -1799,15 +1799,17 @@ MODULE SWE_DG_timestep
        HU=data%HU
        HV=data%HV
 
-!       troubled=.false.
 
+#if defined(_SWE_DG_LIMITER_UNLIMITED)
+       troubled=.false.
+#elif defined(_SWE_DG_LIMITER_HEIGHT)
        troubled=.not.all(data%H< max_neighbour(1)+delta(1).and.data%H >min_neighbour(1)-delta(1))
-
-!       troubled=&
-!            .not.all(data%H< max_neighbour(1)+delta(1).and.data%H >min_neighbour(1)-delta(1)) .or.&
-!            .not.all(data%HU< max_neighbour(2)+delta(2).and.data%HU>min_neighbour(2)-delta(2)) .or.&
-!            .not.all(data%HV< max_neighbour(3)+delta(3).and.data%HV>min_neighbour(3)-delta(3))
-       
+#elif defined(_SWE_DG_LIMITER_ALL)
+       troubled=&
+            .not.all(data%H< max_neighbour(1)+delta(1).and.data%H >min_neighbour(1)-delta(1)) .or.&
+            .not.all(data%HU< max_neighbour(2)+delta(2).and.data%HU>min_neighbour(2)-delta(2)) .or.&
+            .not.all(data%HV< max_neighbour(3)+delta(3).and.data%HV>min_neighbour(3)-delta(3))
+#endif       
        drying=.not.all(data%H - data%B > cfg%dry_tolerance*50.0).or..not.all(data%Q_DG%H > cfg%dry_tolerance*50.0)
 
        if(troubled.or.drying) then

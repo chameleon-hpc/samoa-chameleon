@@ -63,6 +63,12 @@ vars.AddVariables(
                                 'linear_beach',
                                 'convergence')),
 
+  EnumVariable( 'dg_limiter', '', "unlimited",
+                allowed_values=('all',
+                                'height',
+                                'unlimited')),
+
+
   EnumVariable( 'swe_dg_basis', 'choice of basis polynomes and projection method', 'bernstein_nodal',
                 allowed_values=('bernstein_nodal','bernstein_l2')
               ),
@@ -312,6 +318,15 @@ elif env['swe_scenario'] == 'linear_beach':
   env['F90FLAGS'] += ' -D_SWE_SCENARIO_SINGLE_WAVE'
 elif env['swe_scenario'] == 'convergence':
   env['F90FLAGS'] += ' -D_SWE_SCENARIO_CONVERGENCE_TEST'
+
+# DG Limter
+
+if env['dg_limiter'] == 'all':
+  env['F90FLAGS'] += ' -D_SWE_DG_LIMITER_ALL'
+elif env['dg_limiter'] == 'height':
+  env['F90FLAGS'] += ' -D_SWE_DG_LIMITER_HEIGHT'
+elif env['dg_limiter'] == 'unlimited':
+  env['F90FLAGS'] += ' -D_SWE_DG_LIMITER_UNLIMITED'
 
 
 #Choose a mobility term

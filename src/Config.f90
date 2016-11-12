@@ -285,7 +285,7 @@ module config
 
             config%l_ascii_output = lget('samoa_asciioutput')
             config%i_ascii_width = iget('samoa_asciioutput_width')
-            config%s_testpoints = sget('samoa_stestpoints', 512)
+            config%s_testpoints = sget('samoa_stestpoints', 262144)
 
             if (len(trim(config%s_testpoints)) .ne. 2) then
                 config%l_pointoutput = .true.

@@ -108,7 +108,8 @@ module config
             logical                             :: l_ascii_output                                   !< ascii output on/off
             integer                             :: i_ascii_width                                    !< width of the ascii output
             logical					            :: l_pointoutput                                    !< test points output on/off
-            character(512)				        :: s_testpoints			                            !< test points input string
+!            character(512)				        :: s_testpoints			                            !< test points input string
+            character(262144)				        :: s_testpoints			                            !< test points input string
             double precision, pointer		    :: r_testpoints(:,:)		                        !< test points array
 #    	elif defined(_FLASH)
             double precision                    :: scaling, offset(2)                               !< grid scaling and offset of the computational domain
@@ -286,6 +287,8 @@ module config
             config%l_ascii_output = lget('samoa_asciioutput')
             config%i_ascii_width = iget('samoa_asciioutput_width')
             config%s_testpoints = sget('samoa_stestpoints', 262144)
+            
+
 
             if (len(trim(config%s_testpoints)) .ne. 2) then
                 config%l_pointoutput = .true.
@@ -619,12 +622,12 @@ module config
 
             !local variables
             logical					:: l_wrong_format, l_point, l_comma, l_space, l_number_pre, l_number_post, l_sign, l_ycoord
-                integer          			:: i, i_error, points, j, coordstart(50,2), k, counter
-                character(512)                          :: checkstring
-
+                integer          			:: i, i_error, points, j, coordstart(50**2+1,2), k, counter
+                character(262144)                          :: checkstring
             ! check for correctness
             l_wrong_format = .false.
             checkstring = config%s_testpoints
+
 
             l_sign = .true.
             l_number_pre = .true.

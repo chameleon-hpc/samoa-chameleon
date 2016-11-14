@@ -232,7 +232,7 @@ MODULE SWE_PATCH
 			! copy coordinates to array
 			geom%coords(:,:,i) = r_points
 			
-			! make sure that all triangles are described in counterclockwise order
+			! make sure that apll triangles are described in counterclockwise order
 			if (mod(col,2) == 1) then
 				tmp = geom%coords(:,1,i)
 				geom%coords(:,1,i) = geom%coords(:,2,i)
@@ -263,8 +263,8 @@ MODULE SWE_PATCH
 				end if
 			end if
 		end do
-	
-	END SUBROUTINE
+
+              END SUBROUTINE SWE_PATCH_compute_coords
 	
 	SUBROUTINE SWE_PATCH_compute_transform(geom)
 		IMPLICIT NONE

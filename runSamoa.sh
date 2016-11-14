@@ -2,14 +2,18 @@
 
 export LC_NUMERIC="en_US.UTF-8"
 
-#rm -r output
-#mkdir output
-export OMP_NUM_THREADS=8
+rm -r output
+mkdir output
+export OMP_NUM_THREADS=1
 
 n=50
 
-x=`echo "scale=16;1/(${n}+1)"| bc | awk '{printf "%.16f", $0}'`
-y=`echo "scale=16;1/(${n}+1)"| bc | awk '{printf "%.16f", $0}'`
+offset_x=-10
+offset_y=-10
+domain_scale=20
+
+x=`echo "scale=16;1/(${n}+1)*${domain_scale}+${offset_x}"| bc | awk '{printf "%.16f", $0}'`
+y=`echo "scale=16;1/(${n}+1)*${domain_scale}+${offset_y}"| bc | awk '{printf "%.16f", $0}'`
 
 # x=`echo "scale=16;1/(${n}+1)"| bc `
 # y=`echo "scale=16;1/(${n}+1)"| bc `
@@ -18,31 +22,31 @@ y=`echo "scale=16;1/(${n}+1)"| bc | awk '{printf "%.16f", $0}'`
 nodes="${x} ${y}"
 
  for i in `seq 1 ${n}`;
- do
-     for j in `seq 1 ${n}`;
-     do
-# 	echo "scale=16;1.0/(${n}+1.0)*${i}"| bc
- 	x=`echo "scale=16;1.0/(${n}+1.0)*${i}"| bc | awk '{printf "%.16f", $0}'`
- 	y=`echo "scale=16;1.0/(${n}+1.0)*${j}"| bc | awk '{printf "%.16f", $0}'`
-# 	x=`echo "scale=16;1.0/(${n}+1.0)*${i}"| bc `
-# 	y=`echo "scale=16;1.0/(${n}+1.0)*${j}"| bc `
- 	nodes="${x} ${y},${nodes}"
-     done
- done
+  do
+      for j in `seq 1 ${n}`;
+      do
+ 	x=`echo "scale=16;1.0/(${n}+1.0)*${i}*${domain_scale}+${offset_x}"| bc | awk '{printf "%.16f", $0}'`
+  	y=`echo "scale=16;1.0/(${n}+1.0)*${j}*${domain_scale}+${offset_y}"| bc | awk '{printf "%.16f", $0}'`
+  	nodes="${x} ${y},${nodes}"
+      done
+  done
 
 #nodes='0.166667 0.166667,0.166667 0.333333,0.166667 0.500000,0.166667 0.666667,0.166667 0.833333,0.333333 0.166667,0.333333 0.333333,0.333333 0.500000,0.333333 0.666667,0.333333 0.833333,0.500000 0.166667,0.500000 0.333333,0.500000 0.500000,0.500000 0.666667,0.500000 0.833333,0.666667 0.166667,0.666667 0.333333,0.666667 0.500000,0.666667 0.666667,0.666667 0.833333,0.833333 0.166667,0.833333 0.333333,0.833333 0.500000,0.833333 0.666667,0.833333 0.833333,0.166667 0.166667,0.166667 0.333333,0.166667 0.500000,0.166667 0.666667,0.166667 0.833333,0.333333 0.166667,0.333333 0.333333,0.333333 0.500000,0.333333 0.666667,0.333333 0.833333,0.500000 0.166667,0.500000 0.333333,0.500000 0.500000,0.500000 0.666667,0.500000 0.833333,0.666667 0.166667,0.666667 0.333333,0.666667 0.500000,0.666667 0.666667,0.666667 0.833333,0.833333 0.166667,0.833333 0.333333,0.833333 0.500000,0.833333 0.666667,0.833333 0.833333'
 
 #nodes='0.166667 0.166667,0.166667 0.333333,0.166667 0.500000,0.166667 0.666667,0.166667 0.833333,0.333333 0.166667,0.333333 0.333333,0.333333 0.500000,0.333333 0.666667,0.333333 0.833333,0.500000 0.166667,0.500000 0.333333,0.500000 0.500000,0.500000 0.666667,0.500000 0.833333,0.666667 0.166667,0.666667 0.333333,0.666667 0.500000,0.666667 0.666667,0.666667 0.833333,0.833333 0.166667,0.833333 0.333333,0.833333 0.500000,0.833333 0.666667,0.833333 0.833333'
 
-echo $nodes
-
-for i in `seq 8 15`;
+#echo $nodes
+nodes="0.0 0.0"
+for i in `seq 8 14`;
+do
+for order in `seq 1 2`;
 do
 
 #mkdir output/output_1_unlimited_$i
 #bin/samoa_1_unlimited -tmax 0.05 -dmin $i -dmax $i -tout 0.025 -output_dir output/output_1_unlimited_$i -drytolerance 0.0001 -stestpoints ${nodes} -xmloutput
 
-mkdir output/output_1_unlimited_$i
-bin/samoa_1_unlimited -tmax 0.05 -dmin $i -dmax $i -tout 0.025 -output_dir output/output_1_unlimited_$i -drytolerance 0.0001 -stestpoints ${nodes} -xmloutput
+mkdir output/output_${order}_unlimited_$i
+bin/samoa_${order}_unlimited -tmax 0.20 -dmin $i -dmax $i -tout 0.20 -output_dir output/output_${order}_unlimited_$i -drytolerance 0.0001 -stestpoints ${nodes} -xmloutput
 
+done
 done

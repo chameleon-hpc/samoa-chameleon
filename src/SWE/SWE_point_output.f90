@@ -42,10 +42,12 @@
 	            integer (kind = GRID_SI)				:: i_output_iteration=0
 	            integer (kind = GRID_SI)				:: i_point_data_index
 	            integer (kind = GRID_SI)				:: i_cell_data_index
+
 	        end type
 
 		integer, parameter		:: i_element_order = 0
 		real (kind = GRID_SR), allocatable		:: r_testpoints(:,:)
+                integer :: count = 0
 
         integer, parameter      :: out_unit = 20
         character (len = 256)   :: pout_file_name
@@ -74,34 +76,34 @@
 
 		integer 						:: i, erro
 
-        if (rank_MPI == 0) then
-            _log_write(1, '(A, I0)') " SWE: output step: ", traversal%i_output_iteration
-        end if
+  if (rank_MPI == 0) then
+     _log_write(1, '(A, I0)') " SWE: output step: ", traversal%i_output_iteration
+  end if
+  
+  ! initialize test point array
+  
+  if (allocated(r_testpoints)) then
+     deallocate(r_testpoints)
+  end if
+  allocate (r_testpoints(size(cfg%r_testpoints, dim=1), 8), stat = erro)
+  
+  r_testpoints(:,:) = 0
 
-        ! initialize test point array
+  ! load with 0-1 coordinates and check for correctness
 
-		if (allocated(r_testpoints)) then
-        	deallocate(r_testpoints)
-    	end if
-		allocate (r_testpoints(size(cfg%r_testpoints, dim=1), 8), stat = erro)
-
-        r_testpoints(:,:) = 0
-
-        ! load with 0-1 coordinates and check for correctness
-
-		do i=1, size(r_testpoints, dim=1)
-			r_testpoints(i,1) = (cfg%r_testpoints(i,1) - cfg%offset(1)) / cfg%scaling
-			try((0.0 <= r_testpoints(i,1) .and. r_testpoints(i,1) <= 1.0), 'Submitted testpoints contain invalid x-coordinate')
-			r_testpoints(i,2) = (cfg%r_testpoints(i,2) - cfg%offset(2)) / cfg%scaling
-			try((0.0 <= r_testpoints(i,2) .and. r_testpoints(i,2) <= 1.0), 'Submitted testpoints contain invalid y-coordinate')
-            !r_testpoints(i,8) = 0
-            r_testpoints(i,7) = huge(1.0)
-		end do
-
-        call scatter(traversal%s_file_stamp, traversal%sections%s_file_stamp)
-        call scatter(traversal%i_output_iteration, traversal%sections%i_output_iteration)
-        call scatter(grid%r_time, grid%sections%elements_alloc(:)%r_time)
-	end subroutine
+  do i=1, size(r_testpoints, dim=1)
+     r_testpoints(i,1) = (cfg%r_testpoints(i,1) - cfg%offset(1)) / cfg%scaling
+     try((0.0 <= r_testpoints(i,1) .and. r_testpoints(i,1) <= 1.0), 'Submitted testpoints contain invalid x-coordinate')
+     r_testpoints(i,2) = (cfg%r_testpoints(i,2) - cfg%offset(2)) / cfg%scaling
+     try((0.0 <= r_testpoints(i,2) .and. r_testpoints(i,2) <= 1.0), 'Submitted testpoints contain invalid y-coordinate')
+     !r_testpoints(i,8) = 0
+     r_testpoints(i,7) = huge(1.0)
+  end do
+  
+  call scatter(traversal%s_file_stamp, traversal%sections%s_file_stamp)
+  call scatter(traversal%i_output_iteration, traversal%sections%i_output_iteration)
+  call scatter(grid%r_time, grid%sections%elements_alloc(:)%r_time)
+end subroutine pre_traversal_grid_op
 
         subroutine post_traversal_grid_op(traversal, grid)
 		type(t_swe_point_output_traversal), intent(inout)		:: traversal
@@ -236,6 +238,7 @@
 		type(t_state), dimension(_SWE_CELL_SIZE)			:: Q
 		type(t_state), dimension(6)							:: Q_test
 		real (kind = GRID_SR) 						        :: h, b, p(2), local_coord(2), epsvec(2), eps, distvec(2), dist, center(2)
+                integer :: k
 
 		call gv_Q%read(element, Q)
 
@@ -246,6 +249,7 @@
 
 #if defined(_SWE_DG)        
         if(element%cell%data_pers%troubled .le. 0) then
+           call element%cell%data_pers%convert_dg_to_fv_bathymetry()
            call element%cell%data_pers%convert_dg_to_fv()
         end if
 #endif
@@ -253,16 +257,43 @@
                 do i=1, size(r_testpoints, dim=1)
                     !check ob koordinaten in aktueller zelle
                     local_coord = samoa_world_to_barycentric_point(element%transform_data, [r_testpoints(i,1), r_testpoints(i,2)])
+!                    print*,element%transform_data%plotter_data%jacobian_inv
+!                    print*,element%transform_data%custom_data%offset
+!                    print*,element%transform_data%custom_data%scaling
+!                    print*, [r_testpoints(i,1), r_testpoints(i,2)]
+!                    print*,local_coord
+!                    print*
                     if (local_coord(1) + eps >= 0.0_GRID_SR .and. local_coord(2) + eps >= 0.0_GRID_SR .and. local_coord(1) + local_coord(2) - eps <= 1.0_GRID_SR) then
                         do j=1, _SWE_PATCH_ORDER_SQUARE
                             ! compute center of cell #j in patch
-                            center(1) = sum(geom%coords(1,:,j)) / 3.0_GRID_SR
-                            center(2) = sum(geom%coords(2,:,j)) / 3.0_GRID_SR
+
+                           if(element%cell%geometry%i_plotter_type < 0) then
+                              center(1) = sum(geom%coords(2,:,j)) / 3.0_GRID_SR
+                              center(2) = sum(geom%coords(1,:,j)) / 3.0_GRID_SR
+                           else
+                              center(1) = sum(geom%coords(1,:,j)) / 3.0_GRID_SR
+                              center(2) = sum(geom%coords(2,:,j)) / 3.0_GRID_SR
+                           end if
 
                             distvec = samoa_barycentric_to_world_point(element%transform_data, center) - [r_testpoints(i,1), r_testpoints(i,2)]
+                            !print*,j
+                            !print*,element%cell%geometry%i_plotter_type
+                            !print*,samoa_barycentric_to_world_point(element%transform_data, center)
                             dist = sqrt(dot_product(distvec, distvec))
-
+                            !print*,element%transform_data%plotter_data%jacobian
+                            !print*,ref_plotter_data()%jacobian
+                            !print*,element%transform_data%plotter_data%jacobian_inv
+                            !print*,dist
                             if (dist < r_testpoints(i,7)) then
+                               !print*,"center"
+                               !print*,center(1)
+                               !print*,center(2)
+                               print*,j
+                               !print*,r_testpoints(i,:)
+                               !print*,element%transform_data%custom_data%offset
+                               !print*, dist
+                               element%cell%data_pers%troubled=-5-count
+                               count=count+1
                                 h = data%H(j)
                                 b = data%B(j)
                                 p(1) = data%HU(j)
@@ -270,7 +301,9 @@
 
                                 r_testpoints(i,3) = p(1)
                                 r_testpoints(i,4) = p(2)
+                                !print*,p(2)
                                 r_testpoints(i,5) = h
+!                                !print*,h
                                 r_testpoints(i,6) = b
                                 r_testpoints(i,7) = dist
                                 r_testpoints(i,8) = section%r_time / (24.0_SR * 60.0_SR * 60.0_SR) + 70.2422_SR !convert to days since start of year for comparison with buoy data

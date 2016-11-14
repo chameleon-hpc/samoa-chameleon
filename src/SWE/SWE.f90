@@ -287,12 +287,12 @@
                         call swe%ascii_output%traverse(grid)
                     end if
 
-                    if(cfg%l_gridoutput) then
-                        call swe%xml_output%traverse(grid)
-                    end if
-
                     if (cfg%l_pointoutput) then
                         call swe%point_output%traverse(grid)
+                    end if
+
+                    if(cfg%l_gridoutput) then
+                        call swe%xml_output%traverse(grid)
                     end if
 
                     r_time_next_output = r_time_next_output + cfg%r_output_time_step
@@ -457,12 +457,12 @@
                       call swe%ascii_output%traverse(grid)
                    end if
                    
-                   if(cfg%l_gridoutput) then
-                      call swe%xml_output%traverse(grid)
-                   end if
-                   
                    if (cfg%l_pointoutput) then
                       call swe%point_output%traverse(grid)
+                   end if
+
+                   if(cfg%l_gridoutput) then
+                      call swe%xml_output%traverse(grid)
                    end if
 
                    r_time_next_output = r_time_next_output + cfg%r_output_time_step

@@ -34,6 +34,9 @@
 
 #		define _GT_NODE_MPI_TYPE
 
+! Displacement traversal should not be considered when using Automatic Heterogeneous Load Balancing
+#		define _GT_SKIP_LB_TIMING
+
 #		include "SFC_generic_traversal_ringbuffer.f90"
 
         subroutine create_node_mpi_type(mpi_node_type)

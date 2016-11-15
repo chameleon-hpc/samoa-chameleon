@@ -449,10 +449,13 @@ subroutine traverse(traversal, grid)
 
         thread_stats = thread_stats + traversal%sections(i_section)%stats
     end do
-    
-    !$omp critical
-        grid%r_computation_time_since_last_LB = grid%r_computation_time_since_last_LB + thread_stats%get_time(pre_compute_time) + thread_stats%get_time(inner_compute_time) + thread_stats%get_time(post_compute_time)
-    !$omp end critical
+
+	! don't consider the displacement traversal here... it is only used for one timestep!
+#   ifndef _GT_SKIP_LB_TIMING
+	!$omp critical
+            grid%r_computation_time_since_last_LB = grid%r_computation_time_since_last_LB + thread_stats%get_time(pre_compute_time) + thread_stats%get_time(inner_compute_time) + thread_stats%get_time(post_compute_time)
+        !$omp end critical
+#   endif
 
     traversal%threads(i_thread)%stats = traversal%threads(i_thread)%stats + thread_stats
     grid%threads%elements(i_thread)%stats = grid%threads%elements(i_thread)%stats + thread_stats
@@ -736,3 +739,5 @@ end subroutine
 #undef _GT_NAME
 
 #undef t_section_traversal
+
+#undef _GT_SKIP_LB_TIMING

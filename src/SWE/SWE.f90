@@ -108,8 +108,8 @@
                 cfg%afh_displacement = asagi_grid_create(ASAGI_FLOAT)
 
 #               if defined(_MPI)
-                    call asagi_grid_set_comm(cfg%afh_bathymetry, MPI_COMM_WORLD)
-                    call asagi_grid_set_comm(cfg%afh_displacement, MPI_COMM_WORLD)
+!                    call asagi_grid_set_comm(cfg%afh_bathymetry, MPI_COMM_WORLD)
+!                    call asagi_grid_set_comm(cfg%afh_displacement, MPI_COMM_WORLD)
 #               endif
 
                 call asagi_grid_set_threads(cfg%afh_bathymetry, cfg%i_threads)
@@ -401,6 +401,11 @@
 
 				i_time_step = i_time_step + 1
 
+                    if (cfg%i_stats_phases > 1 .and. i_stats_phase == cfg%i_stats_phases) then
+                        grid%i_steps_since_last_LB = 1
+                        cfg%i_lb_frequency = 5
+                    end if
+				
                 if (cfg%i_adapt_time_steps > 0 .and. mod(i_time_step, cfg%i_adapt_time_steps) == 0) then
                     !refine grid
                     call swe%adaption%traverse(grid)
@@ -439,6 +444,8 @@
 					r_time_next_output = r_time_next_output + cfg%r_output_time_step
 				end if
 
+				! don't do LB in last phase! (only if #phases > 1)
+				
                 !print stats
                 if ((cfg%r_max_time >= 0.0d0 .and. grid%r_time * cfg%i_stats_phases >= i_stats_phase * cfg%r_max_time) .or. &
                     (cfg%i_max_time_steps >= 0 .and. i_time_step * cfg%i_stats_phases >= i_stats_phase * cfg%i_max_time_steps)) then

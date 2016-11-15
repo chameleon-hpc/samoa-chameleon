@@ -1203,7 +1203,8 @@
 
         if(i > 100) then                           
            !!!!!print*,"predictor not converging"
-           stop
+           exit
+!           stop
         end if
         
         q_i(1+_SWE_DG_DOFS:(_SWE_DG_ORDER+1)*_SWE_DG_DOFS,:) = q_temp

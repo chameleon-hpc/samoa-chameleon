@@ -108,7 +108,10 @@
           type(t_grid), intent(inout)		                :: grid
 #if !defined(_SWE_DG)
           if (cfg%r_max_time > 0.0_SR) then
-             grid%r_dt = min(cfg%r_max_time-grid%r_time, grid%r_dt)
+             grid%r_dt = min(cfg%r_max_time-grid%r_time, grid%r_dt) 
+          if(mod(grid%r_time,cfg%r_output_time_step) > 0.0_GRID_SR) then
+             grid%r_dt = min(cfg%r_output_time_step-mod(grid%r_time,cfg%r_output_time_step), grid%r_dt)
+          end if
           end if
           
           if (cfg%r_output_time_step > 0.0_SR) then
@@ -1006,8 +1009,12 @@
      type(t_grid), intent(inout)							    :: grid
      
      if (cfg%r_max_time > 0.0_SR) then
-        grid%r_dt = min(cfg%r_max_time-grid%r_time, grid%r_dt)
+        grid%r_dt = min(cfg%r_max_time-grid%r_time, grid%r_dt) 
+        if(mod(grid%r_time,cfg%r_output_time_step) > 0.0_GRID_SR) then
+           grid%r_dt = min(cfg%r_output_time_step-mod(grid%r_time,cfg%r_output_time_step), grid%r_dt)
+        end if
      end if
+
      
      if (cfg%r_output_time_step > 0.0_SR) then
         grid%r_dt = min(cfg%r_output_time_step, grid%r_dt)
@@ -1201,8 +1208,8 @@
            end if
         end do
 
-        if(i > 100) then                           
-           !!!!!print*,"predictor not converging"
+        if(i > 200) then                           
+!           print*,"predictor not converging"
            exit
 !           stop
         end if
@@ -1234,8 +1241,8 @@
    end  associate
  end subroutine dg_predictor
 
- subroutine element_op(traversal, section, element)
-   type(t_swe_dg_predictor_traversal), intent(inout)				:: traversal
+ subroutine element_op(traversal, section, element) 
+  type(t_swe_dg_predictor_traversal), intent(inout)				:: traversal
    type(t_grid_section), intent(inout)						:: section
    type(t_element_base), intent(inout)						:: element
    integer :: i
@@ -1730,7 +1737,7 @@ MODULE SWE_DG_timestep
 
      if(neighbours_troubled) then
         data%troubled=merge(data%troubled,2,data%troubled.ge.1)
-        call element%cell%data_pers%convert_dg_to_fv_bathymetry()
+!        call element%cell%data_pers%convert_dg_to_fv_bathymetry()
      end if
 
      if(data%troubled.le.0) then
@@ -1799,7 +1806,7 @@ MODULE SWE_DG_timestep
 !       !!!!!!!!print*,"solver"
        call dg_solver(element,flux1,flux2,flux3,section%r_dt)
 
-       call element%cell%data_pers%convert_dg_to_fv_bathymetry()
+!       call element%cell%data_pers%convert_dg_to_fv_bathymetry()
        call data%convert_dg_to_fv()
 
        H =data%H

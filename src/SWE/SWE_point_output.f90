@@ -249,7 +249,7 @@ end subroutine pre_traversal_grid_op
 
 #if defined(_SWE_DG)        
         if(element%cell%data_pers%troubled .le. 0) then
-           call element%cell%data_pers%convert_dg_to_fv_bathymetry()
+!           call element%cell%data_pers%convert_dg_to_fv_bathymetry()
            call element%cell%data_pers%convert_dg_to_fv()
         end if
 #endif
@@ -288,11 +288,11 @@ end subroutine pre_traversal_grid_op
                                !print*,"center"
                                !print*,center(1)
                                !print*,center(2)
-                               print*,j
+!                               print*,j
                                !print*,r_testpoints(i,:)
                                !print*,element%transform_data%custom_data%offset
                                !print*, dist
-                               element%cell%data_pers%troubled=-5-count
+!                               element%cell%data_pers%troubled=-5-count
                                count=count+1
                                 h = data%H(j)
                                 b = data%B(j)

@@ -1392,7 +1392,7 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
             
             ! this is just for debugging, should be removed when everything is complete (TODO)
             !$omp single
-                _log_write(0, '(4X, "LB: Rank ", I0, " has ", I0)') rank_MPI, sum(grid%sections%elements_alloc(:)%load)
+                !_log_write(0, '(4X, "LB: Rank ", I0, " has ", I0)') rank_MPI, sum(grid%sections%elements_alloc(:)%load)
             !$omp end single
             
             ! check if LB should be performed now, according to option -lbfreq

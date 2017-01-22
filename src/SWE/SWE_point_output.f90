@@ -250,8 +250,14 @@
                     if (local_coord(1) + eps >= 0.0_GRID_SR .and. local_coord(2) + eps >= 0.0_GRID_SR .and. local_coord(1) + local_coord(2) - eps <= 1.0_GRID_SR) then
                         do j=1, _SWE_PATCH_ORDER_SQUARE
                             ! compute center of cell #j in patch
-                            center(1) = sum(geom%coords(1,:,j)) / 3.0_GRID_SR
-                            center(2) = sum(geom%coords(2,:,j)) / 3.0_GRID_SR
+                            
+                           if(element%cell%geometry%i_plotter_type < 0) then
+                              center(1) = sum(geom%coords(2,:,j)) / 3.0_GRID_SR
+                              center(2) = sum(geom%coords(1,:,j)) / 3.0_GRID_SR
+                           else
+                              center(1) = sum(geom%coords(1,:,j)) / 3.0_GRID_SR
+                              center(2) = sum(geom%coords(2,:,j)) / 3.0_GRID_SR
+                           end if
 
                             distvec = samoa_barycentric_to_world_point(element%transform_data, center) - [r_testpoints(i,1), r_testpoints(i,2)]
                             dist = sqrt(dot_product(distvec, distvec))
@@ -267,7 +273,11 @@
                                 r_testpoints(i,5) = h
                                 r_testpoints(i,6) = b
                                 r_testpoints(i,7) = dist
-                                r_testpoints(i,8) = section%r_time / (24.0_SR * 60.0_SR * 60.0_SR) + 70.2422_SR !convert to days since start of year for comparison with buoy data
+#                               if defined(_ASAGI)
+                                    r_testpoints(i,8) = section%r_time / (24.0_SR * 60.0_SR * 60.0_SR) + 70.2422_SR !convert to days since start of year for comparison with buoy data
+#                               else
+                                    r_testpoints(i,8) = section%r_time
+#                               endif
                             end if
                         end do
                     end if
@@ -293,7 +303,11 @@
                     r_testpoints(i,5) = h
                     r_testpoints(i,6) = b
                     r_testpoints(i,7) = dist
-                    r_testpoints(i,8) = section%r_time / (24.0_SR * 60.0_SR * 60.0_SR) + 70.2422_SR !convert to days since start of year for comparison with buoy data
+#                   if defined(_ASAGI)
+                        r_testpoints(i,8) = section%r_time / (24.0_SR * 60.0_SR * 60.0_SR) + 70.2422_SR !convert to days since start of year for comparison with buoy data
+#                   else
+                        r_testpoints(i,8) = section%r_time
+#                   endif
                 end if
 			end if
 		end do

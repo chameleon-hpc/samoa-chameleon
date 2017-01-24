@@ -1,0 +1,13 @@
+bin
+scripts/cache
+doxygen
+Samoa.layout
+Samoa.cbp
+.sconsign.dblite
+*~
+*.nc
+*.dat
+*.csv
+*.*vtu
+*.log
+*.pyc

@@ -410,8 +410,7 @@ subroutine traverse_grids(traversal, src_grid, dest_grid)
     end do
 
 #   if defined(_ASAGI_TIMING)
-        dest_grid%sections%elements_alloc(i_first_local_section : i_last_local_section)%stats%clear_time(asagi_time)
-        thread_stats%start_time(asagi_time = 0.0
+        call dest_grid%sections%elements_alloc(i_first_local_section : i_last_local_section)%stats%clear_time(asagi_time)
 #   endif
 
     call thread_stats%start_time(traversal_time)
@@ -600,7 +599,7 @@ subroutine traverse_grids(traversal, src_grid, dest_grid)
 
 #       if defined(_ASAGI_TIMING)
             !HACK: in lack of a better method, we reduce ASAGI timing data like this for now - should be changed in the long run, so that stats belongs to the section and not the traversal
-             traversal%sections(i_dest_section)%stats%add_time(asagi_time, dest_grid%sections%elements_alloc(i_dest_section)%stats%get_time(asagi_time))
+            traversal%sections(i_dest_section)%stats = traversal%sections(i_dest_section)%stats + dest_grid%sections%elements_alloc(i_dest_section)%stats
 #       endif
 
         thread_stats = thread_stats + traversal%sections(i_dest_section)%stats

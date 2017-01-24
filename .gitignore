@@ -11,3 +11,7 @@ Samoa.cbp
 *.*vtu
 *.log
 *.pyc
+myjob*
+error*
+output/*
+*.attr

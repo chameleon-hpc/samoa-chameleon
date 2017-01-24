@@ -12,6 +12,14 @@
 		use SWE_euler_timestep
 
 		use Samoa_swe
+#       if defined(_SWE_PATCH)
+            use SWE_PATCH
+#       endif
+
+        ! No ASAGI -> Artificial scenario selector 
+#       if !defined(_ASAGI)
+            use SWE_Scenario
+#       endif 
 
 		implicit none
 
@@ -22,6 +30,9 @@
 		type(t_lfs_flux)						:: lfs_flux
 
 		PUBLIC get_bathymetry_at_element, get_bathymetry_at_position
+#       if defined (_SWE_PATCH)
+            PUBLIC get_bathymetry_at_patch
+#       endif
 
 #		define _GT_NAME							t_swe_init_b_traversal
 
@@ -73,12 +84,19 @@
 			type(t_swe_init_b_traversal), intent(inout)				    :: traversal
 			type(t_grid_section), intent(inout)							:: section
 			type(t_element_base), intent(inout)					:: element
-
+#           if defined(_SWE_PATCH)
+                type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE)   :: Q
+#           else
 			type(t_state), dimension(_SWE_CELL_SIZE)			:: Q
+#           endif
 
 			call alpha_volume_op(traversal, section, element, Q)
 
+#           if defined(_SWE_PATCH)
+                element%cell%data_pers%B = Q(:)%b
+#           else
 			call gv_Q%write(element, Q)
+#           endif
 		end subroutine
 
 		!*******************************
@@ -89,18 +107,25 @@
 			type(t_swe_init_b_traversal), intent(inout)				    :: traversal
 			type(t_grid_section), intent(inout)							:: section
 			type(t_element_base), intent(inout)						:: element
-			type(t_state), dimension(_SWE_CELL_SIZE), intent(out)	:: Q
+#           if defined(_SWE_PATCH)
+                type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE), intent(out)  :: Q
+#           else
+                type(t_state), dimension(_SWE_CELL_SIZE), intent(out)   :: Q
+#           endif
 
 			real (kind = GRID_SR), dimension(2)						:: pos
 			integer (kind = GRID_SI)								:: i
 			real (kind = GRID_SR), parameter		                :: r_test_points(2, 3) = reshape([1.0, 0.0, 0.0, 0.0, 0.0, 1.0], [2, 3])
 			real (kind = GRID_SR)                                   :: centroid_square(2), centroid_triangle(2)
 			type(t_state), dimension(3)								:: Q_test
-			real (kind = GRID_SR), dimension(_SWE_CELL_SIZE)		:: lambda
 
 			!evaluate initial function values at dof positions and compute DoFs
 
-			Q%b = get_bathymetry_at_element(section, element, section%r_time)
+#           if defined (_SWE_PATCH)
+                Q%b = get_bathymetry_at_patch(section, element, section%r_time)
+#           else
+                Q%b = get_bathymetry_at_element(section, element, section%r_time)
+#           endif
 		end subroutine
 
         recursive function refine_2D_recursive(section, x1, x2, x3, t, depth) result(bath)
@@ -138,13 +163,78 @@
                 x1 = samoa_barycentric_to_world_point(element%transform_data, [1.0_SR, 0.0_SR])
                 x2 = samoa_barycentric_to_world_point(element%transform_data, [0.0_SR, 0.0_SR])
                 x3 = samoa_barycentric_to_world_point(element%transform_data, [0.0_SR, 1.0_SR])
-
+                
                 bathymetry = refine_2D_recursive(section, x1, x2, x3, t, ddepth)
 #           elif defined(_ADAPT_SAMPLE)
                 x = samoa_barycentric_to_world_point(element%transform_data, [1.0_SR / 3.0_SR, 1.0_SR / 3.0_SR])
                 bathymetry = get_bathymetry_at_position(section, x, t)
 #           endif
         end function
+        
+#if defined (_SWE_PATCH)
+        function get_bathymetry_at_patch(section, element, t) result(bathymetry)
+            type(t_grid_section), intent(inout)     :: section
+            type(t_element_base), intent(inout)     :: element
+            real (kind = GRID_SR), intent(in)       :: t
+            real (kind = GRID_SR), dimension(_SWE_PATCH_ORDER_SQUARE) :: bathymetry
+            
+            integer (kind = GRID_SI)                                        :: i, j, row, col, cell_id
+
+            real (kind = GRID_SR)   :: x(2), x1(2), x2(2), x3(2)
+            integer                 :: ddepth, data_depth
+            
+            !iterate through cells in patch
+            row = 1
+            col = 1
+            do i=1, _SWE_PATCH_ORDER_SQUARE
+                ! if orientation is backwards, the plotter uses a transformation that mirrors the cell...
+                ! this simple change solves the problem :)
+                if (element%cell%geometry%i_plotter_type > 0) then 
+                    cell_id = i
+                else
+                    cell_id = (row-1)*(row-1) + 2 * row - col
+                end if
+                
+#              if defined(_ADAPT_INTEGRATE)
+                    !limit to 16 refinement levels and maximum depth + 3
+#                  if defined(_ASAGI)
+                        data_depth = nint(log(cfg%scaling ** 2 / (asagi_grid_delta(cfg%afh_bathymetry, 0) * asagi_grid_delta(cfg%afh_bathymetry, 1))) / log(2.0_SR))
+                        ddepth = min(16, min(cfg%i_max_depth + 3, data_depth + 3) - element%cell%geometry%i_depth)
+#                  else
+                        ddepth = min(16, cfg%i_max_depth - element%cell%geometry%i_depth)
+#                  endif
+
+                    if (mod(col,2) == 1) then 
+                        x1 = samoa_barycentric_to_world_point(element%transform_data, SWE_PATCH_geometry%coords(:,1,cell_id) )
+                        x2 = samoa_barycentric_to_world_point(element%transform_data, SWE_PATCH_geometry%coords(:,2,cell_id) )
+                        x3 = samoa_barycentric_to_world_point(element%transform_data, SWE_PATCH_geometry%coords(:,3,cell_id) )
+                    else
+                        x3 = samoa_barycentric_to_world_point(element%transform_data, SWE_PATCH_geometry%coords(:,1,cell_id) )
+                        x2 = samoa_barycentric_to_world_point(element%transform_data, SWE_PATCH_geometry%coords(:,2,cell_id) )
+                        x1 = samoa_barycentric_to_world_point(element%transform_data, SWE_PATCH_geometry%coords(:,3,cell_id) )
+                    end if
+                    
+                    bathymetry(i) = refine_2D_recursive(section, x1, x2, x3, t, ddepth)
+#              elif defined(_ADAPT_SAMPLE)
+                    ! x = average of the 3 vertices
+                    x = 0
+                    do j=1,3
+                        x = x  + SWE_PATCH_geometry%coords(:,j,cell_id) 
+                    end do
+                    x = x / 3
+                    ! transform x to world coordinates
+                    x = samoa_barycentric_to_world_point(element%transform_data, x)
+                    bathymetry(i) = get_bathymetry_at_position(section, x, t)
+#              endif
+
+                col = col + 1
+                if (col == 2*row) then
+                    col = 1
+                    row = row + 1
+                end if
+            end do
+        end function
+#endif
 
 		function get_bathymetry_at_position(section, x, t) result(bathymetry)
 			type(t_grid_section), intent(inout)					:: section
@@ -158,7 +248,7 @@
 
 #			if defined(_ASAGI)
 #               if defined(_ASAGI_TIMING)
-                    section%stats%r_asagi_time = section%stats%r_asagi_time - get_wtime()
+                    call section%stats%start_time(asagi_time)
 #               endif
 
 				if (asagi_grid_min(cfg%afh_bathymetry, 0) <= xs(1) .and. asagi_grid_min(cfg%afh_bathymetry, 1) <= xs(2) &
@@ -179,10 +269,10 @@
                 end if
 
 #               if defined(_ASAGI_TIMING)
-                    section%stats%r_asagi_time = section%stats%r_asagi_time + get_wtime()
+                    call section%stats%stop_time(asagi_time)
 #               endif
 #			else
-				bathymetry = 0.0_SR
+				bathymetry = SWE_Scenario_get_bathymetry(real(xs, GRID_SR))
 #			endif
 		end function
 	END MODULE
@@ -195,6 +285,14 @@
 		use SWE_euler_timestep
 		use SWE_Initialize_Bathymetry
 		use Samoa_swe
+#       if defined(_SWE_PATCH)
+            use SWE_PATCH
+#       endif
+
+        ! No ASAGI -> Artificial scenario selector 
+#       if !defined(_ASAGI)
+            use SWE_Scenario
+#       endif 
 
 		implicit none
 
@@ -258,13 +356,26 @@
 			type(t_grid_section), intent(inout)							:: section
 			type(t_element_base), intent(inout)					        :: element
 
-			type(t_state)			                                    :: Q(_SWE_CELL_SIZE)
+#           if defined(_SWE_PATCH)
+                type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE)   :: Q
+                
+                Q(:)%b = element%cell%data_pers%B
+
+                call alpha_volume_op(traversal, section, element, Q)
+                
+                element%cell%data_pers%H = Q(:)%h
+                element%cell%data_pers%HU = Q(:)%p(1)
+                element%cell%data_pers%HV = Q(:)%p(2)
+                
+#           else
+            type(t_state), dimension(_SWE_CELL_SIZE)            :: Q
 
 			call gv_Q%read(element, Q)
 
 			call alpha_volume_op(traversal, section, element, Q)
 
 			call gv_Q%write(element, Q)
+#           endif
 		end subroutine
 
 		!*******************************
@@ -275,7 +386,15 @@
 			type(t_swe_init_dofs_traversal), intent(inout)				    :: traversal
 			type(t_grid_section), intent(inout)							:: section
 			type(t_element_base), intent(inout)						    :: element
-			type(t_state), dimension(_SWE_CELL_SIZE), intent(inout)	    :: Q
+#           if defined(_SWE_PATCH)
+                type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE), intent(out)  :: Q
+                real (kind = GRID_SR), dimension(_SWE_PATCH_ORDER_SQUARE)       :: max_wave_speed
+                real (kind = GRID_SR), DIMENSION(2)                             :: r_coords     !< cell coords within patch
+                integer (kind = GRID_SI)                                        :: j, row, col, cell_id
+#           else
+                type(t_state), dimension(_SWE_CELL_SIZE), intent(out)   :: Q
+                real (kind = GRID_SR)               :: max_wave_speed(_SWE_CELL_SIZE)
+#           endif
 
 			real (kind = GRID_SR)               :: x(2)
 			real (kind = GRID_SR)               :: dQ_norm
@@ -283,11 +402,52 @@
 			type(t_dof_state)	                :: Q_test(3)
 			integer                             :: i
 
-			real (kind = GRID_SR)               :: max_wave_speed(_SWE_CELL_SIZE)
+
 
 			!evaluate initial DoFs (not the bathymetry!)
+			
+#           if defined(_SWE_PATCH)
+                row = 1
+                col = 1
+                do i=1, _SWE_PATCH_ORDER_SQUARE
+                
+                    ! if orientation is backwards, the plotter uses a transformation that mirrors the cell...
+                    ! this simple change solves the problem :)
+                    if (element%cell%geometry%i_plotter_type > 0) then 
+                        cell_id = i
+                    else
+                        cell_id = (row-1)*(row-1) + 2 * row - col
+                    end if
+                
+                    r_coords = [0_GRID_SR, 0_GRID_SR]
+                    do j=1,3
+                        r_coords(:) = r_coords(:) + SWE_PATCH_geometry%coords(:,j,cell_id) 
+                    end do
+                    r_coords = r_coords / 3
+                    Q(i)%t_dof_state = get_initial_dof_state_at_position(section, samoa_barycentric_to_world_point(element%transform_data, r_coords))
 
+                    col = col + 1
+                    if (col == 2*row) then
+                        col = 1
+                        row = row + 1
+                    end if
+                end do
+                
+                ! dry cells
+                where (element%cell%data_pers%H < element%cell%data_pers%B + cfg%dry_tolerance) 
+                    element%cell%data_pers%H  = element%cell%data_pers%B
+                    element%cell%data_pers%HU = 0.0_GRID_SR
+                    element%cell%data_pers%HV = 0.0_GRID_SR
+                end where
+#           else			
 			Q%t_dof_state = get_initial_dof_state_at_element(section, element)
+			
+            ! dry cells
+            if (Q(1)%h < Q(1)%b + cfg%dry_tolerance) then
+                Q%h  = Q%b
+                Q(1)%p(:) = [0.0_GRID_SR, 0.0_GRID_SR]
+            end if
+#           endif
 
 			element%cell%geometry%refinement = 0
 
@@ -301,9 +461,13 @@
                     !refine the displacements
 
                     x = samoa_barycentric_to_world_point(element%transform_data, [1.0_SR/3.0_SR, 1.0_SR/3.0_SR])
-                    dQ_norm = abs(get_bathymetry_at_element(section, element, cfg%t_max_eq + 1.0_SR) - Q(1)%b)
+#                   if defined (_SWE_PATCH)
+                        dQ_norm = maxval(abs(get_bathymetry_at_patch(section, element, real(cfg%t_max_eq + 1.0, GRID_SR) ) - element%cell%data_pers%B))
+#                   else
+                        dQ_norm = abs(get_bathymetry_at_element(section, element, real(cfg%t_max_eq + 1.0, GRID_SR) ) - Q(1)%b)
+#                   endif
 
-                    if (dQ_norm > 0.0_GRID_SR) then
+                    if (dQ_norm > 100.0_SR *cfg%dry_tolerance) then
                         element%cell%geometry%refinement = 1
                         traversal%i_refinements_issued = traversal%i_refinements_issued + 1
                     end if
@@ -332,7 +496,11 @@
 
             !This will cause a division by zero if the wave speeds are 0.
             !Bue to the min operator, the error will not affect the time step.
-            section%r_dt_new = min(section%r_dt_new, element%cell%geometry%get_volume() / (sum(element%cell%geometry%get_edge_sizes()) * maxval(max_wave_speed)))
+#           if defined _SWE_PATCH
+                section%r_dt_new = min(section%r_dt_new, element%cell%geometry%get_volume() / (sum(element%cell%geometry%get_edge_sizes()) * maxval(max_wave_speed) * _SWE_PATCH_ORDER))
+#           else
+                section%r_dt_new = min(section%r_dt_new, element%cell%geometry%get_volume() / (sum(element%cell%geometry%get_edge_sizes()) * maxval(max_wave_speed)))
+#           endif
 		end subroutine
 
 		function get_initial_dof_state_at_element(section, element) result(Q)
@@ -351,7 +519,6 @@
 			real (kind = GRID_SR), intent(in)		            :: x(:)            !< position in world coordinates
 			type(t_dof_state)							        :: Q
 
-            real (kind = GRID_SR), parameter		            :: hL = 1.0_SR, hR = 0.0_SR
             real (kind = GRID_SR)                               :: xs(2)
 
             xs = cfg%scaling * x + cfg%offset
@@ -359,11 +526,7 @@
 #			if defined(_ASAGI)
 				Q%h = 0.0_GRID_SR
 #			else
-				if (xs(1) < 0.0_SR) then
-                    Q%h = hL
-                else
-                    Q%h = hR
-                end if
+                Q = SWE_Scenario_get_initial_Q(xs)
 #			endif
 
 			Q%p = 0.0_GRID_SR

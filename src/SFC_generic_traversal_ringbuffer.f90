@@ -442,7 +442,7 @@ subroutine traverse(traversal, grid)
 
 #       if defined(_ASAGI_TIMING)
             !HACK: in lack of a better method, we reduce ASAGI timing data like this for now - should be changed in the long run, so that stats belongs to the section and not the traversal
-            traversal%sections(i_section)%stats%add_time(asagi_time, grid%sections%elements_alloc(i_section)%stats%get_time(asagi_time))
+            call traversal%sections(i_section)%stats%add_time(asagi_time, grid%sections%elements_alloc(i_section)%stats%get_time(asagi_time))
 #       endif
 
         thread_stats = thread_stats + traversal%sections(i_section)%stats

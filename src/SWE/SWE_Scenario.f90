@@ -110,7 +110,7 @@ MODULE SWE_Scenario_linear_dam_break
     function SWE_Scenario_get_scaling() result(scaling)
         real (kind = GRID_SR) :: scaling
         
-        scaling = 10.0_GRID_SR
+        scaling = 1000.0_GRID_SR
     end function
 
     function SWE_Scenario_get_offset() result(offset)
@@ -123,14 +123,14 @@ MODULE SWE_Scenario_linear_dam_break
         real (kind = GRID_SR), intent(in) :: x(2)
         real (kind = GRID_SR) :: bathymetry
         
-        bathymetry = 0.0_GRID_SR
+        bathymetry = -10.0_GRID_SR
     end function
     
     function SWE_Scenario_get_initial_Q(x) result(Q)
         real (kind = GRID_SR), intent(in) :: x(2)
         type(t_dof_state) :: Q
         
-        real (kind = GRID_SR), parameter :: hL = 1.0_GRID_SR, hR = 0.0_GRID_SR
+        real (kind = GRID_SR), parameter :: hL = 10.0_GRID_SR, hR = 0.0_GRID_SR
         
         Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
         

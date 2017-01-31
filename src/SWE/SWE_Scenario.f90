@@ -110,7 +110,7 @@ MODULE SWE_Scenario_linear_dam_break
     function SWE_Scenario_get_scaling() result(scaling)
         real (kind = GRID_SR) :: scaling
         
-        scaling = 1000.0_GRID_SR
+        scaling = 100000.0_GRID_SR
     end function
 
     function SWE_Scenario_get_offset() result(offset)

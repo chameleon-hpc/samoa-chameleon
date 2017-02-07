@@ -106,3 +106,4 @@ For execution parameters refer to the online help by calling the executable with
 
 [![Build Status](https://travis-ci.org/meistero/Samoa.svg)](https://travis-ci.org/meistero/Samoa)
 
+

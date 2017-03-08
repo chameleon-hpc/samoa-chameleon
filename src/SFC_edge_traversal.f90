@@ -1618,11 +1618,13 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
             
             ! if at least one rank has zero load, distribute the load evenly so that it is possible to compute 
             ! the throughput for every rank at the next iteration
+            ! do the same if still in grid generation phase
             min_load = rank_load
             call reduce(min_load, MPI_MIN)
 
-            if (min_load == 0) then
+            if (min_load == 0 .or. grid%l_grid_generation) then
                 rank_throughput = 1
+                grid%r_computation_time_since_last_LB = 0
 
             else
                 ! now we need to actually compute the throughput

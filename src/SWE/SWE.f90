@@ -241,6 +241,8 @@
             call swe%init_b%traverse(grid)
 
 			do
+			
+			
 				!initialize dofs and set refinement conditions
 				call swe%init_dofs%traverse(grid)
 
@@ -258,6 +260,10 @@
 				if (swe%init_dofs%i_refinements_issued .le. 0) then
 					exit
 				endif
+				
+                ! always perform LB in this phase
+                grid%i_steps_since_last_LB = cfg%i_lb_frequency - 1
+                grid%l_grid_generation = .true.
 
 				call swe%adaption%traverse(grid)
 
@@ -280,6 +286,8 @@
 
 				i_initial_step = i_initial_step + 1
 			end do
+			
+			grid%l_grid_generation = .false.
 
             grid_info = grid%get_info(MPI_SUM, .true.)
 
@@ -401,10 +409,10 @@
 
 				i_time_step = i_time_step + 1
 
-                    if (cfg%i_stats_phases > 1 .and. i_stats_phase == cfg%i_stats_phases) then
-                        grid%i_steps_since_last_LB = 1
-                        cfg%i_lb_frequency = 5
-                    end if
+!                    if (cfg%i_stats_phases > 1 .and. i_stats_phase == cfg%i_stats_phases) then
+!                        grid%i_steps_since_last_LB = 1
+!                        cfg%i_lb_frequency = 5
+!                    end if
 				
                 if (cfg%i_adapt_time_steps > 0 .and. mod(i_time_step, cfg%i_adapt_time_steps) == 0) then
                     !refine grid
@@ -444,8 +452,6 @@
 					r_time_next_output = r_time_next_output + cfg%r_output_time_step
 				end if
 
-				! don't do LB in last phase! (only if #phases > 1)
-				
                 !print stats
                 if ((cfg%r_max_time >= 0.0d0 .and. grid%r_time * cfg%i_stats_phases >= i_stats_phase * cfg%r_max_time) .or. &
                     (cfg%i_max_time_steps >= 0 .and. i_time_step * cfg%i_stats_phases >= i_stats_phase * cfg%i_max_time_steps)) then

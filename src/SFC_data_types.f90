@@ -250,8 +250,17 @@ MODULE SFC_data_types
 		!integer (kind = BYTE)									:: plotter_type				!< Sierpinski plotter grammar triangle type (appears not to be used anywhere?)
 		integer (kind = BYTE)									:: forward					!< true if forward traversal
 		integer (kind = BYTE)									:: orientation				!< local orientation: -1: backward 1: forward
-		real (kind = GRID_SR)				                    :: jacobian(2, 2)		    !< Jacobian of the reference element transformation from barycentric to cartesian coordinates
-		real (kind = GRID_SR)			                        :: jacobian_inv(2, 2)	    !< Inverse of the Jacobian
+
+  real (kind = GRID_SR)				                    :: jacobian(2, 2)		    !< Jacobian of the reference element transformation from barycentric to cartesian coordinates
+#if defined(_SWE_DG)
+  real (kind = GRID_SR)				                    :: jacobian_normalized(2, 2)
+#endif
+  
+  real (kind = GRID_SR)			                        :: jacobian_inv(2, 2)	    !< Inverse of the Jacobian
+#if defined(_SWE_DG)
+  real (kind = GRID_SR)				                    :: jacobian_inv_normalized(2, 2)
+#endif
+
 		real (kind = GRID_SR)								    :: det_jacobian				!< Determinant of the Jacobian
 
 		type(t_edge_transform_data)                             :: edges(3)				!< Reference edge data
@@ -638,16 +647,26 @@ MODULE SFC_data_types
                     else if (i_plotter_type < 0) then
                         p_cell_data%orientation = -1
                         p_cell_data%jacobian = reshape([-sin(r_angle), cos(r_angle), cos(r_angle), sin(r_angle)], [2, 2])
-                    end if
-
+                     end if
+#if defined(_SWE_DG)
+                     p_cell_data%jacobian_normalized=p_cell_data%jacobian/NORM2(p_cell_data%jacobian(:,1))
+#endif
                     !round values to nearest whole numbers
                     !(the matrices should contain only whole numbers, these can be represented as reals without numerical error)
                     forall (i = 1:2, j = 1:2)
                         p_cell_data%jacobian(j, i) = aint(1.5_GRID_SR * p_cell_data%jacobian(j, i), kind=GRID_SR)
                     end forall
 
+#if defined(_SWE_DG)
+                     p_cell_data%jacobian_normalized=p_cell_data%jacobian/NORM2(p_cell_data%jacobian(:,1))
+#endif
+                    
                     p_cell_data%det_jacobian = p_cell_data%jacobian(1, 1) * p_cell_data%jacobian(2, 2) - p_cell_data%jacobian(1, 2) * p_cell_data%jacobian(2, 1)
                     p_cell_data%jacobian_inv = 1.0_GRID_SR / p_cell_data%det_jacobian * reshape([ p_cell_data%jacobian(2, 2), -p_cell_data%jacobian(2, 1), -p_cell_data%jacobian(1, 2), p_cell_data%jacobian(1, 1) ], [ 2, 2 ])
+
+#if defined(_SWE_DG)
+                     p_cell_data%jacobian_inv_normalized=p_cell_data%jacobian_inv/NORM2(p_cell_data%jacobian_inv(:,1))
+#endif
 
                     _log_write(7, '(X, "jacobian: ")')
                     _log_write(7, '(2X, 2(F0.4, X), /, 2X, 2(F0.4, X))') p_cell_data%jacobian

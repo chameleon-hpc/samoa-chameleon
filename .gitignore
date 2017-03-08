@@ -17,3 +17,5 @@ myjob*
 error*
 output/*
 *.attr
+*.mod
+*.o

@@ -8,7 +8,9 @@
 #if defined(_SWE)
 	MODULE SWE_data_types
 #if defined(_SWE_DG)
-                use SWE_DG_matrices
+   use SWE_DG_matrices
+#define _REF_TRIANGLE_SIZE_INV  (2.0q0 * real(_SWE_PATCH_ORDER_SQUARE,kind=kind(1.0q0)))
+   
 		implicit none
 # else
 		implicit none
@@ -36,7 +38,6 @@
                 integer, PARAMETER :: DI = GRID_DI
   
 		real (kind = GRID_SR), parameter					:: g = 9.80665_GRID_SR		!< gravitational constant
-                real (kind = GRID_SR),parameter :: ref_triangle_size_inv = (2.0q0 * real(_SWE_PATCH_ORDER_SQUARE,kind=kind(1.0q0)))
 
 
 		!***********************
@@ -125,10 +126,16 @@
                           procedure :: convert_dg_to_fv => convert_dg_to_fv
                           procedure :: convert_dg_to_fv_bathymetry => convert_dg_to_fv_bathymetry
                           procedure :: convert_fv_to_dg_bathymetry => convert_fv_to_dg_bathymetry
-                          procedure :: vec_to_dofs_dg => vec_to_dofs_dg
-                          procedure :: vec_to_dofs_dg_p => vec_to_dofs_dg_p
-                          procedure :: dofs_to_vec_dg  => dofs_to_vec_dg
-                          procedure :: dofs_to_vec_dg_p => dofs_to_vec_dg_p
+
+                          procedure :: get_dofs_dg => get_dofs_dg
+                          procedure :: get_dofs_pred => get_dofs_pred
+                          procedure :: set_dofs_dg => set_dofs_dg
+                          procedure :: set_dofs_pred => set_dofs_pred
+
+                          ! procedure :: vec_to_dofs_dg => vec_to_dofs_dg
+                          ! procedure :: vec_to_dofs_dg_p => vec_to_dofs_dg_p
+                          ! procedure :: dofs_to_vec_dg  => dofs_to_vec_dg
+                          ! procedure :: dofs_to_vec_dg_p => dofs_to_vec_dg_p
 
 #               endif
 		END type num_cell_data_pers
@@ -196,21 +203,15 @@
 		contains
 #if defined (_SWE_DG)
 
-                 subroutine convert_fv_to_dg(dofs,ini)
+                 subroutine convert_fv_to_dg(dofs)
                    class(num_cell_data_pers) :: dofs
                    real(kind=GRID_SR) :: q(_SWE_PATCH_ORDER*_SWE_PATCH_ORDER,3),q_temp(_SWE_DG_DOFS+1,3)
                    real(kind=GRID_SR) :: h_temp(_SWE_DG_DOFS +1), hu_temp(_SWE_DG_DOFS +1), hv_temp(_SWE_DG_DOFS +1)
                    real(kind=GRID_SR) :: q_dg(_SWE_DG_DOFS,3)
                    real(kind=GRID_SR) :: epsilon=0.0_GRID_SR
-                   logical,optional :: ini
-                   logical :: ini_local = .false.
                    integer :: i,j
 
-!PATCHES store h+b DG not
-!                   print*,"convert"
-                   if(present(ini)) then
-                      ini_local= ini
-                   end if
+!                  PATCHES store h+b DG not
 
                    q(:,1)=dofs%H-dofs%b
 !                   q(:,1)=dofs%H
@@ -223,31 +224,16 @@
                    q_temp(_SWE_DG_DOFS+1,2) = sum(q(:,2))
                    q_temp(_SWE_DG_DOFS+1,3) = sum(q(:,3))
 
-                   q_temp = q_temp /ref_triangle_size_inv
+                   q_temp = q_temp /_REF_TRIANGLE_SIZE_INV
 
                    call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,q_temp(:,1))
                    call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,q_temp(:,2))
                    call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,q_temp(:,3))
 !                   q_temp(1:_SWE_DG_DOFS,1)=q_temp(1:_SWE_DG_DOFS,1) - dofs%Q_DG%b
                    q_dg=q_temp(1:_SWE_DG_DOFS,:)
-
-                   !smooth converted height, importrant for stready state
-                   if(ini_local) then
-                      do i=1,_SWE_DG_DOFS
-                         if(.not.q_dg(i,1).eq.0) then
-                            do j=i+1,_SWE_DG_DOFS
-                               epsilon=max(epsilon,(q_dg(i,1)-q_dg(j,1))/q_dg(i,1))
-                            end do
-                         end if
-                      end do
-                      
-                      if(epsilon < 1.5e-14) then
-                         q_dg(2:,1) = q_dg(1,1)
-                      end if
-                   end if
-
-                   call dofs%vec_to_dofs_dg(q_dg)
-
+                   
+                   call dofs%set_dofs_dg(q_dg)
+                   
                  end subroutine convert_fv_to_dg
                    
                  subroutine convert_dg_to_fv(dofs)
@@ -255,12 +241,12 @@
                    real(kind=GRID_SR)        :: q(_SWE_DG_DOFS,3)
                    real(kind=GRID_SR)        :: fv_temp(_SWE_PATCH_ORDER*_SWE_PATCH_ORDER,3)
 
-                   call dofs%dofs_to_vec_dg(q)
+                   call dofs%get_dofs_dg(q)
 
                    !PATCHES store h+b DG not
 !                   q(:,1)  = q(:,1) + dofs%Q_DG%b
 
-                   fv_temp=matmul(phi,q)*ref_triangle_size_inv
+                   fv_temp=matmul(phi,q)*_REF_TRIANGLE_SIZE_INV
 
                    dofs%H=fv_temp(:,1) +dofs%B
                    dofs%HU=fv_temp(:,2)
@@ -274,16 +260,14 @@
                    real(kind=GRID_SR)        :: fv_temp(_SWE_PATCH_ORDER*_SWE_PATCH_ORDER)
 
                    q = dofs%Q_DG%B
-
-                   fv_temp=matmul(phi,q)*ref_triangle_size_inv
-
+                   fv_temp=matmul(phi,q)*_REF_TRIANGLE_SIZE_INV
                    dofs%B=fv_temp
 
                  end subroutine convert_dg_to_fv_bathymetry
 
 
 
-                 subroutine convert_fv_to_dg_bathymetry(dofs,normals,ini)
+                 subroutine convert_fv_to_dg_bathymetry(dofs,normals)
                    class(num_cell_data_pers) :: dofs
                    real(kind=GRID_SR) :: b_temp(_SWE_DG_DOFS +1),b_fv(_SWE_PATCH_ORDER_SQUARE)
 #if defined(_SWE_DG_NODAL)                   
@@ -298,40 +282,18 @@
                    real(kind=GRID_SR) :: normals_normed(2,2)
                    integer ::i,j
                    real(kind=GRID_SR) :: epsilon=0.0_GRID_SR
-                   logical,optional :: ini
-                   logical :: ini_local=.false.
 
 
-                   if(present(ini)) then
-                      ini_local=ini
-                   end if
                    normals_normed=normals/NORM2(normals(1,1:2))
 
                    b_temp(1:_SWE_DG_DOFS)= 2.0q0*matmul(transpose(phi),dofs%b)
                    
                    b_temp(_SWE_DG_DOFS+1) = sum(dofs%b)
                    
-                   b_temp = b_temp /ref_triangle_size_inv
+                   b_temp = b_temp /_REF_TRIANGLE_SIZE_INV
 
                   
                    call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,b_temp)
-
-                   if(ini_local) then
-                   
-                      !smooth converted bathymetrie, importrant for stready state
-                      do i=1,_SWE_DG_DOFS
-                         if(.not.b_temp(i).eq.0) then
-                            do j=i+1,_SWE_DG_DOFS
-                               epsilon=max(epsilon,(b_temp(i)-b_temp(j))/b_temp(i))
-                            end do
-                         end if
-                      end do
-                      
-                      if(epsilon < 1.5e-14) then
-                         b_temp(2:) = b_temp(1)
-                      end if
-                      
-                   end if
 
                    do i=1,_SWE_DG_DOFS
                       dofs%Q_DG(i)%b=b_temp(i)
@@ -413,56 +375,39 @@
 
 #if defined(_SWE_DG)                
 		!multiplies a scalar with a dof state vector
-                subroutine dofs_to_vec_dg(f,q)
-                        integer ::i
-			class (num_cell_data_pers), intent(in)		:: f
-                        real (kind = GRID_SR),intent(out)               :: q (size(f%Q_DG,1),3)
-                        
-                        do i = 1,size(q,1)
-                           q(i,1)= f%Q_DG(i)%h
-                           q(i,2)= f%Q_DG(i)%p(1)
-                           q(i,3)= f%Q_DG(i)%p(2)
-                        end do
-                end subroutine dofs_to_vec_dg
+                subroutine get_dofs_dg(f,q)
+                  integer ::i
+                  class (num_cell_data_pers), intent(in)		:: f
+                  real (kind = GRID_SR),intent(out)               :: q (size(f%Q_DG,1),3)
+                  q(:,1)= f%Q_DG(:)%h
+                  q(:,2)= f%Q_DG(:)%p(1)
+                  q(:,3)= f%Q_DG(:)%p(2)
+                end subroutine get_dofs_dg
 
-                subroutine dofs_to_vec_dg_p(f,q)
-                        integer ::i
-			class (num_cell_data_pers), intent(in)		:: f
-                        real (kind = GRID_SR),intent(out)               :: q (size(f%Q_DG_P,1),3)
-
-                        do i = 1,size(q,1)
-                           q(i,1)= f%Q_DG_P(i)%h
-                           q(i,2)= f%Q_DG_P(i)%p(1)
-                           q(i,3)= f%Q_DG_P(i)%p(2)
-                        end do
-                end subroutine dofs_to_vec_dg_p
+                subroutine get_dofs_pred(f,q)
+                  class (num_cell_data_pers), intent(in)		:: f
+                  real (kind = GRID_SR),intent(out)               :: q (size(f%Q_DG_P,1),3)
+                  q(:,1)= f%Q_DG_P(:)%h
+                  q(:,2)= f%Q_DG_P(:)%p(1)
+                  q(:,3)= f%Q_DG_P(:)%p(2)
+                end subroutine get_dofs_pred
 
 
-		subroutine vec_to_dofs_dg(f,q)
-                        integer ::i
-			class (num_cell_data_pers),intent(inout) 		        :: f
-                        real (kind = GRID_SR) 		        :: q(size(f%q_dg,1),3)
+		subroutine set_dofs_dg(f,q)
+                  class (num_cell_data_pers),intent(inout) 	:: f
+                  real (kind = GRID_SR) 		        :: q(size(f%q_dg,1),3)
+                  f%Q_DG(:)%H = q(:,1)
+                  f%Q_DG(:)%p(1) =q(:,2)
+                  f%Q_DG(:)%p(2) =q(:,3)
+                end subroutine set_dofs_dg
 
-                        do i = 1,size(f%q_dg,1)
-                           f%Q_DG(i)%H = q(i,1)
-                           f%Q_DG(i)%p(1) =q(i,2)
-                           f%Q_DG(i)%p(2) =q(i,3)
-                        end do
-
-                      end subroutine vec_to_dofs_dg
-
-		subroutine vec_to_dofs_dg_p(f,q)
-                        integer ::i
-			class (num_cell_data_pers),intent(inout) 		        :: f
-                        real (kind = GRID_SR) 		        :: q(size(f%q_dg_p,1),3)
-
-                        do i = 1,size(f%q_dg_p,1)
-                           f%Q_DG_P(i)%H    = q(i,1)
-                           f%Q_DG_P(i)%p(1) = q(i,2)
-                           f%Q_DG_P(i)%p(2) = q(i,3)
-                        end do
-
-                      end subroutine vec_to_dofs_dg_p
+		subroutine set_dofs_pred(f,q)
+                  class (num_cell_data_pers),intent(inout)      :: f
+                  real (kind = GRID_SR) 		        :: q(size(f%q_dg_p,1),3)
+                  f%Q_DG_P(:)%H    = q(:,1)
+                  f%Q_DG_P(:)%p(1) = q(:,2)
+                  f%Q_DG_P(:)%p(2) = q(:,3)
+                end subroutine set_dofs_pred
 #endif
 	END MODULE SWE_data_types
 #endif

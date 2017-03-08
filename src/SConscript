@@ -71,6 +71,8 @@ f90_sources = [
 "SWE/SWE_patch.f90",
 "SWE/SWE_patch_solvers.f90",
 "SWE/SWE_DG_matrices.f90",
+"SWE/SWE_dg_predictor.f90",
+"SWE/SWE_dg_solver.f90",
 "SWE/SWE_Scenario.f90",
 "geoclaw/c_bind_riemannsolvers.f90",
 "Samoa/Samoa.f90",

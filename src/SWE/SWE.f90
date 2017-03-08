@@ -25,7 +25,7 @@
 
 #if defined(_SWE_DG)
                 use SWE_dg_predictor
-                use SWE_dg_timestep
+                use SWE_dg_solver
 #endif
 
 		use Samoa_swe

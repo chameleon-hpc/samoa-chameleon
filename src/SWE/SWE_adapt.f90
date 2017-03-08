@@ -19,7 +19,7 @@
 #endif
 #if defined(_SWE_DG)
     use SWE_dg_predictor
-    use SWE_dg_timestep
+    use SWE_dg_solver
 #endif
 
     implicit none
@@ -302,7 +302,7 @@
 
 
           if(dest_element%cell%data_pers%troubled.le.0) then
-             call dg_predictor(dest_element%cell,section%r_dt,dest_element%cell%geometry%get_scaling())
+             call dg_predictor(dest_element%cell,section%r_dt)
           else
              !store old dg value in dg_predictor
              dest_element%cell%data_pers%Q_DG_P(:)%H=0
@@ -441,7 +441,7 @@
         end if
 
         if(dest_element%cell%data_pers%troubled.le.0) then
-           call dg_predictor(dest_element%cell,section%r_dt,dest_element%cell%geometry%get_scaling())
+           call dg_predictor(dest_element%cell,section%r_dt)
         else
            !store old dg value in dg_predictor
            dest_element%cell%data_pers%Q_DG_P(:)%H=0

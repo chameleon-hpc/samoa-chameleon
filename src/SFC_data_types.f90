@@ -616,6 +616,9 @@ MODULE SFC_data_types
 	!Transformation data initialization
 	!**********************************
 
+!> Initializes transformation data for 
+!! the transformation of the grid elements 
+!! to a local reference element.
 	subroutine init_transform_data()
 		type(t_edge_transform_data), pointer				:: p_edge_data
 		integer (kind = BYTE)							    :: i_plotter_type, i, j

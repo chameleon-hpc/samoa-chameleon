@@ -357,10 +357,10 @@ subroutine traverse(traversal, grid)
 
     call thread_stats%start_time(sync_time)
     call duplicate_boundary_data(grid, edge_write_wrapper_op, node_write_wrapper_op)
-    call thread_stats%stop_time(sync_time)
 
     !wait until all boundary data has been copied
     !$omp barrier
+    call thread_stats%stop_time(sync_time)
 
     do i_section = i_first_local_section, i_last_local_section
 #       if defined(_OPENMP_TASKS)
@@ -389,6 +389,7 @@ subroutine traverse(traversal, grid)
             !$omp end task
 #       endif
     end do
+    call thread_stats%start_time(sync_time)
 
 #   if defined(_OPENMP_TASKS)
         !$omp taskwait
@@ -396,6 +397,7 @@ subroutine traverse(traversal, grid)
 
     !wait until all computation is done
     !$omp barrier
+    call thread_stats%stop_time(sync_time)
 
     !sync and call post traversal operator
     call thread_stats%start_time(sync_time)
@@ -408,7 +410,6 @@ subroutine traverse(traversal, grid)
 #   else
         call collect_boundary_data(grid, edge_merge_wrapper_op, node_merge_wrapper_op, mpi_node_type_optional=traversal%mpi_node_type, mpi_edge_type_optional=traversal%mpi_edge_type)
 #   endif
-    call thread_stats%stop_time(sync_time)
 
     do i_section = i_first_local_section, i_last_local_section
         assert_eq(i_section, grid%sections%elements_alloc(i_section)%index)
@@ -420,6 +421,7 @@ subroutine traverse(traversal, grid)
     call grid%reverse()
 
     !$omp barrier
+    call thread_stats%stop_time(sync_time)
 
     call thread_stats%start_time(barrier_time)
 
@@ -434,7 +436,7 @@ subroutine traverse(traversal, grid)
 
     call thread_stats%stop_time(barrier_time)
     call thread_stats%stop_time(traversal_time)
-
+    
     do i_section = i_first_local_section, i_last_local_section
         call set_stats_counters(traversal%sections(i_section)%stats, grid%sections%elements_alloc(i_section))
 
@@ -447,6 +449,14 @@ subroutine traverse(traversal, grid)
 
         thread_stats = thread_stats + traversal%sections(i_section)%stats
     end do
+
+    ! used for auto-tuning LB
+	! but don't consider the displacement traversal here... it is only used for one timestep!
+#   ifndef _GT_SKIP_LB_TIMING
+	!$omp critical
+        grid%r_computation_time_since_last_LB = grid%r_computation_time_since_last_LB + thread_stats%get_time(pre_compute_time) + thread_stats%get_time(inner_compute_time) + thread_stats%get_time(post_compute_time)
+    !$omp end critical
+#   endif
 
     traversal%threads(i_thread)%stats = traversal%threads(i_thread)%stats + thread_stats
     grid%threads%elements(i_thread)%stats = grid%threads%elements(i_thread)%stats + thread_stats
@@ -730,3 +740,5 @@ end subroutine
 #undef _GT_NAME
 
 #undef t_section_traversal
+
+#undef _GT_SKIP_LB_TIMING

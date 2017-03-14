@@ -129,6 +129,7 @@ module Neighbor_list
 	type t_comm_interface
 		integer                         :: local_rank = -1, neighbor_rank = -1			    !< local and comm process rank
 		integer                         :: local_section = -1, neighbor_section = -1	    !< local and comm section index
+		integer                         :: old_neighbor_section=-1, old_neighbor_rank=-1    !< used only in send_recv_comm_changes
         integer (kind = GRID_DI)        :: min_distance = 0		                            !< minimum distance in the grid (invariant)
 		integer (kind = GRID_SI)        :: i_edges = 0		                                !< number of shared edges
 		integer (kind = GRID_SI)        :: i_nodes = 0		                                !< number of shared nodes

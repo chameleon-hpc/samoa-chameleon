@@ -296,17 +296,16 @@ subroutine traverse_in_place(traversal, grid)
     !duplicate source grid boundary before load balancing
     call thread_stats%start_time(sync_time)
     call duplicate_boundary_data(grid, edge_write_wrapper_op, node_write_wrapper_op)
-    call thread_stats%stop_time(sync_time)
-
     !wait until all boundary data has been copied
     !$omp barrier
+    call thread_stats%stop_time(sync_time)
 
     !balance load BEFORE refinement if splitting is DISABLED
     if (.not. cfg%l_split_sections) then
 #	    if !defined(_GT_INPUT_DEST)
 	        !exchange source grid sections with neighbors
             call thread_stats%start_time(load_balancing_time)
-		    call distribute_load(grid, 0.0)
+		    call distribute_load(grid)
             call thread_stats%stop_time(load_balancing_time)
 #	    endif
     end if
@@ -342,14 +341,13 @@ subroutine traverse_in_place(traversal, grid)
             !duplicate destination grid boundary before load balancing
             call thread_stats%start_time(sync_time)
             call duplicate_boundary_data(grid, edge_write_wrapper_op, node_write_wrapper_op)
-            call thread_stats%stop_time(sync_time)
-
             !wait until all boundary data has been copied
             !$omp barrier
+            call thread_stats%stop_time(sync_time)
 
 	        !exchange destination grid sections with neighbors
             call thread_stats%start_time(load_balancing_time)
-		    call distribute_load(grid, 0.0)
+		    call distribute_load(grid)
             call thread_stats%stop_time(load_balancing_time)
 #	    endif
     end if
@@ -565,8 +563,6 @@ subroutine traverse_grids(traversal, src_grid, dest_grid)
         call collect_boundary_data(dest_grid, edge_merge_wrapper_op, node_merge_wrapper_op, mpi_node_type_optional=traversal%mpi_node_type, mpi_edge_type_optional=traversal%mpi_edge_type)
 #   endif
 
-    call thread_stats%stop_time(sync_time)
-
     !call post traversal operator
 
     do i_dest_section = i_first_local_section, i_last_local_section
@@ -576,6 +572,7 @@ subroutine traverse_grids(traversal, src_grid, dest_grid)
     end do
 
     !$omp barrier
+    call thread_stats%stop_time(sync_time)
 
     call thread_stats%start_time(barrier_time)
 
@@ -591,7 +588,7 @@ subroutine traverse_grids(traversal, src_grid, dest_grid)
     call thread_stats%stop_time(barrier_time)
 
     call thread_stats%stop_time(traversal_time)
-
+    
     do i_dest_section = i_first_local_section, i_last_local_section
         call set_stats_counters_dest(traversal%sections(i_dest_section)%stats, dest_grid%sections%elements_alloc(i_dest_section))
 
@@ -604,6 +601,11 @@ subroutine traverse_grids(traversal, src_grid, dest_grid)
 
         thread_stats = thread_stats + traversal%sections(i_dest_section)%stats
     end do
+
+    ! used for auto-tuning LB (not anymore, but can be useful in the future)
+    !$omp critical
+        !grid%r_computation_time_since_last_LB = grid%r_computation_time_since_last_LB + thread_stats%get_time(pre_compute_time) + thread_stats%get_time(inner_compute_time) + thread_stats%get_time(post_compute_time)
+    !$omp end critical
 
     traversal%threads(i_thread)%stats = traversal%threads(i_thread)%stats + thread_stats
     dest_grid%threads%elements(i_thread)%stats = dest_grid%threads%elements(i_thread)%stats + thread_stats

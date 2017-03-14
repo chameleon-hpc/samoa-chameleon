@@ -259,6 +259,11 @@
 					exit
 				endif
 
+                ! always perform LB in this phase (minimize chance of a process running out of memory)
+                grid%i_steps_since_last_LB = cfg%i_lb_frequency - 1
+                ! only use homogeneous LB here (same reason)
+                grid%l_grid_generation = .true.
+
 				call swe%adaption%traverse(grid)
 
                 !output grids during initial phase if and only if t_out is 0
@@ -280,6 +285,8 @@
 
 				i_initial_step = i_initial_step + 1
 			end do
+
+			grid%l_grid_generation = .false.
 
             grid_info = grid%get_info(MPI_SUM, .true.)
 

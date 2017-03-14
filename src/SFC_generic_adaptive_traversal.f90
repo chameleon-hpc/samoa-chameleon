@@ -601,7 +601,8 @@ subroutine traverse_grids(traversal, src_grid, dest_grid)
 
         thread_stats = thread_stats + traversal%sections(i_dest_section)%stats
     end do
-    
+
+    ! used for auto-tuning LB (not anymore, but can be useful in the future)
     !$omp critical
         !grid%r_computation_time_since_last_LB = grid%r_computation_time_since_last_LB + thread_stats%get_time(pre_compute_time) + thread_stats%get_time(inner_compute_time) + thread_stats%get_time(post_compute_time)
     !$omp end critical

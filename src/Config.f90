@@ -50,8 +50,6 @@ module config
         double precision                        :: r_lb_hh_ratio(2)                                 !< HH LB ratio: value (1) is for Hosts, (2) is for MICs. Read from s_lb_hh_ratio.
         character(64)                           :: s_lb_hh_ratio                                    !< input string for r_lb_hh_ratio
 
-        logical                                 :: l_avoid                                          !< avoid MPI messages larger than 4KB (temporary hack for good MPI performance between MICs)
-
 	    logical 				                :: l_gridoutput			                            !< grid output on/off
 	    character(256)				            :: output_dir			                            !< output directory
 
@@ -164,7 +162,7 @@ module config
         write(arguments, '(A)') "-v .false. --version .false. -h .false. --help .false."
         write(arguments, '(A, A)') trim(arguments),   " -lbtime .false. -lbsplit .false. -lbserial .false. -lbcellweight 1.0d0 -lbbndweight 0.0d0"
         write(arguments, '(A, A)') trim(arguments),   " -lbhh .false. -lbfreq 1 -lbthreshold 0.01 -lbhhauto .false. -lbhhratio 1 1 "
-        write(arguments, '(A, A)') trim(arguments),  " -asagihints 2 -phases 1 -tadapt -1.0 -nadapt 1 -asciioutput_width 60 -output_dir output -asciioutput .false. -xmloutput .false. -stestpoints '' -noprint .false. -sections 4 -avoid .false."
+        write(arguments, '(A, A)') trim(arguments),  " -asagihints 2 -phases 1 -tadapt -1.0 -nadapt 1 -asciioutput_width 60 -output_dir output -asciioutput .false. -xmloutput .false. -stestpoints '' -noprint .false. -sections 4 .false."
         write(arguments, '(A, A, I0)') trim(arguments), " -threads ", omp_get_max_threads()
 
         !define additional command arguments and default values depending on the choice of the scenario
@@ -259,8 +257,6 @@ module config
         config%courant_number = rget('samoa_courant')
         config%l_gridoutput = lget('samoa_xmloutput')
         config%output_dir = sget('samoa_output_dir', 256)
-        
-        config%l_avoid = lget('samoa_avoid')
 
 #    	if defined(_DARCY)
 #		    if defined(_ASAGI)

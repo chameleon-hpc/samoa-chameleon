@@ -130,6 +130,7 @@ MODULE SFC_data_types
         ! info for load balancing
         double precision                                    :: r_computation_time_since_last_LB ! used for computing throughput on automatic & heterog. LB
         integer                                             :: i_steps_since_last_LB
+        logical                                             :: l_grid_generation
 
         contains
 

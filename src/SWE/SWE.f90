@@ -108,8 +108,8 @@
                 cfg%afh_displacement = asagi_grid_create(ASAGI_FLOAT)
 
 #               if defined(_MPI)
-!                    call asagi_grid_set_comm(cfg%afh_bathymetry, MPI_COMM_WORLD)
-!                    call asagi_grid_set_comm(cfg%afh_displacement, MPI_COMM_WORLD)
+                    call asagi_grid_set_comm(cfg%afh_bathymetry, MPI_COMM_WORLD)
+                    call asagi_grid_set_comm(cfg%afh_displacement, MPI_COMM_WORLD)
 #               endif
 
                 call asagi_grid_set_threads(cfg%afh_bathymetry, cfg%i_threads)
@@ -259,6 +259,11 @@
 					exit
 				endif
 
+                ! always perform LB in this phase (minimize chance of a process running out of memory)
+                grid%i_steps_since_last_LB = cfg%i_lb_frequency - 1
+                ! only use homogeneous LB here (same reason)
+                grid%l_grid_generation = .true.
+
 				call swe%adaption%traverse(grid)
 
                 !output grids during initial phase if and only if t_out is 0
@@ -280,6 +285,8 @@
 
 				i_initial_step = i_initial_step + 1
 			end do
+
+			grid%l_grid_generation = .false.
 
             grid_info = grid%get_info(MPI_SUM, .true.)
 
@@ -401,11 +408,6 @@
 
 				i_time_step = i_time_step + 1
 
-                    if (cfg%i_stats_phases > 1 .and. i_stats_phase == cfg%i_stats_phases) then
-                        grid%i_steps_since_last_LB = 1
-                        cfg%i_lb_frequency = 5
-                    end if
-				
                 if (cfg%i_adapt_time_steps > 0 .and. mod(i_time_step, cfg%i_adapt_time_steps) == 0) then
                     !refine grid
                     call swe%adaption%traverse(grid)
@@ -444,8 +446,6 @@
 					r_time_next_output = r_time_next_output + cfg%r_output_time_step
 				end if
 
-				! don't do LB in last phase! (only if #phases > 1)
-				
                 !print stats
                 if ((cfg%r_max_time >= 0.0d0 .and. grid%r_time * cfg%i_stats_phases >= i_stats_phase * cfg%r_max_time) .or. &
                     (cfg%i_max_time_steps >= 0 .and. i_time_step * cfg%i_stats_phases >= i_stats_phase * cfg%i_max_time_steps)) then
@@ -475,40 +475,17 @@
  			type(t_grid), intent(inout)     :: grid
 
  			double precision, save          :: t_phase = huge(1.0d0)
- 			
- 			
+
 			!$omp master
                 !Initially, just start the timer and don't print anything
                 if (t_phase < huge(1.0d0)) then
                     t_phase = t_phase + get_wtime()
-                    
-                    
-                    ! perform reduction in two steps: 1) local, 2) global
-                    
-                    ! local reduction
-                    call swe%init_dofs%reduce_stats(MPI_SUM, .false.)
-                    call swe%displace%reduce_stats(MPI_SUM, .false.)
-                    call swe%euler%reduce_stats(MPI_SUM, .false.)
-                    call swe%adaption%reduce_stats(MPI_SUM, .false.)
-                    call grid%reduce_stats(MPI_SUM, .false.)
-                    
-                    if ((size_MPI == 3 .or. size_MPI == 4) .and. mod(rank_mpi,2) == 0) then
-#                       if defined (__MIC__)
-                            _log_write(0, '(A, T34, A)') "mic_Time steps: ", trim(swe%euler%stats%to_string())
-                            _log_write(0, '(A, T34, A)') "mic_Adaptions: ", trim(swe%adaption%stats%to_string())
-#                       else
-                            _log_write(0, '(A, T34, A)') "host_Time steps: ", trim(swe%euler%stats%to_string())
-                            _log_write(0, '(A, T34, A)') "host_Adaptions: ", trim(swe%adaption%stats%to_string())
-#                       endif
-                    endif
 
-                    ! global reduction
-                    call swe%init_dofs%stats%reduce(MPI_SUM)
-                    call swe%displace%stats%reduce(MPI_SUM)
-                    call swe%euler%stats%reduce(MPI_SUM)
-                    call swe%adaption%stats%reduce(MPI_SUM)
-                    call grid%stats%reduce(MPI_SUM)
-                    
+                    call swe%init_dofs%reduce_stats(MPI_SUM, .true.)
+                    call swe%displace%reduce_stats(MPI_SUM, .true.)
+                    call swe%euler%reduce_stats(MPI_SUM, .true.)
+                    call swe%adaption%reduce_stats(MPI_SUM, .true.)
+                    call grid%reduce_stats(MPI_SUM, .true.)
 
                     if (rank_MPI == 0) then
                         _log_write(0, *) ""

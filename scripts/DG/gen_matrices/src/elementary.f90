@@ -1,29 +1,83 @@
 module elementary
 use gl_integration
 implicit none
-!    integer,parameter              :: GRID_SR=GRID_SR
+
+integer :: basis
+logical :: nodal
 
 contains
-  
+
+
+  subroutine set_basis(basis_in)
+    character(len=*) :: basis_in
+    integer :: basis_int
+    
+    select case(basis_in)
+    case('BERNSTEIN')
+       basis=1
+       nodal=.TRUE.
+    case('EQUIDISTAND')
+       basis=2
+       nodal=.TRUE.
+    case default
+       print*,"Basis doesn't exists, possible are:"
+       print*,'BERNSTEIN'
+       print*,'EQUIDISTAND'
+    end select
+    
+  end subroutine set_basis
+
+
+  function basis_polynomial_1d(t,N,l)
+    implicit none
+    real(kind=GRID_SR),intent(in) :: t
+    real(kind=GRID_SR),allocatable :: basis_polynomial_1d
+    integer,intent(in) :: N,l
+    integer :: i
+    real(kind=GRID_SR)          :: l_nodes(N+1)
+
+    select case(basis)
+    case (1)
+       basis_polynomial_1d=bernstein_polynomial_1d(t,N,l)
+    case(2)
+       l_nodes=(/ (real(i,GRID_SR)/real(N,GRID_SR),i=0,N) /)
+       basis_polynomial_1d=bernstein_polynomial_1d(t,N,l)
+    end select
+
+
+  end function basis_polynomial_1d
+    
 
   function basis_polynomial(x,y,N,j,k)
     real(kind=GRID_SR) :: basis_polynomial
     real(kind=GRID_SR) ::x,y 
     integer ::N,j,k,i
-    real(kind=GRID_SR)          :: l_nodes(N+1) 
-    l_nodes=(/ (real(i,GRID_SR)/real(N,GRID_SR),i=0,N) /)
-    basis_polynomial = bernstein_polynomial(x,y,N,j,k)
-!    basis_polynomial = lagrange_polynomial(x,y,N,j,k,l_nodes)
+    real(kind=GRID_SR)          :: l_nodes(2,N+1)
+
+    select case(basis)
+    case (1)
+       basis_polynomial = bernstein_polynomial(x,y,N,j,k)
+    case (2)
+       l_nodes(1:)=(/ (real(i,GRID_SR)/real(N,GRID_SR),i=0,N) /)
+       basis_polynomial = lagrange_polynomial(x,y,N,j,k,l_nodes)
+    end select
+
   end function
 
   function basis_polynomial_1d_der(t,N,l)
     real(kind=GRID_SR) :: basis_polynomial_1d_der
     real(kind=GRID_SR) :: t
     integer :: N,l,i
-    real(kind=GRID_SR)          :: l_nodes(N+1) 
-    l_nodes=(/ (real(i,GRID_SR)/real(N,GRID_SR),i=0,N) /)
-    basis_polynomial_1d_der = bernstein_polynomial_1d_der(t,N,l)
-!    basis_polynomial_1d_der = lagrange_polynomial_1d_der(t,N,l,l_nodes)
+    real(kind=GRID_SR)          :: l_nodes(N+1)
+
+    select case(basis)
+    case (1)
+       basis_polynomial_1d_der = bernstein_polynomial_1d_der(t,N,l)
+    case (2)
+       l_nodes=(/ (real(i,GRID_SR)/real(N,GRID_SR),i=0,N) /)
+       basis_polynomial_1d_der = lagrange_polynomial_1d_der(t,N,l,l_nodes)
+    end select
+
   end function
 
   
@@ -32,21 +86,30 @@ contains
     real(kind=GRID_SR) :: x,y 
     integer :: N,j,k,i
     real(kind=GRID_SR)          :: l_nodes(N+1) 
-
-    l_nodes=(/ (real(i,GRID_SR)/real(N,GRID_SR),i=0,N) /)
-    basis_polynomial_der_x = bernstein_polynomial_der_x(x,y,N,j,k)
-!    basis_polynomial_der_x = lagrange_polynomial_der_x(x,y,N,j,k,l_nodes)
+    select case(basis)
+    case (1)
+       basis_polynomial_der_x = bernstein_polynomial_der_x(x,y,N,j,k)
+    case (2)
+       l_nodes=(/ (real(i,GRID_SR)/real(N,GRID_SR),i=0,N) /)
+       basis_polynomial_der_x = lagrange_polynomial_der_x(x,y,N,j,k,l_nodes)
+    end select
+    
   end function basis_polynomial_der_x
 
  function basis_polynomial_der_y(x,y,N,j,k)
     real(kind=GRID_SR) ::basis_polynomial_der_y
     real(kind=GRID_SR) ::x,y 
     integer ::N,j,k,i
-    real(kind=GRID_SR)          :: l_nodes(N+1) 
-    l_nodes=(/ (real(i,GRID_SR)/real(N,GRID_SR),i=0,N) /)
-    basis_polynomial_der_y = bernstein_polynomial_der_y(x,y,N,j,k)
-!    basis_polynomial_der_y = lagrange_polynomial_der_y(x,y,N,j,k,l_nodes)
- end function basis_polynomial_der_y
+    real(kind=GRID_SR)          :: l_nodes(N+1)
+
+    select case(basis)
+    case (1)
+       basis_polynomial_der_y = bernstein_polynomial_der_y(x,y,N,j,k)
+    case (2)
+       l_nodes=(/ (real(i,GRID_SR)/real(N,GRID_SR),i=0,N) /)
+       basis_polynomial_der_y = lagrange_polynomial_der_y(x,y,N,j,k,l_nodes)
+    end select
+  end function basis_polynomial_der_y
 
   
   function lagrange_polynomial_1d(t,N,l,Nodes)
@@ -66,14 +129,14 @@ contains
     end do   
   end function
 
-  function lagrange_polynomial(x,y,N,j,k,Nodes)
+  function lagrange_polynomial(x,y,N,j,k,Nodes_2d)
     real(kind=GRID_SR) :: lagrange_polynomial
-    real(kind=GRID_SR) :: Nodes(N+1)    
+!    real(kind=GRID_SR) :: Nodes(N+1)    
     real(kind=GRID_SR) :: Nodes_2d(2,(N+1)*(N+2)/2)
     integer N,j,k,i,count,ind
     real(kind=GRID_SR) :: x,y
 
-    lagrange_polynomial=(lagrange_polynomial_1d(x,N,j,Nodes)*lagrange_polynomial_1d(y,N,k,Nodes))
+    lagrange_polynomial=(lagrange_polynomial_1d(x,N,j,Nodes(1,:))*lagrange_polynomial_1d(y,N,k,Nodes(2,:))))
 
   end function
 
@@ -237,19 +300,6 @@ contains
     end do
 
   end function basis_polynomial_1d_array
-
-  function basis_polynomial_1d(t,N,l)
-    implicit none
-    real(kind=GRID_SR),intent(in) :: t
-    real(kind=GRID_SR),allocatable :: basis_polynomial_1d
-    integer,intent(in) :: N,l
-    integer :: i
-
-    basis_polynomial_1d=bernstein_polynomial_1d(t,N,l)
-
-
-  end function basis_polynomial_1d
-
 
 
   function basis_polynomial_1d_der_array(t,N,l)

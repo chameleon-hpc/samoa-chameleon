@@ -2,11 +2,10 @@
 ! Copyright (C) 2010 Oliver Meister, Kaveh Rahnema
 ! This program is licensed under the GPL, for details see the file LICENSE
 
-
 #include "Compilation_control.f90"
 
 #if defined(_SWE)
-	MODULE SWE_Euler_Timestep
+MODULE SWE_Euler_Timestep
 		use SFC_edge_traversal
 
 		use Samoa_swe
@@ -15,9 +14,6 @@
 #		if defined(_SWE_PATCH)
 			use SWE_PATCH
 			use SWE_PATCH_Solvers
-#               if defined(_SWE_DG)
-                        use SWE_DG_Matrices
-#		endif
 #		endif
 #               if defined(_HLLE_FLUX)
                         use SWE_HLLE
@@ -40,10 +36,10 @@
         end interface
 
         PUBLIC cell_to_edge_op
+        PUBLIC cell_update_op
         PUBLIC compute_geoclaw_flux
+
               
-#if defined(_SWE_DG)
-#endif
 		type(t_gv_Q)							:: gv_Q
 		type(t_lfs_flux)						:: lfs_flux
 
@@ -312,10 +308,10 @@
             end do
 #       else
             call compute_geoclaw_flux(edge%transform_data%normal, rep1%Q(1), rep2%Q(1), update1%flux(1), update2%flux(1))
-#   	endif
-
             _log_write(6, '(4X, A, F0.3, 1X, F0.3, 1X, F0.3, 1X, F0.3)') "flux 1 out: ", update1%flux
             _log_write(6, '(4X, A, F0.3, 1X, F0.3, 1X, F0.3, 1X, F0.3)') "flux 2 out: ", update2%flux
+#   	endif
+
 
           end subroutine
 
@@ -382,9 +378,13 @@
 #endif
 
           end subroutine bnd_skeleton_scalar_op
-          !fv cell update
+
           subroutine cell_update_op(traversal, section, element, update1, update2, update3)
+#if defined(_SWE_DG)            
+            class(t_traversal), intent(inout)		:: traversal
+#else
             type(t_swe_euler_timestep_traversal), intent(inout)		:: traversal
+#endif            
             type(t_grid_section), intent(inout)				:: section
             type(t_element_base), intent(inout)				:: element
             type(num_cell_update), intent(inout)			:: update1, update2, update3
@@ -716,9 +716,8 @@
              element%cell%data_pers%Q(1)%p = [0.0_GRID_SR, 0.0_GRID_SR]
           end if
 #          endif
-!          element%cell%data_pers%troubled = 1                      
-        end subroutine
 
+        end subroutine 
 
         subroutine cell_last_touch_op(traversal, section, cell)
           type(t_swe_euler_timestep_traversal), intent(inout)		:: traversal
@@ -950,7 +949,6 @@
 
              !do nothing
          end subroutine
-         END MODULE
+       END MODULE
 #endif
-
          

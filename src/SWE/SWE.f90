@@ -24,7 +24,7 @@
 #       endif
 
 #if defined(_SWE_DG)
-                use SWE_dg_predictor
+!                use SWE_dg_predictor
                 use SWE_dg_solver
 #endif
 
@@ -53,7 +53,7 @@
             type(t_swe_adaption_traversal)          :: adaption
 
 #if defined(_SWE_DG)
-            type(t_swe_dg_predictor_traversal)      :: dg_predictor
+!            type(t_swe_dg_predictor_traversal)      :: dg_predictor
             type(t_swe_dg_timestep_traversal)       :: dg_timestep
 #endif
 
@@ -108,7 +108,7 @@
             call swe%euler%create()
             call swe%adaption%create()
 #if defined(_SWE_DG)
-            call swe%dg_predictor%create()
+!            call swe%dg_predictor%create()
             call swe%dg_timestep%create()
 #endif
 		end subroutine
@@ -214,7 +214,7 @@
             call swe%adaption%destroy()
 
 #if defined(_SWE_DG)
-            call swe%dg_predictor%destroy()
+!            call swe%dg_predictor%destroy()
             call swe%dg_timestep%destroy()
 #endif
 
@@ -260,47 +260,47 @@
             !initialize the bathymetry
             call swe%init_b%traverse(grid)
 
-			do
-				!initialize dofs and set refinement conditions
-				call swe%init_dofs%traverse(grid)
-
-				grid_info%i_cells = grid%get_cells(MPI_SUM, .true.)
-                if (rank_MPI == 0) then
-                    !$omp master
+            do
+               !initialize dofs and set refinement conditions
+               call swe%init_dofs%traverse(grid)
+               
+               grid_info%i_cells = grid%get_cells(MPI_SUM, .true.)
+               if (rank_MPI == 0) then
+                  !$omp master
 #                   if defined(_SWE_PATCH)
-                        _log_write(1, "(A, I0, A, I0, A, I0, A)") " SWE: ", i_initial_step, " adaptions, ", grid_info%i_cells, " patches = ", grid_info%i_cells * _SWE_PATCH_ORDER_SQUARE, " cells"
+                  _log_write(1, "(A, I0, A, I0, A, I0, A)") " SWE: ", i_initial_step, " adaptions, ", grid_info%i_cells, " patches = ", grid_info%i_cells * _SWE_PATCH_ORDER_SQUARE, " cells"
 #                   else
-                        _log_write(1, "(A, I0, A, I0, A)") " SWE: ", i_initial_step, " adaptions, ", grid_info%i_cells, " cells"
+                  _log_write(1, "(A, I0, A, I0, A)") " SWE: ", i_initial_step, " adaptions, ", grid_info%i_cells, " cells"
 #                   endif
-                    !$omp end master
-                end if
-
-				if (swe%init_dofs%i_refinements_issued .le. 0) then
-					exit
-				endif
-
-				call swe%adaption%traverse(grid)
-
-                !output grids during initial phase if and only if t_out is 0
-                if (cfg%r_output_time_step == 0.0_GRID_SR) then
-                    if (cfg%l_ascii_output) then
-                        call swe%ascii_output%traverse(grid)
-                    end if
-
-                    if (cfg%l_pointoutput) then
-                        call swe%point_output%traverse(grid)
-                    end if
-
-                    if(cfg%l_gridoutput) then
-                        call swe%xml_output%traverse(grid)
-                    end if
-
-                    r_time_next_output = r_time_next_output + cfg%r_output_time_step
-                end if
-
-				i_initial_step = i_initial_step + 1
-			end do
-
+                  !$omp end master
+               end if
+               
+               if (swe%init_dofs%i_refinements_issued .le. 0) then
+                  exit
+               endif
+               
+               call swe%adaption%traverse(grid)
+               
+               !output grids during initial phase if and only if t_out is 0
+               if (cfg%r_output_time_step == 0.0_GRID_SR) then
+                  if (cfg%l_ascii_output) then
+                     call swe%ascii_output%traverse(grid)
+                  end if
+                  
+                  if (cfg%l_pointoutput) then
+                     call swe%point_output%traverse(grid)
+                  end if
+                  
+                  if(cfg%l_gridoutput) then
+                     call swe%xml_output%traverse(grid)
+                  end if
+                  
+                  r_time_next_output = r_time_next_output + cfg%r_output_time_step
+               end if
+               
+               i_initial_step = i_initial_step + 1
+            end do
+            
             grid_info = grid%get_info(MPI_SUM, .true.)
 
             if (rank_MPI == 0) then
@@ -363,7 +363,7 @@
 
                     i_time_step = i_time_step + 1
 #if defined(_SWE_DG)
-                    call swe%dg_predictor%traverse(grid)
+!                    call swe%dg_predictor%traverse(grid)
 #endif
                     if (cfg%i_adapt_time_steps > 0 .and. mod(i_time_step, cfg%i_adapt_time_steps) == 0) then
                         !refine grid
@@ -371,9 +371,9 @@
                     end if
 #if defined(_SWE_DG)
                     call swe%dg_timestep%traverse(grid)
-#endif
+#elif defined(_SWE_PATCH)
                     call swe%euler%traverse(grid)
-
+#endif                    
 
                     !displace time-dependent bathymetry
                     call swe%displace%traverse(grid)
@@ -418,65 +418,67 @@
 
             !regular tsunami time steps begin after the earthquake is over
 
-			do
-				if ((cfg%r_max_time >= 0.0 .and. grid%r_time >= cfg%r_max_time) .or. (cfg%i_max_time_steps >= 0 .and. i_time_step >= cfg%i_max_time_steps)) then
-					exit
-				end if
-
-				i_time_step = i_time_step + 1
-
-
+                do
+                   if ((cfg%r_max_time >= 0.0 .and. grid%r_time >= cfg%r_max_time) .or. (cfg%i_max_time_steps >= 0 .and. i_time_step >= cfg%i_max_time_steps)) then
+                      exit
+                   end if
+                   
+                   i_time_step = i_time_step + 1
+                   
+                   
 #if defined(_SWE_DG)
-                call swe%dg_predictor%traverse(grid)
+ 
+!                   call swe%dg_predictor%traverse(grid)
 #endif
-                if (cfg%i_adapt_time_steps > 0 .and. mod(i_time_step, cfg%i_adapt_time_steps) == 0) then
-                    call swe%adaption%traverse(grid)
-                end if
-
+                   if (cfg%i_adapt_time_steps > 0 .and. mod(i_time_step, cfg%i_adapt_time_steps) == 0) then
+                      call swe%adaption%traverse(grid)
+                   end if
+                   
 #if defined(_SWE_DG)
-                call swe%dg_timestep%traverse(grid)
-#endif
-                call swe%euler%traverse(grid)
-
-                grid_info%i_cells = grid%get_cells(MPI_SUM, .true.)
-                if (rank_MPI == 0) then
-                    !$omp master
+                   call swe%dg_timestep%traverse(grid)
+#elif defined(_SWE_PATCH)
+                   call swe%euler%traverse(grid)
+#endif                   
+                   
+                   grid_info%i_cells = grid%get_cells(MPI_SUM, .true.)
+                   if (rank_MPI == 0) then
+                      !$omp master
 #                       if defined (_SWE_PATCH)
-                            _log_write(1, '(" SWE: time step: ", I0, ", sim. time:", A, ", dt:", A, ", patches : " I0, " cells: ", I0)') i_time_step, trim(time_to_hrt(DBLE(grid%r_time))), trim(time_to_hrt(DBLE(grid%r_dt))), grid_info%i_cells, grid_info%i_cells * _SWE_PATCH_ORDER_SQUARE
+                      _log_write(1, '(" SWE: time step: ", I0, ", sim. time:", A, ", dt:", A, ", patches : " I0, " cells: ", I0)') i_time_step, trim(time_to_hrt(DBLE(grid%r_time))), trim(time_to_hrt(DBLE(grid%r_dt))), grid_info%i_cells, grid_info%i_cells * _SWE_PATCH_ORDER_SQUARE
 #                       else
-                            _log_write(1, '(" SWE: time step: ", I0, ", sim. time:", A, ", dt:", A, ", cells: ", I0)') i_time_step, trim(time_to_hrt(DBLE(grid%r_time))), trim(time_to_hrt(DBLE(grid%r_dt))), grid_info%i_cells
+                      _log_write(1, '(" SWE: time step: ", I0, ", sim. time:", A, ", dt:", A, ", cells: ", I0)') i_time_step, trim(time_to_hrt(DBLE(grid%r_time))), trim(time_to_hrt(DBLE(grid%r_dt))), grid_info%i_cells
 #                       endif
-                    !$omp end master
-                end if
-
-                !output grid
-                if ((cfg%i_output_time_steps > 0 .and. mod(i_time_step, cfg%i_output_time_steps) == 0) .or. &
-                     (cfg%r_output_time_step >= 0.0_GRID_SR .and. grid%r_time >= r_time_next_output)) then
-                   
-                   if (cfg%l_ascii_output) then
-                      call swe%ascii_output%traverse(grid)
+                      !$omp end master
                    end if
                    
-                   if (cfg%l_pointoutput) then
-                      call swe%point_output%traverse(grid)
+                   !output grid
+                   if ((cfg%i_output_time_steps > 0 .and. mod(i_time_step, cfg%i_output_time_steps) == 0) .or. &
+                        (cfg%r_output_time_step >= 0.0_GRID_SR .and. grid%r_time >= r_time_next_output)) then
+                      
+                      if (cfg%l_ascii_output) then
+                         call swe%ascii_output%traverse(grid)
+                      end if
+                      
+                      if (cfg%l_pointoutput) then
+                         call swe%point_output%traverse(grid)
+                      end if
+                      
+                      if(cfg%l_gridoutput) then
+                         call swe%xml_output%traverse(grid)
+                      end if
+                      
+                      r_time_next_output = r_time_next_output + cfg%r_output_time_step
                    end if
-
-                   if(cfg%l_gridoutput) then
-                      call swe%xml_output%traverse(grid)
-                   end if
-
-                   r_time_next_output = r_time_next_output + cfg%r_output_time_step
-                end if
-
-
-                !print stats
+                   
+                   
+                   !print stats
                 if ((cfg%r_max_time >= 0.0d0 .and. grid%r_time * cfg%i_stats_phases >= i_stats_phase * cfg%r_max_time) .or. &
                     (cfg%i_max_time_steps >= 0 .and. i_time_step * cfg%i_stats_phases >= i_stats_phase * cfg%i_max_time_steps)) then
                     call update_stats(swe, grid)
 
                     i_stats_phase = i_stats_phase + 1
                 end if
-			end do
+             end do
 
             grid_info = grid%get_info(MPI_SUM, .true.)
             grid_info_max = grid%get_info(MPI_MAX, .true.)

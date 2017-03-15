@@ -1228,7 +1228,6 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
                 do i = 1, comm%i_edges
                     if (comm%p_local_edges(i)%owned_locally) then
                         assert(.not. comm%p_neighbor_edges(comm%i_edges + 1 - i)%owned_locally)
-
                         l_conform = edge_write_op(comm%p_neighbor_edges(comm%i_edges + 1 - i), comm%p_local_edges(i))
                         l_section_conform = l_section_conform .and. l_conform
                     end if
@@ -1306,7 +1305,7 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
                 call finish_receive_and_merge(grid%sections%elements_alloc(i_section), i_color, edge_merge_op, node_merge_op, mpi_edge_size, mpi_node_size)
             end do
         end do
-    end subroutine
+      end subroutine collect_boundary_data
 
     subroutine duplicate_boundary_data(grid, edge_write_op, node_write_op)
         type(t_grid), intent(inout)						:: grid

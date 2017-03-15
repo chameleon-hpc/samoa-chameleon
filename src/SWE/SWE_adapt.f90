@@ -40,7 +40,7 @@
 
 #		define _GT_EDGES
 
-#		define _GT_POST_TRAVERSAL_GRID_OP		post_traversal_grid_op
+#		define _GT_PRE_TRAVERSAL_GRID_OP		pre_traversal_grid_op
 #		define _GT_PRE_TRAVERSAL_OP			pre_traversal_op
 #		define _GT_POST_TRAVERSAL_OP			post_traversal_op
 
@@ -50,6 +50,7 @@
 
 #if defined(_SWE_DG)
 #		define _GT_CELL_TO_EDGE_OP			cell_to_edge_op_dg
+#		define _GT_CELL_UPDATE_OP		        cell_update_op_adapt
 #else
 #		define _GT_CELL_TO_EDGE_OP			cell_to_edge_op
 #endif
@@ -58,9 +59,13 @@
 #		define _GT_NODE_WRITE_OP			node_write_op
 #		define _GT_EDGE_WRITE_OP			edge_write_op
 
+
+
+!#               define _GT_CELL_FIRST_TOUCH_OP                  cell_first_touch_op_dg
 #		include "SFC_generic_adaptive_traversal.f90"
 
-        subroutine create_node_mpi_type(mpi_node_type)
+
+  subroutine create_node_mpi_type(mpi_node_type)
           integer, intent(out)            :: mpi_node_type
 
 #if defined(_MPI)
@@ -88,11 +93,73 @@
           assert_eq(sizeof(node), ub)
 #endif
         end subroutine
+
+
+#if defined(_SWE_DG)
+  ! subroutine cell_first_touch_op_dg(traversal, section, cell)
+  !   type(t_swe_adaption_traversal)  ::traversal
+  !   type(t_grid_section), intent(inout)::section
+  !   type(t_cell_data_ptr), intent(inout)   ::cell
+
+  ! end subroutine cell_first_touch_op_dg
+        !_SWE_DG
+
+
+
+        subroutine cell_update_op_adapt(traversal, section, element, update1, update2, update3)
+          type(t_swe_adaption_traversal), intent(inout)				:: traversal
+          type(t_grid_section), intent(inout)							:: section
+          type(t_element_base), intent(inout)						:: element
+          type(num_cell_update), intent(inout)						:: update1, update2, update3
+          integer :: i
+
+          if(element%cell%data_pers%troubled.le.0) then
+             call dg_predictor(element%cell,section%r_dt)
+!!!print*,"predict done"
+             ! else
+             !    element%cell%data_pers%Q_DG_P(:)%H=0
+             !    element%cell%data_pers%Q_DG_P(:)%p(1)=0
+             !    element%cell%data_pers%Q_DG_P(:)%p(2)=0
+             !    element%cell%data_pers%Q_DG_P(1:_SWE_DG_DOFS) = element%cell%data_pers%Q_DG
+          end if
+        end subroutine cell_update_op_adapt
+#endif
+
+
         
-        subroutine post_traversal_grid_op(traversal, grid)
+        subroutine pre_traversal_grid_op(traversal, grid)
           type(t_swe_adaption_traversal), intent(inout)				:: traversal
           type(t_grid), intent(inout)							        :: grid
-        end subroutine post_traversal_grid_op
+#if defined(_SWE_DG)
+
+          if (cfg%r_max_time > 0.0_SR) then
+             grid%r_dt = min(cfg%r_max_time-grid%r_time, grid%r_dt)
+          end if
+
+          !--- Needed for output at distinc timestep ---!
+          if(cfg%r_output_time_step .ne. 0) then
+             if(mod(grid%r_time,cfg%r_output_time_step) > 0.0_GRID_SR) then
+                grid%r_dt = min(cfg%r_output_time_step-mod(grid%r_time,cfg%r_output_time_step), grid%r_dt)
+             end if
+          end if
+          
+          ! if (cfg%r_output_time_step > 0.0_SR) then
+          !    grid%r_dt = min(cfg%r_output_time_step, grid%r_dt)
+          ! end if
+
+#           if defined(_ASAGI)
+          !if we are in the earthquake phase, limit the simulation time step by the earthquake time step
+          if (grid%r_time < cfg%t_max_eq) then
+             grid%r_dt = min(grid%r_dt, cfg%dt_eq)
+          end if
+#           endif
+
+!_SWE_DG          
+#endif
+    call scatter(grid%r_dt, grid%sections%elements_alloc%r_dt)
+
+
+  end subroutine pre_traversal_grid_op
 
         subroutine pre_traversal_op(traversal, section)
           type(t_swe_adaption_traversal), intent(inout)				:: traversal
@@ -141,16 +208,22 @@
           dest_element%cell%data_pers%Q_DG_P%b_x = src_element%cell%data_pers%Q_DG_P%b_x
           dest_element%cell%data_pers%Q_DG_P%b_y = src_element%cell%data_pers%Q_DG_P%b_y
 #endif
-
           do i=1,size(dest_element%edges)
              dest_element%edges(i)%ptr%data_pers%troubled = src_element%edges(i)%ptr%data_pers%troubled
+!             dest_element%edges(i)%ptr%data_pers%inverted = src_element%edges(i)%ptr%data_pers%inverted
+
+!             print*,src_element%edges(i)%ptr%update%troubled
+!             dest_element%edges(i)%ptr%update = src_element%edges(i)%ptr%update
+             
+             dest_element%edges(i)%ptr%rep = src_element%edges(i)%ptr%rep
+
           end do
 
           dest_element%cell%data_pers%Q_DG = src_element%cell%data_pers%Q_DG
           dest_element%cell%data_pers%Q_DG_P = src_element%cell%data_pers%Q_DG_P
 
           dest_element%cell%data_pers%troubled=src_element%cell%data_pers%troubled
-          dest_element%cell%data_pers%troubled_old=src_element%cell%data_pers%troubled_old
+!          dest_element%cell%data_pers%troubled_old=src_element%cell%data_pers%troubled_old
 
 #endif
         end subroutine transfer_op
@@ -287,13 +360,12 @@
 #endif
 
 #if defined(_SWE_DG)
-
+!          print*,"refine"
           call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(dest_element%cell%geometry%i_plotter_type))%jacobian)
 
           call dest_element%cell%data_pers%convert_fv_to_dg
 
           dest_element%cell%data_pers%troubled=src_element%cell%data_pers%troubled
-          dest_element%cell%data_pers%troubled_old=src_element%cell%data_pers%troubled_old
 
           if( .not.all(dest_element%cell%data_pers%H - dest_element%cell%data_pers%B > cfg%dry_tolerance*50.0).or.&
                .not.all(dest_element%cell%data_pers%Q_DG%H > cfg%dry_tolerance*50.0))then
@@ -433,7 +505,6 @@
         call dest_element%cell%data_pers%convert_fv_to_dg()
 
         dest_element%cell%data_pers%troubled=src_element%cell%data_pers%troubled                
-        dest_element%cell%data_pers%troubled_old=src_element%cell%data_pers%troubled_old
 
         if( .not.all(dest_element%cell%data_pers%H - dest_element%cell%data_pers%B > cfg%dry_tolerance*50.0).or.&
             .not.all(dest_element%cell%data_pers%Q_DG%H > cfg%dry_tolerance*50.0))then

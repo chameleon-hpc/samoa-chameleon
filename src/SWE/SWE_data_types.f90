@@ -62,11 +62,13 @@
 
 		!> cell state vector including bathymetry
 		type, extends(t_dof_state) :: t_state
-			real (kind = GRID_SR)													:: b						!< bathymetry
+     real (kind = GRID_SR) :: b						!< bathymetry
+
 #if defined(_SWE_DG_NODAL)
                         real(kind=GRID_SR) ::       b_x
                         real(kind=GRID_SR) ::       b_y
 #endif
+                        
             contains
 
             procedure, pass :: add_state => state_add
@@ -92,7 +94,7 @@
 			integer (kind = BYTE), dimension(0)											:: dummy					!< no data
 
 #if defined(_SWE_DG)
-                 logical :: troubled
+                logical :: troubled
 #endif                       
 
 		END type num_edge_data_pers
@@ -110,8 +112,7 @@
                         real(kind=GRID_SR) :: b_x(size(st_gl_node_vals,1)), b_y(size(st_gl_node_vals,1))
 #endif                       
 
-                        integer :: troubled_old
-                        integer :: troubled
+                        integer :: troubled = HUGE(1)
 #                       endif
 			type(t_state), DIMENSION(_SWE_CELL_SIZE)			:: Q !TODO: remove this and others Qs --> must handle conflicts with t_gv_Q methods afterwards...
 			real (kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER_SQUARE)	:: H, HU, HV, B !< unknowns + bathymetry in triangular patch
@@ -148,9 +149,12 @@
 			real (kind = GRID_SR), dimension (_SWE_PATCH_ORDER)		:: H, HU, HV, B !< edge stores ghost cells for communication of ghost cells
 
 #if defined(_SWE_DG)
-                        type(t_state), DIMENSION((_SWE_DG_ORDER+1)*(_SWE_DG_ORDER+1))   :: Q_DG_P
-                        real(kind=GRID_SR),Dimension(3) :: min_val,max_val
-                        integer :: troubled
+   type(t_state), DIMENSION((_SWE_DG_ORDER+1)*(_SWE_DG_ORDER+1))   :: Q_DG_P
+   type(t_state), DIMENSION(_SWE_DG_DOFS)   :: Q_DG
+   
+!                        real(kind=GRID_SR),Dimension(3) :: min_val,max_val
+   integer :: troubled
+   logical :: inverted
 #endif
 #endif
 
@@ -158,17 +162,25 @@
 
 		!> Cell update, this would typically be a flux function
 		type num_cell_update
-#if defined (_SWE_PATCH)
-                        real (kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER)							:: H, HU, HV, B !< values of ghost cells
 #if defined (_SWE_DG)
-                        type(t_state), DIMENSION((_SWE_DG_ORDER+1)*(_SWE_DG_ORDER+1))   :: Q_DG_P
-                        real(kind=GRID_SR),Dimension(3) :: min_val,max_val
+                        real (kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER)							:: H, HU, HV, B !< values of ghost cells
+!                      type(t_state), DIMENSION((_SWE_DG_ORDER+1)*(_SWE_DG_ORDER+1))   :: Q_DG_P
+                        type(t_update), DIMENSION((_SWE_DG_ORDER+1)*(_SWE_DG_ORDER+1))   :: flux
+
+                        !dofs at t_n
+                        type(t_state), DIMENSION(_SWE_DG_DOFS)   :: Q_DG
+
                         integer :: troubled
-                        logical :: bnd=.false.
+#else
+
+#if defined (_SWE_PATCH)
+                    real (kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER)							:: H, HU, HV, B !< values of ghost cells
+#else                        
+                    type(t_update), DIMENSION(_SWE_EDGE_SIZE)									:: flux						!< cell update
 #endif
-                        type(t_update), DIMENSION(_SWE_EDGE_SIZE)									:: flux						!< cell update
-#endif	
-		end type
+!_SWE_DG
+#endif
+                     end type num_cell_update
 
 		!*************************
 		!Temporary per-Entity data
@@ -213,8 +225,8 @@
 
 !                  PATCHES store h+b DG not
 
-                   q(:,1)=dofs%H-dofs%b
-!                   q(:,1)=dofs%H
+!                   q(:,1)=dofs%H-dofs%b
+                   q(:,1)=dofs%H
                    q(:,2)=dofs%HU
                    q(:,3)=dofs%HV
 
@@ -229,13 +241,14 @@
                    call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,q_temp(:,1))
                    call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,q_temp(:,2))
                    call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,q_temp(:,3))
-!                   q_temp(1:_SWE_DG_DOFS,1)=q_temp(1:_SWE_DG_DOFS,1) - dofs%Q_DG%b
+                   
+                   q_temp(1:_SWE_DG_DOFS,1)=q_temp(1:_SWE_DG_DOFS,1) - dofs%Q_DG%b
                    q_dg=q_temp(1:_SWE_DG_DOFS,:)
                    
                    call dofs%set_dofs_dg(q_dg)
                    
                  end subroutine convert_fv_to_dg
-                   
+
                  subroutine convert_dg_to_fv(dofs)
                    class(num_cell_data_pers) :: dofs
                    real(kind=GRID_SR)        :: q(_SWE_DG_DOFS,3)
@@ -253,6 +266,15 @@
                    dofs%HV=fv_temp(:,3)
 
                  end subroutine convert_dg_to_fv
+
+                 subroutine apply_phi(dg,fv)
+                   real(kind=GRID_SR) :: fv(_SWE_PATCH_ORDER_SQUARE)
+                   real(kind=GRID_SR) :: dg(_SWE_DG_DOFS)
+
+                   fv=matmul(phi,dg)*_REF_TRIANGLE_SIZE_INV
+                   
+                 end subroutine apply_phi
+
 
                  subroutine convert_dg_to_fv_bathymetry(dofs)
                    class(num_cell_data_pers) :: dofs

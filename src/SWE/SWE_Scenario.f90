@@ -113,7 +113,7 @@ MODULE SWE_Scenario_splashing_pool
         real (kind = GRID_SR), intent(in) :: x(2)
         real (kind = GRID_SR) :: bathymetry
         real (kind = GRID_SR) :: height_offset=4.0_GRID_SR
-                
+!        bathymetry = 0.0
         bathymetry = 0.5+x(1) / cfg%scaling 
     end function
     
@@ -153,7 +153,8 @@ MODULE SWE_Scenario_resting_lake
         real (kind = GRID_SR), intent(in) :: x(2)
         real (kind = GRID_SR) :: bathymetry
         
-        bathymetry = -1.5 + x(1)/5
+        bathymetry = -4
+        !        bathymetry = -1.5 + x(1)/5
     end function
     
     function SWE_Scenario_get_initial_Q(x) result(Q)

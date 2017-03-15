@@ -570,7 +570,7 @@ subroutine traverse_section(thread_traversal, section_traversal, thread, section
                 i_current_element = i_next_element
             end do
 
-            !process last element
+            !process last enlement
             call leaf(section_traversal, thread, section, thread_traversal%elements(i_current_element))
     end select
 

@@ -44,12 +44,11 @@ MODULE SWE_dg_predictor
   
 #		define _GT_NAME				t_swe_dg_predictor_traversal
 #		define _GT_EDGES
-  
+
 #		define _GT_PRE_TRAVERSAL_OP		pre_traversal_op
 #		define _GT_PRE_TRAVERSAL_GRID_OP	pre_traversal_grid_op
-
 #		define _GT_CELL_TO_EDGE_OP	        cell_to_edge_op
-  
+ 
 #		define _GT_SKELETON_OP			skeleton_op
 #		define _GT_BND_SKELETON_OP		bnd_skeleton_op
 #		define _GT_ELEMENT_OP                   element_op
@@ -58,6 +57,7 @@ MODULE SWE_dg_predictor
 #		include "SFC_generic_traversal_ringbuffer.f90"
 
 
+ 
   subroutine pre_traversal_grid_op(traversal, grid)
     type(t_swe_dg_predictor_traversal), intent(inout)		:: traversal
     type(t_grid), intent(inout)							    :: grid
@@ -119,7 +119,6 @@ MODULE SWE_dg_predictor
     !     integer :: st_nodes = size(st_gl_node_vals,1)
     !     integer :: s_nodes = size(s_der_x_gl_node_vals,1)
 #    endif
-    
     associate(Q_DG =>cell%data_pers%Q_DG ,Q_DG_P =>cell%data_pers%Q_DG_P)
       
       !--Normalize jacobian--!
@@ -148,7 +147,11 @@ MODULE SWE_dg_predictor
 
 #if defined(_DEBUG)  
          if (any(q_i(:,1).le.0)) then
-            write(*), "ERROR: Waterheigth less than zero in predictor"
+            print*,"PRED"
+            print*,q_i
+            print*,"FV"
+            print*,cell%data_pers%H
+            write(*,*), "ERROR: Waterheigth less than zero in predictor"
             exit
          end if
 #endif
@@ -235,6 +238,7 @@ MODULE SWE_dg_predictor
       end do
       
       call cell%data_pers%set_dofs_pred(q_i)
+!      print*,"q_i"
       
     end  associate
   end subroutine dg_predictor
@@ -317,6 +321,8 @@ function cell_to_edge_op(element, edge) result(rep)
   type(t_edge_data), intent(in)						    :: edge
   type(num_cell_rep)										:: rep
 
+  rep%troubled=element%cell%data_pers%troubled
+  
 end function cell_to_edge_op
 
 subroutine skeleton_array_op(traversal, grid, edges, rep1, rep2, update1, update2)
@@ -375,7 +381,18 @@ subroutine cell_update_op(traversal, section, element, update1, update2, update3
   type(num_cell_update), intent(inout)						:: update1, update2, update3
   integer :: i
 
-  element%cell%data_pers%troubled_old = element%cell%data_pers%troubled
+!  print*,element%cell%data_pers%troubled
+  if(element%cell%data_pers%troubled.le.0) then
+     call dg_predictor(element%cell,section%r_dt)
+!!!print*,"predict done"
+     ! else
+     !    element%cell%data_pers%Q_DG_P(:)%H=0
+     !    element%cell%data_pers%Q_DG_P(:)%p(1)=0
+     !    element%cell%data_pers%Q_DG_P(:)%p(2)=0
+     !    element%cell%data_pers%Q_DG_P(1:_SWE_DG_DOFS) = element%cell%data_pers%Q_DG
+  end if
+
+!  element%cell%data_pers%troubled_old = element%cell%data_pers%troubled
 end subroutine cell_update_op
 
 END MODULE SWE_DG_predictor

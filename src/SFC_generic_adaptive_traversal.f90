@@ -678,6 +678,7 @@ function leaf(thread_traversal, section_traversal, src_thread, dest_thread, src_
 				call copy_cell(thread_traversal%p_src_element%cell%geometry, thread_traversal%p_dest_element%cell%geometry)
 #			endif
 
+
 			call read_src_element(section_traversal, src_thread, src_section, thread_traversal%p_src_element)
 
 #			if !defined(_GT_INPUT_DEST)
@@ -686,6 +687,7 @@ function leaf(thread_traversal, section_traversal, src_thread, dest_thread, src_
                 thread_traversal%p_dest_element%coords(:,3) = thread_traversal%p_src_element%nodes(3)%ptr%position
                 assert_veq(thread_traversal%p_dest_element%coords, thread_traversal%p_dest_element%coords)
 #			endif
+                
 
 			call read_dest_element(section_traversal, dest_thread, dest_section, thread_traversal%p_dest_element)
 

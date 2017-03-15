@@ -385,8 +385,7 @@
 
 #if defined(_SWE_DG)                
 
-
-
+                
                 call element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian)
 
 !                call element%cell%data_pers%convert_fv_to_dg(.true.)
@@ -404,8 +403,7 @@
                       element%cell%data_pers%troubled = 0                      
 !                      call dg_predictor(element%cell,section%r_dt,element%cell%geometry%get_scaling())
                 end if
-
-                element%cell%data_pers%troubled = 1                      
+!                element%cell%data_pers%troubled = 1                      
 
 #endif
 

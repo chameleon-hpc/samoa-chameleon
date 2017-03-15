@@ -242,7 +242,8 @@ MODULE SFC_data_types
 #		endif
 
 		integer (kind = BYTE)									:: index					!< local edge index
-		integer (kind = BYTE)									:: orientation				!< local edge orientation: -1: backward 1: forward
+  integer (kind = BYTE)									:: orientation				!< local edge orientation: -1: backward 1: forward
+
 	end type
 
 	!> Reference cell transformation data for all
@@ -296,15 +297,15 @@ MODULE SFC_data_types
 
 	!> Generic element interface type
 	type t_element_base
-		type(t_cell_data_ptr)								:: cell												!< cell
+		type(t_cell_data_ptr)							:: cell												!< cell
 
-		type(t_edge_ptr)									:: previous_edge, next_edge, color_edge				!< edges, by type
-		type(t_node_ptr)									:: color_node_in, color_node_out, transfer_node		!< nodes, by type
+		type(t_edge_ptr)							:: previous_edge, next_edge, color_edge				!< edges, by type
+		type(t_node_ptr)							:: color_node_in, color_node_out, transfer_node		!< nodes, by type
 
 		type(t_edge_ptr), dimension(3)						:: edges
 		type(t_node_ptr), dimension(3)						:: nodes
 
-		type(t_transform_data)								:: transform_data
+		type(t_transform_data)							:: transform_data
 	end type
 
 	contains
@@ -670,8 +671,8 @@ MODULE SFC_data_types
 
                     _log_write(7, '(X, "jacobian: ")')
                     _log_write(7, '(2X, 2(F0.4, X), /, 2X, 2(F0.4, X))') p_cell_data%jacobian
-                    _log_write(7, '(X, "inverse: ")')
-                    _log_write(7, '(2X, 2(F0.4, X), /, 2X, 2(F0.4, X))') p_cell_data%jacobian_inv
+                    _log_write(7, '(X, "inverse: ")') 
+                   _log_write(7, '(2X, 2(F0.4, X), /, 2X, 2(F0.4, X))') p_cell_data%jacobian_inv
                     _log_write(7, '(X, "determinant: ")')
                     _log_write(7, '(2X, F0.4)') p_cell_data%det_jacobian
                     _log_write(7, '("")')
@@ -707,6 +708,7 @@ MODULE SFC_data_types
 #	    			    if defined(_USE_SKELETON_OP)
                             p_edge_data%normal = edge_normals(:, i)
 #	    			    endif
+
 
                         _log_write(7, '(X, A, I0)') "edge: ", p_edge_data%index
                         _log_write(7, '(2X, A, I0)') "orientation: ", p_edge_data%orientation

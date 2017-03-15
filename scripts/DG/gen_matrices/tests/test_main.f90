@@ -5,6 +5,7 @@ use elementary
 use gen_matrices
 use test_defs
 
+call set_basis('BERNSTEIN')
 call testFactorial()
 call testkronecker()
 call testBernsteinpolynomial()
@@ -29,8 +30,8 @@ contains
     real(kind=GRID_SR),dimension(5) ::testvalues_1d
     real(kind=GRID_SR),dimension(5*5) ::testvalues_2d
     real(kind=GRID_SR)                ::nodes_2d(2,25)
-    
-    call initGLIntegration(4)
+
+   call initGLIntegration(4)
 
     !test GL1D
     testvalues_1d=(gl_nodes*6-3)**2*(-1)
@@ -110,11 +111,11 @@ bernstein_polynomial(0.8523456_GRID_SR,0.1237648_GRID_SR,10,7,2),"Bernsteinpolyn
     real(kind=GRID_SR),Allocatable:: mue_lu(:,:),b_16(:)
     integer,Allocatable :: ipiv(:)
     allocate(phi(9,3))
-    phi=generatePhi(1)
+    call generatePhi(phi,1)
     call assertEqualArray(Real(phi_ref_1,kind=GRID_SR),reshape(transpose(phi) ,(/9*3/)),"Compare Phi for N=1")
     deallocate(phi)
     allocate(phi(81,15))
-    phi=generatePhi(4)
+    call generatePhi(phi,4)
     call assertEqualArray(Real(phi_ref_4,kind=GRID_SR),reshape(transpose(phi) ,(/81*15/)),"Compare Phi for N=4")
 
     allocate(mue_lu(16,16))

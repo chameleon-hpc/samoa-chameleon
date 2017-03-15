@@ -81,6 +81,8 @@ MODULE SFC_data_types
 	!Generic scenario data structures
 	!********************************
 
+	!> @brief Encodes a triangle with refinement information and plotter/turtle grammar type. 
+	!! 
 	type fine_triangle
 		integer (kind = BYTE)									:: i_entity_types		! encodes the types of edges and nodes (old/new, inner/boundary)							max. 8 bit
 		integer (kind = BYTE)									:: i_depth				! grid depth (0 to MAX_DEPTH)																max. 6? bit

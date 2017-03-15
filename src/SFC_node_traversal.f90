@@ -9,6 +9,8 @@
 
 #include "Compilation_control.f90"
 
+!> @brief Encapsulates routines for creating an initial grid.
+!! 
 MODULE SFC_node_traversal
 	use SFC_edge_traversal
 
@@ -18,7 +20,7 @@ MODULE SFC_node_traversal
 	public init_grid
 
 	CONTAINS
-
+	!> @brief This routine creates and refines our initial grid until a given refinement depth is reached. 
 	subroutine init_grid(grid, depth)
 		type(t_grid), intent(inout)			    :: grid
 		integer (kind = BYTE), intent(in), optional    :: depth
@@ -82,6 +84,7 @@ MODULE SFC_node_traversal
         call grid%reverse()
  	end subroutine
 
+	!> @brief Initializes a section by recursive bisection starting with a unit square that consists of two cells. 
 	subroutine init_section(thread, section, start_depth)
 		type(t_grid_thread), intent(inout)			:: thread
 		type(t_grid_section), intent(inout)			:: section
@@ -249,6 +252,7 @@ MODULE SFC_node_traversal
 		call cell_data%reverse()
 	end subroutine
 
+	!> @brief This routine splits a parent cell into two child cells and sets the grammar types appropriately. 
 	subroutine create_child_cells(parent_cell, first_child_cell, second_child_cell)
         type(fine_triangle), intent(in)						:: parent_cell
         type(fine_triangle), intent(inout)					:: first_child_cell, second_child_cell

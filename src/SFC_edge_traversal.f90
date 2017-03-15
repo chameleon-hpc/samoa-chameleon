@@ -37,9 +37,7 @@ module SFC_edge_traversal
 
 	contains
 
-	!*******************
-	!create a new grid and cut it into sections of uniform load
-	!*******************
+	!>create a new grid and cut it into sections of uniform load
 	subroutine create_destination_grid(src_grid, dest_grid)
 		type(t_grid), intent(inout)                             :: src_grid
 		type(t_grid), intent(inout)           	                :: dest_grid
@@ -1946,6 +1944,9 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
 	        i_rank_in_local => i_rank_in
         end subroutine
 
+	!> Computes chains-on-chains assignment of n tasks with given load l to processes using the midpoint cutoff approximation.
+        !> @param l Input load array
+	!> @param s Output assignment of tasks to ranks 
         subroutine midpoint_cutoff(l, s)
             integer(kind = GRID_DI), intent(in)     :: l(:)
             integer(kind = GRID_SI), intent(inout)  :: s(:)
@@ -1965,6 +1966,9 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
             end do
         end subroutine
 
+	!> Computes chains-on-chains assignment of n tasks with given load l to processes using exact optimal binary search.
+        !> @param l Input load array
+	!> @param s Output assignment of tasks to ranks 
         subroutine iterative_binary(l, s)
             integer(kind = GRID_DI), intent(in)     :: l(:)
             integer(kind = GRID_SI), intent(inout)  :: s(:)

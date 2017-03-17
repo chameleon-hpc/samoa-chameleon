@@ -33,6 +33,7 @@ module config
         integer                                 :: i_output_time_steps					            !< grid output time step
         integer                                 :: i_stats_phases					                !< number of times intermediate stats should be printed during time steps
         logical			                        :: l_log                                            !< if true, a log file is used
+	logical			                        :: l_log_stats_per_process                                            !< if true, statistics are logged per process
         integer (kind = selected_int_kind(1))   :: i_min_depth, i_max_depth, i_start_depth			!< minimum, maximum and start scenario depth
         integer			        	            :: i_asagi_mode			                		    !< ASAGI mode
         logical                                 :: l_timed_load                                     !< if true, load is estimated by timing, if false load is estimated by counting entities
@@ -162,7 +163,7 @@ module config
         write(arguments, '(A)') "-v .false. --version .false. -h .false. --help .false."
         write(arguments, '(A, A)') trim(arguments),   " -lbtime .false. -lbsplit .false. -lbserial .false. -lbcellweight 1.0d0 -lbbndweight 0.0d0"
         write(arguments, '(A, A)') trim(arguments),   " -lbhh .false. -lbfreq 1 -lbthreshold 0.01 -lbhhauto .false. -lbhhratio 1 1 "
-        write(arguments, '(A, A)') trim(arguments),  " -asagihints 2 -phases 1 -tadapt -1.0 -nadapt 1 -asciioutput_width 60 -output_dir output -asciioutput .false. -xmloutput .false. -stestpoints '' -noprint .false. -sections 4 "
+        write(arguments, '(A, A)') trim(arguments),  " -asagihints 2 -phases 1 -tadapt -1.0 -nadapt 1 -asciioutput_width 60 -output_dir output -asciioutput .false. -xmloutput .false. -stestpoints '' -noprint .false. -statsperprocess .false. -sections 4 "
         write(arguments, '(A, A, I0)') trim(arguments), " -threads ", omp_get_max_threads()
 
         !define additional command arguments and default values depending on the choice of the scenario
@@ -238,6 +239,7 @@ module config
         config%r_output_time_step = rget('samoa_tout')
         config%i_stats_phases = iget('samoa_phases')
         config%l_log = lget('samoa_noprint')
+	config%l_log_stats_per_process = lget('samoa_statsperprocess')
         config%i_threads = iget('samoa_threads')
         config%l_timed_load = lget('samoa_lbtime')
         config%r_cell_weight = rget('samoa_lbcellweight')
@@ -350,6 +352,7 @@ module config
         		PRINT '(A, L, A)',     "	-xmloutput              [-tout required] turns on grid output (value: ", config%l_gridoutput, ")"
         		PRINT '(A, A, A)',     "	-output_dir <value>     output directory (value: ", trim(config%output_dir), ")"
                 PRINT '(A, L, A)',      "	-noprint                print log to file instead of console (value: ", config%l_log, ")"
+		PRINT '(A, L, A)',      "	-statsperprocess        print per-process statistics (value: ", config%l_log_stats_per_process, ")"
                 PRINT '(A)',            "	--help, -h              display this help and exit"
                 PRINT '(A)',            "	--version, -v           output version information and exit"
 

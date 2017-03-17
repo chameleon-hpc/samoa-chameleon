@@ -86,6 +86,10 @@ vars.AddVariables(
 
   BoolVariable( 'standard', 'check for Fortran 2008 standard compatibility', False),
 
+  BoolVariable( 'ipm', 'IPM support', False),
+
+  PathVariable( 'ipm_dir', 'IPM directory', '.'),
+
   BoolVariable( 'asagi', 'ASAGI support', True),
 
   BoolVariable( 'asagi_timing', 'switch on timing of all ASAGI calls', False),
@@ -208,8 +212,8 @@ if env['openmp'] != 'noomp':
     env['F90FLAGS'] += ' -D_OPENMP_TASKS -D_OPENMP_TASKS_ADAPTIVITY'
 
   if env['compiler'] == 'intel':
-    env['F90FLAGS'] += ' -openmp'
-    env['LINKFLAGS'] += ' -openmp'
+    env['F90FLAGS'] += ' -qopenmp'
+    env['LINKFLAGS'] += ' -qopenmp'
   elif env['compiler'] == 'gnu':
     env['F90FLAGS'] += ' -fopenmp'
     env['LINKFLAGS'] += ' -fopenmp'
@@ -219,12 +223,20 @@ if env['asagi']:
   env.Append(F90PATH = os.path.abspath(env['asagi_dir'] + '/include'))
   env['F90FLAGS'] += ' -D_ASAGI'
   env['LINKFLAGS'] += ' -Wl,--rpath,' + os.path.abspath(env['asagi_dir']) + '/lib'
-  env.Append(LIBPATH = env['asagi_dir'] + '/lib')
+  env.Append(LIBPATH = env['asagi_dir'] + '/lib:')
   if env['machine'] == 'mic':
     env.Append(LIBS = ['asagi_mic'])
   else:
     env.Append(LIBS = ['asagi', 'numa'])
 
+#set compilation flags and preprocessor macros for the IPM library
+if env['ipm']:
+  env.Append(F90PATH = os.path.abspath(env['ipm_dir'] + '/include'))
+  env['F90FLAGS'] += ' -D_IPM'
+  env['LINKFLAGS'] += ' -Wl,--rpath,' + os.path.abspath(env['ipm_dir']) + '/lib'
+  env.AppendUnique(LIBPATH = env['ipm_dir'] + '/lib')
+  env.Append(LIBS = ['ipmf','ipm'])
+  
 #Enable or disable timing of ASAGI calls
 if env['asagi_timing']:
   env['F90FLAGS'] += ' -D_ASAGI_TIMING'

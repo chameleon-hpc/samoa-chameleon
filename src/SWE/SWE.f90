@@ -64,6 +64,7 @@
 
 			!local variables
 			character(64)												:: s_log_name, s_date, s_time
+			character(10)						    :: s_rank
 			integer                                                     :: i_error
 
 #if defined (_SWE_PATCH)
@@ -71,6 +72,7 @@
 #endif
 
 			call date_and_time(s_date, s_time)
+			write (s_rank,'(I0)') rank_MPI
 
 #           if defined(_MPI)
                 call mpi_bcast(s_date, len(s_date), MPI_CHARACTER, 0, MPI_COMM_WORLD, i_error); assert_eq(i_error, 0)
@@ -80,7 +82,12 @@
             swe%output%s_file_stamp = trim(cfg%output_dir) // "/swe_" // trim(s_date) // "_" // trim(s_time)
 			swe%xml_output%s_file_stamp = trim(cfg%output_dir) // "/swe_" // trim(s_date) // "_" // trim(s_time)
             swe%point_output%s_file_stamp = trim(cfg%output_dir) // "/swe_" // trim(s_date) // "_" // trim(s_time)
-			s_log_name = trim(swe%xml_output%s_file_stamp) // ".log"
+
+			if(cfg%l_log_stats_per_process) then
+				s_log_name = trim(swe%xml_output%s_file_stamp) // "_R" // trim(s_rank) // ".log"
+			else
+				s_log_name = trim(swe%xml_output%s_file_stamp) // ".log"
+			endif
 
 			if (l_log) then
 				_log_open_file(s_log_name)
@@ -472,7 +479,7 @@
 
         subroutine update_stats(swe, grid)
             class(t_swe), intent(inout)   :: swe
- 			type(t_grid), intent(inout)     :: grid
+    		type(t_grid), intent(inout)     :: grid
 
  			double precision, save          :: t_phase = huge(1.0d0)
 
@@ -481,13 +488,15 @@
                 if (t_phase < huge(1.0d0)) then
                     t_phase = t_phase + get_wtime()
 
-                    call swe%init_dofs%reduce_stats(MPI_SUM, .true.)
-                    call swe%displace%reduce_stats(MPI_SUM, .true.)
-                    call swe%euler%reduce_stats(MPI_SUM, .true.)
-                    call swe%adaption%reduce_stats(MPI_SUM, .true.)
-                    call grid%reduce_stats(MPI_SUM, .true.)
+		    if (.not. cfg%l_log_stats_per_process) then	
+                        call swe%init_dofs%reduce_stats(MPI_SUM, .true.)
+                        call swe%displace%reduce_stats(MPI_SUM, .true.)
+                        call swe%euler%reduce_stats(MPI_SUM, .true.)
+                        call swe%adaption%reduce_stats(MPI_SUM, .true.)
+                        call grid%reduce_stats(MPI_SUM, .true.)
+		    endif
 
-                    if (rank_MPI == 0) then
+                    if (rank_MPI == 0 .or. cfg%l_log_stats_per_process) then
                         _log_write(0, *) ""
                         _log_write(0, *) "Phase statistics:"
                         _log_write(0, *) ""
@@ -525,5 +534,7 @@
                 t_phase = -get_wtime()
             !$omp end master
         end subroutine
+
+
 	END MODULE SWE
 #endif

@@ -272,7 +272,7 @@
                     call section%stats%stop_time(asagi_time)
 #               endif
 #			else
-				bathymetry = SWE_Scenario_get_bathymetry(real(xs, GRID_SR))
+				bathymetry = SWE_Scenario_get_bathymetry(xs)
 #			endif
 		end function
 	END MODULE
@@ -519,9 +519,9 @@
 			real (kind = GRID_SR), intent(in)		            :: x(:)            !< position in world coordinates
 			type(t_dof_state)							        :: Q
 
-            real (kind = GRID_SR)                               :: xs(2)
+            real (kind = c_double)                              :: xs(3)
 
-            xs = cfg%scaling * x + cfg%offset
+            xs(1:2) = cfg%scaling * x + cfg%offset
 
 #			if defined(_ASAGI)
 				Q%h = 0.0_GRID_SR

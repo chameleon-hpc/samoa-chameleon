@@ -30,14 +30,14 @@ MODULE SWE_Scenario_template
     end function
     
     function SWE_Scenario_get_bathymetry(x) result(bathymetry)
-        real (kind = GRID_SR), intent(in) :: x(2)
+        real (kind = c_double), intent(in) :: x(3)
         real (kind = GRID_SR) :: bathymetry
         
         bathymetry = 0.0_GRID_SR
     end function
     
     function SWE_Scenario_get_initial_Q(x) result(Q)
-        real (kind = GRID_SR), intent(in) :: x(2)
+        real (kind = c_double), intent(in) :: x(3)
         type(t_dof_state) :: Q
         
         Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
@@ -71,7 +71,7 @@ MODULE SWE_Scenario_radial_dam_break
     end function
     
     function SWE_Scenario_get_bathymetry(x) result(bathymetry)
-        real (kind = GRID_SR), intent(in) :: x(2)
+        real (kind = c_double), intent(in) :: x(3)
         real (kind = GRID_SR) :: bathymetry
         
         if (x(1)*x(1) + x(2)*x(2) < 9.0_GRID_SR) then
@@ -82,7 +82,7 @@ MODULE SWE_Scenario_radial_dam_break
     end function
     
     function SWE_Scenario_get_initial_Q(x) result(Q)
-        real (kind = GRID_SR), intent(in) :: x(2)
+        real (kind = c_double), intent(in) :: x(3)
         type(t_dof_state) :: Q
         
         Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
@@ -120,14 +120,14 @@ MODULE SWE_Scenario_linear_dam_break
     end function
     
     function SWE_Scenario_get_bathymetry(x) result(bathymetry)
-        real (kind = GRID_SR), intent(in) :: x(2)
+        real (kind = c_double), intent(in) :: x(3)
         real (kind = GRID_SR) :: bathymetry
         
         bathymetry = -10.0_GRID_SR
     end function
     
     function SWE_Scenario_get_initial_Q(x) result(Q)
-        real (kind = GRID_SR), intent(in) :: x(2)
+        real (kind = c_double), intent(in) :: x(3)
         type(t_dof_state) :: Q
         
         real (kind = GRID_SR), parameter :: hL = 10.0_GRID_SR, hR = 0.0_GRID_SR
@@ -179,14 +179,14 @@ MODULE SWE_Scenario_oscillating_lake
     end function
     
     function SWE_Scenario_get_bathymetry(x) result(bathymetry)
-        real (kind = GRID_SR), intent(in) :: x(2)
+        real (kind = c_double), intent(in) :: x(3)
         real (kind = GRID_SR) :: bathymetry
         
         bathymetry = 0.1 * (x(1)*x(1) + x(2)*x(2))
     end function
     
     function SWE_Scenario_get_initial_Q(x) result(Q)
-        real (kind = GRID_SR), intent(in) :: x(2)
+        real (kind = c_double), intent(in) :: x(3)
         type(t_dof_state) :: Q
         double precision :: w, t, sinwt, coswt, b
         

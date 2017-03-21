@@ -53,7 +53,9 @@ MODULE SWE_PATCH
 	! Procedures/functions for t_SWE_PATCH_geometry
 	!*****************************************************************
 	
-	! procedure SWE_PATCH_geometry%init(d)
+	!> @brief Initializes geometry data for the patches.
+    !> @param geom Input Instance of t_SWE_PATCH_geometry
+    !> @param d Input Order of the patches (the patch will have d^2 cells + 3*d ghost cells on the edges)
 	SUBROUTINE SWE_PATCH_geometry_init(geom, d)
 		CLASS(t_SWE_PATCH_geometry), INTENT(INOUT) :: geom
 		INTEGER, INTENT(IN) :: d
@@ -86,6 +88,9 @@ MODULE SWE_PATCH
 	
 	END SUBROUTINE	
 
+    !> @brief Adds "horizontal" edges to geom (e.g.: 1-3, 2-6, 4-8, etc.)
+    !> @param geom Instance of t_SWE_PATCH_geometry
+    !> @param edges_computed How many edges have already been computed in geom
 	SUBROUTINE SWE_PATCH_compute_horizontal_internal_edges(geom,edges_computed)
 		IMPLICIT NONE
 		CLASS(t_SWE_PATCH_geometry), INTENT(INOUT) :: geom
@@ -112,6 +117,9 @@ MODULE SWE_PATCH
 		END DO		
 	END SUBROUTINE
 	
+    !> @brief Adds "diagonal" edges to geom (e.g.: 2-3, 3-4, 5-6, etc.)
+    !> @param geom Instance of t_SWE_PATCH_geometry
+    !> @param edges_computed How many edges have already been computed in geom
 	SUBROUTINE SWE_PATCH_compute_diagonal_internal_edges(geom,edges_computed)
 		IMPLICIT NONE
 		CLASS(t_SWE_PATCH_geometry), INTENT(INOUT) :: geom
@@ -132,7 +140,8 @@ MODULE SWE_PATCH
 		
 	END SUBROUTINE
 
-	!returns true if n is a perfect square, false otherwise
+    !> @brief Return true if n is a perfect square, false otherwise
+    !> @param n 
 	integer function isPerfectSquare(n)
 		IMPLICIT NONE
 		integer , intent (IN) :: n
@@ -163,6 +172,9 @@ MODULE SWE_PATCH
 		!end if
 	end function
 	
+    !> @brief Adds "ghost" edges to geom (edges on the external boundary of the patch)
+    !> @param geom Instance of t_SWE_PATCH_geometry
+    !> @param edges_computed How many edges have already been computed in geom
 	SUBROUTINE SWE_PATCH_compute_ghost_edges(geom,edges_computed)
 		IMPLICIT NONE
 		CLASS(t_SWE_PATCH_geometry), INTENT(INOUT) :: geom
@@ -205,9 +217,11 @@ MODULE SWE_PATCH
 		
 	END SUBROUTINE
 	
-	! computes the coordinates of the vertices in a local [0,1]x[0,1] representation. 
-	! The (patch) triangle legs lie on the x and y axes. 
-	! The output traversals typically apply transformations on these coordinates.
+	
+    !> Computes the coordinates of the vertices in a local [0,1]x[0,1] representation. 
+    !> The (patch) triangle legs lie on the x and y axes. 
+    !> The output traversals typically apply transformations on these coordinates.
+    !> @param geom Instance of t_SWE_PATCH_geometry
 	SUBROUTINE SWE_PATCH_compute_coords(geom)
 		IMPLICIT NONE
 		CLASS(t_SWE_PATCH_geometry), INTENT(INOUT) :: geom
@@ -266,6 +280,9 @@ MODULE SWE_PATCH
 	
 	END SUBROUTINE
 	
+	
+    !> Computes transformation matrices which will be used to convert HU and HV to a basis according to the edge orientation
+    !> @param geom Instance of t_SWE_PATCH_geometry
 	SUBROUTINE SWE_PATCH_compute_transform(geom)
 		IMPLICIT NONE
 		CLASS(t_SWE_PATCH_geometry), INTENT(INOUT) :: geom
@@ -297,7 +314,11 @@ MODULE SWE_PATCH
         end do
 	END SUBROUTINE
 	
-    ! finds out relationships between cells on refinement and coarsening operations
+    !> Finds out relationships between cells on refinement and coarsening operations
+    !> A cell being refined will be split into two childs. Each child cell will tipically lie within one or two cells belonging to the parent.
+    !> In this representation, if first_child(A,:) = (B,C), then the first child of cell A should be compute as an interpolation of cells B and C (in some cases B==C).
+    !> Similar for the second child.
+    !> @param geom Instance of t_SWE_PATCH_geometry
 	SUBROUTINE SWE_PATCH_compute_adaptivity(geom)
 		IMPLICIT NONE
 		CLASS(t_SWE_PATCH_geometry), INTENT(INOUT) 		:: geom
@@ -337,7 +358,7 @@ MODULE SWE_PATCH
 			end do
 			center_point = center_point/3.0_GRID_SR
 
-			! a child cell will tipically lie with one or two cells belonging to the parent
+			! a child cell will tipically lie within one or two cells belonging to the parent
 			! --> test a point slightly to the left and other slightly to the right and store in which
 			! 	  parent cell they lie. The result can be the same for both, but it doesn't matter.
 			test1 = center_point + [0.1_GRID_SR*d, 0.0_GRID_SR]
@@ -365,6 +386,9 @@ MODULE SWE_PATCH
 		end do
 	END SUBROUTINE
 
+    !> @brief Returns id of cell in the patch where "point" lies
+    !> @param geom Instance of t_SWE_PATCH_geometry
+    !> @param point Point coordinates
 	integer FUNCTION cell_in_which_the_point_lies(geom,point)
 		CLASS(t_SWE_PATCH_geometry), INTENT(INOUT) 				:: geom
 		real (kind=GRID_SR), dimension(2), intent(in)			:: point
@@ -378,7 +402,7 @@ MODULE SWE_PATCH
 		end do
 	end FUNCTION
 
-	! returns whether a->b->c is a left turn
+	!> @brief Given three points a, b and c, returns whether a->b->c is a left turn
 	integer FUNCTION left_turn(a, b, c)
 		real (kind=GRID_SR), dimension(2), intent(in)			:: a, b, c
 		
@@ -390,7 +414,7 @@ MODULE SWE_PATCH
 		
 	end FUNCTION
 	
-	! returns whether the given point is inside the COUNTER-CLOCKWISE triangle defined by the given vertices a, b, c
+	!> @brief Given a "point", returns whether it is inside the COUNTER-CLOCKWISE triangle defined by the given vertices a, b, c
 	integer FUNCTION is_point_inside_triangle(point, a, b, c)
 		IMPLICIT NONE
 		real (kind=GRID_SR), dimension(2), intent(in)			:: point, a, b, c		

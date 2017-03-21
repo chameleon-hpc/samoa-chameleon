@@ -81,6 +81,7 @@ f90_sources = [
 "LIB_VTK_IO.f90",
 "M_kracken.f90",
 "Tools_noise.f90",
+"Tools_loadbalancing.f90",
 "Tools_log.f90",
 "Tools_statistics.f90",
 "Conformity/Conformity.f90",

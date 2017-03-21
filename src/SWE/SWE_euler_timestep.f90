@@ -670,7 +670,13 @@
             !This will cause a division by zero if the wave speeds are 0.
             !Bue to the min operator, the error will not affect the time step.
             !r_dt_new = min(r_dt_new, volume / dot_product(edge_lengths, fluxes%max_wave_speed))
+#           if defined(_DEBUG)
+                if ( maxval(fluxes%max_wave_speed) .ne. 0 ) then
+                       r_dt_new = min(r_dt_new, volume / (edge_lengths(2) * maxval(fluxes%max_wave_speed)))
+                endif
+#           else
             r_dt_new = min(r_dt_new, volume / (edge_lengths(2) * maxval(fluxes%max_wave_speed)))
+#           endif   
 
             do i = 1, _SWE_CELL_SIZE
                 dQ(i)%t_dof_state = dQ(i)%t_dof_state * (-r_dt / volume)

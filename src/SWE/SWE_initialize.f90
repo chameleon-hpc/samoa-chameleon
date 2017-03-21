@@ -499,8 +499,16 @@
 #           if defined _SWE_PATCH
                 section%r_dt_new = min(section%r_dt_new, element%cell%geometry%get_volume() / (sum(element%cell%geometry%get_edge_sizes()) * maxval(max_wave_speed) * _SWE_PATCH_ORDER))
 #           else
+#               if defined _DEBUG
+                    if (maxval(max_wave_speed) .eq. 0) then
+                     section%r_dt_new = section%r_dt_new   
+                    else
+#               endif
                 section%r_dt_new = min(section%r_dt_new, element%cell%geometry%get_volume() / (sum(element%cell%geometry%get_edge_sizes()) * maxval(max_wave_speed)))
 #           endif
+#               if defined _DEBUG
+                    endif
+#               endif
 		end subroutine
 
 		function get_initial_dof_state_at_element(section, element) result(Q)

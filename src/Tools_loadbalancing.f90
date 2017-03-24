@@ -15,6 +15,8 @@ module Tools_loadbalancing
 
    contains
 	
+#   if defined (_MPI)
+
 	     subroutine compute_rank_load_and_throughput(grid, rank_load, rank_throughput)
         		type(t_grid), intent(inout)   :: grid
        			 integer (kind = GRID_DI), intent(inout) :: rank_load
@@ -66,40 +68,39 @@ module Tools_loadbalancing
     	    end subroutine
 
 	    subroutine compute_imbalance(grid, rank_load, rank_throughput, imbalance)
-		type(t_grid), intent(in)   :: grid
-		integer (kind = GRID_DI), intent(in) :: rank_load
-		double precision, intent(in) :: rank_throughput
-		double precision, intent(out) :: imbalance
-		double precision :: total_throughput
-		integer :: total_load
+            type(t_grid), intent(in)   :: grid
+            integer (kind = GRID_DI), intent(in) :: rank_load
+            double precision, intent(in) :: rank_throughput
+            double precision, intent(out) :: imbalance
+            double precision :: total_throughput
+            integer :: total_load
 
-		! compute total_load and total_throughput (sum from all ranks)
-		total_load = rank_load
-		total_throughput = rank_throughput
-		call reduce(total_load, MPI_SUM)
-		call reduce(total_throughput, MPI_SUM)
-		
-		
-		if (rank_load > 0) then
-		    ! the computation below is the same as: max_imbalance = (rank_load/rank_throughput)/(total_load/total_throughput)
-		    ! but with only one division.
-		    imbalance = (rank_load*total_throughput)/(total_load*rank_throughput)
-		    
-		    if (imbalance < 1) then ! avoid negative values
-		        if (imbalance == 0) then ! avoid division by zero
-		            imbalance = 1.0 
-		        else
-		            imbalance = 1.0 / imbalance
-		        end if
-		    end if
-		    imbalance = imbalance - 1 ! 0 = perfectly balanced
-		else 
-		    imbalance = 1 ! if this rank is empty, it is not balanced
-		end if
+            ! compute total_load and total_throughput (sum from all ranks)
+            total_load = rank_load
+            total_throughput = rank_throughput
+            call reduce(total_load, MPI_SUM)
+            call reduce(total_throughput, MPI_SUM)
+            
+            
+            if (rank_load > 0) then
+                ! the computation below is the same as: max_imbalance = (rank_load/rank_throughput)/(total_load/total_throughput)
+                ! but with only one division.
+                imbalance = (rank_load*total_throughput)/(total_load*rank_throughput)
+                
+                if (imbalance < 1) then ! avoid negative values
+                    if (imbalance == 0) then ! avoid division by zero
+                        imbalance = 1.0 
+                    else
+                        imbalance = 1.0 / imbalance
+                    end if
+                end if
+                imbalance = imbalance - 1 ! 0 = perfectly balanced
+            else 
+                imbalance = 1 ! if this rank is empty, it is not balanced
+            end if
 
-		! consider only the greatest value among all ranks
-		call reduce(imbalance, MPI_MAX)
-	       
+            ! consider only the greatest value among all ranks
+            call reduce(imbalance, MPI_MAX)
 	    end subroutine
 
        !> uses a distributed algorithm to compute the new partitiion
@@ -763,5 +764,7 @@ module Tools_loadbalancing
             i_section_index_out_local => i_section_index_out
             i_rank_in_local => i_rank_in
         end subroutine
+        
+#   endif
 
 end module

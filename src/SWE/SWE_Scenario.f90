@@ -148,6 +148,56 @@ END MODULE SWE_Scenario_linear_dam_break
 #endif
 
 !********************
+!* Square Dam Break *
+!********************
+#if defined (_SWE_SCENARIO_SQUARE_DAM_BREAK)
+MODULE SWE_Scenario_square_dam_break
+    use iso_c_binding
+    use Samoa_swe
+    public SWE_Scenario_get_scaling, SWE_Scenario_get_offset, SWE_Scenario_get_bathymetry, SWE_Scenario_get_initial_Q
+    contains
+
+    function SWE_Scenario_get_scaling() result(scaling)
+        real (kind = GRID_SR) :: scaling
+        
+        scaling = 100000.0_GRID_SR
+    end function
+
+    function SWE_Scenario_get_offset() result(offset)
+        real (kind = GRID_SR) :: offset(2)
+        
+        offset = SWE_Scenario_get_scaling() * [-0.5_GRID_SR, -0.5_GRID_SR]
+    end function
+    
+    function SWE_Scenario_get_bathymetry(x) result(bathymetry)
+        real (kind = c_double), intent(in) :: x(3)
+        real (kind = GRID_SR) :: bathymetry
+        
+        bathymetry = -10.0_GRID_SR
+    end function
+    
+    function SWE_Scenario_get_initial_Q(x) result(Q)
+        real (kind = c_double), intent(in) :: x(3)
+        type(t_dof_state) :: Q
+        real (kind = GRID_SR) :: border
+        
+        real (kind = GRID_SR), parameter :: hOut = 0.0_GRID_SR, hIn = 10.0_GRID_SR
+        
+        border = 0.2_GRID_SR * SWE_Scenario_get_scaling() 
+        
+        Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
+        
+        if (x(1) < -border .or. x(1) > border .or. x(2) < -border .or. x(2) > border ) then
+            Q%h = hOut
+        else 
+            Q%h = hIn
+        end if
+    end function
+
+END MODULE SWE_Scenario_square_dam_break
+#endif
+
+!********************
 !* Oscillating Lake *
 !********************
 ! Proposed in: 
@@ -221,6 +271,8 @@ MODULE SWE_Scenario
         USE SWE_Scenario_radial_dam_break
 #   elif defined(_SWE_SCENARIO_LINEAR_DAM_BREAK)
         USE SWE_Scenario_linear_dam_break
+#   elif defined(_SWE_SCENARIO_SQUARE_DAM_BREAK)
+        USE SWE_Scenario_square_dam_break
 #   elif defined(_SWE_SCENARIO_OSCILLATING_LAKE)
         USE SWE_Scenario_oscillating_lake
 #   endif

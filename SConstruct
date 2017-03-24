@@ -51,7 +51,7 @@ vars.AddVariables(
   BoolVariable( 'swe_patch_solver', 'use patch solver? if False, a original non-vectorizable geoclaw implementation will be used', False),
   
   EnumVariable( 'swe_scenario', 'artificial scenario for SWE (only considered when not using ASAGI)', 'radial_dam_break',
-                allowed_values=('radial_dam_break', 'linear_dam_break', 'oscillating_lake')
+                allowed_values=('radial_dam_break', 'linear_dam_break', 'square_dam_break', 'oscillating_lake')
               ),
 
   EnumVariable( 'data_refinement', 'input data refinement method', 'integrate',
@@ -286,6 +286,8 @@ if env['scenario'] == 'swe':
     env['F90FLAGS'] += ' -D_SWE_SCENARIO_RADIAL_DAM_BREAK'
   elif env['swe_scenario'] == 'linear_dam_break':
     env['F90FLAGS'] += ' -D_SWE_SCENARIO_LINEAR_DAM_BREAK'
+  elif env['swe_scenario'] == 'square_dam_break':
+    env['F90FLAGS'] += ' -D_SWE_SCENARIO_SQUARE_DAM_BREAK'
   elif env['swe_scenario'] == 'oscillating_lake':
     env['F90FLAGS'] += ' -D_SWE_SCENARIO_OSCILLATING_LAKE'
 

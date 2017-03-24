@@ -63,7 +63,7 @@ MODULE SWE_Scenario_radial_dam_break
     function SWE_Scenario_get_scaling() result(scaling)
         real (kind = GRID_SR) :: scaling
         
-        scaling = 10.0_GRID_SR
+        scaling = 100000.0_GRID_SR
     end function
 
     function SWE_Scenario_get_offset() result(offset)
@@ -76,7 +76,7 @@ MODULE SWE_Scenario_radial_dam_break
         real (kind = c_double), intent(in) :: x(3)
         real (kind = GRID_SR) :: bathymetry
         
-        if (x(1)*x(1) + x(2)*x(2) < 9.0_GRID_SR) then
+        if (x(1)*x(1) + x(2)*x(2) < (0.25_GRID_SR * SWE_Scenario_get_scaling()) ** 2 ) then
             bathymetry = -5.0_GRID_SR
         else 
             bathymetry = -10.0_GRID_SR
@@ -89,7 +89,7 @@ MODULE SWE_Scenario_radial_dam_break
         
         Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
         
-        if (x(1)*x(1) + x(2)*x(2) < 0.25_GRID_SR) then
+        if (x(1)*x(1) + x(2)*x(2) < (0.15_GRID_SR * SWE_Scenario_get_scaling()) ** 2 ) then
             Q%h = 10.0_GRID_SR
         else 
             Q%h = 0.0_GRID_SR

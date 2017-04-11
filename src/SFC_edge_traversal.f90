@@ -1401,7 +1401,11 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
             end if
             
             if (cfg%l_lb_hh) then
+                if (cfg%l_serial_lb) then
                     call compute_partition_serial_heterogeneous(grid, i_rank_out, i_section_index_out, i_rank_in, l_early_exit, rank_throughput, rank_load)
+                else
+                    call compute_partition_distributed_heterogeneous(grid, i_rank_out, i_section_index_out, i_rank_in, l_early_exit, rank_throughput, rank_load)
+                end if
             else
                 if (cfg%l_serial_lb) then
                     call compute_partition_serial(grid, i_rank_out, i_section_index_out, i_rank_in, l_early_exit)

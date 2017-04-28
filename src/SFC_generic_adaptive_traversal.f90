@@ -300,8 +300,8 @@ subroutine traverse_in_place(traversal, grid)
     !$omp barrier
     call thread_stats%stop_time(sync_time)
 
-    !balance load BEFORE refinement if splitting is DISABLED
-    if (.not. cfg%l_split_sections) then
+    !balance load BEFORE refinement if global splitting is DISABLED
+    if (.not. (cfg%i_lb_splitmode .eq. LB_SPLIT_GLOBALLY)) then
 #	    if !defined(_GT_INPUT_DEST)
 	        !exchange source grid sections with neighbors
             call thread_stats%start_time(load_balancing_time)
@@ -311,6 +311,7 @@ subroutine traverse_in_place(traversal, grid)
     end if
 
     call thread_stats%start_time(allocation_time)
+
     call create_destination_grid(grid, grid_temp)
 
     !if necessary, reverse order to match source and destination grid
@@ -336,7 +337,7 @@ subroutine traverse_in_place(traversal, grid)
     !$omp end single
 
     !balance load AFTER refinement if splitting is ENABLED
-    if (cfg%l_split_sections) then
+    if (cfg%i_lb_splitmode .eq. LB_SPLIT_GLOBALLY) then
 #       if !defined(_GT_INPUT_DEST)
             !duplicate destination grid boundary before load balancing
             call thread_stats%start_time(sync_time)
@@ -603,9 +604,9 @@ subroutine traverse_grids(traversal, src_grid, dest_grid)
     end do
 
     ! used for auto-tuning LB (not anymore, but can be useful in the future)
-    !$omp critical
+    !!$omp critical
         !grid%r_computation_time_since_last_LB = grid%r_computation_time_since_last_LB + thread_stats%get_time(pre_compute_time) + thread_stats%get_time(inner_compute_time) + thread_stats%get_time(post_compute_time)
-    !$omp end critical
+    !!$omp end critical
 
     traversal%threads(i_thread)%stats = traversal%threads(i_thread)%stats + thread_stats
     dest_grid%threads%elements(i_thread)%stats = dest_grid%threads%elements(i_thread)%stats + thread_stats

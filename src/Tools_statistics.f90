@@ -23,6 +23,12 @@ module Tools_statistics
     public :: TRAVERSAL_TIME, PRE_COMPUTE_TIME, INNER_COMPUTE_TIME, POST_COMPUTE_TIME, ASAGI_TIME, SYNC_TIME, BARRIER_TIME
     public :: ALLOCATION_TIME, UPDATE_DISTANCES_TIME, UPDATE_NEIGHBORS_TIME, INTEGRITY_TIME, LOAD_BALANCING_TIME
 
+    enum, bind(c)
+        enumerator :: SUM_TIME = 1, MAX_TIME, MIN_TIME
+    end enum
+
+    public :: SUM_TIME, MAX_TIME, MIN_TIME
+
 	type t_base_statistics
         private
         integer (kind = selected_int_kind(16)) :: counter_stats(STATS_TYPE_END_INT_COUNTER - 1) = 0_8
@@ -52,11 +58,13 @@ module Tools_statistics
 		procedure, public, pass :: start_time => t_statistics_start_time
 		procedure, public, pass :: stop_time => t_statistics_stop_time
 		procedure, public, pass :: get_time => t_statistics_get_time
+		procedure, public, pass :: get_reduced_times => t_statistics_get_reduced_times
 		procedure, public, pass :: add_time => t_statistics_add_time
 		procedure, public, pass :: clear_time => t_statistics_clear_time
 
-        procedure, public, pass :: scale => t_statistics_scale
-        procedure, public, pass :: to_string => t_statistics_to_string
+        	procedure, public, pass :: scale => t_statistics_scale
+        	procedure, public, pass :: to_string => t_statistics_to_string
+		procedure, public, pass :: to_verbose_string => t_statistics_to_verbose_string
 		procedure, public, pass :: clear => t_statistics_clear
 
 		generic, public :: reduce => reduce_local, reduce_global
@@ -83,9 +91,11 @@ module Tools_statistics
 		procedure, public, pass :: start_time => t_adaptive_statistics_start_time
 		procedure, public, pass :: stop_time => t_adaptive_statistics_stop_time
 		procedure, public, pass :: get_time => t_adaptive_statistics_get_time
+		procedure, public, pass :: get_reduced_times => t_adaptive_statistics_get_reduced_times
 		procedure, public, pass :: clear_time => t_adaptive_statistics_clear_time
-        procedure, public, pass :: scale => t_adaptive_statistics_scale
-        procedure, public, pass :: to_string => t_adaptive_statistics_to_string
+        	procedure, public, pass :: scale => t_adaptive_statistics_scale
+        	procedure, public, pass :: to_string => t_adaptive_statistics_to_string
+		procedure, public, pass :: to_verbose_string => t_adaptive_statistics_to_verbose_string
 		procedure, public, pass :: clear => t_adaptive_statistics_clear
 
 		generic, private :: add => add_stats, add_adaptive_stats
@@ -249,6 +259,29 @@ module Tools_statistics
 
 		time_value = s%time_stats(time_type)
     end function
+
+    function t_statistics_get_reduced_times(s, v, time_type) result(time_value)
+        class(t_statistics), intent(in)    :: s
+	type(t_statistics), intent(in)    :: v(:)
+        integer, intent(in)			                :: time_type
+        double precision                            :: time_value(3), temp(size(v))
+
+        assert_pure(time_type > 0)
+        assert_pure(time_type < STATS_TYPE_END_TIME_COUNTER)
+
+	!reduce thread statistics
+	temp = v%time_stats(time_type) !HACK, see above
+        call reduce(time_value(SUM_TIME), temp, MPI_SUM, .false.)
+	call reduce(time_value(MAX_TIME), temp, MPI_MAX, .false.)
+	call reduce(time_value(MIN_TIME), temp, MPI_MIN, .false.)
+
+	if( .not. cfg%l_log_stats_per_process) then 
+		!reduce per-process statistics
+		call reduce(time_value(SUM_TIME), MPI_SUM)
+		call reduce(time_value(MAX_TIME), MPI_MAX)
+		call reduce(time_value(MIN_TIME), MPI_MIN)
+	end if
+    end function
     
     elemental subroutine t_statistics_add_time(s, time_type, time_value)
         class(t_statistics), intent(inout)         :: s
@@ -287,7 +320,29 @@ module Tools_statistics
         else
             write(str, '(A, " ET: ", F0.4, " M/s  MT: ", F0.4, " GB/s")') trim(str), -1.0d0, -1.0d0
         end if
-	end function
+    end function
+
+    pure function t_statistics_to_verbose_string(s, v) result(str)
+        class(t_statistics), intent(in)			:: s
+	type(t_statistics), intent(in)			:: v(:) 	
+	character (len = 1024)					:: str
+	integer 					:: i
+	double precision				:: times(1:STATS_TYPE_END_TIME_COUNTER - 1, 3)
+	
+	do i=1, STATS_TYPE_END_TIME_COUNTER-1
+		times(i,:)=s%get_reduced_times(v, i) 
+	end do
+        
+	write(str, '(" time: (", F0.4, " s,", F0.4, " s,", F0.4 ," s) pre: (", F0.4, " s,", F0.4, " s,", F0.4, " s) inner: (", F0.4, " s,", F0.4, " s,", F0.4, " s) post: (", F0.4, " s,", F0.4, " s,", F0.4, " s) asagi: (", F0.4, " s,", F0.4, " s,", F0.4, " s) sync: (", F0.4, " s,", F0.4, " s,", F0.4, " s) barr: (", F0.4, " s,", F0.4, " s,", F0.4, " s)")') &
+	times(traversal_time, SUM_TIME), times(traversal_time, MIN_TIME), times(traversal_time, MAX_TIME), &
+	times(pre_compute_time, SUM_TIME), times(pre_compute_time, MIN_TIME), times(pre_compute_time, MAX_TIME), &
+	times(inner_compute_time, SUM_TIME), times(inner_compute_time, MIN_TIME), times(inner_compute_time, MAX_TIME), &
+	times(post_compute_time, SUM_TIME), times(post_compute_time, MIN_TIME), times(post_compute_time, MAX_TIME), &
+	times(asagi_time, SUM_TIME), times(asagi_time, MIN_TIME), times(asagi_time, MAX_TIME), &
+	times(sync_time, SUM_TIME), times(sync_time, MIN_TIME), times(sync_time, MAX_TIME), &
+        times(barrier_time, SUM_TIME), times(barrier_time, MIN_TIME), times(barrier_time, MAX_TIME)
+
+    end function
 
     subroutine t_adaptive_statistics_reduce_local(s, v, mpi_op)
         class(t_adaptive_statistics), intent(inout)	    :: s
@@ -419,6 +474,29 @@ module Tools_statistics
 		time_value = s%adaptive_stats(time_type)
     end function
 
+    function t_adaptive_statistics_get_reduced_times(s, v, time_type) result(time_value)
+        class(t_adaptive_statistics), intent(in)    :: s
+	type(t_adaptive_statistics), intent(in)    :: v(:)
+        integer, intent(in)			                :: time_type
+        double precision                            :: time_value(3), temp(size(v))
+
+        assert_pure(time_type > 0)
+        assert_pure(time_type < STATS_TYPE_END_ADAPTIVE_COUNTER)
+
+	!reduce thread statistics
+	temp = v%adaptive_stats(time_type) !HACK, see above
+        call reduce(time_value(SUM_TIME), temp, MPI_SUM, .false.)
+	call reduce(time_value(MAX_TIME), temp, MPI_MAX, .false.)
+	call reduce(time_value(MIN_TIME), temp, MPI_MIN, .false.)
+
+	if( .not. cfg%l_log_stats_per_process) then 
+		!reduce per-process statistics
+		call reduce(time_value(SUM_TIME), MPI_SUM)
+		call reduce(time_value(MAX_TIME), MPI_MAX)
+		call reduce(time_value(MIN_TIME), MPI_MIN)
+	end if
+    end function
+
     elemental subroutine t_adaptive_statistics_clear_time(s, time_type)
         class(t_adaptive_statistics), intent(inout)			:: s
         integer, intent(in)			                        :: time_type
@@ -431,21 +509,47 @@ module Tools_statistics
 
     pure function t_adaptive_statistics_to_string(s) result(str)
         class(t_adaptive_statistics), intent(in)	:: s
-		character (len = 512)					    :: str
+	character (len = 512)					    :: str
 
-        write(str, '("#travs: ", I0, " time: ", F0.4, " s (comp: ", F0.4, " s (pre: ", F0.4, " s inner: ", F0.4, " s post: ", F0.4, " s) asagi: ", F0.4, " s sync: ", F0.4, " s barr: ", F0.4, " s update distances: ", F0.4, " s update neighbors: ", F0.4, " s) integrity: ", F0.4, " s load balancing: ", F0.4, " s (de)allocation: ", F0.4, " s")') &
-            s%get_counter(traversals), s%get_time(traversal_time), &
-            s%get_time(pre_compute_time) + s%get_time(inner_compute_time) + s%get_time(post_compute_time), &
-            s%get_time(pre_compute_time), s%get_time(inner_compute_time), s%get_time(post_compute_time), &
-            s%get_time(asagi_time), s%get_time(sync_time), s%get_time(barrier_time), &
-            s%get_time(update_distances_time), s%get_time(update_neighbors_time), &
-            s%get_time(integrity_time), s%get_time(load_balancing_time), s%get_time(allocation_time)
+	write(str, '("#travs: ", I0, " time: ", F0.4, " s (comp: ", F0.4, " s (pre: ", F0.4, " s inner: ", F0.4, " s post: ", F0.4, " s) asagi: ", F0.4, " s sync: ", F0.4, " s barr: ", F0.4, " s update distances: ", F0.4, " s update neighbors: ", F0.4, " s) integrity: ", F0.4, " s load balancing: ", F0.4, " s (de)allocation: ", F0.4, " s")') &
+	    s%get_counter(traversals), s%get_time(traversal_time), &
+	    s%get_time(pre_compute_time) + s%get_time(inner_compute_time) + s%get_time(post_compute_time), &
+	    s%get_time(pre_compute_time), s%get_time(inner_compute_time), s%get_time(post_compute_time), &
+	    s%get_time(asagi_time), s%get_time(sync_time), s%get_time(barrier_time), &
+	    s%get_time(update_distances_time), s%get_time(update_neighbors_time), &
+	    s%get_time(integrity_time), s%get_time(load_balancing_time), s%get_time(allocation_time)
 
-        if (s%get_time(traversal_time) > 0.0d0) then
-            write(str, '(A, " ET: ", F0.4, " M/s  MT: ", F0.4, " GB/s")') trim(str), dble(s%get_counter(traversed_cells)) / (1.0d6 * s%get_time(traversal_time)), &
-            dble(s%get_counter(traversed_memory)) / (1024.0d0 * 1024.0d0 * 1024.0d0 * s%get_time(traversal_time))
-        else
-            write(str, '(A, " ET: ", F0.4, " M/s  MT: ", F0.4, " GB/s")') trim(str), -1.0d0, -1.0d0
-        end if
-	end function
+	if (s%get_time(traversal_time) > 0.0d0) then
+	    write(str, '(A, " ET: ", F0.4, " M/s  MT: ", F0.4, " GB/s")') trim(str), dble(s%get_counter(traversed_cells)) / (1.0d6 * s%get_time(traversal_time)), &
+	    dble(s%get_counter(traversed_memory)) / (1024.0d0 * 1024.0d0 * 1024.0d0 * s%get_time(traversal_time))
+	else
+	    write(str, '(A, " ET: ", F0.4, " M/s  MT: ", F0.4, " GB/s")') trim(str), -1.0d0, -1.0d0
+	end if
+    end function
+
+    pure function t_adaptive_statistics_to_verbose_string(s, v) result(str)
+        class(t_adaptive_statistics), intent(in)	:: s
+	type(t_adaptive_statistics), intent(in)	        :: v(:)
+	character (len = 1024)					    :: str
+	integer 					:: i
+	double precision				:: times(1:STATS_TYPE_END_ADAPTIVE_COUNTER - 1, 3)
+	
+	do i=1, STATS_TYPE_END_ADAPTIVE_COUNTER-1
+		times(i,:)=s%get_reduced_times(v, i) 
+	end do
+        
+	write(str, '(" time: (", F0.4, " s,", F0.4, " s,", F0.4 ," s) pre: (", F0.4, " s,", F0.4, " s,", F0.4, " s) inner: (", F0.4, " s,", F0.4, " s,", F0.4, " s) post: (", F0.4, " s,", F0.4, " s,", F0.4, " s) asagi: (", F0.4, " s,", F0.4, " s,", F0.4, " s) sync: (", F0.4, " s,", F0.4, " s,", F0.4, " s) barr: (", F0.4, " s,", F0.4, " s,", F0.4, " s) update distances: (", F0.4, " s,", F0.4, " s,", F0.4, " s) update neighbors: (", F0.4 , " s,", F0.4, " s,", F0.4, " s) integrity: (", F0.4, " s,", F0.4, " s,", F0.4, " s) load balancing: (", F0.4, " s,", F0.4, " s,", F0.4, " s) (de)allocation: (", F0.4, " s,", F0.4, " s,", F0.4, " s))")') &
+	times(traversal_time, SUM_TIME), times(traversal_time, MIN_TIME), times(traversal_time, MAX_TIME), &
+	times(pre_compute_time, SUM_TIME), times(pre_compute_time, MIN_TIME), times(pre_compute_time, MAX_TIME), &
+	times(inner_compute_time, SUM_TIME), times(inner_compute_time, MIN_TIME), times(inner_compute_time, MAX_TIME), &
+	times(post_compute_time, SUM_TIME), times(post_compute_time, MIN_TIME), times(post_compute_time, MAX_TIME), &
+	times(asagi_time, SUM_TIME), times(asagi_time, MIN_TIME), times(asagi_time, MAX_TIME), &
+	times(sync_time, SUM_TIME), times(sync_time, MIN_TIME), times(sync_time, MAX_TIME), &
+        times(barrier_time, SUM_TIME), times(barrier_time, MIN_TIME), times(barrier_time, MAX_TIME), &
+	times(update_distances_time, SUM_TIME), times(update_distances_time, MIN_TIME), times(update_distances_time, MAX_TIME), &
+	times(update_neighbors_time, SUM_TIME), times(update_neighbors_time, MIN_TIME), times(update_neighbors_time, MAX_TIME), &
+        times(integrity_time, SUM_TIME), times(integrity_time, MIN_TIME), times(integrity_time, MAX_TIME), &
+	times(load_balancing_time, SUM_TIME), times(load_balancing_time, MIN_TIME), times(load_balancing_time, MAX_TIME), &
+	times(allocation_time, SUM_TIME), times(allocation_time, MIN_TIME), times(allocation_time, MAX_TIME)            
+    end function
 end module

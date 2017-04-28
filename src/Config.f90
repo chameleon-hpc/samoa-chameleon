@@ -34,20 +34,24 @@ module config
         integer                                 :: i_stats_phases					                !< number of times intermediate stats should be printed during time steps
         logical			                        :: l_log                                            !< if true, a log file is used
 	logical			                        :: l_log_stats_per_process                                            !< if true, statistics are logged per process
+	logical 				:: l_verbose_stats					!< print more verbose statistics (sum, min, max)
         integer (kind = selected_int_kind(1))   :: i_min_depth, i_max_depth, i_start_depth			!< minimum, maximum and start scenario depth
         integer			        	            :: i_asagi_mode			                		    !< ASAGI mode
         logical                                 :: l_timed_load                                     !< if true, load is estimated by timing, if false load is estimated by counting entities
         double precision                        :: r_cell_weight                                    !< cell weight for the count-based load estimate
         double precision                        :: r_boundary_weight                                !< boundary weight for the count-based load estimate
-        logical                                 :: l_split_sections                                 !< if true, MPI load balancing may split sections, if false sections are treated as atomic units
+        !logical                                 :: l_split_sections                                 !< if true, MPI load balancing may split sections, if false sections are treated as atomic units
         logical                                 :: l_serial_lb                                      !< if true, MPI load balancing is serialized, if false a distributed algorithm is used
         double precision                        :: r_adapt_time_step					            !< grid output time step
         integer			        	            :: i_adapt_time_steps			                            !< number of time steps between each linear solver solution
         integer                                 :: i_lb_frequency                                   !< load balancing frequency: it will be applied every X steps
+	integer                                 :: i_lb_splitmode                                   !< load balancing splitting mode 
         double precision                        :: r_lb_threshold                                   !< if imbalance < threshold, load balancing is skipped (i.e. 0.1 = 10%)
         ! load balancing for heterogeneous hardware (HH):
         logical                                 :: l_lb_hh                                          !< if true, MPI load balancing can distribute the load unevenly
         logical                                 :: l_lb_hh_auto                                     !< if true, MPI load balancing considers the performance of each rank and distributes load accordingly
+        !logical                                 :: l_lb_no_shared_split                                !< if true, sections are not split into uniform load in shared memory
+
         double precision                        :: r_lb_hh_ratio(2)                                 !< HH LB ratio: value (1) is for Hosts, (2) is for MICs. Read from s_lb_hh_ratio.
         character(64)                           :: s_lb_hh_ratio                                    !< input string for r_lb_hh_ratio
 
@@ -161,9 +165,9 @@ module config
         !define default command arguments and default values for all scenarios
 
         write(arguments, '(A)') "-v .false. --version .false. -h .false. --help .false."
-        write(arguments, '(A, A)') trim(arguments),   " -lbtime .false. -lbsplit .false. -lbserial .false. -lbcellweight 1.0d0 -lbbndweight 0.0d0"
-        write(arguments, '(A, A)') trim(arguments),   " -lbhh .false. -lbfreq 1 -lbthreshold 0.01 -lbhhauto .false. -lbhhratio 1 1 "
-        write(arguments, '(A, A)') trim(arguments),  " -asagihints 2 -phases 1 -tadapt -1.0 -nadapt 1 -asciioutput_width 60 -output_dir output -asciioutput .false. -xmloutput .false. -stestpoints '' -noprint .false. -statsperprocess .false. -sections 4 "
+        write(arguments, '(A, A)') trim(arguments),   " -lbtime .false. -lbsplitmode 0 -lbserial .false. -lbcellweight 1.0d0 -lbbndweight 0.0d0"
+        write(arguments, '(A, A)') trim(arguments),   " -lbhh .false. -lbfreq 1 -lbthreshold 0.01 -lbhhauto .false. -lbhhratio 1 1"
+        write(arguments, '(A, A)') trim(arguments),  " -asagihints 2 -phases 1 -tadapt -1.0 -nadapt 1 -asciioutput_width 60 -output_dir output -asciioutput .false. -xmloutput .false. -stestpoints '' -noprint .false. -statsperprocess .false. -verbosestats .false -sections 4 "
         write(arguments, '(A, A, I0)') trim(arguments), " -threads ", omp_get_max_threads()
 
         !define additional command arguments and default values depending on the choice of the scenario
@@ -240,13 +244,14 @@ module config
         config%i_stats_phases = iget('samoa_phases')
         config%l_log = lget('samoa_noprint')
 	config%l_log_stats_per_process = lget('samoa_statsperprocess')
+	config%l_verbose_stats = lget('samoa_verbosestats')
         config%i_threads = iget('samoa_threads')
         config%l_timed_load = lget('samoa_lbtime')
         config%r_cell_weight = rget('samoa_lbcellweight')
         config%r_boundary_weight = rget('samoa_lbbndweight')
-        config%l_split_sections = lget('samoa_lbsplit')
         config%l_serial_lb = lget('samoa_lbserial')
         config%i_lb_frequency = iget('samoa_lbfreq')
+	config%i_lb_splitmode = iget('samoa_lbsplitmode')
         config%r_lb_threshold = rget('samoa_lbthreshold')
         config%l_lb_hh = lget('samoa_lbhh')
         config%l_lb_hh_auto = lget('samoa_lbhhauto')
@@ -336,7 +341,7 @@ module config
                 PRINT '(A, I0, A)',     "	-threads <value>        number of OpenMP threads (value: ", config%i_threads, ")"
                 PRINT '(A, I0, A)',     "	-sections <value>       number of grid sections per OpenMP thread (value: ", config%i_sections_per_thread, ")"
                 PRINT '(A, L, A)',      "	-lbtime                 if true, load is estimated by time measurements, if false load is estimated by cell count (value: ", config%l_timed_load, ")"
-                PRINT '(A, L, A)',      "	-lbsplit                if true, MPI load balancing may split sections, if false sections are treated as atomic units (value: ", config%l_split_sections, ")"
+                PRINT '(A, I0, A)',      "	-lbsplitmode            LB split mode (0: split locally after LB, 1: split globally before LB, 2: non-uniform sections in shared memory) (value: ", config%i_lb_splitmode, ")"
                 PRINT '(A, L, A)',      "	-lbserial               if true, MPI load balancing is serialized, if false a distributed algorithm is used (value: ", config%l_serial_lb, ")"
                 PRINT '(A, I0, A)',     "   -lbfreq                 load balancing frequency: it will be applied every X steps (value: ", config%i_lb_frequency, ")"
                 PRINT '(A, F0.3, A)',   "   -lbthreshold            if imbalance < threshold, load balancing is skipped (i.e. 0.1 = 10%). (value: ", config%r_lb_threshold, ")"
@@ -353,6 +358,7 @@ module config
         		PRINT '(A, A, A)',     "	-output_dir <value>     output directory (value: ", trim(config%output_dir), ")"
                 PRINT '(A, L, A)',      "	-noprint                print log to file instead of console (value: ", config%l_log, ")"
 		PRINT '(A, L, A)',      "	-statsperprocess        print per-process statistics (value: ", config%l_log_stats_per_process, ")"
+		PRINT '(A, L, A)',      "	-verbosestats        print verbose statistics (value: ", config%l_verbose_stats, ")"
                 PRINT '(A)',            "	--help, -h              display this help and exit"
                 PRINT '(A)',            "	--version, -v           output version information and exit"
 
@@ -521,7 +527,7 @@ module config
             _log_write(0, '(" SWE: Patches: No")')
 #       endif
 
-        _log_write(0, '(" Load balancing: timed load estimate: ", A, ", split sections: ", A, ", serial: ", A, ", frequency: ", I0, " , threshold: ", F0.3)') logical_to_char(config%l_timed_load), logical_to_char(config%l_split_sections), logical_to_char(config%l_serial_lb), config%i_lb_frequency, config%r_lb_threshold
+        _log_write(0, '(" Load balancing: timed load estimate: ", A, ", split mode: ", I0, ", serial: ", A, ", frequency: ", I0, " , threshold: ", F0.3)') logical_to_char(config%l_timed_load), config%i_lb_splitmode, logical_to_char(config%l_serial_lb), config%i_lb_frequency, config%r_lb_threshold
         if (config%l_lb_hh_auto) then
             _log_write(0, '(" Load balancing: for heterogenous hardware (HH): ", A, ", ratio: ", A)') logical_to_char(config%l_lb_hh), "auto"
         else

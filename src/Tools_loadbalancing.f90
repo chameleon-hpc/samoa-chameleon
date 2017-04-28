@@ -11,6 +11,12 @@ module Tools_loadbalancing
    use Grid
    use Tools_mpi
 
+		enum, bind(c)
+		    enumerator :: LB_SPLIT_LOCALLY = 0
+		    enumerator :: LB_SPLIT_GLOBALLY = 1
+	            enumerator :: LB_NO_SPLIT = 2
+		end enum
+
    public
 
    contains
@@ -353,7 +359,7 @@ module Tools_loadbalancing
 	        i_rank_in_local => i_rank_in
         end subroutine
         
-        !> for heterogeneous hardware: uses a distributed algorithm to compute the new partitiion
+        !> for heterogeneous hardware: uses a distributed algorithm to compute the new partition
         !> this approach scales well, but requires local methods and cannot achieve optimal load balance
         subroutine compute_partition_distributed_heterogeneous(grid, i_rank_out_local, i_section_index_out_local, i_rank_in_local, l_early_exit, my_throughput, my_load)
             type(t_grid), intent(inout)                     :: grid
@@ -899,7 +905,7 @@ module Tools_loadbalancing
                         
                         all_ranks(i) = j
                         
-                        assert_le(j, MPI_rank - 1)
+                        assert_le(j, rank_MPI - 1)
                     end do
 
                     all_sections(:) = 0

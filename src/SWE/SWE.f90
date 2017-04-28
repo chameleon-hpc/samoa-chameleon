@@ -359,14 +359,32 @@
 
                     if (cfg%i_adapt_time_steps > 0 .and. mod(i_time_step, cfg%i_adapt_time_steps) == 0) then
                         !refine grid
+#if defined(_IPM)
+	 	    call mpi_pcontrol( 1,"adaption_traversal"//char(0))	
+#endif
                         call swe%adaption%traverse(grid)
+#if defined(_IPM)
+	 	    call mpi_pcontrol( -1,"adaption_traversal"//char(0))	
+#endif
                     end if
 
                     !do an euler time step
+#if defined(_IPM)
+	 	    call mpi_pcontrol( 1,"euler_traversal"//char(0))	
+#endif
                     call swe%euler%traverse(grid)
+#if defined(_IPM)
+		    call mpi_pcontrol( -1,"euler_traversal"//char(0))
+#endif
 
                     !displace time-dependent bathymetry
+#if defined(_IPM)
+	 	    call mpi_pcontrol( 1,"displace_traversal"//char(0))	
+#endif
                     call swe%displace%traverse(grid)
+#if defined(_IPM)
+	 	    call mpi_pcontrol( -1,"displace_traversal"//char(0))	
+#endif
 
                     grid_info%i_cells = grid%get_cells(MPI_SUM, .true.)
                     if (rank_MPI == 0) then
@@ -417,11 +435,23 @@
 
                 if (cfg%i_adapt_time_steps > 0 .and. mod(i_time_step, cfg%i_adapt_time_steps) == 0) then
                     !refine grid
+#if defined(_IPM)
+	 	    call mpi_pcontrol( 1,"adaption_traversal"//char(0))	
+#endif
                     call swe%adaption%traverse(grid)
+#if defined(_IPM)
+	 	    call mpi_pcontrol( -1,"adaption_traversal"//char(0))	
+#endif
                 end if
 
 				!do a time step
-				call swe%euler%traverse(grid)
+#if defined(_IPM)
+	 	    call mpi_pcontrol( 1,"euler_traversal"//char(0))	
+#endif
+                    call swe%euler%traverse(grid)
+#if defined(_IPM)
+		    call mpi_pcontrol( -1,"euler_traversal"//char(0))
+#endif
 
                 grid_info%i_cells = grid%get_cells(MPI_SUM, .true.)
                 if (rank_MPI == 0) then
@@ -478,50 +508,104 @@
 		end subroutine
 
         subroutine update_stats(swe, grid)
-            class(t_swe), intent(inout)   :: swe
+            	class(t_swe), intent(inout)   :: swe
     		type(t_grid), intent(inout)     :: grid
 
- 			double precision, save          :: t_phase = huge(1.0d0)
+		double precision, save          :: t_phase = huge(1.0d0)
+                character (len = 1024), save     :: str(5)
 
 			!$omp master
                 !Initially, just start the timer and don't print anything
                 if (t_phase < huge(1.0d0)) then
                     t_phase = t_phase + get_wtime()
+                   
+		    if( cfg%l_verbose_stats) then
+			    ! CAUTION: this is ugly, but ultimately necessary since threads may not be associated
+			    if ( associated(swe%init_dofs%threads) ) then
+			    	str(1) = swe%init_dofs%stats%to_verbose_string(swe%init_dofs%threads%stats)
+			    else
+				call swe%init_dofs%reduce_stats(MPI_SUM, .true.)
+				str(1) = swe%init_dofs%stats%to_string()
+			    endif
 
-		    if (.not. cfg%l_log_stats_per_process) then	
-                        call swe%init_dofs%reduce_stats(MPI_SUM, .true.)
-                        call swe%displace%reduce_stats(MPI_SUM, .true.)
-                        call swe%euler%reduce_stats(MPI_SUM, .true.)
-                        call swe%adaption%reduce_stats(MPI_SUM, .true.)
-                        call grid%reduce_stats(MPI_SUM, .true.)
-		    endif
+			    if ( associated(swe%displace%threads) ) then
+			    	str(2) = swe%displace%stats%to_verbose_string(swe%displace%threads%stats)
+			    else
+				call swe%displace%reduce_stats(MPI_SUM, .true.)
+				str(2) = swe%displace%stats%to_string()
+			    endif	
 
-                    if (rank_MPI == 0 .or. cfg%l_log_stats_per_process) then
-                        _log_write(0, *) ""
-                        _log_write(0, *) "Phase statistics:"
-                        _log_write(0, *) ""
-                        _log_write(0, '(A, T34, A)') " Init: ", trim(swe%init_dofs%stats%to_string())
-                        _log_write(0, '(A, T34, A)') " Displace: ", trim(swe%displace%stats%to_string())
-                        _log_write(0, '(A, T34, A)') " Time steps: ", trim(swe%euler%stats%to_string())
-                        _log_write(0, '(A, T34, A)') " Adaptions: ", trim(swe%adaption%stats%to_string())
-                        _log_write(0, '(A, T34, A)') " Grid: ", trim(grid%stats%to_string())
-                        ! throughput calculations are a bit different if using patches
+			    if ( associated(swe%euler%threads) ) then
+			    	str(3) = swe%euler%stats%to_verbose_string(swe%euler%threads%stats)
+			    else
+				call swe%euler%reduce_stats(MPI_SUM, .true.)
+				str(3) = swe%euler%stats%to_string()
+			    endif 			    
+
+			    if ( associated(swe%adaption%threads) ) then
+			    	str(4) = swe%adaption%stats%to_verbose_string(swe%adaption%threads%stats)
+			    else
+				call swe%adaption%reduce_stats(MPI_SUM, .true.)
+				str(4) = swe%adaption%stats%to_string()
+			    endif	
+
+			    if (grid%threads%get_size()>0 ) then
+			    	str(5) = grid%stats%to_verbose_string(grid%threads%elements%stats)
+			    else
+				call grid%reduce_stats(MPI_SUM, .true.)
+				str(5) = grid%stats%to_string()
+			    endif 
+
+			    if (rank_MPI == 0 .or. cfg%l_log_stats_per_process) then
+		                _log_write(0, *) ""
+		                _log_write(0, *) "Phase statistics:"
+		                _log_write(0, *) ""
+				_log_write(0, *) "Format: (tsum, tmin, tmax), reduced over all threads"
+		                _log_write(0, '(A, T34, A)') " Init: ", trim(str(1))
+		                _log_write(0, '(A, T34, A)') " Displace: ", trim(str(2))
+		                _log_write(0, '(A, T34, A)') " Time steps: ", trim(str(3))
+		                _log_write(0, '(A, T34, A)') " Adaptions: ", trim(str(4))
+		                _log_write(0, '(A, T34, A)') " Grid: ", trim(str(5))
+		                _log_write(0, '(A, T34, F12.4, A)') " Phase time:", t_phase, " s"
+		                _log_write(0, *) ""
+			    endif	
+
+		    else
+			    if (.not. cfg%l_log_stats_per_process) then	
+		                call swe%init_dofs%reduce_stats(MPI_SUM, .true.)
+		                call swe%displace%reduce_stats(MPI_SUM, .true.)
+		                call swe%euler%reduce_stats(MPI_SUM, .true.)
+		                call swe%adaption%reduce_stats(MPI_SUM, .true.)
+		                call grid%reduce_stats(MPI_SUM, .true.)
+			    endif
+
+		            if (rank_MPI == 0 .or. cfg%l_log_stats_per_process) then
+		                _log_write(0, *) ""
+		                _log_write(0, *) "Phase statistics:"
+		                _log_write(0, *) ""
+		                _log_write(0, '(A, T34, A)') " Init: ", trim(swe%init_dofs%stats%to_string())
+		                _log_write(0, '(A, T34, A)') " Displace: ", trim(swe%displace%stats%to_string())
+		                _log_write(0, '(A, T34, A)') " Time steps: ", trim(swe%euler%stats%to_string())
+		                _log_write(0, '(A, T34, A)') " Adaptions: ", trim(swe%adaption%stats%to_string())
+		                _log_write(0, '(A, T34, A)') " Grid: ", trim(grid%stats%to_string())
+		                ! throughput calculations are a bit different if using patches
 #                       if defined(_SWE_PATCH)                        
-                            _log_write(0, '(A, T34, F12.4, A)') " Element throughput: ", 1.0d-6 * dble(grid%stats%get_counter(traversed_cells)) * (_SWE_PATCH_ORDER_SQUARE)  / t_phase, " M/s"
-                            _log_write(0, '(A, T34, F12.4, A)') " Memory throughput: ", dble(grid%stats%get_counter(traversed_memory)) * (_SWE_PATCH_ORDER_SQUARE)  / ((1024 * 1024 * 1024) * t_phase), " GB/s"
-                            _log_write(0, '(A, T34, F12.4, A)') " Cell update throughput: ", 1.0d-6 * dble(swe%euler%stats%get_counter(traversed_cells)) * (_SWE_PATCH_ORDER_SQUARE)  / t_phase, " M/s"
-                            _log_write(0, '(A, T34, F12.4, A)') " Total cell updates: ", 1.0d-6 * dble(swe%euler%stats%get_counter(traversed_cells)) * (_SWE_PATCH_ORDER_SQUARE), " millions"
-                            _log_write(0, '(A, T34, F12.4, A)') " Flux solver throughput: ", 1.0d-6 * dble(swe%euler%stats%get_counter(traversed_edges)) * (_SWE_PATCH_NUM_EDGES)   / t_phase, " M/s"
+		                    _log_write(0, '(A, T34, F12.4, A)') " Element throughput: ", 1.0d-6 * dble(grid%stats%get_counter(traversed_cells)) * (_SWE_PATCH_ORDER_SQUARE)  / t_phase, " M/s"
+		                    _log_write(0, '(A, T34, F12.4, A)') " Memory throughput: ", dble(grid%stats%get_counter(traversed_memory)) * (_SWE_PATCH_ORDER_SQUARE)  / ((1024 * 1024 * 1024) * t_phase), " GB/s"
+		                    _log_write(0, '(A, T34, F12.4, A)') " Cell update throughput: ", 1.0d-6 * dble(swe%euler%stats%get_counter(traversed_cells)) * (_SWE_PATCH_ORDER_SQUARE)  / t_phase, " M/s"
+		                    _log_write(0, '(A, T34, F12.4, A)') " Total cell updates: ", 1.0d-6 * dble(swe%euler%stats%get_counter(traversed_cells)) * (_SWE_PATCH_ORDER_SQUARE), " millions"
+		                    _log_write(0, '(A, T34, F12.4, A)') " Flux solver throughput: ", 1.0d-6 * dble(swe%euler%stats%get_counter(traversed_edges)) * (_SWE_PATCH_NUM_EDGES)   / t_phase, " M/s"
 #                       else
-                            _log_write(0, '(A, T34, F12.4, A)') " Element throughput: ", 1.0d-6 * dble(grid%stats%get_counter(traversed_cells)) / t_phase, " M/s"
-                            _log_write(0, '(A, T34, F12.4, A)') " Memory throughput: ", dble(grid%stats%get_counter(traversed_memory)) / ((1024 * 1024 * 1024) * t_phase), " GB/s"
-                            _log_write(0, '(A, T34, F12.4, A)') " Cell update throughput: ", 1.0d-6 * dble(swe%euler%stats%get_counter(traversed_cells)) / t_phase, " M/s"
-                            _log_write(0, '(A, T34, F12.4, A)') " Total cell updates: ", 1.0d-6 * dble(swe%euler%stats%get_counter(traversed_cells)), " millions"
-                            _log_write(0, '(A, T34, F12.4, A)') " Flux solver throughput: ", 1.0d-6 * dble(swe%euler%stats%get_counter(traversed_edges)) / t_phase, " M/s"
+		                    _log_write(0, '(A, T34, F12.4, A)') " Element throughput: ", 1.0d-6 * dble(grid%stats%get_counter(traversed_cells)) / t_phase, " M/s"
+		                    _log_write(0, '(A, T34, F12.4, A)') " Memory throughput: ", dble(grid%stats%get_counter(traversed_memory)) / ((1024 * 1024 * 1024) * t_phase), " GB/s"
+		                    _log_write(0, '(A, T34, F12.4, A)') " Cell update throughput: ", 1.0d-6 * dble(swe%euler%stats%get_counter(traversed_cells)) / t_phase, " M/s"
+		                    _log_write(0, '(A, T34, F12.4, A)') " Total cell updates: ", 1.0d-6 * dble(swe%euler%stats%get_counter(traversed_cells)), " millions"
+		                    _log_write(0, '(A, T34, F12.4, A)') " Flux solver throughput: ", 1.0d-6 * dble(swe%euler%stats%get_counter(traversed_edges)) / t_phase, " M/s"
 #                       endif
-                        _log_write(0, '(A, T34, F12.4, A)') " Asagi time:", grid%stats%get_time(asagi_time), " s"
-                        _log_write(0, '(A, T34, F12.4, A)') " Phase time:", t_phase, " s"
-                        _log_write(0, *) ""
+		                _log_write(0, '(A, T34, F12.4, A)') " Asagi time:", grid%stats%get_time(asagi_time), " s"
+		                _log_write(0, '(A, T34, F12.4, A)') " Phase time:", t_phase, " s"
+		                _log_write(0, *) ""
+		            end if
                     end if
                 end if
 

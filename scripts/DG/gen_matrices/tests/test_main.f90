@@ -5,7 +5,7 @@ use elementary
 use gen_matrices
 use test_defs
 
-call set_basis('BERNSTEIN')
+call set_basis('BERNSTEIN',4)
 call testFactorial()
 call testkronecker()
 call testBernsteinpolynomial()
@@ -16,6 +16,7 @@ call test_space_dg_matrices()
 call test_space_time_predictor_matrices()
 call test_boundary_matrices()
 call test_basis_der_matrices()
+call test_lagragne_polynomials()
 call endTests()
 
 contains
@@ -110,6 +111,7 @@ bernstein_polynomial(0.8523456_GRID_SR,0.1237648_GRID_SR,10,7,2),"Bernsteinpolyn
     real(kind=GRID_SR),Allocatable:: phi(:,:)
     real(kind=GRID_SR),Allocatable:: mue_lu(:,:),b_16(:)
     integer,Allocatable :: ipiv(:)
+
     allocate(phi(9,3))
     call generatePhi(phi,1)
     call assertEqualArray(Real(phi_ref_1,kind=GRID_SR),reshape(transpose(phi) ,(/9*3/)),"Compare Phi for N=1")
@@ -119,6 +121,7 @@ bernstein_polynomial(0.8523456_GRID_SR,0.1237648_GRID_SR,10,7,2),"Bernsteinpolyn
     call assertEqualArray(Real(phi_ref_4,kind=GRID_SR),reshape(transpose(phi) ,(/81*15/)),"Compare Phi for N=4")
 
     allocate(mue_lu(16,16))
+
     allocate(ipiv(16))
 
     call generateMueLU(phi,4,mue_lu,ipiv)
@@ -218,6 +221,58 @@ bernstein_polynomial(0.8523456_GRID_SR,0.1237648_GRID_SR,10,7,2),"Bernsteinpolyn
     call generate_basis_der_y(basis_der_y,4)
     call assertEqualArray(Real(basis_der_y_ref_4,kind=GRID_SR),reshape(basis_der_y,(/15*15/)),"Test basis derivative-matrix y")
 
-  end subroutine
+  end subroutine test_basis_der_matrices
+
+
+  subroutine test_lagragne_polynomials()
+    real(kind=GRID_SR),dimension(2)      :: a,b
+    real(kind=GRID_SR),dimension(2,N_nodes)  :: nodes_2d
+    real(kind=GRID_SR),dimension(N_Nodes) :: ref_solution
+    real(kind=GRID_SR),Allocatable:: phi(:,:),mue_lu(:,:),b_4(:)
+    integer,Allocatable :: ipiv(:)
+
+    allocate(phi(9,3))
+
+    call set_basis("EQUIDISTAND",1)
+    
+    call assertEqual(1.0_GRID_SR,basis_polynomial_1d(0.0_GRID_SR,4,0),"Test 1d equidistand lagrange polynomial: Degree 4, i=0 at t=0")
+    call assertEqual(-4.28798_GRID_SR,basis_polynomial_1d_der(0.3_GRID_SR,4,1),"Test 1d equidistand lagrange polynomial derived: Degree 4, i=1 at t=0.3")
+
+
+    call assertEqual(1.0_GRID_SR,basis_polynomial(0.0_GRID_SR,0.0_GRID_SR,4,0,0),"Test equidistand lagrange polynomial: Degree 4, i=2,j=1 at x=0.0 y=0.0")
+
+    call assertEqual(1.0_GRID_SR,basis_polynomial(0.0_GRID_SR,0.0_GRID_SR,1,0,0),"Test equidistand lagrange polynomial: Degree 1, i=0,j=1 at x=0.0 y=1.0")        
+    call assertEqual(1.0_GRID_SR,basis_polynomial(1.0_GRID_SR,0.0_GRID_SR,1,0,0),"Test equidistand lagrange polynomial: Degree 1, i=0,j=1 at x=0.0 y=1.0")        
+    call assertEqual(1.0_GRID_SR,basis_polynomial(0.0_GRID_SR,1.0_GRID_SR,1,0,0),"Test equidistand lagrange polynomial: Degree 1, i=0,j=1 at x=0.0 y=1.0")        
+
+    a=(/ (0.0_GRID_SR),(0.0_GRID_SR) /)
+    b=(/ (1.0_GRID_SR),(1.0_GRID_SR) /)
+    nodes_2d(1,:)=gl_nodes
+    nodes_2d(2,:)=0.2
+    
+!    call assertEqualArray(ref_solution,basis_polynomial_array(nodes_2d,4,2,2) ,"Test 2d integration points on reference triangle N=4, i=2,j=2",.true.)
+    
+ 
+    call generatePhi(phi,1)
+    call assertEqualArray(Real(phi_ref_1_lagrange,kind=GRID_SR),reshape(transpose(phi) ,(/9*3/)),"Compare Phi for N=1 on equidistand lagrangian basis",.true.)
+
+    
+    allocate(mue_lu(16,16))
+    allocate(ipiv(16))
+
+    call generateMueLU(phi,1,mue_lu,ipiv)
+
+    allocate(b_4(4))
+
+    b_4(1:3)= 2* matmul(transpose(phi),c_9_lag)
+    b_4(4)=sum(c_9_lag)
+    b_4=b_4/(2.0_GRID_SR*9.0_GRID_SR)
+    call lubksb(mue_lu,4,ipiv,b_4)
+    
+    call assertEqualArray(Real(ref_dofs_1_lag,GRID_SR),b_4(1:3),"Test Mue LU for N=4")
+
+
+    
+  end subroutine test_lagragne_polynomials
 
 end program test_main

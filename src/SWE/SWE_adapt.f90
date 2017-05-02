@@ -202,28 +202,18 @@
 #if defined (_SWE_DG)
 
 #if !defined(_SWE_DG_NODAL)                               
-          dest_element%cell%data_pers%b_x = src_element%cell%data_pers%b_x
-          dest_element%cell%data_pers%b_y = src_element%cell%data_pers%b_y
+!          dest_element%cell%data_pers%b_x = src_element%cell%data_pers%b_x
+!          dest_element%cell%data_pers%b_y = src_element%cell%data_pers%b_y
 #else
-          dest_element%cell%data_pers%Q_DG_P%b_x = src_element%cell%data_pers%Q_DG_P%b_x
-          dest_element%cell%data_pers%Q_DG_P%b_y = src_element%cell%data_pers%Q_DG_P%b_y
 #endif
           do i=1,size(dest_element%edges)
-             dest_element%edges(i)%ptr%data_pers%troubled = src_element%edges(i)%ptr%data_pers%troubled
-!             dest_element%edges(i)%ptr%data_pers%inverted = src_element%edges(i)%ptr%data_pers%inverted
-
-!             print*,src_element%edges(i)%ptr%update%troubled
-!             dest_element%edges(i)%ptr%update = src_element%edges(i)%ptr%update
-             
              dest_element%edges(i)%ptr%rep = src_element%edges(i)%ptr%rep
-
           end do
 
           dest_element%cell%data_pers%Q_DG = src_element%cell%data_pers%Q_DG
           dest_element%cell%data_pers%Q_DG_P = src_element%cell%data_pers%Q_DG_P
 
           dest_element%cell%data_pers%troubled=src_element%cell%data_pers%troubled
-!          dest_element%cell%data_pers%troubled_old=src_element%cell%data_pers%troubled_old
 
 #endif
         end subroutine transfer_op
@@ -251,23 +241,27 @@
 #endif
           integer					:: i
 
-#if defined(_SWE_DG)			
-          !            print*,"refine"
-          if(dest_element%cell%data_pers%troubled.le.0) then
-             call dest_element%cell%data_pers%convert_dg_to_fv()
-          end if
-#endif
 
 #if defined (_SWE_PATCH)
-                H_in = src_element%cell%data_pers%H
-                HU_in = src_element%cell%data_pers%HU
-                HV_in = src_element%cell%data_pers%HV
-                B_in = src_element%cell%data_pers%B
-                i_plotter_type = src_element%cell%geometry%i_plotter_type
-                
-                dry_cell_in = .false.
-                dry_cell_out = .false.
-                
+#if defined (_SWE_DG)
+          !preserving steady states
+          
+          call apply_phi(src_element%cell%data_pers%Q_DG%H+src_element%cell%data_pers%Q_DG%B,H_in)
+          call apply_phi(src_element%cell%data_pers%Q_DG%p(1),HU_in)
+          call apply_phi(src_element%cell%data_pers%Q_DG%p(2),HV_in)
+          call apply_phi(src_element%cell%data_pers%Q_DG%b,B_in) 
+
+#else          
+          H_in = src_element%cell%data_pers%H
+          HU_in = src_element%cell%data_pers%HU
+          HV_in = src_element%cell%data_pers%HV
+          B_in = src_element%cell%data_pers%B
+#endif                
+          i_plotter_type = src_element%cell%geometry%i_plotter_type
+          
+          dry_cell_in = .false.
+          dry_cell_out = .false.
+          
                 do i=1, size(refinement_path)
                     ! compute 1st or 2nd child depending on orientation and refinement_path(i)
                     ! and store it in output arrays.
@@ -360,9 +354,8 @@
 #endif
 
 #if defined(_SWE_DG)
-!          print*,"refine"
-          call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(dest_element%cell%geometry%i_plotter_type))%jacobian)
 
+          call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(dest_element%cell%geometry%i_plotter_type))%jacobian)
           call dest_element%cell%data_pers%convert_fv_to_dg
 
           dest_element%cell%data_pers%troubled=src_element%cell%data_pers%troubled
@@ -375,14 +368,7 @@
 
           if(dest_element%cell%data_pers%troubled.le.0) then
              call dg_predictor(dest_element%cell,section%r_dt)
-          else
-             !store old dg value in dg_predictor
-             dest_element%cell%data_pers%Q_DG_P(:)%H=0
-             dest_element%cell%data_pers%Q_DG_P(:)%p(1)=0
-             dest_element%cell%data_pers%Q_DG_P(:)%p(2)=0
-             dest_element%cell%data_pers%Q_DG_P(1:_SWE_DG_DOFS) = dest_element%cell%data_pers%Q_DG
           end if
-
 #endif
         end subroutine refine_op
 
@@ -394,16 +380,16 @@
           integer, dimension(:), intent(in)											:: refinement_path
           integer                                                                     :: i
 #if defined(_SWE_PATCH)
-                integer                                                                     :: j
-                integer, DIMENSION(_SWE_PATCH_ORDER_SQUARE,2)                               :: child
+          integer                                                                     :: j
+          integer, DIMENSION(_SWE_PATCH_ORDER_SQUARE,2)                               :: child
 #else
-                type(t_state), dimension(_SWE_CELL_SIZE)                                :: Q_out
+          type(t_state), dimension(_SWE_CELL_SIZE)                                :: Q_out
 #endif
 
 #if defined(_SWE_DG)
           !                print*,"coarsen"
           if(dest_element%cell%data_pers%troubled.le.0) then
-             call dest_element%cell%data_pers%convert_dg_to_fv()
+             call src_element%cell%data_pers%convert_dg_to_fv()
           end if
 
 #endif
@@ -513,12 +499,6 @@
 
         if(dest_element%cell%data_pers%troubled.le.0) then
            call dg_predictor(dest_element%cell,section%r_dt)
-        else
-           !store old dg value in dg_predictor
-           dest_element%cell%data_pers%Q_DG_P(:)%H=0
-           dest_element%cell%data_pers%Q_DG_P(:)%p(1)=0
-           dest_element%cell%data_pers%Q_DG_P(:)%p(2)=0
-           dest_element%cell%data_pers%Q_DG_P(1:_SWE_DG_DOFS) = dest_element%cell%data_pers%Q_DG
         end if
 #endif
 

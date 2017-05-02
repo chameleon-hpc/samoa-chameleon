@@ -145,7 +145,7 @@
             if (depth > 0) then
                 bath = 0.5_SR * (  refine_2D_recursive(section, x1, 0.5_SR * (x1 + x3), x2, t, depth - 1) &
                                  + refine_2D_recursive(section, x2, 0.5_SR * (x1 + x3), x3, t, depth - 1))
-            else
+             else
                 bath = get_bathymetry_at_position(section, (x1 + x2 + x3) / 3.0_SR, t)
             end if
         end function
@@ -370,10 +370,18 @@
 		subroutine element_op(traversal, section, element)
 			type(t_swe_init_dofs_traversal), intent(inout)				    :: traversal
 			type(t_grid_section), intent(inout)							:: section
-			type(t_element_base), intent(inout)					        :: element
+                        type(t_element_base), intent(inout)					        :: element
+
+
 
 #           if defined(_SWE_PATCH)
-                type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE)   :: Q
+   type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE)   :: Q
+#if defined(_SWE_DG)
+   integer :: i,j,count
+   real (kind = GRID_SR)   :: x(2)
+   type(t_dof_state) :: QS
+#endif
+   
                 
                 Q(:)%b = element%cell%data_pers%B
 
@@ -385,25 +393,20 @@
 
 #if defined(_SWE_DG)                
 
-                
-                call element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian)
 
-!                call element%cell%data_pers%convert_fv_to_dg(.true.)
+                call element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian)
                 call element%cell%data_pers%convert_fv_to_dg()
+                call element%cell%data_pers%convert_dg_to_fv_bathymetry()
+
+                element%cell%data_pers%troubled = 0
                 
-                if(.not.all(element%cell%data_pers%h-element%cell%data_pers%b > cfg%dry_tolerance * 100.0) .or.&
-                   .not.all(element%cell%data_pers%Q_DG%H > cfg%dry_tolerance * 100.0) )then
+                !--First test for drying cells--!
+                if(.not.all(element%cell%data_pers%Q_DG%H > cfg%dry_tolerance * 50.0))then
+ 
                       element%cell%data_pers%troubled = 1
-                      element%cell%data_pers%Q_DG_P(:)%H=0
-                      element%cell%data_pers%Q_DG_P(:)%p(1)=0
-                      element%cell%data_pers%Q_DG_P(:)%p(2)=0
-                      element%cell%data_pers%Q_DG_P(1:_SWE_DG_DOFS) = element%cell%data_pers%Q_DG
-                      
-                   else
-                      element%cell%data_pers%troubled = 0                      
-!                      call dg_predictor(element%cell,section%r_dt,element%cell%geometry%get_scaling())
-                end if
-!                element%cell%data_pers%troubled = 1                      
+                !    else
+                !       
+                 end if
 
 #endif
 
@@ -569,7 +572,7 @@
 
 
 #			if defined(_ASAGI)
-p				Q%h = 0.0_GRID_SR
+				Q%h = 0.0_GRID_SR
 #			else
 
     Q = SWE_Scenario_get_initial_Q(xs)

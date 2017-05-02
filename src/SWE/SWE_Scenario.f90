@@ -195,9 +195,9 @@ MODULE SWE_Scenario_radial_dam_break
         real (kind = GRID_SR) :: bathymetry
         
         if (x(1)*x(1) + x(2)*x(2) < 9.0_GRID_SR) then
-            bathymetry = -5.0_GRID_SR
+            bathymetry = -20.0_GRID_SR
         else 
-            bathymetry = -10.0_GRID_SR
+            bathymetry = -22.0_GRID_SR
         end if
     end function
     
@@ -380,12 +380,14 @@ MODULE SWE_Scenario_resting_isle
         ! if (SWE_Scenario_get_bathymetry(x) > 0 ) then
         !    Q%h=SWE_Scenario_get_bathymetry(x)
         ! end if
-!         if(x(1)<-4.0.and.x(1)>-4.5)then
-!            Q%h = 4.0+1.5_GRID_SR
-! !           Q%h = -2.0+2.0_GRID_SR/0.25**2* (0.25**2-(x(1)+4.25)**2)
-!         else
-!            Q%h = 4.0_GRID_SR
-!         end if
+          if(x(1)<-2.0 .and. x(1) > -2.5)then
+            Q%h = 8.0_GRID_SR
+! ! !           Q%h = -2.0+2.0_GRID_SR/0.25**2* (0.25**2-(x(1)+4.25)**2)
+          else
+             Q%h = 0.0_GRID_SR
+          end if
+          Q%h = 0.0_GRID_SR
+          
     end function
 
 END MODULE SWE_Scenario_resting_isle

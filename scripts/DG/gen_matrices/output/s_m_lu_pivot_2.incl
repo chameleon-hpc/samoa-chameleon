@@ -1,0 +1,2 @@
+integer, Parameter :: s_m_lu_pivot(_SWE_DG_DOFS)= (/&
+         1,         2,         3,         4,         5,         6/)

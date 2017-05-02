@@ -105,13 +105,12 @@ MODULE SWE_Euler_Timestep
 #if !defined(_SWE_DG)
           if (cfg%r_max_time > 0.0_SR) then
              grid%r_dt = min(cfg%r_max_time-grid%r_time, grid%r_dt) 
-          if(mod(grid%r_time,cfg%r_output_time_step) > 0.0_GRID_SR) then
-             grid%r_dt = min(cfg%r_output_time_step-mod(grid%r_time,cfg%r_output_time_step), grid%r_dt)
           end if
-          end if
-          
-          if (cfg%r_output_time_step > 0.0_SR) then
-             grid%r_dt = min(cfg%r_output_time_step, grid%r_dt)
+
+          if(cfg%r_output_time_step > 0.0_GRID_SR) then
+             if(mod(grid%r_time,cfg%r_output_time_step) > 0.0_GRID_SR) then
+                grid%r_dt = min(cfg%r_output_time_step-mod(grid%r_time,cfg%r_output_time_step), grid%r_dt)
+             end if
           end if
 
 #           if defined(_ASAGI)
@@ -169,16 +168,6 @@ MODULE SWE_Euler_Timestep
     
 #           if defined(_SWE_PATCH)
                 integer                                             :: edge_type !1=left, 2=hypotenuse, 3=right
-#if defined (_SWE_DG)           
-                data_temp = element%cell%data_pers
-
-!                if(edge%data_pers%troubled) then
-                if(element%cell%data_pers%troubled.le.0) then
-                   !recover DG from predictor
-                   data_temp%Q_DG = element%cell%data_pers%Q_DG_P(1:_SWE_DG_DOFS)
-                   call data_temp%convert_dg_to_fv()
-                end if
-#endif
 #           else
                 call gv_Q%read(element, Q)
                 _log_write(6, '(3X, A)') "swe cell to edge op:"
@@ -464,17 +453,6 @@ MODULE SWE_Euler_Timestep
             edge_lengths = cfg%scaling * element%cell%geometry%get_edge_sizes() / _SWE_PATCH_ORDER
 
             associate(data => element%cell%data_pers, geom => SWE_PATCH_geometry)
-#if defined(_SWE_DG)
-            if(data%troubled.le.0) then
-               do i = 1,size(element%edges)
-                  if(element%edges(i)%ptr%data_pers%troubled) then
-                     element%cell%data_pers%troubled = -4
-                  end if
-               end do
-            end if
-
-            if(data%troubled.ge.1) then
-#                               endif                
 
                ! copy cell values to arrays edges_a and edges_b
                ! obs: cells with id > number of cells are actually ghost cells and come from edges "updates"
@@ -669,29 +647,6 @@ MODULE SWE_Euler_Timestep
                section%r_dt_new = min(section%r_dt_new, volume / (edge_lengths(2) * maxWaveSpeed) )
                maxWaveSpeed=0
 
-#if defined (_SWE_DG)
-
-               if(all(data%H - data%B > cfg%dry_tolerance*50.0)) then
-                  call data%convert_fv_to_dg()
-                  if(all(data%Q_DG%H > cfg%dry_tolerance*50.0)) then
-                     data%troubled = -data%troubled
-                  else
-                     data%troubled = 1
-                  end if
-               else
-                  data%troubled = 1
-               end if
-            end if
-
-            !consider new dg cells in r_dt
-            if(data%troubled .le. 0) then
-               do i=1,_SWE_DG_DOFS
-                  maxWaveSpeed =  sqrt(g * (data%Q_DG(i)%h)) + maxval(abs(data%Q_DG(i)%p/data%Q_DG(i)%h))
-                  section%r_dt_new = min(section%r_dt_new,cfg%scaling*  element%transform_data%custom_data%scaling  / (maxWaveSpeed* (_SWE_DG_ORDER*4.0_GRID_SR +2.0_GRID_SR)))
-                  maxWaveSpeed = 0.0
-               end do
-            end if
-#endif
           end associate
 #else
           !local variables

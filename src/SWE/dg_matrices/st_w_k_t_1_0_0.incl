@@ -1,3 +1,0 @@
-real(kind=GRID_SR), Parameter :: st_w_k_t_1_0(_SWE_DG_DOFS*(_SWE_DG_ORDER),(_SWE_DG_DOFS))= reshape((/&
-  0.26815615859885194+155_GRID_SR&
-/),(/_SWE_DG_DOFS*(_SWE_DG_ORDER),(_SWE_DG_DOFS)/))

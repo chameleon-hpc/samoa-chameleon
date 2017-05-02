@@ -1,2 +1,0 @@
-integer, Parameter :: st_m_lu_pivot(_SWE_DG_DOFS*(_SWE_DG_ORDER+1))= (/&
-         1/)

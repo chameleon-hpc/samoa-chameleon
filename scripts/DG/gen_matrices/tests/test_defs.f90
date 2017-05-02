@@ -1,6 +1,7 @@
 module test_defs
 
   include 'phi_ref_1.incl'
+  include 'phi_ref_lagrange_1.incl'
   include 'phi_ref_4.incl'
   include 'mue_lu_ref_4.incl'
 
@@ -25,6 +26,12 @@ module test_defs
 
   include 'basis_der_y_4.incl'
   include 'basis_der_x_4.incl'
+  real(kind=16), parameter:: ref_dofs_1_lag(3) = &
+       (/ 1.35449402908936,1.93845475066194, 1.55059384930955 /)
+
+  real(kind=16), parameter :: c_9_lag(9) = &
+       (/1.42140302844705, 1.53699902560524, 1.42901884528024, 1.40771205848778, 1.65259502276343, 1.46555726573910, 1.28613532554795, 1.33627029862163, 1.39402108852850/)
+       
 
   real(kind=16),parameter :: ref_dofs_4(15)=(/1.35449402908935449402908935449402909_16,&
 1.93845475066193845475066193845475066_16,&

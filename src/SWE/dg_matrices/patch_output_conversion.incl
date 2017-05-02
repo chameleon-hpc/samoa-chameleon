@@ -1,0 +1,11 @@
+real(kind=GRID_SR), Parameter :: patch_output_conversion(_SWE_PATCH_ORDER*_SWE_PATCH_ORDER,_SWE_DG_DOFS)= transpose(reshape((/&
+1.0,0.0,0.0,&
+1.0,0.0,0.0,&
+1.0,0.0,0.0,&
+1.0,0.0,0.0,&
+0.0,1.0,0.0,&
+0.0,1.0,0.0,&
+0.0,1.0,0.0,&
+0.0,0.0,1.0,&
+0.0,0.0,1.0&
+/),(/_SWE_DG_DOFS , _SWE_PATCH_ORDER*_SWE_PATCH_ORDER/)))

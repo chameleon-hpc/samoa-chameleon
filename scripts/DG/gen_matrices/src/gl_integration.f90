@@ -26,6 +26,8 @@ contains
 !
 
 
+  !Takes an array of values of f(x) on the integration nodes and in interval [a,b]
+  !and returns int_a^b f(x) dx
 
   function gl_quadr_2d(nodeValues,a,b) result(int)
     real(kind=GRID_SR),dimension(N_nodes*N_nodes) :: nodeValues
@@ -41,16 +43,16 @@ contains
     int = int*(b-a)
   end function gl_quadr_2d
 
-
-   function gl_quadr_1d(nodeValues,a,b) result(int)
-     real(kind=GRID_SR),dimension(N_nodes) :: nodeValues
-     real(kind=GRID_SR),intent(in)   :: a,b
-     real(kind=GRID_SR)              :: int
-     integer                         :: i
-
-     int=sum(nodeValues*gl_weights)*(b-a)
-   end function gl_quadr_1d
-
+  !Takes an array of values of f(x) on the integration nodes and in interval [a,b]
+  !and returns int_a^b f(x) dx
+  function gl_quadr_1d(nodeValues,a,b) result(int)
+    real(kind=GRID_SR),dimension(N_nodes) :: nodeValues
+    real(kind=GRID_SR),intent(in)   :: a,b
+    real(kind=GRID_SR)              :: int
+    integer                         :: i
+    int=sum(nodeValues*gl_weights)*(b-a)
+  end function gl_quadr_1d
+  
   ! ! subroutine gl_iniPhi(nodes,weights)
     
   ! ! end subroutine gl_iniPhi
@@ -63,6 +65,7 @@ contains
      
      allocate(gl_nodes(N_nodes))
      allocate(gl_weights(N_nodes))
+     !-- TODO: is it possible to generate nodes and weights when needed ? --!
      select case(N_nodes) 
      case(2)
         gl_nodes = (/.21132486540518711774542560974902127217619912436493q0,&
@@ -169,7 +172,7 @@ contains
 
      end select
 
-   end function get_gl_nodes
+ end function get_gl_nodes
 
 
   function get_gl_nodes_2d(a,b,lower_arg) result(nodes_2d)

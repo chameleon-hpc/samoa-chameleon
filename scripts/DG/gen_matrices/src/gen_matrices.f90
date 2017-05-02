@@ -19,8 +19,7 @@ contains
     character(len=*):: basis
     
     call initGLIntegration(N)
-    call set_basis(basis)
-    
+    call set_basis(basis,N)
   end subroutine settings
 
   subroutine generate_matrices(N)
@@ -121,6 +120,7 @@ contains
     !-----------------------!
 
     !---solver only space matrices---!
+    allocate( s_m((N+2)*(N+1)/2,(N+2)*(N+1)/2))
     allocate( s_m_lu((N+2)*(N+1)/2,(N+2)*(N+1)/2))
     allocate( s_m_lu_pivot((N+2)*(N+1)/2))
     allocate( s_k_x((N+2)*(N+1)/2,(N+2)*(N+1)/2))
@@ -140,7 +140,6 @@ contains
     allocate( ss_m((N+2)*(N+1)/2,(N+2)*(N+1)/2*(N+1)))
     allocate( ss_k_x((N+2)*(N+1)/2,(N+2)*(N+1)/2*(N+1)))
     allocate( ss_k_y((N+2)*(N+1)/2,(N+2)*(N+1)/2*(N+1)))
-    allocate( s_m((N+2)*(N+1)/2,(N+2)*(N+1)/2))
     
     call generate_s_m(s_m,N)
     s_m_lu = s_m
@@ -206,7 +205,7 @@ contains
     allocate( st_w_k_t_1_1_lu_pivot((N+2)*(N+1)/2*N))
 
     st_w_k_t_1_1_lu=st_w_k_t(M+1:M*(N+1),M+1:M*(N+1))
-    st_w_k_t_1_1_lu=0
+!    st_w_k_t_1_1_lu=0
     call ludcmp(st_w_k_t_1_1_lu,(N+2)*(N+1)/2*N, st_w_k_t_1_1_lu_pivot, code,info)
     call matrixToFile(N,"st_w_k_t_1_1_lu",st_w_k_t_1_1_lu,"_SWE_DG_DOFS*(_SWE_DG_ORDER),_SWE_DG_DOFS*(_SWE_DG_ORDER)")
     call matrixToFile(N,"st_w_k_t_1_1_lu_pivot",st_w_k_t_1_1_lu_pivot ,"_SWE_DG_DOFS*(_SWE_DG_ORDER)")
@@ -773,10 +772,8 @@ basis_polynomial_array(get_gl_nodes_2d((/ 0.0_GRID_SR,0.0_GRID_SR /),(/ 1.0_GRID
                     l_2 = i_2+1 + (N+1)*(N+2)/2 - (N+1-j_2)*(N+2-j_2)/2 + (N+1)*(N+2)/2 * k
 
                     b_m_2(l_1,l_2)=gl_quadr_1d(basis_polynomial_array(nodes,N,i_1,j_1)*&
-                         basis_polynomial_array(nodes,N,i_2,j_2),0.0_GRID_SR,1.0_GRID_SR)*&
-                         time_int* &
-                         sqrt(2.0_GRID_SR)
-
+                         basis_polynomial_array(nodes,N,i_2,j_2),0.0_GRID_SR,sqrt(2.0_GRID_SR))*&
+                         time_int
                  end do
               end do
            end do

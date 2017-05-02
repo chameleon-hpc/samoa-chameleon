@@ -92,12 +92,7 @@
 		!> persistent scenario data on an edge
 		type num_edge_data_pers
 			integer (kind = BYTE), dimension(0)											:: dummy					!< no data
-
-#if defined(_SWE_DG)
-                logical :: troubled
-#endif                       
-
-		END type num_edge_data_pers
+                END type num_edge_data_pers
 
 		!> persistent scenario data on a cell
 		type num_cell_data_pers
@@ -105,7 +100,7 @@
 #		if defined(_SWE_PATCH)
 #                       if defined(_SWE_DG)
                         type(t_state), DIMENSION(_SWE_DG_DOFS)                     :: Q_DG
-                        type(t_state), DIMENSION(_SWE_DG_DOFS*(_SWE_DG_ORDER+1))   :: Q_DG_P
+                        type(t_dof_state), DIMENSION(_SWE_DG_DOFS*(_SWE_DG_ORDER+1))   :: Q_DG_P
                         real(kind=GRID_SR) :: dt
 
 #if !defined(_SWE_DG_NODAL)
@@ -145,7 +140,7 @@
 		type num_cell_rep
 
 #if defined(_SWE_PATCH)
-			type(t_state), DIMENSION(_SWE_EDGE_SIZE)				:: Q !TODO: remove this and others Qs --> must handle conflicts with t_gv_Q methods afterwards...
+     type(t_state), DIMENSION(_SWE_EDGE_SIZE)				:: Q !TODO: remove this and others Qs --> must handle conflicts with t_gv_Q methods afterwards...
 			real (kind = GRID_SR), dimension (_SWE_PATCH_ORDER)		:: H, HU, HV, B !< edge stores ghost cells for communication of ghost cells
 
 #if defined(_SWE_DG)
@@ -154,8 +149,12 @@
    
 !                        real(kind=GRID_SR),Dimension(3) :: min_val,max_val
    integer :: troubled
-   logical :: inverted
+
 #endif
+
+#else
+!   type(t_state), DIMENSION(1)				:: Q !TODO: remove this and others Qs --> must handle conflicts with t_gv_Q methods afterwards...
+   
 #endif
 
                      end type num_cell_rep
@@ -225,7 +224,8 @@
 
 !                  PATCHES store h+b DG not
 
-!                   q(:,1)=dofs%H-dofs%b
+                   !                   q(:,1)=dofs%H-dofs%b
+                   
                    q(:,1)=dofs%H
                    q(:,2)=dofs%HU
                    q(:,3)=dofs%HV
@@ -257,19 +257,21 @@
                    call dofs%get_dofs_dg(q)
 
                    !PATCHES store h+b DG not
-!                   q(:,1)  = q(:,1) + dofs%Q_DG%b
+                   q(:,1)  = q(:,1) + dofs%Q_DG%b
 
                    fv_temp=matmul(phi,q)*_REF_TRIANGLE_SIZE_INV
 
-                   dofs%H=fv_temp(:,1) +dofs%B
+                   !                   dofs%H=fv_temp(:,1) + dofs%B
+                   dofs%H=fv_temp(:,1)
                    dofs%HU=fv_temp(:,2)
                    dofs%HV=fv_temp(:,3)
+
 
                  end subroutine convert_dg_to_fv
 
                  subroutine apply_phi(dg,fv)
-                   real(kind=GRID_SR) :: fv(_SWE_PATCH_ORDER_SQUARE)
-                   real(kind=GRID_SR) :: dg(_SWE_DG_DOFS)
+                   real(kind=GRID_SR),intent(out) :: fv(_SWE_PATCH_ORDER_SQUARE)
+                   real(kind=GRID_SR),intent(in)  :: dg(_SWE_DG_DOFS)
 
                    fv=matmul(phi,dg)*_REF_TRIANGLE_SIZE_INV
                    
@@ -321,9 +323,9 @@
                       dofs%Q_DG(i)%b=b_temp(i)
                    end do
 
-                   do i=0,_SWE_DG_ORDER
-                      dofs%Q_DG_P(1+_SWE_DG_DOFS*i:_SWE_DG_DOFS*(i+1))%b=dofs%Q_DG(:)%b
-                   end do
+!                   do i=0,_SWE_DG_ORDER
+!                      dofs%Q_DG_P(1+_SWE_DG_DOFS*i:_SWE_DG_DOFS*(i+1))%b=dofs%Q_DG(:)%b
+!                   end do
 #if !defined(_SWE_DG_NODAL)
 
                    ! b_x_temp=matmul(st_der_x_gl_node_vals,dofs%Q_DG_P(:)%b)
@@ -339,10 +341,10 @@
                    dofs%Q_DG(:)%b_x=normals_normed(1,1) * b_x_temp + normals_normed(1,2) * b_y_temp
                    dofs%Q_DG(:)%b_y=normals_normed(2,1) * b_x_temp + normals_normed(2,2) * b_y_temp
 
-                   do i=0,_SWE_DG_ORDER
-                      dofs%Q_DG_P(1+_SWE_DG_DOFS*i:_SWE_DG_DOFS*(i+1))%b_x=dofs%Q_DG(:)%b_x
-                      dofs%Q_DG_P(1+_SWE_DG_DOFS*i:_SWE_DG_DOFS*(i+1))%b_y=dofs%Q_DG(:)%b_y
-                   end do
+                   ! do i=0,_SWE_DG_ORDER
+                   !    dofs%Q_DG_P(1+_SWE_DG_DOFS*i:_SWE_DG_DOFS*(i+1))%b_x=dofs%Q_DG(:)%b_x
+                   !    dofs%Q_DG_P(1+_SWE_DG_DOFS*i:_SWE_DG_DOFS*(i+1))%b_y=dofs%Q_DG(:)%b_y
+                   ! end do
 #endif
                  end subroutine convert_fv_to_dg_bathymetry
 

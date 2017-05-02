@@ -17,6 +17,10 @@
 #       if defined(_SWE_PATCH)
             use SWE_PATCH
 #       endif
+#if defined(_SWE_DG)
+            use SWE_dg_matrices
+            use SWE_data_types
+#endif            
 		
 		implicit none
 
@@ -81,10 +85,7 @@
                 _log_write(1, '(A, I0)') " SWE: output step: ", traversal%i_output_iteration
             end if
 
-
-            ! if(traversal%i_output_iteration .eq. 3) then
-            !    stop
-            ! end if
+            
             call scatter(traversal%s_file_stamp, traversal%sections%s_file_stamp)
             call scatter(traversal%i_output_iteration, traversal%sections%i_output_iteration)
 
@@ -97,8 +98,8 @@
             character (len = 256)							:: s_file_name
             integer                                         :: i_error
 			integer(4)										:: i_rank, i_section, e_io
-			logical                                         :: l_exists
-            type(t_vtk_writer)                              :: vtk
+   logical                                         :: l_exists
+               type(t_vtk_writer)                              :: vtk
 #           if defined(_MPI)
                 call mpi_barrier(MPI_COMM_WORLD, i_error); assert_eq(i_error, 0)
 #           endif
@@ -175,7 +176,7 @@
 
             grid_info = section%get_info()
 #           if defined (_SWE_PATCH)
-                i_cells = grid_info%i_cells * _SWE_PATCH_ORDER_SQUARE
+            i_cells = grid_info%i_cells * _SWE_PATCH_ORDER_SQUARE
 #           else
                 i_cells = grid_info%i_cells
 #           endif
@@ -319,13 +320,20 @@
 			real (kind = GRID_SR), parameter, dimension(2)		:: r_test_point0 = [1.0_GRID_SR/3.0_GRID_SR, 1.0_GRID_SR/3.0_GRID_SR]
 #			if defined(_SWE_PATCH)
 				type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE):: Q
-				integer											:: j, row, col, cell_id
+    integer	:: j, row, col, cell_id
+
+    
 #if defined(_SWE_DG)    
-    type(num_cell_data_pers) :: data_temp
-    !print*,"convert"
-    if(element%cell%data_pers%troubled .le. 0) then
-       call element%cell%data_pers%convert_dg_to_fv()
+    !   type(num_cell_data_pers) :: data_temp
+    
+    if (element%cell%data_pers%troubled.le.0) then
+       call apply_phi(element%cell%data_pers%Q_DG%H,element%cell%data_pers%H)
+       call apply_phi(element%cell%data_pers%Q_DG%p(1),element%cell%data_pers%HU)
+       call apply_phi(element%cell%data_pers%Q_DG%p(2),element%cell%data_pers%HV)
+       call apply_phi(element%cell%data_pers%Q_DG%b,element%cell%data_pers%B)
+       element%cell%data_pers%H=element%cell%data_pers%H+element%cell%data_pers%B
     end if
+    !print*,"convert"
     !print*,"convert done"
 #endif
                
@@ -362,7 +370,8 @@
                         cell_id = j
                     else
                         cell_id = (row-1)*(row-1) + 2 * row - col
-                    end if
+                     end if
+
                     traversal%cell_data(traversal%i_cell_data_index)%id_in_patch = cell_id
 
                     traversal%cell_data(traversal%i_cell_data_index)%Q%h = element%cell%data_pers%H(cell_id)
@@ -391,7 +400,10 @@
 			traversal%cell_data(traversal%i_cell_data_index)%depth = element%cell%geometry%i_depth
                         traversal%cell_data(traversal%i_cell_data_index)%i_plotter_type = element%cell%geometry%i_plotter_type
                         traversal%cell_data(traversal%i_cell_data_index)%refinement = element%cell%geometry%refinement
+#if defined(_SWE_DG)
+
                         traversal%cell_data(traversal%i_cell_data_index)%troubled =  element%cell%data_pers%troubled
+#endif                        
 
 			select case (i_element_order)
 				case (2)
@@ -422,7 +434,7 @@
                             traversal%point_data(traversal%i_point_data_index + i - 1)%Q%b = t_basis_Q_eval(r_test_points_forward(:, i), Q%b)
                             traversal%point_data(traversal%i_point_data_index + i - 1)%Q%p(1) = t_basis_Q_eval(r_test_points_forward(:, i), Q%p(1))
                             traversal%point_data(traversal%i_point_data_index + i - 1)%Q%p(2) = t_basis_Q_eval(r_test_points_forward(:, i), Q%p(2))
-                        end forall
+p                        end forall
                     else
                         forall (i = 1 : 3)
                             traversal%point_data(traversal%i_point_data_index + i - 1)%coords = cfg%scaling * samoa_barycentric_to_world_point(element%transform_data, r_test_points_backward(:, i)) + cfg%offset

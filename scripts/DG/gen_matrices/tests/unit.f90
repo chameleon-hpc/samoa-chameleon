@@ -204,9 +204,9 @@ contains
        do i=1,size(expected)
           write(*,'(I4)',advance='no'), i
           write(*,'(A)',advance='no'), ':['
-          write(*,'(E24.34)',advance='no'), expected(i)
+          write(*,'(E34.24)',advance='no'), expected(i)
           write(*,'(A)',advance='no'), "|"
-          write(*,'(E24.34)',advance='no'), actual(i)
+          write(*,'(E34.24)',advance='no'), actual(i)
           if (abs(actual(i)) >= tolerance) then
              if (abs(1-expected(i)/actual(i)).lt.tolerance) then
                 write(*,'(A)'), ']'

@@ -1,5 +1,6 @@
 module elementary
-use gl_integration
+  use gl_integration
+  use dubiner
 implicit none
 
 integer :: basis
@@ -8,21 +9,30 @@ logical :: nodal
 contains
 
 
-  subroutine set_basis(basis_in)
+  subroutine set_basis(basis_in,N)
     character(len=*) :: basis_in
     integer :: basis_int
+    integer :: N
     
     select case(basis_in)
     case('BERNSTEIN')
        basis=1
        nodal=.TRUE.
     case('EQUIDISTAND')
+       call gen_vandermonde_inv_equidistand(N)
        basis=2
        nodal=.TRUE.
+    case('LGL')
+       call gen_vandermonde_inv_lgl(N)
+       basis=3
+       nodal=.TRUE.
+       print*, "Not ready yet"
+       stop
     case default
        print*,"Basis doesn't exists, possible are:"
        print*,'BERNSTEIN'
        print*,'EQUIDISTAND'
+       print*,'LGL'
     end select
     
   end subroutine set_basis
@@ -34,14 +44,12 @@ contains
     real(kind=GRID_SR),allocatable :: basis_polynomial_1d
     integer,intent(in) :: N,l
     integer :: i
-    real(kind=GRID_SR)          :: l_nodes(N+1)
 
     select case(basis)
     case (1)
        basis_polynomial_1d=bernstein_polynomial_1d(t,N,l)
     case(2)
-       l_nodes=(/ (real(i,GRID_SR)/real(N,GRID_SR),i=0,N) /)
-       basis_polynomial_1d=bernstein_polynomial_1d(t,N,l)
+       basis_polynomial_1d=lagrange_polynomial_1d(t,N,l)
     end select
 
 
@@ -52,14 +60,12 @@ contains
     real(kind=GRID_SR) :: basis_polynomial
     real(kind=GRID_SR) ::x,y 
     integer ::N,j,k,i
-    real(kind=GRID_SR)          :: l_nodes(2,N+1)
 
     select case(basis)
     case (1)
        basis_polynomial = bernstein_polynomial(x,y,N,j,k)
     case (2)
-       l_nodes(1:)=(/ (real(i,GRID_SR)/real(N,GRID_SR),i=0,N) /)
-       basis_polynomial = lagrange_polynomial(x,y,N,j,k,l_nodes)
+       basis_polynomial = equ_nodalBasis(x,y,N,j,k)
     end select
 
   end function
@@ -68,14 +74,12 @@ contains
     real(kind=GRID_SR) :: basis_polynomial_1d_der
     real(kind=GRID_SR) :: t
     integer :: N,l,i
-    real(kind=GRID_SR)          :: l_nodes(N+1)
-
+    
     select case(basis)
     case (1)
        basis_polynomial_1d_der = bernstein_polynomial_1d_der(t,N,l)
     case (2)
-       l_nodes=(/ (real(i,GRID_SR)/real(N,GRID_SR),i=0,N) /)
-       basis_polynomial_1d_der = lagrange_polynomial_1d_der(t,N,l,l_nodes)
+       basis_polynomial_1d_der = lagrange_polynomial_1d_der(t,N,l)
     end select
 
   end function
@@ -85,13 +89,11 @@ contains
     real(kind=GRID_SR) :: basis_polynomial_der_x
     real(kind=GRID_SR) :: x,y 
     integer :: N,j,k,i
-    real(kind=GRID_SR)          :: l_nodes(N+1) 
     select case(basis)
     case (1)
        basis_polynomial_der_x = bernstein_polynomial_der_x(x,y,N,j,k)
     case (2)
-       l_nodes=(/ (real(i,GRID_SR)/real(N,GRID_SR),i=0,N) /)
-       basis_polynomial_der_x = lagrange_polynomial_der_x(x,y,N,j,k,l_nodes)
+       basis_polynomial_der_x = equ_nodal_basis_der_x(x,y,N,j,k)
     end select
     
   end function basis_polynomial_der_x
@@ -100,118 +102,98 @@ contains
     real(kind=GRID_SR) ::basis_polynomial_der_y
     real(kind=GRID_SR) ::x,y 
     integer ::N,j,k,i
-    real(kind=GRID_SR)          :: l_nodes(N+1)
 
     select case(basis)
     case (1)
        basis_polynomial_der_y = bernstein_polynomial_der_y(x,y,N,j,k)
     case (2)
-       l_nodes=(/ (real(i,GRID_SR)/real(N,GRID_SR),i=0,N) /)
-       basis_polynomial_der_y = lagrange_polynomial_der_y(x,y,N,j,k,l_nodes)
+       basis_polynomial_der_y = equ_nodal_basis_der_y(x,y,N,j,k)
     end select
   end function basis_polynomial_der_y
 
   
-  function lagrange_polynomial_1d(t,N,l,Nodes)
-    real(kind=GRID_SR) :: Nodes(N+1)
+  function lagrange_polynomial_1d(t,N,l)
+    real(kind=GRID_SR) :: Nodes(0:N)
     real(kind=GRID_SR) :: t
     real(kind=GRID_SR) :: lagrange_polynomial_1d
-    integer :: N,l,i
+    integer :: N,l,i,ind
+    
 
+    ! equidistand nodes !
+    do i=0,N
+       Nodes(i) = (i)/Real(N)
+    end do
+        
     lagrange_polynomial_1d=1
 
-    do i=1,l
-       lagrange_polynomial_1d=lagrange_polynomial_1d*(t-Nodes(i))/(Nodes(l+1)-Nodes(i))
+    do i=0,N
+       if(i.eq.l) then
+          cycle
+       end if
+       lagrange_polynomial_1d=lagrange_polynomial_1d*(t-Nodes(i))/(Nodes(l)-Nodes(i))
     end do   
 
-    do i=l+2,N+1
-       lagrange_polynomial_1d=lagrange_polynomial_1d*(t-Nodes(i))/(Nodes(l+1)-Nodes(i))
-    end do   
   end function
 
-  function lagrange_polynomial(x,y,N,j,k,Nodes_2d)
+  function lagrange_polynomial(x,y,N,j,k)
     real(kind=GRID_SR) :: lagrange_polynomial
-!    real(kind=GRID_SR) :: Nodes(N+1)    
-    real(kind=GRID_SR) :: Nodes_2d(2,(N+1)*(N+2)/2)
-    integer N,j,k,i,count,ind
+    integer N,j,k
     real(kind=GRID_SR) :: x,y
 
-    lagrange_polynomial=(lagrange_polynomial_1d(x,N,j,Nodes(1,:))*lagrange_polynomial_1d(y,N,k,Nodes(2,:))))
+    lagrange_polynomial=(lagrange_polynomial_1d(x,N,j)*lagrange_polynomial_1d(y,N,k))
 
   end function
 
-  function lagrange_polynomial_1d_der(t,N,l,Nodes)
+  function lagrange_polynomial_1d_der(t,N,l)
     real(kind=GRID_SR) :: lagrange_polynomial_1d_der
-    real(kind=GRID_SR) :: Nodes(N+1)
+    real(kind=GRID_SR) :: Nodes(0:N)
     integer N,l,i,j
     real(kind=GRID_SR) :: t
     real(kind=GRID_SR) :: temp
 
+    ! equidistand nodes !
+    do i=0,N
+       Nodes(i) = (i)/Real(N)
+    end do
+
+    
     lagrange_polynomial_1d_der=0
+    do i=0,N
+       if(i.eq.l) then
+          cycle
+       end if
+       temp=1.0_GRID_SR
+       do j=0,N
 
-    if(.not.any(Nodes(:).eq.t)) then
-       do i=1,l
-       lagrange_polynomial_1d_der=lagrange_polynomial_1d_der - Nodes(i) / (Nodes(l+1)-Nodes(i))
-       end do
-       do i=l+2,N+1
-       lagrange_polynomial_1d_der=lagrange_polynomial_1d_der - Nodes(i) / (Nodes(l+1)-Nodes(i))
-       end do
-
-       lagrange_polynomial_1d_der=lagrange_polynomial_1d(t,N,l,Nodes)*lagrange_polynomial_1d_der
-    else
-
-       lagrange_polynomial_1d_der=1
-       do i=1,l
-          temp = 1
-          do j=1,i-1
-             temp=temp*(t-Nodes(j))/(Nodes(l+1)-Nodes(j))
-          end do
-          do j=i+1,l
-             temp=temp*(t-Nodes(j))/(Nodes(l+1)-Nodes(j))             
-          end do
-          do j=l+2,N+1
-             temp=temp*(t-Nodes(j))/(Nodes(l+1)-Nodes(j))             
-          end do
-          temp=temp*(-Nodes(i)/(Nodes(l+1)-Nodes(i)))
-          lagrange_polynomial_1d_der = lagrange_polynomial_1d_der +temp
+          if(j.eq.l .or. j.eq.i) then
+             cycle
+          end if
+          temp=temp*(t-Nodes(j))/(Nodes(l)-Nodes(j))
        end do
 
-       do i=l+2,N+1
-             temp=1
-          do j=1,l
-             temp=temp*(t-Nodes(j))/(Nodes(l+1)-Nodes(j))             
-          end do
-          do j=l+2,i-1
-             temp=temp*(t-Nodes(j))/(Nodes(l+1)-Nodes(j))             
-          end do
-          do j=i+1,N+1
-             temp=temp*(t-Nodes(j))/(Nodes(l+1)-Nodes(j))             
-          end do
-          temp=temp*(-Nodes(i)/(Nodes(l+1)-Nodes(i)))
-
-          lagrange_polynomial_1d_der = lagrange_polynomial_1d_der + temp
-       end do
-    end if
+       lagrange_polynomial_1d_der =  lagrange_polynomial_1d_der + (temp)* (1.0_GRID_SR/(Nodes(l)-Nodes(i)))
+    end do
+    
 
   end function
 
-  function lagrange_polynomial_der_x(x,y,N,j,k,Nodes)
-    real(kind=GRID_SR) :: lagrange_polynomial_der_x
+  function lagrange_polynomial_der_x(x,y,N,j,k)
     real(kind=GRID_SR) :: Nodes(N+1)
+    real(kind=GRID_SR) :: lagrange_polynomial_der_x
     integer N,j,k,i
     real(kind=GRID_SR) :: x,y
     
-    lagrange_polynomial_der_x=lagrange_polynomial_1d_der(x,N,j,Nodes)*lagrange_polynomial_1d(y,N,k,Nodes)
+    lagrange_polynomial_der_x=lagrange_polynomial_1d_der(x,N,j)*lagrange_polynomial_1d(y,N,k)
 
   end function
 
-  function lagrange_polynomial_der_y(x,y,N,j,k,Nodes)
+  function lagrange_polynomial_der_y(x,y,N,j,k)
     real(kind=GRID_SR) :: lagrange_polynomial_der_y
     real(kind=GRID_SR) :: Nodes(N+1)
     integer N,j,k,i
     real(kind=GRID_SR) :: x,y
     
-    lagrange_polynomial_der_y=lagrange_polynomial_1d_der(y,N,k,Nodes)*lagrange_polynomial_1d(x,N,j,Nodes)
+    lagrange_polynomial_der_y=lagrange_polynomial_1d_der(y,N,k)*lagrange_polynomial_1d(x,N,j)
 
   end function
 

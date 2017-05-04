@@ -36,10 +36,10 @@ MODULE SWE_DG_solver
      module procedure bnd_skeleton_scalar_op_dg
   end interface bnd_skeleton_op_dg
 
-  interface edge_first_touch_op_dg
-     module procedure edge_first_touch_array_op_dg
-     module procedure edge_first_touch_scalar_op_dg
-  end interface edge_first_touch_op_dg
+  ! interface edge_first_touch_op_dg
+  !    module procedure edge_first_touch_array_op_dg
+  !    module procedure edge_first_touch_scalar_op_dg
+  ! end interface edge_first_touch_op_dg
 
 
 #		define _GT_NAME	           		t_swe_dg_timestep_traversal
@@ -55,10 +55,10 @@ MODULE SWE_DG_solver
 #		define _GT_ELEMENT_OP                   element_op_dg
 
 #		define _GT_CELL_UPDATE_OP		cell_update_op_dg
-  
 #		define _GT_CELL_TO_EDGE_OP		cell_to_edge_op_dg
 
-#               define _GT_EDGE_FIRST_TOUCH_OP          edge_first_touch_op_dg
+!#               define _GT_EDGE_FIRST_TOUCH_OP          edge_first_touch_op_dg
+
 
   public cell_to_edge_op_dg
 
@@ -87,20 +87,18 @@ MODULE SWE_DG_solver
     grid%r_dt = min(cfg%r_max_time, grid%r_dt)    
     call scatter(grid%r_time, grid%sections%elements_alloc%r_time)
   end subroutine post_traversal_grid_op_dg
+ 
+  ! subroutine edge_first_touch_scalar_op_dg(traversal, section, edge)
+  !   type(t_swe_dg_timestep_traversal)  ::traversal
+  !   type(t_grid_section), intent(inout)::section
+  !   type(t_edge_data), intent(inout)   ::edge
+  ! end subroutine edge_first_touch_scalar_op_dg
 
-
-  
-  subroutine edge_first_touch_scalar_op_dg(traversal, section, edge)
-    type(t_swe_dg_timestep_traversal)  ::traversal
-    type(t_grid_section), intent(inout)::section
-    type(t_edge_data), intent(inout)   ::edge
-  end subroutine edge_first_touch_scalar_op_dg
-
-  subroutine edge_first_touch_array_op_dg(traversal, section, edge)
-    type(t_swe_dg_timestep_traversal)  ::traversal
-    type(t_grid_section), intent(inout)::section
-    type(t_edge_data), intent(inout)   ::edge(:)
-  end subroutine edge_first_touch_array_op_dg
+  ! subroutine edge_first_touch_array_op_dg(traversal, section, edge)
+  !   type(t_swe_dg_timestep_traversal)  ::traversal
+  !   type(t_grid_section), intent(inout)::section
+  !   type(t_edge_data), intent(inout)   ::edge(:)
+  ! end subroutine edge_first_touch_array_op_dg
 
 
   subroutine pre_traversal_grid_op_dg(traversal, grid)
@@ -133,6 +131,7 @@ MODULE SWE_DG_solver
     integer(kind=BYTE) :: orientation
     type(num_cell_rep) ::rep_fv
 
+!    print*,"cte: ",OMP_GET_THREAD_NUM()
     associate(cell_edge => ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%edges, normal => edge%transform_data%normal)
       do i=1,3
          if ( normal(1) == cell_edge(i)%normal(1) .and. normal(2) == cell_edge(i)%normal(2) )   then
@@ -145,7 +144,6 @@ MODULE SWE_DG_solver
     end associate
 
     if(element%cell%data_pers%troubled.le.0) then
-
      do k=0,_SWE_DG_ORDER
         do i=0,_SWE_DG_ORDER
            indx_mir=i+1+k*(_SWE_DG_ORDER+1)
@@ -199,10 +197,14 @@ type(t_grid_section), intent(in)			:: grid
 type(t_edge_data), intent(in)				:: edge
 type(num_cell_rep), intent(in)				:: rep1, rep2
 type(num_cell_update), intent(out)			:: update1, update2
-type(t_update),Allocatable                              :: flux_temp(:)
-type(t_state),Allocatable                               :: rep_temp(:)
+type(t_update),dimension((_SWE_DG_ORDER+1)**2)         :: flux_temp
+type(t_state),dimension((_SWE_DG_ORDER+1)**2)          :: rep_temp
 integer                                                 :: i,j
 
+
+! !omp single
+
+!print*,"Skeleton: ",OMP_GET_THREAD_NUM()
 
 if(rep1%troubled.ne.1 .and. rep2%troubled.ne.2) then
    
@@ -213,7 +215,6 @@ if(rep1%troubled.ne.1 .and. rep2%troubled.ne.2) then
    
    !---- Dofs for hypothenuse need to be permuted ----!
    if(edge%transform_data%index.eq.2) then
-      Allocate(rep_temp((_SWE_DG_ORDER+1)**2))
       do i=0,_SWE_DG_ORDER
          do j=1,_SWE_DG_ORDER+1
             rep_temp(i*(_SWE_DG_ORDER+1)+j) = rep2%Q_DG_P((1+i)*(_SWE_DG_ORDER+1)-j+1)
@@ -238,25 +239,29 @@ if(rep1%troubled.ne.1 .and. rep2%troubled.ne.2) then
    !      if(rep2%inverted) then
    
    !---- Result for hypothenuse needs to be permuted back----!
+
    if(edge%transform_data%index.eq.2) then
-      Deallocate(rep_temp)
-      Allocate(flux_temp((_SWE_DG_ORDER+1)**2))
       do i=0,_SWE_DG_ORDER
          do j=1,_SWE_DG_ORDER+1
             flux_temp(i*(_SWE_DG_ORDER+1)+j) = update2%flux((1+i)*(_SWE_DG_ORDER+1)-j+1)
          end do
       end do
       update2%flux=flux_temp
-      Deallocate(flux_temp)
    end if
 
-end if   
+end if
 
 update1%Q_DG          =rep2%Q_DG
 update2%Q_DG          =rep1%Q_DG
 
 update1%troubled      =rep2%troubled
 update2%troubled      =rep1%troubled
+
+
+! !omp end single
+
+!print*,update1%Q_DG%h
+!print*,update2%Q_DG%h
 
 
 end subroutine skeleton_scalar_op_dg
@@ -285,8 +290,8 @@ real(kind=GRID_SR)                             :: length_flux
 integer                                        :: i
 type(t_state),Dimension((_SWE_DG_ORDER+1)**2)                      :: temp_Q_DG_P
 
-normal_normed=(edge%transform_data%normal)/NORM2(edge%transform_data%normal)
 
+normal_normed=(edge%transform_data%normal)/NORM2(edge%transform_data%normal)
 
 if(rep%troubled.le.0) then
 temp_Q_DG_P(:)%h = rep%Q_DG_P(:)%h
@@ -313,14 +318,12 @@ do i=1,(_SWE_DG_ORDER+1)**2
    !                          update%Q_DG_P(i)%p(2) =  0
 end do
 
-call compute_flux_pred(edge%transform_data%normal,rep%Q_DG_P,temp_Q_DG_P,update%flux,temp_update%flux)
-
+call compute_flux_pred(normal_normed,rep%Q_DG_P,temp_Q_DG_P,update%flux,temp_update%flux)
 
 end if
 
 update%Q_DG(:)%h = rep%Q_DG(:)%h
 update%Q_DG(:)%b = rep%Q_DG(:)%b
-
 
 
 !---DG velocities---!
@@ -550,11 +553,11 @@ real(kind = GRID_SR)	      :: epsilon
 
 integer ::i
 
-#if defined(_LLF_FLUX_DG)
+!#if defined(_LLF_FLUX_DG)
 real(kind=GRID_SR)								:: vL, vR, alpha
-real(kind=GRID_SR) :: max_wave_speedR
+!real(kind=GRID_SR) :: max_wave_speedR
 
-#endif
+!#endif
 
 normal_normed=normal/NORM2(normal)
 
@@ -577,8 +580,8 @@ flux_r%p(2)=0
 ! QR_l2(:)%b=matmul(bnd_gl_node_vals,QR%b)
 #endif
 
-#if defined(_LLF_FLUX_DG)
-#if defined(_SWE_DG_NODAL)
+!#if defined(_LLF_FLUX_DG)
+!#if defined(_SWE_DG_NODAL)
 alpha=0
 
 do i=1,_SWE_DG_ORDER+1
@@ -594,7 +597,7 @@ do i=1,_SWE_DG_ORDER+1
     vR = DOT_PRODUCT(normal_normed, QR(i)%p/QR(i)%h)
     flux_r%max_wave_speed = sqrt(g * (QR(i)%h)) + abs(vR)
  else
-    flux_r%wave_speedR = 0
+    flux_r%max_wave_speed = 0
  end if
 
  alpha = max(alpha,flux_l(i)%max_wave_speed, flux_r(i)%max_wave_speed)
@@ -608,10 +611,10 @@ do i=1,(_SWE_DG_ORDER+1)**2
  qr_v(1,1)= QR(i)%h
  qr_v(1,2:3)= QR(i)%p
 
- f1r_s=f1(qr_v,1)
- f2r_s=f2(qr_v,1)
- f1l_s=f1(ql_v,1)
- f2l_s=f2(ql_v,1)
+ f1r_s=flux_1(qr_v,1)
+ f2r_s=flux_2(qr_v,1)
+ f1l_s=flux_1(ql_v,1)
+ f2l_s=flux_2(ql_v,1)
  f=0.5_GRID_SR*((f1r_s-f1l_s) * normal_normed(1) + (f2r_s-f2l_s) *normal_normed(2)+alpha*(ql_v-qr_v))
  flux_l(i)%h=f(1,1)
  flux_l(i)%p=f(1,2:3)
@@ -620,7 +623,11 @@ do i=1,(_SWE_DG_ORDER+1)**2
 
  ! end if
 end do
-#else
+!#end if
+
+!!Dont compile whole region
+#if false
+!#else
 ! alpha=0
 
 ! do i=1,size(bnd_gl_node_vals,1)
@@ -661,9 +668,10 @@ end do
 
 !  ! end if
 ! end do
-#endif
+!#endif
+!!FLUXES
 #elif                 (defined(_FWAVE_FLUX)|defined(_AUG_RIEMANN_FLUX)|defined(_HLLE_FLUX))
-
+!!_SWE_DG_NODAL
 #if defined(_SWE_DG_NODAL)
 
 flux_l%h=0
@@ -694,14 +702,16 @@ end do
 ! do i=1,size(bnd_gl_node_vals,1)
 !  call compute_geoclaw_flux_pred(normal_normed, QL_l2(i), QR_l2(i), flux_l2(i), flux_r_l2(i))
 ! end do
+!!_SWE_DG_NODAL
 #endif
 
-#endif
+!#endif
 
 #if !defined(_SWE_DG_NODAL)
 ! flux%h=matmul(bnd_gl_weights,flux_l2%h)
 ! flux%p(1)=matmul(bnd_gl_weights,flux_l2%p(1))
 ! flux%p(2)=matmul(bnd_gl_weights,flux_l2%p(2))
+#endif
 #endif
 end subroutine compute_flux_pred
 

@@ -54,12 +54,14 @@
 #else
 #		define _GT_CELL_TO_EDGE_OP			cell_to_edge_op
 #endif
-#		define _GT_NODE_MPI_TYPE
 
-#		define _GT_NODE_WRITE_OP			node_write_op
-#		define _GT_EDGE_WRITE_OP			edge_write_op
+!#		define _GT_NODE_MPI_TYPE
 
+!#		define _GT_NODE_WRITE_OP			node_write_op
+  
+!#		define _GT_EDGE_WRITE_OP			edge_write_op
 
+!#               define _GT_EDGE_MERGE_OP                edge_merge_op_dg
 
 !#               define _GT_CELL_FIRST_TOUCH_OP                  cell_first_touch_op_dg
 #		include "SFC_generic_adaptive_traversal.f90"
@@ -123,6 +125,37 @@
              !    element%cell%data_pers%Q_DG_P(1:_SWE_DG_DOFS) = element%cell%data_pers%Q_DG
           end if
         end subroutine cell_update_op_adapt
+
+
+        subroutine edge_merge_op_dg(local_edge,neighbor_edge)
+          type(t_edge_data), intent(inout)   ::local_edge
+          type(t_edge_data), intent(in)      ::neighbor_edge
+          type(t_state),Allocatable          ::rep_temp(:)
+          integer                            ::i,j
+
+          ! if(local_edge%transform_data%index.eq.2) then
+          !    Allocate(rep_temp((_SWE_DG_ORDER+1)**2))
+
+          !    do i=0,_SWE_DG_ORDER
+          !       do j=1,_SWE_DG_ORDER+1
+          !          rep_temp(i*(_SWE_DG_ORDER+1)+j) = neighbor_edge%rep%Q_DG_P((1+i)*(_SWE_DG_ORDER+1)-j+1)
+          !       end do
+          !    end do
+             
+          !    local_edge%rep%Q_DG_P=rep_temp
+          !    Deallocate(rep_temp)
+             
+          ! else
+          !    local_edge%rep%Q_DG_P=neighbor_edge%rep%Q_DG_P
+          ! end if
+
+          local_edge%rep%troubled=neighbor_edge%rep%troubled
+          local_edge%rep%Q_DG=neighbor_edge%rep%Q_DG
+          local_edge%rep%Q_DG_P=neighbor_edge%rep%Q_DG_P          
+          
+!          =neighbor_edge%data_pers
+        end subroutine edge_merge_op_dg
+
 #endif
 
 
@@ -510,12 +543,16 @@
         type(t_node_data), intent(in)			    :: neighbor_node
         !do nothing
       end subroutine node_write_op
-
-
+      
+      
       pure subroutine edge_write_op(local_node, neighbor_node)
         type(t_edge_data), intent(inout)			    :: local_node
         type(t_edge_data), intent(in)			    :: neighbor_node
         !do nothing
+        local_node%data_pers = neighbor_node%data_pers
+        local_node%data_temp = neighbor_node%data_temp
+        local_node%rep = neighbor_node%rep        
+
       end subroutine edge_write_op
 
     END MODULE

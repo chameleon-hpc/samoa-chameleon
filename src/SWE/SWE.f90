@@ -435,7 +435,9 @@
                    end if
                    
 #if defined(_SWE_DG)
+                   !$omp barrier
                    call swe%dg_timestep%traverse(grid)
+
 #elif defined(_SWE_PATCH)
                    call swe%euler%traverse(grid)
 #endif                   

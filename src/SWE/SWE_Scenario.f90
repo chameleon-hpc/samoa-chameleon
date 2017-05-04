@@ -254,7 +254,8 @@ MODULE SWE_Scenario_linear_dam_break
         
         Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
         
-        if (x(1) < 0.0_GRID_SR) then
+!        if (x(1) < 0.0_GRID_SR) then
+        if ( x(1) < x(2) ) then
             Q%h = hL
         else 
             Q%h = hR

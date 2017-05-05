@@ -118,6 +118,8 @@ vars.AddVariables(
               ),
 
   BoolVariable( 'library', 'build samoa as a library', False),
+
+  BoolVariable( 'scalasca', 'instrument with scalasca', False),
 )
 
 vars.Add('layers', 'number of vertical layers (0: 2D, >0: 3D)', 0)
@@ -153,26 +155,37 @@ elif  env['compiler'] == 'gnu':
   env['F90FLAGS'] = '-fimplicit-none -cpp -ffree-line-length-none'
   env.SetDefault(openmp = 'notasks')
 
+#Instrument with scalasca
+l_scorep = ""
+
+if env['scalasca']:  
+   l_scorep = " --nocompiler " 
+   if not env['openmp']=='noomp':
+      l_scorepArguments = l_scorep + ' --thread=omp '
+   if not env['mpi']=='nompi':
+      l_scorepArguments = l_scorep + ' --mpp=mpi '
+   l_scorep = ' scorep' + l_scorep
+
 # If MPI is active, use the mpif90 wrapper for compilation
 if env['mpi'] == 'default':
-  env['F90'] = 'MPICH_F90=' + fc + ' OMPI_FC=' + fc + ' I_MPI_F90=' + fc + ' mpif90'
-  env['LINK'] = 'MPICH_F90=' + fc + ' OMPI_FC=' + fc + ' I_MPI_F90=' + fc + ' mpif90'
+  env['F90'] = 'MPICH_F90=' + fc + ' OMPI_FC=' + fc + ' I_MPI_F90=' + fc + l_scorep + ' mpif90'
+  env['LINK'] = 'MPICH_F90=' + fc + ' OMPI_FC=' + fc + ' I_MPI_F90=' + fc + l_scorep + ' mpif90'
   env['F90FLAGS'] += ' -D_MPI'
 elif env['mpi'] == 'ibm':
-  env['F90'] = 'MPICH_F90=' + fc + ' OMPI_FC=' + fc + ' I_MPI_F90=' + fc + ' mpif90'
-  env['LINK'] = 'MPICH_F90=' + fc + ' OMPI_FC=' + fc + ' I_MPI_F90=' + fc + ' mpif90'
+  env['F90'] = 'MPICH_F90=' + fc + ' OMPI_FC=' + fc + ' I_MPI_F90=' + fc + l_scorep + ' mpif90'
+  env['LINK'] = 'MPICH_F90=' + fc + ' OMPI_FC=' + fc + ' I_MPI_F90=' + fc + l_scorep + ' mpif90'
   env['F90FLAGS'] += ' -D_MPI'
 elif env['mpi'] == 'mpich2':
-  env['F90'] = 'MPICH_F90=' + fc + ' mpif90.mpich2'
-  env['LINK'] = 'MPICH_F90=' + fc + ' mpif90.mpich2'
+  env['F90'] = 'MPICH_F90=' + fc + l_scorep + ' mpif90.mpich2'
+  env['LINK'] = 'MPICH_F90=' + fc + l_scorep + ' mpif90.mpich2'
   env['F90FLAGS'] += ' -D_MPI'
 elif env['mpi'] == 'openmpi':
-  env['F90'] = 'OMPI_FC=' + fc + ' mpif90.openmpi'
-  env['LINK'] = 'OMPI_FC=' + fc + ' mpif90.openmpi'
+  env['F90'] = 'OMPI_FC=' + fc + l_scorep + ' mpif90.openmpi'
+  env['LINK'] = 'OMPI_FC=' + fc + l_scorep + ' mpif90.openmpi'
   env['F90FLAGS'] += ' -D_MPI'
 elif env['mpi'] == 'intel':
-  env['F90'] = 'I_MPI_F90=' + fc + ' mpif90.intel'
-  env['LINK'] = 'I_MPI_F90=' + fc + ' mpif90.intel'
+  env['F90'] = 'I_MPI_F90=' + fc + l_scorep + ' mpif90.intel'
+  env['LINK'] = 'I_MPI_F90=' + fc + l_scorep + ' mpif90.intel'
   env['F90FLAGS'] += ' -D_MPI'
 elif env['mpi'] == 'nompi':
   env['F90'] = fc
@@ -413,6 +426,7 @@ if env['library']:
 #Set debug output level
 env['F90FLAGS'] += ' -D_DEBUG_LEVEL=' + env['debug_level']
 
+
 # generate help text
 Help(vars.GenerateHelpText(env))
 
@@ -452,6 +466,12 @@ if env['exe'] == 'samoa':
 
     if env['machine'] == 'mic':
       program_name += '_mic'
+
+    if env['ipm']:
+      program_name += '_ipm'
+
+    if env['scalasca']:
+      program_name += '_scalasca'
 else:
     program_name = env['exe']
 

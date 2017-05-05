@@ -322,7 +322,7 @@ module Tools_statistics
         end if
     end function
 
-    function t_statistics_to_verbose_string(s, v) result(str)
+    pure function t_statistics_to_verbose_string(s, v) result(str)
         class(t_statistics), intent(in)			:: s
 	type(t_statistics), intent(in)			:: v(:) 	
 	character (len = 1024)					:: str
@@ -527,7 +527,7 @@ module Tools_statistics
 	end if
     end function
 
-    function t_adaptive_statistics_to_verbose_string(s, v) result(str)
+    pure function t_adaptive_statistics_to_verbose_string(s, v) result(str)
         class(t_adaptive_statistics), intent(in)	:: s
 	type(t_adaptive_statistics), intent(in)	        :: v(:)
 	character (len = 1024)					    :: str

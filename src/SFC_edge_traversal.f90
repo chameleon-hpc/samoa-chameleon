@@ -39,19 +39,50 @@ module SFC_edge_traversal
 	contains
 
 	!>create a new grid and cut it into sections of either uniform load or non-uniform load
+	!> @param src_grid Input grid
+	!> @param dest_grid Output grid
 	subroutine create_destination_grid(src_grid, dest_grid)
 		type(t_grid), intent(inout)                             :: src_grid
 		type(t_grid), intent(inout)           	                :: dest_grid
 
+		type(t_section_info_list), save                         :: section_descs
+
+		if ( (cfg%i_lb_splitmode .eq. LB_SPLIT_LOCALLY) .or. (cfg%i_lb_splitmode .eq. LB_SPLIT_GLOBALLY)) then
+			call create_descs_uniform_splitting(src_grid, section_descs)
+		!allow for non-uniform section sizes for OpenMP task-based load-balancing
+		else if (cfg%i_lb_splitmode .eq. LB_NO_SPLIT) then
+			!here, we do not split despite adaptivity
+			call create_descs_no_splitting(src_grid, section_descs)
+		else if (cfg%i_lb_splitmode .eq. LB_SPLIT_NON_UNIFORM) then
+			!here, we explicitly split into decreasingly large section sizes
+		        call create_descs_non_uniform_splitting(src_grid, section_descs)
+		endif
+
+		!$omp single
+		    dest_grid%stats = src_grid%stats
+		    dest_grid%t_global_data = src_grid%t_global_data
+		!$omp end single
+
+		!create new grid
+		call dest_grid%create(section_descs, src_grid%max_dest_stack - src_grid%min_dest_stack + 1)
+
+		dest_grid%threads%elements(i_thread)%stats = src_grid%threads%elements(i_thread)%stats
+    end subroutine
+
+    !> Creates new section descriptors by splitting the source grid into sections of uniform load.
+    !> @param src_grid Input grid
+    !> @param section_descs Output section descriptors
+    subroutine create_descs_uniform_splitting(src_grid, section_descs)
+		type(t_grid), intent(inout)                             :: src_grid
+		type(t_section_info_list), intent(inout)          :: section_descs
+
 		integer (kind = GRID_DI), parameter                     :: min_section_size = 4_GRID_DI
 		type(t_grid_section), pointer                           :: section
-		type(t_section_info_list), save                         :: section_descs
 		integer (kind = GRID_DI)                                :: i_grid_load, i_total_load, i_grid_partial_load, i_src_section_partial_load, i_section_partial_load, i_section_partial_load_prev
 		integer (kind = GRID_DI)                                :: i_src_section, i_dest_section, i_src_sections, i_dest_sections, i_sum_cells, i_sum_cells_prev, i_total_section
 		integer (kind = GRID_DI)                                :: i_total_sections, i_eff_dest_cells
 
-	if (.not. (cfg%i_lb_splitmode .eq. LB_NO_SPLIT)) then
-		_log_write(4, '(3X, A)') "create splitting"
+		_log_write(4, '(3X, A)') "create uniform splitting"
 
 		i_src_sections = src_grid%sections%get_size()
 
@@ -67,7 +98,7 @@ module SFC_edge_traversal
 		    i_total_load = i_grid_load
 		    call reduce(i_total_load, MPI_SUM)
 
-		    i_total_sections = int(cfg%i_sections_per_thread, GRID_DI) * int(cfg%i_threads, GRID_DI) * int(size_MPI, GRID_DI)
+		    i_total_sections = int(cfg%i_sections_per_thread, GRID_DI) * int(cfg%i_threads, GRID_DI) * int(size_MPI, GRID_DI)         		
 		else if(cfg%i_lb_splitmode .eq. LB_SPLIT_LOCALLY) then
 		    i_grid_partial_load = i_grid_load
 		    i_total_load = max(1_DI, i_grid_load)
@@ -172,8 +203,21 @@ module SFC_edge_traversal
 		    end if
 		end if
 		!$omp end single copyprivate(i_dest_sections)
-	!allow for non-uniform section sizes for OpenMP task-based load-balancing
-	else	
+		assert_le(i_dest_sections, ishft(1, 14) - 1)
+    end   
+
+    !> Creates new section descriptors by creating sections of new size according to the mesh refinement. They are no longer guaranteed to have uniform load in the case of adaptivity.
+    !> @param src_grid Input grid
+    !> @param section_descs Output section descriptors
+    subroutine create_descs_no_splitting(src_grid, section_descs)
+		type(t_grid), intent(inout)                             :: src_grid
+		type(t_section_info_list), intent(inout)          :: section_descs
+
+		integer (kind = GRID_DI), parameter                     :: min_section_size = 4_GRID_DI
+		integer (kind = GRID_DI)                                :: i_src_section, i_dest_section, i_src_sections, i_dest_sections, i_sum_cells, i_sum_cells_prev, i_total_section
+		integer (kind = GRID_DI)                                :: i_grid_load
+		integer (kind = GRID_DI)                                :: i_total_sections, i_eff_dest_cells
+
 		i_src_sections = src_grid%sections%get_size()
 	
 		!$omp single
@@ -182,7 +226,7 @@ module SFC_edge_traversal
 		!keep the number of sections fixed, we just need to re-create the old sections of possibly a different size according to the refinement
 		i_dest_sections = max(i_total_sections, i_src_sections)
 
-		!split into uniform size until minimum number of sections has been reached 
+		!split into uniform load until minimum number of sections has been reached 
 		if( i_src_sections .lt. i_total_sections) then
 			call reduce(src_grid%load, src_grid%sections%elements_alloc%load, MPI_SUM, .false.)
 			i_grid_load = src_grid%load
@@ -241,20 +285,147 @@ module SFC_edge_traversal
 			end do
 		endif
 		!$omp end single copyprivate(i_dest_sections)
-	endif
+    end
 
-        assert_le(i_dest_sections, ishft(1, 14) - 1)
+    !> Creates new section descriptors by creating sections of decreasingly large load. The second
+    !> section of a thread will have approximately half the load of the first section and so forth.
+    !> @param src_grid Input grid
+    !> @param section_descs Output section descriptors
+    subroutine create_descs_non_uniform_splitting(src_grid, section_descs)
+		type(t_grid), intent(inout)                       :: src_grid
+		type(t_section_info_list), intent(inout)          :: section_descs
 
-        !$omp single
-            dest_grid%stats = src_grid%stats
-            dest_grid%t_global_data = src_grid%t_global_data
-        !$omp end single
+                integer (kind = GRID_DI), parameter                     :: min_section_size = 4_GRID_DI
+		integer (kind = GRID_DI)                                :: i_src_section, i_dest_section, i_src_sections, i_dest_sections, i_total_section
+                integer (kind = GRID_DI)				:: i_src_section_partial_load, i_section_partial_load, i_section_partial_load_prev
+		integer (kind = GRID_DI)                                :: i_grid_load, i_thread_partial_load, i_thread_partial_load_prev
+		integer (kind = GRID_DI)                                :: i_total_sections, i_eff_dest_cells, i_sum_cells, i_sum_cells_prev
+		integer (kind = GRID_DI)                                :: i_weight, i_parts, i_remainder, i_remainder_per_sec, i_thread_loc, i_cnt
 
-        !create new grid
-        call dest_grid%create(section_descs, src_grid%max_dest_stack - src_grid%min_dest_stack + 1)
+		i_src_sections = src_grid%sections%get_size()
+	
+		!$omp single
+		i_total_sections = int(cfg%i_sections_per_thread, GRID_DI) * int(cfg%i_threads, GRID_DI)
+		i_dest_sections = i_total_sections
 
-        dest_grid%threads%elements(i_thread)%stats = src_grid%threads%elements(i_thread)%stats
-    end subroutine
+		call prefix_sum(src_grid%sections%elements_alloc%last_dest_cell, src_grid%sections%elements_alloc%dest_cells)               
+		call reduce(src_grid%load, src_grid%sections%elements_alloc%load, MPI_SUM, .false.)
+		i_grid_load = src_grid%load
+
+		!split into uniform load until maximum number of sections per thread has been reached 
+		if( i_src_sections .lt. i_total_sections) then
+			i_dest_sections = min(src_grid%dest_cells / min_section_size, i_total_sections)
+			
+			if (src_grid%dest_cells > 0) then
+		        	i_dest_sections = max(i_dest_sections, 1)
+		    	end if
+
+		    	_log_write(4, '(3X, A, I0)') "sections: ", i_dest_sections
+		  	call section_descs%resize(int(i_dest_sections, GRID_SI))
+
+		    	i_sum_cells_prev = 0
+		   	i_eff_dest_cells = src_grid%dest_cells - i_dest_sections * min_section_size
+		    	assert(i_eff_dest_cells .ge. 0 .or. i_dest_sections == 1)
+
+		    	do i_dest_section = 1, i_dest_sections
+				!Set the number of cells to the difference of partial sums. This guarantees, that there are exactly src_grid%dest_cells cells in total.
+
+				!Add +4 to create enough space for additional refinement cells
+				!64bit arithmetics are needed here, (i_dest_section * src_grid%dest_cells) can become very big!
+				i_sum_cells = (i_eff_dest_cells * i_dest_section) / i_dest_sections
+				section_descs%elements(i_dest_section)%i_cells = min_section_size + i_sum_cells - i_sum_cells_prev + 4_GRID_DI
+				section_descs%elements(i_dest_section)%i_load = (i_grid_load * i_dest_section) / i_dest_sections - (i_grid_load * (i_dest_section - 1)) / i_dest_sections
+				assert(section_descs%elements(i_dest_section)%i_cells - 4_GRID_DI .ge. min_section_size .or. i_dest_sections == 1)
+				i_sum_cells_prev = i_sum_cells
+
+				section_descs%elements(i_dest_section)%index = i_dest_section
+				section_descs%elements(i_dest_section)%i_stack_nodes = src_grid%max_dest_stack - src_grid%min_dest_stack + 1
+				section_descs%elements(i_dest_section)%i_stack_edges = src_grid%max_dest_stack - src_grid%min_dest_stack + 1
+
+				call section_descs%elements(i_dest_section)%estimate_bounds()
+				_log_write(4, '(4X, "Cells: ", I0)') section_descs%elements(i_dest_section)%i_cells - 4_GRID_DI
+				_log_write(4, '(4X, "Load: ", I0)') section_descs%elements(i_dest_section)%i_load
+		    	end do
+
+			if (i_dest_sections > 0) then
+				assert_eq(i_sum_cells, i_eff_dest_cells)
+			end if
+	     !in this case, we already have i_total_sections sections; split into decreasingly large sections
+	     else
+			i_sum_cells = 0
+		    	i_sum_cells_prev = 0
+                        i_eff_dest_cells = src_grid%dest_cells - i_dest_sections * min_section_size
+                        assert_ge(i_eff_dest_cells, 0)
+                        
+		    	i_thread_partial_load_prev = 0
+			i_section_partial_load_prev = 0
+                        
+                        i_src_section = 1
+                        i_src_section_partial_load = 0
+
+			i_parts = 2**(cfg%i_sections_per_thread) - 1
+                        
+                        call section_descs%resize(int(i_dest_sections, GRID_SI))
+			
+			do i_thread_loc=1, int(cfg%i_threads, GRID_DI)
+				i_thread_partial_load = min(1 + (i_thread_loc * i_grid_load - 1)/cfg%i_threads, i_grid_load)
+				i_weight = 2**(cfg%i_sections_per_thread-1)
+                                !distribute remainder evenly
+                                i_remainder = modulo(i_thread_partial_load - i_thread_partial_load_prev, i_parts)
+                                i_remainder_per_sec  = (i_remainder + int(cfg%i_sections_per_thread, GRID_DI)-1)/int(cfg%i_sections_per_thread, GRID_DI)
+                            
+                                !counter with offset 1
+                                i_cnt = 1
+				do i_dest_section = (i_thread_loc-1) * int(cfg%i_sections_per_thread, GRID_DI) + 1 , i_thread_loc * int(cfg%i_sections_per_thread, GRID_DI)
+					i_section_partial_load =  i_section_partial_load_prev &
+							        + min( i_weight * ((i_thread_partial_load - i_thread_partial_load_prev)/i_parts), i_thread_partial_load) 
+                                                             
+		
+					if (i_remainder .gt. 0) then
+						i_section_partial_load = i_section_partial_load + min(i_remainder_per_sec, i_remainder)
+						i_remainder = i_remainder-i_remainder_per_sec 
+					end if					
+
+					do
+					    if (i_src_section_partial_load + src_grid%sections%elements_alloc(i_src_section)%load >= i_section_partial_load) then
+						exit
+					    endif
+
+					    i_src_section_partial_load = i_src_section_partial_load + src_grid%sections%elements_alloc(i_src_section)%load
+					    i_src_section = i_src_section + 1
+					end do
+
+					i_sum_cells = src_grid%sections%elements_alloc(i_src_section)%last_dest_cell - src_grid%sections%elements_alloc(i_src_section)%dest_cells &
+					 + ((i_section_partial_load - i_src_section_partial_load) * src_grid%sections%elements_alloc(i_src_section)%dest_cells) / &
+					    src_grid%sections%elements_alloc(i_src_section)%load
+
+					section_descs%elements(i_dest_section)%i_load = i_section_partial_load - i_section_partial_load_prev
+
+					section_descs%elements(i_dest_section)%i_cells = min_section_size &
+					     + (i_sum_cells * i_eff_dest_cells) / src_grid%dest_cells &
+					    - (i_sum_cells_prev * i_eff_dest_cells) / src_grid%dest_cells + 4_GRID_DI
+
+					assert_ge(section_descs%elements(i_dest_section)%i_cells - 4_GRID_DI, min_section_size)
+
+					section_descs%elements(i_dest_section)%index = i_dest_section
+					section_descs%elements(i_dest_section)%i_stack_nodes = src_grid%max_dest_stack - src_grid%min_dest_stack + 1
+					section_descs%elements(i_dest_section)%i_stack_edges = src_grid%max_dest_stack - src_grid%min_dest_stack + 1
+
+					call section_descs%elements(i_dest_section)%estimate_bounds()
+					_log_write(4, '(4X, "Cells: ", I0, " Load: ", I0)') section_descs%elements(i_dest_section)%i_cells - 4_GRID_DI, section_descs%elements(i_dest_section)%i_load
+
+                                        i_section_partial_load_prev = i_section_partial_load
+					i_sum_cells_prev = i_sum_cells			
+					i_weight = i_weight/2
+                                        
+                                        i_cnt = i_cnt + 1
+				end do
+                                i_thread_partial_load_prev = i_thread_partial_load
+			end do
+	     end if
+	     !$omp end single copyprivate(i_dest_sections)
+             assert_le(i_dest_sections, ishft(1, 14) - 1)
+    end
 
     subroutine update_distances(grid)
         type(t_grid), intent(inout)						:: grid

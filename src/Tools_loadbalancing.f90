@@ -15,6 +15,7 @@ module Tools_loadbalancing
 		    enumerator :: LB_SPLIT_LOCALLY = 0
 		    enumerator :: LB_SPLIT_GLOBALLY = 1
 	            enumerator :: LB_NO_SPLIT = 2
+		    enumerator :: LB_SPLIT_NON_UNIFORM = 3
 		end enum
 
    public

@@ -37,7 +37,7 @@
 	        type num_traversal_data
 	            type(t_output_point_data), allocatable	        :: point_data(:)
 	            type(t_output_cell_data), allocatable		:: cell_data(:)
-	            character(len=64)					:: s_file_stamp
+	            character(len=256)					:: s_file_stamp
 
 	            integer (kind = GRID_SI)				:: i_output_iteration=0
 	            integer (kind = GRID_SI)				:: i_point_data_index

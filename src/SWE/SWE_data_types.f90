@@ -76,13 +76,13 @@
          end type t_state
 
 		!> update vector
-		type, extends(t_dof_state) :: t_update
-			real (kind = GRID_SR)													:: max_wave_speed			!< maximum wave speed required to compute the CFL condition
-            contains
+         type, extends(t_dof_state) :: t_update
+            real (kind = GRID_SR)													:: max_wave_speed			!< maximum wave speed required to compute the CFL condition
+          contains
 
             procedure, pass :: add_update => update_add
             generic :: operator(+) => add_update
-		end type
+         end type t_update
 
 		!> persistent scenario data on a node
 		type num_node_data_pers
@@ -141,7 +141,7 @@
 
 #if defined(_SWE_PATCH)
      type(t_state), DIMENSION(_SWE_EDGE_SIZE)				:: Q !TODO: remove this and others Qs --> must handle conflicts with t_gv_Q methods afterwards...
-			real (kind = GRID_SR), dimension (_SWE_PATCH_ORDER)		:: H, HU, HV, B !< edge stores ghost cells for communication of ghost cells
+     real (kind = GRID_SR), dimension (_SWE_PATCH_ORDER)		:: H, HU, HV, B !< edge stores ghost cells for communication of ghost cells
 
 #if defined(_SWE_DG)
    type(t_state), DIMENSION((_SWE_DG_ORDER+1)*(_SWE_DG_ORDER+1))   :: Q_DG_P
@@ -205,10 +205,18 @@
 		!***********************
 
 		!> Data type for the scenario configuration
-		type num_global_data
-			real (kind = GRID_SR)							:: r_time					!< simulation time
-			real (kind = GRID_SR)							:: r_dt						!< time step
-			real (kind = GRID_SR)							:: r_dt_new					!< new time step for the next iteration
+  type num_global_data
+     real (kind = GRID_SR)							:: r_time					!< simulation time
+     real (kind = GRID_SR)							:: r_dt						!< time step
+     real (kind = GRID_SR)							:: r_dt_new					!< new time step for the next iteration
+     
+#if defined(_ASAGI)
+#if defined(_SWE_DG)
+     real (kind = GRID_SR)							:: b_max=TINY(1.0_GRID_SR),b_min=HUGE(1.0_GRID_SR)
+     real (kind = GRID_SR)							:: b_max_new=TINY(1.0_GRID_SR),b_min_new=HUGE(1.0_GRID_SR)     
+
+#endif
+#endif   
 		end type
 
 		contains
@@ -241,9 +249,12 @@
                    call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,q_temp(:,1))
                    call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,q_temp(:,2))
                    call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,q_temp(:,3))
+!                   print*,q_temp(1:_SWE_DG_DOFS,:)
                    
                    q_temp(1:_SWE_DG_DOFS,1)=q_temp(1:_SWE_DG_DOFS,1) - dofs%Q_DG%b
+
                    q_dg=q_temp(1:_SWE_DG_DOFS,:)
+                
                    
                    call dofs%set_dofs_dg(q_dg)
                    
@@ -266,6 +277,14 @@
                    dofs%HU=fv_temp(:,2)
                    dofs%HV=fv_temp(:,3)
 
+                   ! #if defined(_ASAGI)
+
+!                    where(0_GRID_SR)
+!                       q_temp(1:_SWE_DG_DOFS,1)=0.0_GRID_SR
+!                    end where
+! #endif                   
+
+
 
                  end subroutine convert_dg_to_fv
 
@@ -276,6 +295,25 @@
                    fv=matmul(phi,dg)*_REF_TRIANGLE_SIZE_INV
                    
                  end subroutine apply_phi
+
+                 subroutine apply_mue(fv,dg)
+                   real(kind=GRID_SR),intent(in) :: fv(_SWE_PATCH_ORDER_SQUARE)
+                   real(kind=GRID_SR),intent(out)  :: dg(_SWE_DG_DOFS)
+                   real(kind=GRID_SR)             :: q_temp(_SWE_DG_DOFS+1)                   
+
+                   q_temp(1:_SWE_DG_DOFS)= 2.0q0*matmul(transpose(phi),fv)
+                   
+                   q_temp(_SWE_DG_DOFS+1) = sum(fv)
+                   
+                   q_temp = q_temp /_REF_TRIANGLE_SIZE_INV
+
+                  
+                   call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,q_temp)
+
+                   dg=q_temp(1:_SWE_DG_DOFS)
+                   
+                 end subroutine apply_mue
+
 
 
                  subroutine convert_dg_to_fv_bathymetry(dofs)

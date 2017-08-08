@@ -478,19 +478,19 @@ MODULE SWE_Euler_Timestep
                      if (ind > _SWE_PATCH_NUM_EDGES) then
                         exit
                      end if
-                     ! !!!!!!!!print*,"updates"
-                     ! !!!!!!!!print*,update1%H
-                     ! !!!!!!!!print*,update1%HU
-                     ! !!!!!!!!print*,update1%HV
-                     ! !!!!!!!!print*,update1%B
-                     ! !!!!!!!!print*,update2%H
-                     ! !!!!!!!!print*,update2%HU
-                     ! !!!!!!!!print*,update2%HV
-                     ! !!!!!!!!print*,update2%B
-                     ! !!!!!!!!print*,update3%H
-                     ! !!!!!!!!print*,update3%HU
-                     ! !!!!!!!!print*,update3%HV
-                     ! !!!!!!!!print*,update3%B
+                     ! !!!!!!!!!!print*,"updates"
+                     ! !!!!!!!!!!print*,update1%H
+                     ! !!!!!!!!!!print*,update1%HU
+                     ! !!!!!!!!!!print*,update1%HV
+                     ! !!!!!!!!!!print*,update1%B
+                     ! !!!!!!!!!!print*,update2%H
+                     ! !!!!!!!!!!print*,update2%HU
+                     ! !!!!!!!!!!print*,update2%HV
+                     ! !!!!!!!!!!print*,update2%B
+                     ! !!!!!!!!!!print*,update3%H
+                     ! !!!!!!!!!!print*,update3%HU
+                     ! !!!!!!!!!!print*,update3%HV
+                     ! !!!!!!!!!!print*,update3%B
 
 
 
@@ -660,7 +660,7 @@ MODULE SWE_Euler_Timestep
           if (element%cell%data_pers%Q(1)%h < element%cell%data_pers%Q(1)%b + cfg%dry_tolerance .and. dQ(1)%h > 0.0_GRID_SR) then
              element%cell%data_pers%Q(1)%h = element%cell%data_pers%Q(1)%b + cfg%dry_tolerance
              element%cell%data_pers%Q(1)%p = [0.0_GRID_SR, 0.0_GRID_SR]
-             ! ! ! !!!!!!!!!!!print '("Wetting:", 2(X, F0.0))', cfg%scaling * element%transform_data%custom_data%offset + cfg%offset
+             ! ! ! !!!!!!!!!!!!print '("Wetting:", 2(X, F0.0))', cfg%scaling * element%transform_data%custom_data%offset + cfg%offset
           end if
 
           call gv_Q%add(element, dQ)
@@ -873,6 +873,17 @@ MODULE SWE_Euler_Timestep
                          bL = QL%b
                          bR = QR%b
 
+                         !print*
+                         !print*,QL%h
+                         !print*,QL%b
+                         !print*,QR%h
+                         !print*,QR%b                         
+                         !print*                         
+                         !print*,hL
+                         !print*,hR
+                         !print*,pL
+                         !print*,pR                         
+
 #           if defined(_FWAVE_FLUX)
                  call c_bind_geoclaw_solver(GEOCLAW_FWAVE, 1, 3, hL, hR, pL(1), pR(1), pL(2), pR(2), bL, bR, real(cfg%dry_tolerance, GRID_SR), g, net_updatesL, net_updatesR, max_wave_speed)
 #           elif defined(_AUG_RIEMANN_FLUX)
@@ -888,6 +899,18 @@ MODULE SWE_Euler_Timestep
                  fluxR%h = net_updatesR(1)
                  fluxR%p = matmul(net_updatesR(2:3), transform_matrix)
                  fluxR%max_wave_speed = max_wave_speed
+
+                 if(fluxL%h > 0.001) then
+                    !print*,"MARKER"
+                 end if
+                 
+                 !print*
+                 !print*,fluxL%h
+                 !print*,fluxL%p
+                 !print*
+                 !print*,fluxR%h
+                 !print*,fluxR%p                 
+                 
                  end subroutine
 
          pure subroutine node_write_op(local_node, neighbor_node)

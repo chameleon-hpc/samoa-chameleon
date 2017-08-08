@@ -230,6 +230,7 @@ MODULE SWE_dg_predictor
          
          if(i > 200) then                           
             print*,"predictor not converging"
+            cell%data_pers%troubled=4
             exit
          end if
          

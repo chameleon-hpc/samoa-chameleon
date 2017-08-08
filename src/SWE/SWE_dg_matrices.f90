@@ -24,6 +24,9 @@ MODULE SWE_dg_matrices
 
 !Conversion matrices
 #include "dg_matrices/phi_1.incl"
+#include "dg_matrices/ref1_1.incl"
+#include "dg_matrices/ref2_1.incl"
+#include "dg_matrices/coarsen_1.incl"
 #include "dg_matrices/mue_lu_1.incl"
 #include "dg_matrices/mue_lu_pivot_1.incl"
 

@@ -153,8 +153,8 @@ MODULE SWE_Scenario_resting_lake
         real (kind = GRID_SR), intent(in) :: x(2)
         real (kind = GRID_SR) :: bathymetry
         
-        bathymetry = -4
-        !        bathymetry = -1.5 + x(1)/5
+        !bathymetry = -4
+        bathymetry = -1.5 + x(1)/5
     end function
     
     function SWE_Scenario_get_initial_Q(x) result(Q)
@@ -359,12 +359,13 @@ MODULE SWE_Scenario_resting_isle
         real (kind = GRID_SR) :: bathymetry
         
         if(NORM2(x) <= 3.0) then
-           bathymetry = -10.0_GRID_SR + 20.0 * (1.0_GRID_SR- (NORM2(x)/3.0_GRID_SR)**(2))
-           !bathymetry = -10.0_GRID_SR + cos(3.1415 * 0.5 * NORM2(x)/5.0)**2 * 20.0
+        !if(x(1) <= 0.0) then        
+           bathymetry = -0.1_GRID_SR + 0.2_GRID_SR * (1.0_GRID_SR- (NORM2(x)/3.0_GRID_SR)**(2))
+        !bathymetry = -10.0_GRID_SR + cos(3.1415 * 0.5 * NORM2(x)/5.0)**2 * 20.0
         else
-           bathymetry = -10.0_GRID_SR
+           bathymetry = -0.1_GRID_SR
         end if
-        
+
         ! if(norm2(x)<2.0)then
         !    bathymetry = -10.0 + (4-(x(1)**2 + x(2)**2))*15.0
         ! end if
@@ -373,22 +374,33 @@ MODULE SWE_Scenario_resting_isle
     end function
     
     function SWE_Scenario_get_initial_Q(x) result(Q)
-        real (kind = GRID_SR), intent(in) :: x(2)
-        type(t_dof_state) :: Q
+      real (kind = GRID_SR), intent(in) :: x(2)
+      real (kind = GRID_SR) :: b
+      type(t_dof_state) :: Q
         
         Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
         Q%h = 0.0_GRID_SR
         ! if (SWE_Scenario_get_bathymetry(x) > 0 ) then
-        !    Q%h=SWE_Scenario_get_bathymetry(x)
+        b=SWE_Scenario_get_bathymetry(x)
         ! end if
-          if(x(1)<-2.0 .and. x(1) > -2.5)then
-            Q%h = 8.0_GRID_SR
-! ! !           Q%h = -2.0+2.0_GRID_SR/0.25**2* (0.25**2-(x(1)+4.25)**2)
-          else
-             Q%h = 0.0_GRID_SR
-          end if
-          Q%h = 0.0_GRID_SR
-          
+
+!         if(x(1) >= 0.0) then
+! !        if(NORM2(x) <= 3.0) then
+!            Q%h = -10.0_GRID_SR + 20.0 * (1.0_GRID_SR- (NORM2(x)/3.0_GRID_SR)**(2))
+!            !bathymetry = -10.0_GRID_SR + cos(3.1415 * 0.5 * NORM2(x)/5.0)**2 * 20.0
+!            !Q%h = x(1) * 0.5                      
+!         elseo
+!            Q%h = 0.0_GRID_SR
+!         end if
+
+        if(x(1)<-2.0 .and. x(1) > -2.5)then
+!         !    Q%h = 8.0_GRID_SR
+           Q%h = 0.2_GRID_SR* (0.25**2-(x(1)+2.25)**2)
+        else
+           Q%h = 0.0_GRID_SR
+        end if
+        
+        Q%h = max(Q%h,b)
     end function
 
 END MODULE SWE_Scenario_resting_isle

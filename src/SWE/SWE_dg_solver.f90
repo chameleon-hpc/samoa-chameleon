@@ -36,12 +36,6 @@ MODULE SWE_DG_solver
      module procedure bnd_skeleton_scalar_op_dg
   end interface bnd_skeleton_op_dg
 
-  ! interface edge_first_touch_op_dg
-  !    module procedure edge_first_touch_array_op_dg
-  !    module procedure edge_first_touch_scalar_op_dg
-  ! end interface edge_first_touch_op_dg
-
-
 #		define _GT_NAME	           		t_swe_dg_timestep_traversal
 
 #		define _GT_EDGES
@@ -57,14 +51,10 @@ MODULE SWE_DG_solver
 #		define _GT_CELL_UPDATE_OP		cell_update_op_dg
 #		define _GT_CELL_TO_EDGE_OP		cell_to_edge_op_dg
 
-!#               define _GT_EDGE_FIRST_TOUCH_OP          edge_first_touch_op_dg
-
-
   public cell_to_edge_op_dg
 
 #		include "SFC_generic_traversal_ringbuffer.f90"
 
-!  use SWE_Euler_Timestep
 
   subroutine post_traversal_grid_op_dg(traversal, grid)
     type(t_swe_dg_timestep_traversal), intent(inout)		:: traversal
@@ -87,19 +77,6 @@ MODULE SWE_DG_solver
     grid%r_dt = min(cfg%r_max_time, grid%r_dt)    
     call scatter(grid%r_time, grid%sections%elements_alloc%r_time)
   end subroutine post_traversal_grid_op_dg
- 
-  ! subroutine edge_first_touch_scalar_op_dg(traversal, section, edge)
-  !   type(t_swe_dg_timestep_traversal)  ::traversal
-  !   type(t_grid_section), intent(inout)::section
-  !   type(t_edge_data), intent(inout)   ::edge
-  ! end subroutine edge_first_touch_scalar_op_dg
-
-  ! subroutine edge_first_touch_array_op_dg(traversal, section, edge)
-  !   type(t_swe_dg_timestep_traversal)  ::traversal
-  !   type(t_grid_section), intent(inout)::section
-  !   type(t_edge_data), intent(inout)   ::edge(:)
-  ! end subroutine edge_first_touch_array_op_dg
-
 
   subroutine pre_traversal_grid_op_dg(traversal, grid)
     type(t_swe_dg_timestep_traversal), intent(inout)		:: traversal
@@ -127,11 +104,11 @@ MODULE SWE_DG_solver
     type(t_edge_data), intent(in)						    :: edge
     type(num_cell_rep)										:: rep
     integer                                             :: edge_type=-5 !1=right, 2=hypotenuse, 3=left
-    integer :: i,k,indx,indx_mir
+    integer :: i,j,k,indx,indx_mir
     integer(kind=BYTE) :: orientation
     type(num_cell_rep) ::rep_fv
 
-!    print*,"cte: ",OMP_GET_THREAD_NUM()
+
     associate(cell_edge => ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%edges, normal => edge%transform_data%normal)
       do i=1,3
          if ( normal(1) == cell_edge(i)%normal(1) .and. normal(2) == cell_edge(i)%normal(2) )   then
@@ -144,33 +121,65 @@ MODULE SWE_DG_solver
     end associate
 
     if(element%cell%data_pers%troubled.le.0) then
-     do k=0,_SWE_DG_ORDER
-        do i=0,_SWE_DG_ORDER
-           indx_mir=i+1+k*(_SWE_DG_ORDER+1)
-           select case (edge_type)
-           case(-1 ,1) !right
-              indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i+1)*(_SWE_DG_ORDER-i+2)/2 +1+k*_SWE_DG_DOFS
-              rep%Q_DG_P(indx_mir)%h = element%cell%data_pers%Q_DG_P(indx)%h
-              rep%Q_DG_P(indx_mir)%p = element%cell%data_pers%Q_DG_P(indx)%p
-              rep%Q_DG_P(indx_mir)%b = element%cell%data_pers%Q_DG(indx-k*_SWE_DG_DOFS)%b
-           case(-2,2) !mid
-              indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i)*(_SWE_DG_ORDER-i+1)/2 + k*_SWE_DG_DOFS
-              rep%Q_DG_P(indx_mir)%h = element%cell%data_pers%Q_DG_P(indx)%h
-              rep%Q_DG_P(indx_mir)%p = element%cell%data_pers%Q_DG_P(indx)%p
-              rep%Q_DG_P(indx_mir)%b = element%cell%data_pers%Q_DG(indx-k*_SWE_DG_DOFS)%b
-           case(-3 ,3) !left
-              indx=1+i+k*_SWE_DG_DOFS
-              rep%Q_DG_P(indx_mir)%h = element%cell%data_pers%Q_DG_P(indx)%h
-              rep%Q_DG_P(indx_mir)%p = element%cell%data_pers%Q_DG_P(indx)%p
-              rep%Q_DG_P(indx_mir)%b = element%cell%data_pers%Q_DG(indx-k*_SWE_DG_DOFS)%b
-           case default
-              !print*,"ERROR: In cell_to_edge_op edge type not known: ",edge_type
-              stop
-              
-           end select
-        end do
+       do k=0,_SWE_DG_ORDER
+          do i=0,_SWE_DG_ORDER
+             indx_mir=i+1+k*(_SWE_DG_ORDER+1)
+             select case (edge_type)
+             case(-1 ,1) !right
+                indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i+1)*(_SWE_DG_ORDER-i+2)/2 +1+k*_SWE_DG_DOFS
+                rep%Q_DG_P(indx_mir)%h = element%cell%data_pers%Q_DG_P(indx)%h
+                rep%Q_DG_P(indx_mir)%p = element%cell%data_pers%Q_DG_P(indx)%p
+                rep%Q_DG_P(indx_mir)%b = element%cell%data_pers%Q_DG(indx-k*_SWE_DG_DOFS)%b
+             case(-2,2) !mid
+                indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i)*(_SWE_DG_ORDER-i+1)/2 + k*_SWE_DG_DOFS
+                rep%Q_DG_P(indx_mir)%h = element%cell%data_pers%Q_DG_P(indx)%h
+                rep%Q_DG_P(indx_mir)%p = element%cell%data_pers%Q_DG_P(indx)%p
+                rep%Q_DG_P(indx_mir)%b = element%cell%data_pers%Q_DG(indx-k*_SWE_DG_DOFS)%b
+             case(-3 ,3) !left
+                indx=1+i+k*_SWE_DG_DOFS
+                rep%Q_DG_P(indx_mir)%h = element%cell%data_pers%Q_DG_P(indx)%h
+                rep%Q_DG_P(indx_mir)%p = element%cell%data_pers%Q_DG_P(indx)%p
+                rep%Q_DG_P(indx_mir)%b = element%cell%data_pers%Q_DG(indx-k*_SWE_DG_DOFS)%b
+             case default
+!!!!print*,"ERROR: In cell_to_edge_op edge type not known: ",edge_type
+                stop
+
+             end select
+          end do
+       end do
+    else
+
+  !----FV updates need to be in reverse order----!
+  select case (edge_type)
+  case (-3,3) !cells with id i*i+1 (left leg)
+     do i=0, _SWE_PATCH_ORDER - 1
+        j=_SWE_PATCH_ORDER-1-i
+        rep%H(i+1) = element%cell%data_pers%H(j*j + 1)
+        rep%HU(i+1)= element%cell%data_pers%HU(j*j + 1)
+        rep%HV(i+1)= element%cell%data_pers%HV(j*j + 1)
+        rep%B(i+1) = element%cell%data_pers%B(j*j + 1)
      end do
-  end if
+  case (-2,2) ! hypotenuse
+     do i=1, _SWE_PATCH_ORDER
+        j=_SWE_PATCH_ORDER+1-i
+        rep%H(i) = element%cell%data_pers%H ((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
+        rep%HU(i)= element%cell%data_pers%HU((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
+        rep%HV(i)= element%cell%data_pers%HV((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
+        rep%B(i) = element%cell%data_pers%B ((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
+     end do
+  case (-1,1) !cells with id i*i (right leg)
+     do i=1, _SWE_PATCH_ORDER
+!        j=_SWE_PATCH_ORDER+1-i
+        rep%H(i)  = element%cell%data_pers%H(i*i)
+        rep%HU(i) = element%cell%data_pers%HU(i*i)
+        rep%HV(i) = element%cell%data_pers%HV(i*i)
+        rep%B(i)  = element%cell%data_pers%B(i*i)
+     end do
+  end select
+
+
+
+    end if
 
   rep%Q_DG = element%cell%data_pers%Q_DG
   rep%troubled=element%cell%data_pers%troubled
@@ -199,14 +208,21 @@ type(num_cell_rep), intent(in)				:: rep1, rep2
 type(num_cell_update), intent(out)			:: update1, update2
 type(t_update),dimension((_SWE_DG_ORDER+1)**2)         :: flux_temp
 type(t_state),dimension((_SWE_DG_ORDER+1)**2)          :: rep_temp
-integer                                                 :: i,j
+integer                                                 :: i,j, edge_type
 
 
 ! !omp single
 
-!print*,"Skeleton: ",OMP_GET_THREAD_NUM()
+!!!!print*,"Skeleton: ",OMP_GET_THREAD_NUM()
 
-if(rep1%troubled.ne.1 .and. rep2%troubled.ne.2) then
+update1%Q_DG          =rep2%Q_DG
+update2%Q_DG          =rep1%Q_DG
+
+update1%troubled      =rep2%troubled
+update2%troubled      =rep1%troubled
+
+
+if(rep1%troubled.le.0 .and. rep2%troubled.le.0) then
    
    !        ______
    ! |6 \   \3 2 1|
@@ -249,19 +265,33 @@ if(rep1%troubled.ne.1 .and. rep2%troubled.ne.2) then
       update2%flux=flux_temp
    end if
 
+else
+
+   if(rep1%troubled.le.0) then
+      ! do nothing conversion is performed in cell_update_op
+   else
+      update2%H=rep1%H
+      update2%HU=rep1%HU
+      update2%HV=rep1%HV
+      update2%B=rep1%B
+   end if
+
+   if(rep2%troubled.le.0) then
+      ! do nothing conversion is performed in cell_update_op
+   else
+      update1%H=rep2%H
+      update1%HU=rep2%HU
+      update1%HV=rep2%HV
+      update1%B=rep2%B
+   end if
+
+   
 end if
-
-update1%Q_DG          =rep2%Q_DG
-update2%Q_DG          =rep1%Q_DG
-
-update1%troubled      =rep2%troubled
-update2%troubled      =rep1%troubled
-
 
 ! !omp end single
 
-!print*,update1%Q_DG%h
-!print*,update2%Q_DG%h
+!!!!print*,update1%Q_DG%h
+!!!!print*,update2%Q_DG%h
 
 
 end subroutine skeleton_scalar_op_dg
@@ -279,47 +309,74 @@ end do
 end subroutine bnd_skeleton_array_op_dg
 
 subroutine bnd_skeleton_scalar_op_dg(traversal, grid, edge, rep, update)
-type(t_swe_dg_timestep_traversal), intent(in)  :: traversal
+type(t_swe_dg_timestep_traversal), intent(in)       :: traversal
 type(t_grid_section), intent(in)		    :: grid
-type(t_edge_data), intent(in)		    :: edge
-type(num_cell_rep), intent(in)		    :: rep
+type(t_edge_data), intent(in)		            :: edge
+type(num_cell_rep), intent(in)		            :: rep
 type(num_cell_update), intent(out)		    :: update
-type(num_cell_update)		    :: temp_update
-real(kind=GRID_SR)                             :: normal_normed(2)
-real(kind=GRID_SR)                             :: length_flux
-integer                                        :: i
-type(t_state),Dimension((_SWE_DG_ORDER+1)**2)                      :: temp_Q_DG_P
+type(num_cell_update)	                	    :: temp_update
+real(kind=GRID_SR)                                  :: normal_normed(2)
+real(kind=GRID_SR)                                  :: length_flux
+integer                                             :: i
+type(t_state),Dimension((_SWE_DG_ORDER+1)**2)       :: temp_Q_DG_P
 
 
 normal_normed=(edge%transform_data%normal)/NORM2(edge%transform_data%normal)
 
-if(rep%troubled.le.0) then
-temp_Q_DG_P(:)%h = rep%Q_DG_P(:)%h
-temp_Q_DG_P(:)%b = rep%Q_DG_P(:)%b
-
 update%troubled=rep%troubled
 
-!---Predictor velocities---!
-!---TODO: Scons variable or config for boundary---!
-do i=1,(_SWE_DG_ORDER+1)**2
-   !                          reflecting boundary
-   length_flux = dot_product(rep%Q_DG_P(i)%p, normal_normed)
+if(rep%troubled.le.0) then
+   temp_Q_DG_P(:)%h = rep%Q_DG_P(:)%h
+   temp_Q_DG_P(:)%b = rep%Q_DG_P(:)%b
+   
+   update%troubled=rep%troubled
+   
+   !---Predictor velocities---!
+   !---TODO: Scons variable or config for boundary---!
+   do i=1,(_SWE_DG_ORDER+1)**2
+      !                          reflecting boundary
+      length_flux = dot_product(rep%Q_DG_P(i)%p, normal_normed)
+      
+      temp_Q_DG_P(i)%p(1) = rep%Q_DG_P(i)%p(1)-2.0_GRID_SR*length_flux*normal_normed(1)
+      temp_Q_DG_P(i)%p(2) = rep%Q_DG_P(i)%p(2)-2.0_GRID_SR*length_flux*normal_normed(2)
+      
+      !simple outflowing boundary
+      !temp_Q_DG_P(i)%p(1) =  rep%Q_DG_P(i)%p(1)
+      !temp_Q_DG_P(i)%p(2) =  rep%Q_DG_P(i)%p(2)
+      !                            end if
+      
+      !zero vel bnd
+      !                          update%Q_DG_P(i)%p(1) =  0
+      !                          update%Q_DG_P(i)%p(2) =  0
+   end do
+   
+   call compute_flux_pred(normal_normed,rep%Q_DG_P,temp_Q_DG_P,update%flux,temp_update%flux)
 
-   temp_Q_DG_P(i)%p(1) = rep%Q_DG_P(i)%p(1)-2.0_GRID_SR*length_flux*normal_normed(1)
-   temp_Q_DG_P(i)%p(2) = rep%Q_DG_P(i)%p(2)-2.0_GRID_SR*length_flux*normal_normed(2)
 
-   !simple outflowing boundary
-   !temp_Q_DG_P(i)%p(1) =  rep%Q_DG_P(i)%p(1)
-   !temp_Q_DG_P(i)%p(2) =  rep%Q_DG_P(i)%p(2)
-   !                            end if
 
-   !zero vel bnd
-   !                          update%Q_DG_P(i)%p(1) =  0
-   !                          update%Q_DG_P(i)%p(2) =  0
-end do
+   do i=1,(_SWE_PATCH_ORDER)
+      !                          reflecting boundary
+      length_flux = rep%HU(i) * normal_normed(1) + rep%HV(i) * normal_normed(2)
+      
+      update%HU(i) = rep%HU(i)-2.0_GRID_SR*length_flux*normal_normed(1)
+      update%HV(i) = rep%HV(i)-2.0_GRID_SR*length_flux*normal_normed(2)
+      
+      !simple outflowing boundary
+      !temp_Q_DG_P(i)%p(1) =  rep%Q_DG_P(i)%p(1)
+      !temp_Q_DG_P(i)%p(2) =  rep%Q_DG_P(i)%p(2)
+      !                            end if
+      
+      !zero vel bnd
+      !                          update%Q_DG_P(i)%p(1) =  0
+      !                          update%Q_DG_P(i)%p(2) =  0
+   end do
 
-call compute_flux_pred(normal_normed,rep%Q_DG_P,temp_Q_DG_P,update%flux,temp_update%flux)
-
+   
+   update%H=rep%H
+   update%HU=rep%HU
+   update%HV=rep%HV
+   update%B=rep%B
+   
 end if
 
 update%Q_DG(:)%h = rep%Q_DG(:)%h
@@ -352,14 +409,13 @@ type(t_update),  DIMENSION((_SWE_DG_ORDER+1)**2)		:: flux1, flux2, flux3,flux2_t
 type(t_state), dimension((_SWE_DG_ORDER+1)**2)             :: edge_l, edge_m,edge_r
 real(kind= GRID_SR) :: dt,dx,delta(3),max_neighbour(3),min_neighbour(3),data_max_val(3),data_min_val(3)
 integer :: indx,indx_mir,k,i,j
-real (kind=GRID_SR) :: max_wave_speed, wave_speed=0,dQ_norm
-real (kind=GRID_SR) :: refinement_threshold=0.5_GRID_SR
+real (kind=GRID_SR) :: max_wave_speed, wave_speed=0,dQ_norm,b_min,b_max
+real (kind=GRID_SR) :: refinement_threshold = 0.05_GRID_SR/_SWE_DG_ORDER
 real (kind = GRID_SR), dimension (_SWE_DG_DOFS) :: H_old, HU_old, HV_old, B_old
 real (kind = GRID_SR), dimension (_SWE_PATCH_ORDER_SQUARE) :: H, HU, HV
-logical :: drying,troubled,neighbours_troubled
-integer :: i_depth
-
-
+logical :: drying,troubled,neighbours_troubled,refine,coarsen
+integer :: i_depth,bathy_depth
+real(kind=GRID_SR),Dimension(3) :: edge_sizes     
 
 if (element%cell%geometry%i_plotter_type > 0) then ! if orientation = forward, reverse updates
    tmp=update1
@@ -370,34 +426,37 @@ end if
 
 neighbours_troubled=(update1%troubled.ge.1).or.(update2%troubled.ge.1).or.(update3%troubled.ge.1)
 
-!!!print*,"Troubled solver "
-!!!print*,update1%troubled
-!!!print*,update2%troubled
-!!!print*,update3%troubled
+!!!!!!print*,"Troubled solver "
+!!!!!!print*,update1%troubled
+!!!!!!print*,update2%troubled
+!!!!!!print*,update3%troubled
 
 associate(data => element%cell%data_pers)
   
   
 if(neighbours_troubled) then
    data%troubled=merge(data%troubled,2,data%troubled.ge.1)
-!   call element%cell%data_pers%convert_dg_to_fv_bathymetry()
+end if
+
+if(data%troubled.eq.2) then
+   call data%convert_dg_to_fv()
 end if
 
 if(data%troubled.le.0) then
    data%troubled=0
 
-!!!!!print*,"updatesl"
-!!!!!print*,edge_l(:)%H
-!!!!!print*,edge_l(:)%p(1)
-!!!!!print*,edge_l(:)%p(2)
-!!!!!print*,edge_l(:)%b
-!!!!!print*,update1%Q_DG_P(:)%H
-!!!!!print*,update1%Q_DG_P(:)%p(1)
-!!!!!print*,update1%Q_DG_P(:)%p(2)
-!!!!!print*,update1%Q_DG_P(:)%b
-!!!!!print*,flux1(:)%H
-!!!!!print*,flux1(:)%p(1)
-!!!!!print*,flux1(:)%p(2)
+!!!!!!!!print*,"updatesl"
+!!!!!!!!print*,edge_l(:)%H
+!!!!!!!!print*,edge_l(:)%p(1)
+!!!!!!!!print*,edge_l(:)%p(2)
+!!!!!!!!print*,edge_l(:)%b
+!!!!!!!!print*,update1%Q_DG_P(:)%H
+!!!!!!!!print*,update1%Q_DG_P(:)%p(1)
+!!!!!!!!print*,update1%Q_DG_P(:)%p(2)
+!!!!!!!!print*,update1%Q_DG_P(:)%b
+!!!!!!!!print*,flux1(:)%H
+!!!!!!!!print*,flux1(:)%p(1)
+!!!!!!!!print*,flux1(:)%p(2)
 
    H_old =data%Q_DG%H
    B_old =data%Q_DG%B
@@ -425,18 +484,18 @@ if(data%troubled.le.0) then
    delta(3) = max(0.1_GRID_SR,max_neighbour(3)-min_neighbour(3))
 
    delta=delta*1.0e-3_GRID_SR
-   !       !!!!!!!!!!print*,"solver"
+   !       !!!!!!!!!!!!!print*,"solver"
 
-    ! !print*,element%cell%geometry%i_plotter_type
-    ! !print*,update1%flux(:)%H
-    ! !print*,update1%flux(:)%p(1)
-    ! !print*,update1%flux(:)%p(2)
-    ! !print*,update2%flux(:)%H
-    ! !print*,update2%flux(:)%p(1)
-    ! !print*,update2%flux(:)%p(2)
-    ! !print*,update3%flux(:)%H
-    ! !print*,update3%flux(:)%p(1)
-    ! !print*,update3%flux(:)%p(2)
+    ! !!!!print*,element%cell%geometry%i_plotter_type
+    ! !!!!print*,update1%flux(:)%H
+    ! !!!!print*,update1%flux(:)%p(1)
+    ! !!!!print*,update1%flux(:)%p(2)
+    ! !!!!print*,update2%flux(:)%H
+    ! !!!!print*,update2%flux(:)%p(1)
+    ! !!!!print*,update2%flux(:)%p(2)
+    ! !!!!print*,update3%flux(:)%H
+    ! !!!!print*,update3%flux(:)%p(1)
+    ! !!!!print*,update3%flux(:)%p(2)
    
    
    call dg_solver(element,update1%flux,update2%flux,update3%flux,section%r_dt)
@@ -461,7 +520,11 @@ if(data%troubled.le.0) then
 #endif
    
    !   drying=.not.all(data%H - data%B > cfg%dry_tolerance*50.0).or..not.all(data%Q_DG%H > cfg%dry_tolerance*50.0)
-   drying=.not.all(data%Q_DG%H > cfg%dry_tolerance*50.0)
+#if defined(_ASAGI)   
+   drying=.not.all(data%Q_DG%H > 500)
+#else   
+   drying=.not.all(data%Q_DG%H > cfg%coast_height)
+#endif   
 
    if(troubled.or.drying) then
       !--if troubled or drying perform rollback--!
@@ -470,6 +533,7 @@ if(data%troubled.le.0) then
       data%Q_DG%p(2)=HV_old
       data%Q_DG%B=B_old
       data%troubled=merge(1,3,drying)
+      call element%cell%data_pers%convert_dg_to_fv()      
    else
       do i=1,_SWE_DG_DOFS
          wave_speed =  sqrt(g * (data%Q_DG(i)%h)) + maxval(abs(data%Q_DG(i)%p/data%Q_DG(i)%h))
@@ -477,32 +541,55 @@ if(data%troubled.le.0) then
          max_wave_speed = max(max_wave_speed,wave_speed)
       end do
       i_depth = element%cell%geometry%i_depth
-
-      !--- Refinement TODO ---!
-      
-! #define  _SWE_DG_REFINEMENT_COAST_HEIGHT 200
-! #define  _SWE_DG_REFINEMENT_COAST_DEPTH 12
-! #define  _SWE_DG_REFINEMENT_WAVE_DEPTH 10
-! #define  _SWE_DG_REFINEMENT_LAKE_AT_REST_DEPTH 4
       
       dQ_norm = maxval(data%Q_DG%H-H_old)
       
-      if (i_depth < cfg%i_max_depth .and. dQ_norm > refinement_threshold * cfg%scaling * get_edge_size(cfg%i_max_depth)/_SWE_PATCH_ORDER) then
+      edge_sizes=element%cell%geometry%get_edge_sizes()
+
+      !refine      
+      
+      !consider wave
+      refine = (dQ_norm/section%r_dt  * edge_sizes(1) * edge_sizes(1)) > refinement_threshold *get_edge_size(cfg%i_max_depth)**2
+      
+      !coarsen
+      !consider wave
+      coarsen=(dQ_norm/section%r_dt  * edge_sizes(1) * edge_sizes(1)) < refinement_threshold/8_GRID_SR *get_edge_size(cfg%i_max_depth)**2
+
+#if defined(_ASAGI)
+      !consider bathymetrie
+      if(coarsen) then
+         section%b_min=-0.1_GRID_SR
+         section%b_max=0.1_GRID_SR
+
+         if((minval(element%cell%data_pers%Q_DG%B) * section%b_min) > 0) then
+            
+            bathy_depth= cfg%i_max_depth &
+            -floor(abs(minval(element%cell%data_pers%Q_DG%B)/abs(section%b_min)) &
+            *(cfg%i_max_depth-cfg%i_min_depth))
+            
+         else if((maxval(element%cell%data_pers%Q_DG%B) * section%b_max) > 0) then
+
+            bathy_depth= cfg%i_max_depth &
+            -floor(abs(maxval(element%cell%data_pers%Q_DG%B)/abs(section%b_max)) &
+            *(cfg%i_max_depth-cfg%i_min_depth))
+            
+         end if
+         
+         bathy_depth = max(min(bathy_depth,cfg%i_max_depth),cfg%i_min_depth)
+      end if
+
+      !!      coarsen=coarsen.and. (cfg%i_max_depth-floor(min(element%cell%data_pers%Q_DG%b)/(section%section%b_min/(cfg%i_max_depth-cfg%i_min_depth))) < i_depth)
+      coarsen=coarsen.and. (i_depth > bathy_depth)
+
+#endif      
+
+      
+      if (i_depth < cfg%i_max_depth .and. refine) then
          element%cell%geometry%refinement = 1
          traversal%i_refinements_issued = traversal%i_refinements_issued + 1_GRID_DI
-      else if (i_depth > cfg%i_min_depth .and. dQ_norm < refinement_threshold * cfg%scaling * get_edge_size(cfg%i_max_depth)/(_SWE_PATCH_ORDER*8_GRID_SR)) then
-         element%cell%geometry%refinement = -1
+      else if (i_depth > cfg%i_min_depth .and. coarsen) then
+         element%cell%geometry%refinement = -1         
       endif
-      
-!       if (minval(H-data%B).le._SWE_DG_REFINEMENT_COAST_HEIGHT*cfg%dry_tolerance .and. i_depth < min(_SWE_DG_REFINEMENT_COAST_DEPTH,cfg%i_max_depth)) then
-!          element%cell%geometry%refinement = 1
-!          traversal%i_refinements_issued = traversal%i_refinements_issued + 1_GRID_DI
-!       else if(max_wave_speed > 1e-15 .and. i_depth < min(_SWE_DG_REFINEMENT_WAVE_DEPTH,cfg%i_max_depth)) then
-!          element%cell%geometry%refinement = 1
-!          traversal%i_refinements_issued = traversal%i_refinements_issued + 1_GRID_DI
-!       else if(max_wave_speed < 1e-15 .and. i_depth > max(_SWE_DG_REFINEMENT_LAKE_AT_REST_DEPTH,cfg%i_min_depth)) then
-!          element%cell%geometry%refinement = -1
-!       end if
       
    end if
 
@@ -511,22 +598,55 @@ end if
 !if cell is troubled, compute fv solution and mark all edges as troubled
 
 if(data%troubled.ge.1) then
+   !print*,data%troubled
+   !!!print*,"1"
+   if(update1%troubled.le.0) then
+      call get_fv_update(update1,1)
+   end if
+   
+   if(update2%troubled.le.0) then
+      call get_fv_update(update2,2)
+   end if
+   
+   if(update3%troubled.le.0) then
+      call get_fv_update(update3,3)
+   end if
+   
+   !call get_fv_update(update1,1)
+   !!!print*,"2"
+   !!!print*
+   !!!print*,update2%Q_DG%H
+   !!!print*,update2%Q_DG%p(1)
+   !!!print*,update2%Q_DG%p(2)
+   !!!print*,update2%Q_DG%B      
+   !call get_fv_update(update2,2)
+   !!!print*,"3"
+   !call get_fv_update(update3,3)
 
-
-   call get_fv_update(update1,1)
-   call get_fv_update(update2,2)
-   call get_fv_update(update3,3)
-
-
-   call data%convert_dg_to_fv()
+   !call data%convert_dg_to_fv_bathymetry()      
+   !call data%convert_dg_to_fv()
 
    !-----Call FV patch solver----!
+
+   !print*,"update Heights"
+   !print*, update1%H
+   !print*, update2%H
+   !print*, update3%H
+   !print*, element%cell%data_pers%H
+
+   !print*,"update Bathy"
+   !print*, update1%B
+   !print*, update2%B
+   !print*, update3%B
+   !print*, element%cell%data_pers%B   
+
+
+
+   
+
+   
+   
    call fv_patch_solver(traversal, section, element, update1, update2, update3)
-   
-   ! do i=1,size(element%edges)
-   !    element%edges(i)%ptr%data_pers%troubled= .true.
-   ! end do
-   
 end if
 end associate
 
@@ -610,11 +730,21 @@ do i=1,(_SWE_DG_ORDER+1)**2
 
  qr_v(1,1)= QR(i)%h
  qr_v(1,2:3)= QR(i)%p
-
+ 
+! !!!print*
+! !!!print*,qr_v
+! !!!print*,ql_v
+ 
  f1r_s=flux_1(qr_v,1)
  f2r_s=flux_2(qr_v,1)
  f1l_s=flux_1(ql_v,1)
  f2l_s=flux_2(ql_v,1)
+ 
+ ! !!!print*,f1r_s
+ ! !!!print*,f2r_s
+ ! !!!print*,f1l_s
+ ! !!!print*,f2l_s
+
  f=0.5_GRID_SR*((f1r_s-f1l_s) * normal_normed(1) + (f2r_s-f2l_s) *normal_normed(2)+alpha*(ql_v-qr_v))
  flux_l(i)%h=f(1,1)
  flux_l(i)%p=f(1,2:3)
@@ -682,19 +812,19 @@ flux_r%p(1)=0
 flux_r%p(2)=0
 
 do i=1,(_SWE_DG_ORDER+1)**2
-   !!!print*,"in"   
-   !!!print*,QL(i)%h
-   !!!print*,QL(i)%p(1)
-   !!!print*,QL(i)%p(2)
-   !!!print*,QR(i)%h
-   !!!print*,QR(i)%p(1)
-   !!!print*,QR(i)%p(2)
+   !!!!!!print*,"in"   
+   !!!!!!print*,QL(i)%h
+   !!!!!!print*,QL(i)%p(1)
+   !!!!!!print*,QL(i)%p(2)
+   !!!!!!print*,QR(i)%h
+   !!!!!!print*,QR(i)%p(1)
+   !!!!!!print*,QR(i)%p(2)
    
    
    call compute_geoclaw_flux_pred(normal_normed, QL(i), QR(i), flux_l(i), flux_r(i))
-   !!!print*,"out"
-   !!!print*,flux_l(i)%h
-   !!!print*,flux_r(i)%h
+   !!!!!!print*,"out"
+   !!!!!!print*,flux_l(i)%h
+   !!!!!!print*,flux_r(i)%h
 
 end do
 
@@ -820,10 +950,10 @@ subroutine dg_solver(element,update1,update2,update3,dt)
 #if defined(_SWE_DG_NODAL)
 
     do i=0,_SWE_DG_ORDER
-       !print*,i*_SWE_DG_DOFS+1
-       !print*,(i+1)*_SWE_DG_DOFS
-       !print*,size(b)
-       !print*,size(Q_DG(:)%b)
+       !!!!print*,i*_SWE_DG_DOFS+1
+       !!!!print*,(i+1)*_SWE_DG_DOFS
+       !!!!print*,size(b)
+       !!!!print*,size(Q_DG(:)%b)
        b(i*_SWE_DG_DOFS+1:(i+1)*_SWE_DG_DOFS) = Q_DG(:)%b
     end do
 
@@ -850,11 +980,11 @@ subroutine dg_solver(element,update1,update2,update3,dt)
 !    b_y=Q_DG_P%b_y
 
     if(any(q_p(:,1) <= 0))then
-       print*,"Negative water height in dg solver"
-       !!!print*,"PRED"
-       !!!print*,q_p(:,1)
-       !!!print*,"FV"
-       !!!print*,element%cell%data_pers%H(:)
+       !!!print*,"Negative water height in dg solver"
+       !!!!!!print*,"PRED"
+       !!!!!!print*,q_p(:,1)
+       !!!!!!print*,"FV"
+       !!!!!!print*,element%cell%data_pers%H(:)
        stop
     end if
     
@@ -897,125 +1027,125 @@ subroutine dg_solver(element,update1,update2,update3,dt)
     
     bnd_flux_contrib=-matmul(b_m_1,f2)-matmul(b_m_3,f1)+matmul(b_m_2,f1+f2)/sqrt(2.0_GRID_SR)
     
-    !!print*,"solver"
-    !!print*, "orig ",q
-    !!print*,"orientation",element%cell%geometry%i_plotter_type
-    !!print*,"jacobian_inv",jacobian_inv
-    !!print*, "dx ",dx
-    !!print*, "dt ",dt
-    !!print*
-    !!print*, "elt flux 1 "
-    !!print*,volume_flux1(:,1)
-    !!print*,volume_flux1(:,2)
-    !!print*,volume_flux1(:,3)
-    !!print*
-    !!print*, "elt flux 2 "
-    !!print*,volume_flux2(:,1)
-    !!print*,volume_flux2(:,2)
-    !!print*,volume_flux2(:,3)
-    !!print*
-    !!print*, "elt flux sum"
-    !!print*,volume_flux2(:,1)+volume_flux1(:,1)
-    !!print*,volume_flux2(:,2)+volume_flux1(:,2)
-    !!print*,volume_flux2(:,3)+volume_flux1(:,3)
-    !!print*
-    !!print*, "bnd_flux_contribution "
-    !!print*,bnd_flux_contrib(:,1)
-    !!print*,bnd_flux_contrib(:,2)
-    !!print*,bnd_flux_contrib(:,3)
-    !!print*
-    !!print*, "bnd_flux "
-    !!print*,bnd_flux_l(:,1)+bnd_flux_r(:,1)+bnd_flux_m(:,1)
-    !!print*,bnd_flux_l(:,2)+bnd_flux_r(:,2)+bnd_flux_m(:,2)
-    !!print*,bnd_flux_l(:,3)+bnd_flux_r(:,3)+bnd_flux_m(:,3)
-    !!print*,                        
-    !!print*, "volume_flux comp"
-    !!print*, volume_flux1(:,1)+volume_flux2(:,1)-bnd_flux_contrib(:,1)
-    !!print*, volume_flux1(:,2)+volume_flux2(:,2)-bnd_flux_contrib(:,2)
-    !!print*, volume_flux1(:,3)+volume_flux2(:,3)-bnd_flux_contrib(:,3)
-    !!print*
-    !!print*, "source"
-    !!print*,source(:,1)
-    !!print*,source(:,2)
-    !!print*,source(:,3)
-    !!print*, "bnd source"
-    !!print*, bnd_source_contrib(:,1)
-    !!print*, bnd_source_contrib(:,2)
-    !!print*, bnd_source_contrib(:,3)
-    !!print*,"source complete"
-    !!print*,-source(:,1) - bnd_source_contrib(:,1)
-    !!print*,-source(:,2) - bnd_source_contrib(:,2)
-    !!print*,-source(:,3) - bnd_source_contrib(:,3)
-    !!print*
-    !!print*,
-    !!print*,"comp"
-    !!print*,(bnd_flux_l(:,1)+bnd_flux_r(:,1)+bnd_flux_m(:,1)-(volume_flux1(:,1)+volume_flux2(:,1)-bnd_flux_contrib(:,1)+bnd_source_contrib(:,1)+source(:,1)))*dt/dx
-    !!print*,(bnd_flux_l(:,2)+bnd_flux_r(:,2)+bnd_flux_m(:,2)-(volume_flux1(:,2)+volume_flux2(:,2)-bnd_flux_contrib(:,2)+bnd_source_contrib(:,2)+source(:,2)))*dt/dx
-    !!print*,(bnd_flux_l(:,3)+bnd_flux_r(:,3)+bnd_flux_m(:,3)-(volume_flux1(:,3)+volume_flux2(:,3)-bnd_flux_contrib(:,3)+bnd_source_contrib(:,3)+source(:,3)))*dt/dx
-    !!print*
-    !!print*, "bnd_flux_1_dof h"
-    !!print*,update1%h
-    !!print*,update1%p(1)
-    !!print*,update1%p(2)
-    !!print*
-    !!print*, "bnd_flux_2_dof"
-    !!print*,update2%h
-    !!print*,update2%p(1)
-    !!print*,update2%p(2)
-    !!print*
-    !!print*, "bnd_flux_3_dof"
-    !!print*,update3%h
-    !!print*,update3%p(1)
-    !!print*,update3%p(2)
-    !!print*
-    !!print*, "volume_flux1 ",volume_flux1
-    !!print*,                           
-    !!print*, "volume_flux2 ",volume_flux2
-    !!print*,
-     !!print*, "f1"
-     !!print*,f1(:,1)
-     !!print*,f1(:,2)
-     !!print*,f1(:,3)
-     !!print*,
-     !!print*, "f2"
-     !!print*,f2(:,1)
-     !!print*,f2(:,2)
-     !!print*,f2(:,3)
-     !!print*,
-    !!print*, "f1_ref"
-    !!print*,f1_ref(:,1)
-    !!print*,f1_ref(:,2)
-    !!print*,f1_ref(:,3)
-    !!print*,
-    !!print*, "f2_ref"
-    !!print*,f2_ref(:,1)
-    !!print*,f2_ref(:,2)
-    !!print*,f2_ref(:,3)
-    !!Print*, "elt_source"
-    !!print*,source_ref(:,1)
-    !!print*,source_ref(:,2)
-    !!print*,source_ref(:,3)
-    !!print*
-    !!print*,"tot Height x"
-    !!print*,H_x
-    !!print*,"tot Height y"
-    !!print*,H_y
+    !!!!!print*,"solver"
+    !!!!!print*, "orig ",q
+    !!!!!print*,"orientation",element%cell%geometry%i_plotter_type
+    !!!!!print*,"jacobian_inv",jacobian_inv
+    !!!!!print*, "dx ",dx
+    !!!!!print*, "dt ",dt
+    !!!!!print*
+    !!!!!print*, "elt flux 1 "
+    !!!!!print*,volume_flux1(:,1)
+    !!!!!print*,volume_flux1(:,2)
+    !!!!!print*,volume_flux1(:,3)
+    !!!!!print*
+    !!!!!print*, "elt flux 2 "
+    !!!!!print*,volume_flux2(:,1)
+    !!!!!print*,volume_flux2(:,2)
+    !!!!!print*,volume_flux2(:,3)
+    !!!!!print*
+    !!!!!print*, "elt flux sum"
+    !!!!!print*,volume_flux2(:,1)+volume_flux1(:,1)
+    !!!!!print*,volume_flux2(:,2)+volume_flux1(:,2)
+    !!!!!print*,volume_flux2(:,3)+volume_flux1(:,3)
+    !!!!!print*
+    !!!!!print*, "bnd_flux_contribution "
+    !!!!!print*,bnd_flux_contrib(:,1)
+    !!!!!print*,bnd_flux_contrib(:,2)
+    !!!!!print*,bnd_flux_contrib(:,3)
+    !!!!!print*
+    !!!!!print*, "bnd_flux "
+    !!!!!print*,bnd_flux_l(:,1)+bnd_flux_r(:,1)+bnd_flux_m(:,1)
+    !!!!!print*,bnd_flux_l(:,2)+bnd_flux_r(:,2)+bnd_flux_m(:,2)
+    !!!!!print*,bnd_flux_l(:,3)+bnd_flux_r(:,3)+bnd_flux_m(:,3)
+    !!!!!print*,                        
+    !!!!!print*, "volume_flux comp"
+    !!!!!print*, volume_flux1(:,1)+volume_flux2(:,1)-bnd_flux_contrib(:,1)
+    !!!!!print*, volume_flux1(:,2)+volume_flux2(:,2)-bnd_flux_contrib(:,2)
+    !!!!!print*, volume_flux1(:,3)+volume_flux2(:,3)-bnd_flux_contrib(:,3)
+    !!!!!print*
+    !!!!!print*, "source"
+    !!!!!print*,source(:,1)
+    !!!!!print*,source(:,2)
+    !!!!!print*,source(:,3)
+    !!!!!print*, "bnd source"
+    !!!!!print*, bnd_source_contrib(:,1)
+    !!!!!print*, bnd_source_contrib(:,2)
+    !!!!!print*, bnd_source_contrib(:,3)
+    !!!!!print*,"source complete"
+    !!!!!print*,-source(:,1) - bnd_source_contrib(:,1)
+    !!!!!print*,-source(:,2) - bnd_source_contrib(:,2)
+    !!!!!print*,-source(:,3) - bnd_source_contrib(:,3)
+    !!!!!print*
+    !!!!!print*,
+    !!!!!print*,"comp"
+    !!!!!print*,(bnd_flux_l(:,1)+bnd_flux_r(:,1)+bnd_flux_m(:,1)-(volume_flux1(:,1)+volume_flux2(:,1)-bnd_flux_contrib(:,1)+bnd_source_contrib(:,1)+source(:,1)))*dt/dx
+    !!!!!print*,(bnd_flux_l(:,2)+bnd_flux_r(:,2)+bnd_flux_m(:,2)-(volume_flux1(:,2)+volume_flux2(:,2)-bnd_flux_contrib(:,2)+bnd_source_contrib(:,2)+source(:,2)))*dt/dx
+    !!!!!print*,(bnd_flux_l(:,3)+bnd_flux_r(:,3)+bnd_flux_m(:,3)-(volume_flux1(:,3)+volume_flux2(:,3)-bnd_flux_contrib(:,3)+bnd_source_contrib(:,3)+source(:,3)))*dt/dx
+    !!!!!print*
+    !!!!!print*, "bnd_flux_1_dof h"
+    !!!!!print*,update1%h
+    !!!!!print*,update1%p(1)
+    !!!!!print*,update1%p(2)
+    !!!!!print*
+    !!!!!print*, "bnd_flux_2_dof"
+    !!!!!print*,update2%h
+    !!!!!print*,update2%p(1)
+    !!!!!print*,update2%p(2)
+    !!!!!print*
+    !!!!!print*, "bnd_flux_3_dof"
+    !!!!!print*,update3%h
+    !!!!!print*,update3%p(1)
+    !!!!!print*,update3%p(2)
+    !!!!!print*
+    !!!!!print*, "volume_flux1 ",volume_flux1
+    !!!!!print*,                           
+    !!!!!print*, "volume_flux2 ",volume_flux2
+    !!!!!print*,
+     !!!!!print*, "f1"
+     !!!!!print*,f1(:,1)
+     !!!!!print*,f1(:,2)
+     !!!!!print*,f1(:,3)
+     !!!!!print*,
+     !!!!!print*, "f2"
+     !!!!!print*,f2(:,1)
+     !!!!!print*,f2(:,2)
+     !!!!!print*,f2(:,3)
+     !!!!!print*,
+    !!!!!print*, "f1_ref"
+    !!!!!print*,f1_ref(:,1)
+    !!!!!print*,f1_ref(:,2)
+    !!!!!print*,f1_ref(:,3)
+    !!!!!print*,
+    !!!!!print*, "f2_ref"
+    !!!!!print*,f2_ref(:,1)
+    !!!!!print*,f2_ref(:,2)
+    !!!!!print*,f2_ref(:,3)
+    !!!!!Print*, "elt_source"
+    !!!!!print*,source_ref(:,1)
+    !!!!!print*,source_ref(:,2)
+    !!!!!print*,source_ref(:,3)
+    !!!!!print*
+    !!!!!print*,"tot Height x"
+    !!!!!print*,H_x
+    !!!!!print*,"tot Height y"
+    !!!!!print*,H_y
     
-    !!print*,"orig"
-    !!print*,q
-    !!print*
-    !!print*,"Q_DG_P"
-    !!print*,q_p(:,1)
-    !!print*,q_p(:,2)
-    !!print*,q_p(:,3)
-    !!print*,b
-    !!print*
-    !!print*,"pred height"
-    !!print*,element%cell%data_pers%Q_DG_P(:)%h
-    !!print*
-    !!print*,"pred bathy"
-    !!print*,b
-    !!print*
+    !!!!!print*,"orig"
+    !!!!!print*,q
+    !!!!!print*
+    !!!!!print*,"Q_DG_P"
+    !!!!!print*,q_p(:,1)
+    !!!!!print*,q_p(:,2)
+    !!!!!print*,q_p(:,3)
+    !!!!!print*,b
+    !!!!!print*
+    !!!!!print*,"pred height"
+    !!!!!print*,element%cell%data_pers%Q_DG_P(:)%h
+    !!!!!print*
+    !!!!!print*,"pred bathy"
+    !!!!!print*,b
+    !!!!!print*
 
     q_temp = ( bnd_flux_l &
          + bnd_flux_m &
@@ -1027,11 +1157,11 @@ subroutine dg_solver(element,update1,update2,update3,dt)
          + bnd_flux_contrib &
          )* dt/dx
 
-    ! !print*,"dg temp"
-    ! !print*,q_temp(:,1)
-    ! !print*,q_temp(:,2)
-    ! !print*,q_temp(:,3)
-    ! !print*
+    ! !!!!print*,"dg temp"
+    ! !!!!print*,q_temp(:,1)
+    ! !!!!print*,q_temp(:,2)
+    ! !!!!print*,q_temp(:,3)
+    ! !!!!print*
 
     
 
@@ -1041,11 +1171,11 @@ subroutine dg_solver(element,update1,update2,update3,dt)
     
     q=q-q_temp
 
-    ! !print*,"dg temp lu"
-    ! !print*,q_temp(:,1)
-    ! !print*,q_temp(:,2)
-    ! !print*,q_temp(:,3)
-    ! !print*
+    ! !!!!print*,"dg temp lu"
+    ! !!!!print*,q_temp(:,1)
+    ! !!!!print*,q_temp(:,2)
+    ! !!!!print*,q_temp(:,3)
+    ! !!!!print*
     
     call data%set_dofs_dg(q)
     
@@ -1102,6 +1232,10 @@ subroutine get_fv_update(update,leg)
   call apply_phi(update%Q_DG(:)%p(2),HV)
   call apply_phi(update%Q_DG(:)%b,B)
 
+  !!!print*,H
+  !!!print*,HU
+  !!!print*,HV
+  !!!print*,B
   
   !----FV updates need to be in reverse order----!
   select case (leg)
@@ -1132,11 +1266,11 @@ subroutine get_fv_update(update,leg)
   end select
 
 
-  where (update%H < update%B + cfg%dry_tolerance) 
-     update%H = update%B
-     update%HU = 0.0_GRID_SR
-     update%HV = 0.0_GRID_SR
-  end where
+  ! where (update%H < update%B + cfg%dry_tolerance) 
+  !    update%H = update%B
+  !    update%HU = 0.0_GRID_SR
+  !    update%HV = 0.0_GRID_SR
+  ! end where
 
 end subroutine get_fv_update
 
@@ -1168,6 +1302,7 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
             integer:: indx,indx_mir,k
             real (kind = GRID_SR), dimension (_SWE_PATCH_ORDER_SQUARE):: H_old, HU_old, HV_old
             logical :: drying,troubled
+            real (kind=GRID_SR) :: refinement_threshold = 0.05_GRID_SR/_SWE_DG_ORDER            
 #endif
 
 #if !defined(_SWE_USE_PATCH_SOLVER)
@@ -1287,6 +1422,7 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
 #                       else                    
                   ! using original geoclaw solver
                   maxWaveSpeeds=0
+                  !!!print*,"Geoclaw"
                   do j=1, _SWE_PATCH_SOLVER_CHUNK_SIZE
                      ind = i + j - 1 ! actual index
 
@@ -1340,12 +1476,13 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                element%cell%geometry%refinement = 0
                dQ_max_norm = maxval(abs(dQ_H))
 
-               if (element%cell%geometry%i_depth < cfg%i_max_depth .and. dQ_max_norm > 5.0_GRID_SR * cfg%scaling * get_edge_size(cfg%i_max_depth) / _SWE_PATCH_ORDER ) then
-                  element%cell%geometry%refinement = 1
-                  traversal%i_refinements_issued = traversal%i_refinements_issued + 1_GRID_DI
-               else if (element%cell%geometry%i_depth > cfg%i_min_depth .and. dQ_max_norm < 5.0_GRID_SR * cfg%scaling * get_edge_size(cfg%i_max_depth) / (_SWE_PATCH_ORDER * 8.0_SR) ) then
-                  element%cell%geometry%refinement = -1
-               endif
+               ! if (element%cell%geometry%i_depth < cfg%i_max_depth .and. (dQ_max_norm/section%r_dt  * edge_lengths(1) * edge_lengths(1) > refinement_threshold *get_edge_size(cfg%i_max_depth)**2)) then
+               !    element%cell%geometry%refinement = 1
+               !    traversal%i_refinements_issued = traversal%i_refinements_issued + 1_GRID_DI
+               ! else if (element%cell%geometry%i_depth > cfg%i_min_depth .and. (dQ_max_norm/section%r_dt  * edge_lengths(1) * edge_lengths(1) < refinement_threshold * get_edge_size(cfg%i_max_depth)**2/8.0_GRID_SR)) then
+
+               !    element%cell%geometry%refinement = -1
+               ! endif
 
                dQ_H = dQ_H * (-dt_div_volume)
                dQ_HU = dQ_HU * (-dt_div_volume)
@@ -1369,20 +1506,27 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                end where
 
                ! update unknowns
+!               !print*,"Before"
+!               !print*,data%H
+
                data%H = data%H + dQ_H
                data%HU = data%HU + dQ_HU
                data%HV = data%HV + dQ_HV
+!               !print*
+!               !print*,data%H
                
-               ! if the water level falls below the dry tolerance, set water level to 0 and velocity to 0
+               ! if the water level falls below the dry tolerance, set water level to 0 and velocity to 0             
+
+               !print*, data%H -data%B
                where (data%H < data%B + cfg%dry_tolerance) 
                   data%H = data%B
                   data%HU = 0.0_GRID_SR
                   data%HV = 0.0_GRID_SR
                end where
 
-!               !print*,data%H
-!               !print*,data%HU
-!               !print*,data%HV
+!               !!!!print*,data%H
+!               !!!!print*,data%HU
+!               !!!!print*,data%HV
                
                maxWaveSpeed=maxval(maxWaveSpeeds)
                section%r_dt_new = min(section%r_dt_new, volume / (edge_lengths(2) * maxWaveSpeed) )
@@ -1390,16 +1534,19 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
 
 
                call data%convert_fv_to_dg()
-               if(all(data%H - data%B > cfg%dry_tolerance*50.0)) then
-                  if(all(data%Q_DG%H > cfg%dry_tolerance*50.0)) then
+
+               if(all(data%H - data%B > cfg%coast_height)) then
+                  if(all(data%Q_DG%H > cfg%coast_height)) then                     
+
                      data%troubled = -data%troubled
+                     call data%convert_fv_to_dg_bathymetry(ref_plotter_data(element%cell%geometry%i_plotter_type)%jacobian)
                   else
                      data%troubled = 1
                   end if
                else
                   data%troubled = 1
                end if
-               
+
             !consider new dg cells in r_dt
                if(data%troubled .le. 0) then
                   do i=1,_SWE_DG_DOFS

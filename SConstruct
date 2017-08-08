@@ -273,14 +273,19 @@ elif env['flux_solver'] == 'hlle':
   
 # DG options for SWE scenario
 if (int(env['swe_dg_order'])) > 0:
-	env['F90FLAGS'] += ' -D_SWE_DG'
-        if(env['swe_dg_basis']=='bernstein_nodal'):
-          env['F90FLAGS'] += ' -D_SWE_DG_NODAL'
-	env['F90FLAGS'] += ' -D_SWE_DG_ORDER=' + env['swe_dg_order']
-	env['F90FLAGS'] += ' -D_SWE_DG_DOFS=' + str(int( (int(env['swe_dg_order'])+1)*(int(env['swe_dg_order'])+2)/2))
-	if (int(env['swe_patch_order'])) > 1:
-		print "WARNING: DG options will override set patch options"
-	env['swe_patch_order'] = str(2* int(env['swe_dg_order']) + 1)
+    env.Tool("generateKernels")
+    env['F90FLAGS'] += ' -D_SWE_DG'
+    if(env['swe_dg_basis']=='bernstein_nodal'):
+        env['F90FLAGS'] += ' -D_SWE_DG_NODAL'
+    env['F90FLAGS'] += ' -D_SWE_DG_ORDER=' + env['swe_dg_order']
+    env['F90FLAGS'] += ' -D_SWE_DG_DOFS=' + str(int( (int(env['swe_dg_order'])+1)*(int(env['swe_dg_order'])+2)/2))
+    if (int(env['swe_patch_order'])) > 1:
+        print "WARNING: DG options will override set patch options"
+        
+    env['swe_patch_order'] = str(2* int(env['swe_dg_order']) + 1)
+
+
+
 
 if (int(env['swe_patch_order'])) > 1:
   env['F90FLAGS'] += ' -D_SWE_PATCH'

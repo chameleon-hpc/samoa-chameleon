@@ -24,6 +24,9 @@ MODULE SWE_dg_matrices
 
 !Conversion matrices
 #include "dg_matrices/phi_SWE_DG_ORDER_TAG.incl"
+#include "dg_matrices/ref1_SWE_DG_ORDER_TAG.incl"
+#include "dg_matrices/ref2_SWE_DG_ORDER_TAG.incl"
+#include "dg_matrices/coarsen_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/mue_lu_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/mue_lu_pivot_SWE_DG_ORDER_TAG.incl"
 

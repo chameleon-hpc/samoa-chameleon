@@ -275,12 +275,6 @@
                   !$omp end master
                end if
                
-               if (swe%init_dofs%i_refinements_issued .le. 0) then
-                  exit
-               endif
-               
-               call swe%adaption%traverse(grid)
-               
                !output grids during initial phase if and only if t_out is 0
                if (cfg%r_output_time_step == 0.0_GRID_SR) then
                   if (cfg%l_ascii_output) then
@@ -297,6 +291,13 @@
                   
                   r_time_next_output = r_time_next_output + cfg%r_output_time_step
                end if
+
+               if (swe%init_dofs%i_refinements_issued .le. 0) then
+                  exit
+               endif
+               
+               call swe%adaption%traverse(grid)               
+
                
                i_initial_step = i_initial_step + 1
             end do
@@ -433,7 +434,7 @@
                    if (cfg%i_adapt_time_steps > 0 .and. mod(i_time_step, cfg%i_adapt_time_steps) == 0) then
                       call swe%adaption%traverse(grid)
                    end if
-                   
+!                   call swe%xml_output%traverse(grid)                   
 #if defined(_SWE_DG)
                    !$omp barrier
                    call swe%dg_timestep%traverse(grid)

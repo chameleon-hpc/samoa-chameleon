@@ -324,8 +324,6 @@
 
     
 #if defined(_SWE_DG)    
-    !   type(num_cell_data_pers) :: data_temp
-    
     if (element%cell%data_pers%troubled.le.0) then
        call apply_phi(element%cell%data_pers%Q_DG%H,element%cell%data_pers%H)
        call apply_phi(element%cell%data_pers%Q_DG%p(1),element%cell%data_pers%HU)
@@ -333,8 +331,6 @@
        call apply_phi(element%cell%data_pers%Q_DG%b,element%cell%data_pers%B)
        element%cell%data_pers%H=element%cell%data_pers%H+element%cell%data_pers%B
     end if
-    !print*,"convert"
-    !print*,"convert done"
 #endif
                
                 row=1
@@ -434,7 +430,7 @@
                             traversal%point_data(traversal%i_point_data_index + i - 1)%Q%b = t_basis_Q_eval(r_test_points_forward(:, i), Q%b)
                             traversal%point_data(traversal%i_point_data_index + i - 1)%Q%p(1) = t_basis_Q_eval(r_test_points_forward(:, i), Q%p(1))
                             traversal%point_data(traversal%i_point_data_index + i - 1)%Q%p(2) = t_basis_Q_eval(r_test_points_forward(:, i), Q%p(2))
-p                        end forall
+                        end forall
                     else
                         forall (i = 1 : 3)
                             traversal%point_data(traversal%i_point_data_index + i - 1)%coords = cfg%scaling * samoa_barycentric_to_world_point(element%transform_data, r_test_points_backward(:, i)) + cfg%offset

@@ -250,7 +250,7 @@ MODULE SWE_Scenario_linear_dam_break
         real (kind = GRID_SR), intent(in) :: x(2)
         type(t_dof_state) :: Q
         
-        real (kind = GRID_SR), parameter :: hL = 1.0_GRID_SR, hR = 0.5_GRID_SR
+        real (kind = GRID_SR), parameter :: hL = 1.0_GRID_SR, hR = 0.0_GRID_SR
         
         Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
         
@@ -360,16 +360,15 @@ MODULE SWE_Scenario_resting_isle
         
         if(NORM2(x) <= 3.0) then
         !if(x(1) <= 0.0) then        
-           bathymetry = -0.1_GRID_SR + 0.2_GRID_SR * (1.0_GRID_SR- (NORM2(x)/3.0_GRID_SR)**(2))
+           bathymetry = -0.5_GRID_SR + 1.0_GRID_SR * (1.0_GRID_SR- (NORM2(x)/3.0_GRID_SR)**(2))
         !bathymetry = -10.0_GRID_SR + cos(3.1415 * 0.5 * NORM2(x)/5.0)**2 * 20.0
         else
-           bathymetry = -0.1_GRID_SR
+           bathymetry = -0.5_GRID_SR
         end if
 
         ! if(norm2(x)<2.0)then
         !    bathymetry = -10.0 + (4-(x(1)**2 + x(2)**2))*15.0
         ! end if
-
 
     end function
     
@@ -400,7 +399,9 @@ MODULE SWE_Scenario_resting_isle
            Q%h = 0.0_GRID_SR
         end if
         
-        Q%h = max(Q%h,b)
+!        Q%h = max(Q%h,b)
+
+!        Q%h = 0.0_GRID_SR
     end function
 
 END MODULE SWE_Scenario_resting_isle

@@ -403,8 +403,10 @@ MODULE SWE_Initialize_Dofs
     !this variable will be incremented for each cell with a refinement request
     traversal%i_refinements_issued = 0
     section%r_dt_new  = huge(1.0_GRID_SR)
+#if defined(_ASAGI)    
     section%b_min_new = huge(1.0_GRID_SR)
-    section%b_max_new = tiny(1.0_GRID_SR)    
+    section%b_max_new = tiny(1.0_GRID_SR)
+#endif    
   end subroutine pre_traversal_op
 
   !******************
@@ -429,10 +431,10 @@ MODULE SWE_Initialize_Dofs
     !    call element%cell%data_pers%convert_dg_to_fv_bathymetry()                
     Q(:)%b = element%cell%data_pers%B
 
-    
+#if defined(_ASAGI)    
     section%b_min_new=min( section%b_min_new, minval(element%cell%data_pers%B))
     section%b_max_new=max( section%b_max_new, maxval(element%cell%data_pers%B))    
-
+#endif
 
     call alpha_volume_op(traversal, section, element, Q)
 
@@ -441,8 +443,8 @@ MODULE SWE_Initialize_Dofs
     element%cell%data_pers%HV = Q(:)%p(2)
 
 #if defined(_ASAGI)    
-    where(element%cell%data_pers%H < element%cell%data_pers%B)
-       element%cell%data_pers%H=element%cell%data_pers%B
+    where(0.0_GRID_SR < element%cell%data_pers%B)
+       element%cell%data_pers%H=0.0_GRID_SR
     end where
 #endif                   
 
@@ -596,31 +598,13 @@ MODULE SWE_Initialize_Dofs
        dQ_norm = abs(get_bathymetry_at_element(section, element, real(cfg%t_max_eq + 1.0, GRID_SR) ) - Q(1)%b)
 #                   endif
 
-       if (dQ_norm > 100.0_SR *cfg%dry_tolerance) then
+       if (dQ_norm > 2.0_SR) then
           element%cell%geometry%refinement = 1
           traversal%i_refinements_issued = traversal%i_refinements_issued + 1
        end if
-
+#endif
 #               else
        !refine any slopes in the initial state
-
-#if defined(_SWE_DG)
-       ! b_min=-0.1_GRID_SR
-       ! b_max=0.1_GRID_SR
-       ! if((minval(element%cell%data_pers%B) * b_min) > 0) then
-       !    bathy_depth= cfg%i_max_depth-floor(abs(minval(element%cell%data_pers%B)/abs(b_min))*(cfg%i_max_depth-cfg%i_min_depth))
-       ! else if((maxval(element%cell%data_pers%B) * b_max) > 0) then
-       !    bathy_depth= cfg%i_max_depth-floor(abs(maxval(element%cell%data_pers%B)/abs(b_max))*(cfg%i_max_depth-cfg%i_min_depth))
-       ! end if
-       ! bathy_depth = max(min(bathy_depth,cfg%i_max_depth),cfg%i_min_depth)
-
-       ! if(element%cell%geometry%i_depth < bathy_depth)then
-       !    element%cell%geometry%refinement = 1
-       !    traversal%i_refinements_issued = traversal%i_refinements_issued + 1
-       ! else if(element%cell%geometry%i_depth > bathy_depth)then
-       !    element%cell%geometry%refinement = -1
-       ! end if
-#else                    
        do i = 1, 3
           x = samoa_barycentric_to_world_point(element%transform_data, probes(:, i))
           Q_test(i) = get_initial_dof_state_at_position(section, x)
@@ -631,8 +615,6 @@ MODULE SWE_Initialize_Dofs
           traversal%i_refinements_issued = traversal%i_refinements_issued + 1
        end if
 #               endif
-#               endif
-
 
     end if
 

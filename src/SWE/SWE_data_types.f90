@@ -101,7 +101,9 @@
 #                       if defined(_SWE_DG)
                         type(t_state), DIMENSION(_SWE_DG_DOFS)                     :: Q_DG
                         type(t_dof_state), DIMENSION(_SWE_DG_DOFS*(_SWE_DG_ORDER+1))   :: Q_DG_P
-                        real(kind=GRID_SR) :: dt
+#if defined(_DEBUG)
+                        integer :: debug_flag = 0
+#endif                        
 
 #if !defined(_SWE_DG_NODAL)
                         real(kind=GRID_SR) :: b_x(size(st_gl_node_vals,1)), b_y(size(st_gl_node_vals,1))
@@ -146,7 +148,9 @@
 #if defined(_SWE_DG)
    type(t_state), DIMENSION((_SWE_DG_ORDER+1)*(_SWE_DG_ORDER+1))   :: Q_DG_P
    type(t_state), DIMENSION(_SWE_DG_DOFS)   :: Q_DG
-   
+#if defined(_DEBUG)   
+   integer   :: debug_flag = 0.0_GRID_SR
+#endif   
 !                        real(kind=GRID_SR),Dimension(3) :: min_val,max_val
    integer :: troubled
 

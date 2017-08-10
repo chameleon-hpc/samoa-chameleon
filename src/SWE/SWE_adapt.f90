@@ -40,6 +40,7 @@
 
 #		define _GT_EDGES
 
+#               undef _GT_SKELETON_OP  
 #		define _GT_PRE_TRAVERSAL_GRID_OP		pre_traversal_grid_op
 #		define _GT_PRE_TRAVERSAL_OP			pre_traversal_op
 #		define _GT_POST_TRAVERSAL_OP			post_traversal_op
@@ -106,9 +107,19 @@
           type(num_cell_update), intent(inout)						:: update1, update2, update3
           integer :: i
 
+          if(element%cell%data_pers%troubled .ge.6) then
+             element%cell%data_pers%troubled = -(element%cell%data_pers%troubled-5)
+          end if
+          
           if(element%cell%data_pers%troubled.le.0) then
              call dg_predictor(element%cell,section%r_dt)
+#if defined (_DEBUG)             
+             element%cell%data_pers%debug_flag = -1
+          else
+             element%cell%data_pers%debug_flag = element%cell%data_pers%troubled
+#endif                          
           end if
+          
         end subroutine cell_update_op_adapt
 
 
@@ -213,6 +224,16 @@
 
           dest_element%cell%data_pers%troubled=src_element%cell%data_pers%troubled
 
+          if(dest_element%cell%data_pers%troubled .le. -1 )then
+             call dg_predictor(dest_element%cell,section%r_dt)
+#if defined (_DEBUG)                          
+             dest_element%cell%data_pers%debug_flag=-3
+          else
+
+             dest_element%cell%data_pers%debug_flag=src_element%cell%data_pers%troubled
+#endif
+          end if
+
 #endif
         end subroutine transfer_op
         
@@ -251,12 +272,12 @@
                    dest_element%cell%data_pers%Q_DG%H=matmul(ref2,src_element%cell%data_pers%Q_DG%H+src_element%cell%data_pers%Q_DG%B)
                    dest_element%cell%data_pers%Q_DG%p(1)=matmul(ref2,src_element%cell%data_pers%Q_DG%p(1))
                    dest_element%cell%data_pers%Q_DG%p(2)=matmul(ref2,src_element%cell%data_pers%Q_DG%p(2))
-                   dest_element%cell%data_pers%Q_DG%B=matmul(ref2,src_element%cell%data_pers%Q_DG%B)             
+!                   dest_element%cell%data_pers%Q_DG%B=matmul(ref2,src_element%cell%data_pers%Q_DG%B)             
                 else
                    dest_element%cell%data_pers%Q_DG%H=matmul(ref1,src_element%cell%data_pers%Q_DG%H+src_element%cell%data_pers%Q_DG%B)
                    dest_element%cell%data_pers%Q_DG%p(1)=matmul(ref1,src_element%cell%data_pers%Q_DG%p(1))
                    dest_element%cell%data_pers%Q_DG%p(2)=matmul(ref1,src_element%cell%data_pers%Q_DG%p(2))
-                   dest_element%cell%data_pers%Q_DG%B=matmul(ref1,src_element%cell%data_pers%Q_DG%B)             
+!                   dest_element%cell%data_pers%Q_DG%B=matmul(ref1,src_element%cell%data_pers%Q_DG%B)             
                 end if
                 
                 call lusolve(s_m_lu, _SWE_DG_DOFS, s_m_lu_pivot,dest_element%cell%data_pers%Q_DG%H)
@@ -329,14 +350,19 @@
                 ! get bathymetry
                 dest_element%cell%data_pers%B = get_bathymetry_at_patch(section, dest_element%t_element_base, section%r_time)
                 
-#if defined(_ASAGI)
+!!#if defined(_ASAGI)
           ! if cell was initially dry, we need to check if the fine cells should be initialized with h=0
-          where (dry_cell_out(:))
+                where (dry_cell_out(:))
+#if defined(_ASAGI)                           
              dest_element%cell%data_pers%H = max (0.0_GRID_SR, dest_element%cell%data_pers%B)
+#else
+             dest_element%cell%data_pers%H = dest_element%cell%data_pers%B
+#endif                           
+                   
              dest_element%cell%data_pers%HU = 0.0_GRID_SR
              dest_element%cell%data_pers%HV = 0.0_GRID_SR
           end where
-#endif
+!!#endif
 
 #else
           call gv_Q%read( src_element%t_element_base, Q_in)
@@ -396,6 +422,9 @@
               call dg_predictor(dest_element%cell,section%r_dt)
            end if
 #endif
+#if defined (_DEBUG)                        
+           dest_element%cell%data_pers%debug_flag=-4
+#endif           
         end subroutine refine_op
 
         subroutine coarsen_op(traversal, section, src_element, dest_element, refinement_path)
@@ -406,53 +435,96 @@
           integer, dimension(:), intent(in)											:: refinement_path
           integer                                                                     :: i
 #if defined(_SWE_PATCH)
-          integer                                                                     :: j
+          integer                                                                     :: j,i_plotter_type
           integer, DIMENSION(_SWE_PATCH_ORDER_SQUARE,2)                               :: child
+          logical                                                                     :: fv_coarse , dg_coarse , first
 #else
           type(t_state), dimension(_SWE_CELL_SIZE)                                :: Q_out
 #endif
 
-
 #if defined(_SWE_PATCH)
 #if defined(_SWE_DG)
-!          if(.true.) then          
-          if(src_element%cell%data_pers%troubled .le. 0) then
-          !preserving steady states
-             do i=1, size(refinement_path)
-                if (refinement_path(1) == 1) then
+          
+
+          i_plotter_type=dest_element%cell%geometry%i_plotter_type            
+          first = refinement_path(1).eq.1
+          
+          if(first) then
+             if(src_element%cell%data_pers%troubled .le. 0) then
+                ! dg = 1 fv = 1
+                dg_coarse= .true.
+                fv_coarse= .true.
+                dest_element%cell%data_pers%troubled = 0
+             else
+                ! dg = 0 fv = 1
+                dg_coarse= .false.
+                fv_coarse= .true.
+                dest_element%cell%data_pers%troubled = 1
+             end if
+          else 
+             if(src_element%cell%data_pers%troubled .le. 0) then
+                dg_coarse = merge(.true.,.false.,dest_element%cell%data_pers%troubled.le.0)                
+                fv_coarse = .not.dg_coarse
+                dest_element%cell%data_pers%troubled = 0
+             else
+                dg_coarse= .false.
+                fv_coarse= .true.
+                dest_element%cell%data_pers%troubled = 1
+             end if
+          end if
+
+          if(dg_coarse) then
+                if (first) then
                    dest_element%cell%data_pers%Q_DG%H   =0.0_GRID_SR
                    dest_element%cell%data_pers%Q_DG%p(1)=0.0_GRID_SR
                    dest_element%cell%data_pers%Q_DG%p(2)=0.0_GRID_SR
-                   dest_element%cell%data_pers%Q_DG%B   =0.0_GRID_SR
-                end if
+                   dest_element%cell%data_pers%Q_DG%B = 0.0_GRID_SR
 
-                ! decide which child is being computed (first = left to hypot, second = right to hypot.)
-                if ( (refinement_path(i) == 1 .and. dest_element%cell%geometry%i_plotter_type>0) .or. (refinement_path(i) == 2 .and. dest_element%cell%geometry%i_plotter_type<0)) then
-                   dest_element%cell%data_pers%Q_DG%H   =dest_element%cell%data_pers%Q_DG%H   +matmul(coarsen(:,_SWE_DG_DOFS+1:_SWE_DG_DOFS*2),src_element%cell%data_pers%Q_DG%H)
-                   dest_element%cell%data_pers%Q_DG%p(1)=dest_element%cell%data_pers%Q_DG%p(1)+matmul(coarsen(:,_SWE_DG_DOFS+1:_SWE_DG_DOFS*2),src_element%cell%data_pers%Q_DG%p(1))
-                   dest_element%cell%data_pers%Q_DG%p(2)=dest_element%cell%data_pers%Q_DG%p(2)+matmul(coarsen(:,_SWE_DG_DOFS+1:_SWE_DG_DOFS*2),src_element%cell%data_pers%Q_DG%p(2))
-                   dest_element%cell%data_pers%Q_DG%B   =dest_element%cell%data_pers%Q_DG%B   +matmul(coarsen(:,_SWE_DG_DOFS+1:_SWE_DG_DOFS*2),src_element%cell%data_pers%Q_DG%B)             
-                else
-                   dest_element%cell%data_pers%Q_DG%H   =dest_element%cell%data_pers%Q_DG%H   +matmul(coarsen(:,1:_SWE_DG_DOFS),src_element%cell%data_pers%Q_DG%H)
-                   dest_element%cell%data_pers%Q_DG%p(1)=dest_element%cell%data_pers%Q_DG%p(1)+matmul(coarsen(:,1:_SWE_DG_DOFS),src_element%cell%data_pers%Q_DG%p(1))
-                   dest_element%cell%data_pers%Q_DG%p(2)=dest_element%cell%data_pers%Q_DG%p(2)+matmul(coarsen(:,1:_SWE_DG_DOFS),src_element%cell%data_pers%Q_DG%p(2))
-                   dest_element%cell%data_pers%Q_DG%B   =dest_element%cell%data_pers%Q_DG%B   +matmul(coarsen(:,1:_SWE_DG_DOFS),src_element%cell%data_pers%Q_DG%B)             
-                end if
-
-                if (refinement_path(1) == 2) then                
-                   call lusolve(s_m_lu, _SWE_DG_DOFS, s_m_lu_pivot,dest_element%cell%data_pers%Q_DG%H   )
-                   call lusolve(s_m_lu, _SWE_DG_DOFS, s_m_lu_pivot,dest_element%cell%data_pers%Q_DG%p(1))
-                   call lusolve(s_m_lu, _SWE_DG_DOFS, s_m_lu_pivot,dest_element%cell%data_pers%Q_DG%p(2))
-                   call lusolve(s_m_lu, _SWE_DG_DOFS, s_m_lu_pivot,dest_element%cell%data_pers%Q_DG%b   )
                 end if
                 
-             end do
-             
-             call dest_element%cell%data_pers%convert_dg_to_fv_bathymetry()
-             
-          else
-             ! call dest_element%cell%data_pers%convert_dg_to_fv()
-             ! call dest_element%cell%data_pers%convert_dg_to_fv_bathymetry()             
+                if (first .and. i_plotter_type > 0 .or. .not.first .and. i_plotter_type < 0)then
+
+                   !preserving constant water height
+                   dest_element%cell%data_pers%Q_DG%H   =dest_element%cell%data_pers%Q_DG%H   +matmul(coarsen(:,_SWE_DG_DOFS+1:_SWE_DG_DOFS*2),src_element%cell%data_pers%Q_DG%H &
+                                                                                                                                            +  src_element%cell%data_pers%Q_DG%B)
+                   dest_element%cell%data_pers%Q_DG%p(1)=dest_element%cell%data_pers%Q_DG%p(1)+matmul(coarsen(:,_SWE_DG_DOFS+1:_SWE_DG_DOFS*2),src_element%cell%data_pers%Q_DG%p(1))
+                   dest_element%cell%data_pers%Q_DG%p(2)=dest_element%cell%data_pers%Q_DG%p(2)+matmul(coarsen(:,_SWE_DG_DOFS+1:_SWE_DG_DOFS*2),src_element%cell%data_pers%Q_DG%p(2))
+                else
+                   !preserving constant water height
+                   dest_element%cell%data_pers%Q_DG%H   =dest_element%cell%data_pers%Q_DG%H   +matmul(coarsen(:,1:_SWE_DG_DOFS),src_element%cell%data_pers%Q_DG%H &
+                                                                                                                              + src_element%cell%data_pers%Q_DG%B)
+                   dest_element%cell%data_pers%Q_DG%p(1)=dest_element%cell%data_pers%Q_DG%p(1)+matmul(coarsen(:,1:_SWE_DG_DOFS),src_element%cell%data_pers%Q_DG%p(1))
+                   dest_element%cell%data_pers%Q_DG%p(2)=dest_element%cell%data_pers%Q_DG%p(2)+matmul(coarsen(:,1:_SWE_DG_DOFS),src_element%cell%data_pers%Q_DG%p(2))
+                end if
+
+                if(.not.first)then
+
+                   call lusolve(s_m_lu, _SWE_DG_DOFS, s_m_lu_pivot,dest_element%cell%data_pers%Q_DG%H)
+                   call lusolve(s_m_lu, _SWE_DG_DOFS, s_m_lu_pivot,dest_element%cell%data_pers%Q_DG%p(1))
+                   call lusolve(s_m_lu, _SWE_DG_DOFS, s_m_lu_pivot,dest_element%cell%data_pers%Q_DG%p(2))
+                  
+
+                   !generate bythymetry from initial data
+                   dest_element%cell%data_pers%B = get_bathymetry_at_patch(section, dest_element%t_element_base, section%r_time)
+                   call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(i_plotter_type))%jacobian)
+                   dest_element%cell%data_pers%Q_DG%H = dest_element%cell%data_pers%Q_DG%H-dest_element%cell%data_pers%Q_DG%B
+
+                   ! if cell is dry after refinement do fv coarsening
+                   if(.not.all (dest_element%cell%data_pers%Q_DG%H > cfg%coast_height)) then
+                      fv_coarse = .true.
+                      dest_element%cell%data_pers%troubled=1
+                   end if
+                   
+                end if
+             end if
+          
+             if(fv_coarse) then
+                call apply_phi(src_element%cell%data_pers%Q_DG%H,src_element%cell%data_pers%H)
+                call apply_phi(src_element%cell%data_pers%Q_DG%p(1),src_element%cell%data_pers%HU)
+                call apply_phi(src_element%cell%data_pers%Q_DG%p(2),src_element%cell%data_pers%HV)
+                call apply_phi(src_element%cell%data_pers%Q_DG%b,src_element%cell%data_pers%B)
+                src_element%cell%data_pers%H=src_element%cell%data_pers%H+src_element%cell%data_pers%B
+
 #endif
                 !IMPORTANT: in the current samoa implementation, this subroutine is always called first with refinement_path=1, and then =2.
                 ! The below implementation supposes this. If the samoa core implementation changes, this may become invalid!
@@ -498,18 +570,22 @@
                         data%HV = data%HV * 0.25_GRID_SR
                         data%B = data%B * 0.25_GRID_SR
                         
-#if defined(_ASAGI)
+!#if defined(_ASAGI)
                             ! if one of the cells was dry, we need to check if the coarsen cell should be initialized with h=0
                         where (traversal%dry_cell(:))
+#if defined(_ASAGI)                           
                            data%H = max (0.0_GRID_SR, data%B)
+#else
+                           data%H = data%B
+#endif                           
                            data%HU = 0.0_GRID_SR
                            data%HV = 0.0_GRID_SR
                         end where
-#endif
+                        !#endif
+                        
+                     end if
 
-          end if
-
-        end associate
+                   end associate
 #else
 
         !state vector
@@ -541,30 +617,20 @@
 #endif
            
 #if defined(_SWE_DG)
+     end if
 
-        ! call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(dest_element%cell%geometry%i_plotter_type)%jacobian)
-        ! call dest_element%cell%data_pers%convert_fv_to_dg()                
-        
-        end if
-
-
-
-        !call dest_element%cell%data_pers%convert_dg_to_fv()
-
-        !        dest_element%cell%data_pers%troubled=5
-        
-        dest_element%cell%data_pers%troubled=src_element%cell%data_pers%troubled                
-        
-        if(.not.all(dest_element%cell%data_pers%Q_DG%H > cfg%coast_height))then
-            dest_element%cell%data_pers%troubled=1
-         end if
-
-         if(dest_element%cell%data_pers%troubled.le.0) then
-            call dg_predictor(dest_element%cell,section%r_dt)
-         end if
+     if(dest_element%cell%data_pers%troubled .le. 0 ) then
+        call dg_predictor(dest_element%cell,section%r_dt)
+#if defined (_DEBUG)                     
+        dest_element%cell%data_pers%debug_flag=-2
+     else
+        dest_element%cell%data_pers%debug_flag=2
+#endif        
+     end if   
+     
 #endif
-
-      end subroutine coarsen_op
+     dest_element%cell%data_pers%debug_flag=-4
+   end subroutine coarsen_op
 
 
       pure subroutine node_write_op(local_node, neighbor_node)

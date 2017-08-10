@@ -35,43 +35,36 @@
 
     !> state vector of DoFs, either as absoulte values or updates
     type t_dof_state
-      !real (kind = GRID_SR), dimension(_TIME_STEP_STAGES)      :: h        !< water change
-      !real (kind = GRID_SR), dimension(2,_TIME_STEP_STAGES)    :: p        !< momentum change
       real (kind = GRID_SR)                                     :: h        !< water change
       real (kind = GRID_SR), dimension(2)                       :: p        !< momentum change
-      real (kind = GRID_SR)                                     :: h_old    !< old water change
-      real (kind = GRID_SR), dimension(2)                       :: p_old    !< old momentum change
-
-      contains
-
-        procedure, pass :: add => dof_state_add
-        procedure, pass :: inv => dof_state_inv
-        procedure, pass :: scale => dof_state_scale
-
-        generic :: operator(+) => add
-        generic :: operator(-) => inv
-        generic :: operator(*) => scale
-    end type
+    contains
+      procedure, pass :: add => dof_state_add
+      procedure, pass :: inv => dof_state_inv
+      procedure, pass :: scale => dof_state_scale
+      
+      generic :: operator(+) => add
+      generic :: operator(-) => inv
+      generic :: operator(*) => scale
+   end type t_dof_state
 
     !> cell state vector including bathymetry
-    type, extends(t_dof_state) :: t_state
+   type, extends(t_dof_state) :: t_state
       real (kind = GRID_SR)                                     :: b        !< bathymetry
-
-      contains
-
-        procedure, pass :: add_state => state_add
-        generic :: operator(+) => add_state
-    end type
-
+      
+    contains
+      
+      procedure, pass :: add_state => state_add
+      generic :: operator(+) => add_state
+   end type t_state
+   
     !> update vector
-    type, extends(t_dof_state) :: t_update
+   type, extends(t_dof_state) :: t_update
       real (kind = GRID_SR)                                     :: max_wave_speed   !< maximum wave speed required to compute the CFL condition
-
-      contains
-
-        procedure, pass :: add_update => update_add
-        generic :: operator(+) => add_update
-    end type
+    contains
+      
+      procedure, pass :: add_update => update_add
+      generic :: operator(+) => add_update
+   end type t_update
 
     !> persistent scenario data on a node
     type num_node_data_pers
@@ -90,7 +83,7 @@
 
     !> Cell representation on an edge, this would typically be everything required from a cell to compute the flux function on an edge
     type num_cell_rep
-      type(t_state), DIMENSION(_FLASH_CELL_SIZE)                :: Q        !< cell representation
+      type(t_state), DIMENSION(_FLASH_EDGE_SIZE)                :: Q        !< cell representation
     end type
 
     !> Cell update, this would typically be a flux function

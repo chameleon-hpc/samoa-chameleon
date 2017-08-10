@@ -872,7 +872,7 @@ MODULE SWE_Euler_Timestep
 
                          bL = QL%b
                          bR = QR%b
-
+                         !print*,"INPUT"
                          !print*
                          !print*,QL%h
                          !print*,QL%b
@@ -904,7 +904,7 @@ MODULE SWE_Euler_Timestep
                     !print*,"MARKER"
                  end if
                  
-                 !print*
+                 !print*,"FLUX"
                  !print*,fluxL%h
                  !print*,fluxL%p
                  !print*

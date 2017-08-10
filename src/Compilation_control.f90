@@ -66,6 +66,14 @@
 #define _FLASH_EDGE_SIZE 			_FLASH_CELL_SIZE
 #define _FLASH_EDGE_QUAD_SIZE			_FLASH_CELL_SIZE
 
+  !> number of basis functions nonzero on a specific edge
+# if (_FLASH_ORDER == 0)
+#define _GPSINONZERO  1
+# else if (_FLASH_ORDER == 1)
+#define _GPSINONZERO  2
+# endif
+  
+
 #if defined(_DARCY)
 #   if defined(_ASAGI)
 #	    define _DARCY_INJECTOR_WELLS    1

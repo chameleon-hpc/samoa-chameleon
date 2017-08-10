@@ -8,14 +8,6 @@
     IMPLICIT NONE
 
     PUBLIC
-
-    !> number of basis functions nonzero on a specific edge
-# if (_FLASH_ORDER == 0)
-#define _GPSINONZERO  1
-# else if (_FLASH_ORDER == 1)
-#define _GPSINONZERO  2
-# endif
-
     !> barycentric coordinates of element/face DOFs
     REAL (KIND = GRID_SR), DIMENSION(3, _FLASH_CELL_SIZE)                   :: edofcoo
     !> barycentric coordinates wrt edge of edge quadrature points
@@ -23,7 +15,7 @@
     !> weights for quadrature rule corresponding to edge quadrature points
     REAL (KIND = GRID_SR), DIMENSION(_FLASH_EDGE_SIZE)                      :: gquadwei
     !> basis function evaluations at edge quadrature points
-    REAL (KIND = GRID_SR), DIMENSION(_GPSINONZERO, _FLASH_EDGE_SIZE)        :: gpsiquad
+    REAL (KIND = GRID_SR), DIMENSION(_FLASH_EDGE_SIZE,_GPSINONZERO)     :: gpsiquad
     !> nonzero basis function indices for reference edge
     INTEGER (KIND = GRID_SI), DIMENSION(_GPSINONZERO)                       :: gpsiidx
     !> barycentric coordinates of element/face quadrature points
@@ -92,10 +84,10 @@
 
     gquadwei(:)     = (/ 5.55555555555556e-01 , 8.88888888888889e-01 , 5.55555555555555e-01 /)
 
-    gpsiquad(:,1)   = (/ 8.87298334620742e-01 , 1.12701665379258e-01 /)
-    gpsiquad(:,2)   = (/ 5.00000000000000e-01 , 5.00000000000000e-01 /)
-    gpsiquad(:,3)   = (/ 1.12701665379258e-01 , 8.87298334620742e-01 /)
-
+    gpsiquad(1,:)   = (/ 8.87298334620742e-01 , 1.12701665379258e-01 /)
+    gpsiquad(2,:)   = (/ 5.00000000000000e-01 , 5.00000000000000e-01 /)
+    gpsiquad(3,:)   = (/ 1.12701665379258e-01 , 8.87298334620742e-01 /)
+    
     gpsiidx(:)      = (/ 2 , 3 /)
 
     equadcoo(:,1)   = (/ 6.66666666666667e-01 , 1.66666666666667e-01 , 1.66666666666667e-01 /)
@@ -129,9 +121,9 @@
       emassinv = MATMUL(evander, TRANSPOSE(evander))
 
       gpsitmp(:,:)       = 0.0_GRID_SR
-      gpsitmp(gpsiidx,:) = gpsiquad
+      gpsitmp(:,gpsiidx) = gpsiquad
 
-      gMinvpsi = MATMUL(emassinv, gpsitmp)
+      gMinvpsi = MATMUL(emassinv, gpsiquad)
       eMinvpsi = MATMUL(emassinv, epsiquad)
 
     END SUBROUTINE dgelmt_init

@@ -54,7 +54,14 @@ module c_bind_riemannsolvers
   !skip problem if in a completely dry area
   if (i_hL .le. i_dryTol .and. i_hR .le. i_dryTol) then
     return
-  endif
+ endif
+
+ ! ! enforced: no flux for resting lake
+ ! if (((i_hL + i_bL) .eq. (i_hR + i_bR)) .and. (i_huL.eq.0d0) .and. (i_hvL .eq.0d0) .and. (i_hvR.eq.0d0) .and. (i_huR.eq.0.0d0)) then
+ !    return
+ ! endif
+
+ 
 
   !check for wet/dry boundary
   if (i_hR.gt.i_dryTol) then

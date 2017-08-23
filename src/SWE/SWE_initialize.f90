@@ -116,6 +116,7 @@ MODULE SWE_Initialize_Bathymetry
 # 			if defined(_SWE_PATCH)
 
     element%cell%data_pers%B = Q(:)%b
+    element%cell%data_pers%troubled = 1
 
 #                       if defined(_SWE_DG)   
     call element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian)

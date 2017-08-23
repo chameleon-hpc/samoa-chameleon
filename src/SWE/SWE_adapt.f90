@@ -110,7 +110,7 @@
           if(element%cell%data_pers%troubled .ge.6) then
              element%cell%data_pers%troubled = -(element%cell%data_pers%troubled-5)
           end if
-          
+
           if(element%cell%data_pers%troubled.le.0) then
              call dg_predictor(element%cell,section%r_dt)
 #if defined (_DEBUG)             
@@ -295,11 +295,11 @@
           else
 
 #endif
-          H_in = src_element%cell%data_pers%H
-          HU_in = src_element%cell%data_pers%HU
-          HV_in = src_element%cell%data_pers%HV
-          B_in = src_element%cell%data_pers%B
-
+             H_in = src_element%cell%data_pers%H
+             HU_in = src_element%cell%data_pers%HU
+             HV_in = src_element%cell%data_pers%HV
+             B_in = src_element%cell%data_pers%B
+             
           i_plotter_type = src_element%cell%geometry%i_plotter_type
           
           dry_cell_in = .false.
@@ -354,7 +354,7 @@
           ! if cell was initially dry, we need to check if the fine cells should be initialized with h=0
                 where (dry_cell_out(:))
 #if defined(_ASAGI)                           
-             dest_element%cell%data_pers%H = max (0.0_GRID_SR, dest_element%cell%data_pers%B)
+             dest_element%cell%data_pers%H = 0.0_GRID_SR
 #else
              dest_element%cell%data_pers%H = dest_element%cell%data_pers%B
 #endif                           
@@ -519,11 +519,13 @@
              end if
           
              if(fv_coarse) then
-                call apply_phi(src_element%cell%data_pers%Q_DG%H,src_element%cell%data_pers%H)
-                call apply_phi(src_element%cell%data_pers%Q_DG%p(1),src_element%cell%data_pers%HU)
-                call apply_phi(src_element%cell%data_pers%Q_DG%p(2),src_element%cell%data_pers%HV)
-                call apply_phi(src_element%cell%data_pers%Q_DG%b,src_element%cell%data_pers%B)
-                src_element%cell%data_pers%H=src_element%cell%data_pers%H+src_element%cell%data_pers%B
+                if(src_element%cell%data_pers%troubled.le.0) then
+                   call apply_phi(src_element%cell%data_pers%Q_DG%H,src_element%cell%data_pers%H)
+                   call apply_phi(src_element%cell%data_pers%Q_DG%p(1),src_element%cell%data_pers%HU)
+                   call apply_phi(src_element%cell%data_pers%Q_DG%p(2),src_element%cell%data_pers%HV)
+                   call apply_phi(src_element%cell%data_pers%Q_DG%b,src_element%cell%data_pers%B)
+                   src_element%cell%data_pers%H=src_element%cell%data_pers%H+src_element%cell%data_pers%B
+                end if
 
 #endif
                 !IMPORTANT: in the current samoa implementation, this subroutine is always called first with refinement_path=1, and then =2.
@@ -574,7 +576,7 @@
                             ! if one of the cells was dry, we need to check if the coarsen cell should be initialized with h=0
                         where (traversal%dry_cell(:))
 #if defined(_ASAGI)                           
-                           data%H = max (0.0_GRID_SR, data%B)
+                           data%H = 0.0_GRID_SR
 #else
                            data%H = data%B
 #endif                           
@@ -629,7 +631,7 @@
      end if   
      
 #endif
-     dest_element%cell%data_pers%debug_flag=-4
+
    end subroutine coarsen_op
 
 

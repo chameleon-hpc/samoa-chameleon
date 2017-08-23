@@ -1312,11 +1312,15 @@ subroutine get_fv_update(update,leg)
   end select
 
 
-  ! where (update%H < update%B + cfg%dry_tolerance) 
-  !    update%H = update%B
-  !    update%HU = 0.0_GRID_SR
-  !    update%HV = 0.0_GRID_SR
-  ! end where
+  where (update%H < update%B )
+#if defined(_ASAGI)
+     update%H = 0.0_GRID_SR
+#else     
+     update%H = update%B + cfg%dry_tolerance
+#endif     
+     update%HU = 0.0_GRID_SR
+     update%HV = 0.0_GRID_SR
+  end where
 
 end subroutine get_fv_update
 
@@ -1347,8 +1351,9 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
             real(kind= GRID_SR):: dt,dx,delta(3),max_neighbour(3),min_neighbour(3),data_max_val(3),data_min_val(3)
             integer:: indx,indx_mir,k
             real (kind = GRID_SR), dimension (_SWE_PATCH_ORDER_SQUARE):: H_old, HU_old, HV_old
-            logical :: drying,troubled
-            real (kind=GRID_SR) :: refinement_threshold = 0.05_GRID_SR/_SWE_DG_ORDER            
+            logical :: drying,troubled,coarsen,refine
+            real (kind=GRID_SR) :: refinement_threshold = 0.50_GRID_SR
+
 #endif
 
 #if !defined(_SWE_USE_PATCH_SOLVER)
@@ -1522,14 +1527,6 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                element%cell%geometry%refinement = 0
                dQ_max_norm = maxval(abs(dQ_H))
 
-               if (element%cell%geometry%i_depth < cfg%i_max_depth .and. (dQ_max_norm/section%r_dt  * edge_lengths(1) * edge_lengths(1) > refinement_threshold *get_edge_size(cfg%i_max_depth)**2)) then
-                  element%cell%geometry%refinement = 1
-                  traversal%i_refinements_issued = traversal%i_refinements_issued + 1_GRID_DI
-               else if (element%cell%geometry%i_depth > cfg%i_min_depth .and. (dQ_max_norm/section%r_dt  * edge_lengths(1) * edge_lengths(1) < refinement_threshold * get_edge_size(cfg%i_max_depth)**2/8.0_GRID_SR)) then
-                  element%cell%geometry%refinement = -1
-               endif
-               
-
                ! where (data%H < data%B + cfg%dry_tolerance .and. dQ_H * (-dt_div_volume) > 0.0_GRID_SR)
                !    data%H  = data%B + cfg%dry_tolerance
                !    data%HU = 0.0_GRID_SR
@@ -1547,8 +1544,12 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                dQ_HV = dQ_HV * (-dt_div_volume)
 
                ! if the water level falls below the dry tolerance, set water level to 0 and velocity to 0
-               where (data%H < data%B + cfg%dry_tolerance) 
+               where (data%H < data%B + cfg%dry_tolerance)
+#if defined (_ASAGI)
+                  data%H = 0.0_GRID_SR
+#else                  
                   data%H = data%B
+#endif                  
                   data%HU = 0.0_GRID_SR
                   data%HV = 0.0_GRID_SR
                end where
@@ -1556,7 +1557,11 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                ! if land is flooded, init water height to dry tolerance and
                ! velocity to zero
                where (data%H < data%B + cfg%dry_tolerance .and. dQ_H > 0.0_GRID_SR)
+#if defined (_ASAGI)
+                  data%H = 0.0_GRID_SR
+#else                  
                   data%H = data%B + cfg%dry_tolerance
+#endif                  
                   data%HU = 0.0_GRID_SR
                   data%HV = 0.0_GRID_SR
                end where
@@ -1574,8 +1579,12 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                ! if the water level falls below the dry tolerance, set water level to 0 and velocity to 0             
 
                !!!!print, data%H -data%B
-               where (data%H < data%B + cfg%dry_tolerance) 
-                  data%H = data%B
+               where (data%H < data%B + cfg%dry_tolerance)
+#if defined (_ASAGI)
+                  data%H = 0.0_GRID_SR
+#else                  
+                  data%H = data%B 
+#endif                  
                   data%HU = 0.0_GRID_SR
                   data%HV = 0.0_GRID_SR
                end where
@@ -1587,7 +1596,7 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                maxWaveSpeed=maxval(maxWaveSpeeds)
                section%r_dt_new = min(section%r_dt_new, volume / (edge_lengths(2) * maxWaveSpeed) )
                maxWaveSpeed=0
-!               element%cell%geometry%refinement = 0
+
                call apply_mue(data%h  - data%b,data%Q_DG%h)
                call apply_mue(data%hu         ,data%Q_DG%p(1))
                call apply_mue(data%hv         ,data%Q_DG%p(2))
@@ -1604,6 +1613,26 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                   data%troubled = 1
                end if
 
+               refine = (dQ_max_norm/section%r_dt  * edge_lengths(1) * edge_lengths(1) > refinement_threshold *get_edge_size(cfg%i_max_depth)**2)
+               coarsen =(dQ_max_norm/section%r_dt  * edge_lengths(1) * edge_lengths(1) < refinement_threshold * get_edge_size(cfg%i_max_depth)**2/8.0_GRID_SR)
+               coarsen = coarsen .and. all(data%H -data%B < cfg%dry_tolerance)
+               refine  = all(data%H -data%B < cfg%dry_tolerance)
+
+#if defined(_ASAGI)
+               coarsen=.false.
+               refine =.false.
+#endif               
+               
+               if(data%troubled.le.3) then
+                  if ( element%cell%geometry%i_depth < cfg%i_max_depth .and. refine) then
+                     element%cell%geometry%refinement = 1
+                     traversal%i_refinements_issued = traversal%i_refinements_issued + 1_GRID_DI
+                  else if ( element%cell%geometry%i_depth > cfg%i_min_depth .and. coarsen) then
+                     element%cell%geometry%refinement = -1
+                  endif
+               end if
+
+               
             !consider new dg cells in r_dt
                if(data%troubled .le. 0) then
                   do i=1,_SWE_DG_DOFS

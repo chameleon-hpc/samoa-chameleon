@@ -214,7 +214,6 @@ contains
             call swe%adaption%destroy()
 
 #if defined(_SWE_DG)
-!            call swe%dg_predictor%destroy()
             call swe%dg_timestep%destroy()
 #endif
 
@@ -430,7 +429,22 @@ contains
 
                 do
                    if ((cfg%r_max_time >= 0.0 .and. grid%r_time >= cfg%r_max_time) .or. (cfg%i_max_time_steps >= 0 .and. i_time_step >= cfg%i_max_time_steps)) then
+                      !print final solution
+                      if (cfg%l_ascii_output) then
+                            call swe%ascii_output%traverse(grid)
+                        end if
+
+                        if(cfg%l_gridoutput) then
+                            call swe%xml_output%traverse(grid)
+                        end if
+
+                        if (cfg%l_pointoutput) then
+                            call swe%point_output%traverse(grid)
+                        end if
+
                       exit
+
+                      
                    end if
                    
                    i_time_step = i_time_step + 1
@@ -508,39 +522,58 @@ contains
             !$omp end master
 		end subroutine
 
-        subroutine update_stats(swe, grid)
-            class(t_swe), intent(inout)   :: swe
- 			type(t_grid), intent(inout)     :: grid
-
- 			double precision, save          :: t_phase = huge(1.0d0)
-
-			!$omp master
-                !Initially, just start the timer and don't print anything
-                if (t_phase < huge(1.0d0)) then
-                    t_phase = t_phase + get_wtime()
-
-                    call swe%init_dofs%reduce_stats(MPI_SUM, .true.)
-                    call swe%displace%reduce_stats(MPI_SUM, .true.)
-                    call swe%euler%reduce_stats(MPI_SUM, .true.)
-                    call swe%adaption%reduce_stats(MPI_SUM, .true.)
-                    call grid%reduce_stats(MPI_SUM, .true.)
-
+  subroutine update_stats(swe, grid)
+    class(t_swe), intent(inout)   :: swe
+    type(t_grid), intent(inout)     :: grid
+    
+    double precision, save          :: t_phase = huge(1.0d0)
+    
+    !$omp master
+    !Initially, just start the timer and don't print anything
+    if (t_phase < huge(1.0d0)) then
+       t_phase = t_phase + get_wtime()
+       
+       call swe%init_dofs%reduce_stats(MPI_SUM, .true.)
+       call swe%displace%reduce_stats(MPI_SUM, .true.)
+#if defined(_SWE_DG)                    
+       call swe%dg_timestep%reduce_stats(MPI_SUM, .true.)       
+#else
+       call swe%euler%reduce_stats(MPI_SUM, .true.)
+#endif                    
+       call swe%adaption%reduce_stats(MPI_SUM, .true.)
+       call grid%reduce_stats(MPI_SUM, .true.)
+       
                     if (rank_MPI == 0) then
                         _log_write(0, *) ""
                         _log_write(0, *) "Phase statistics:"
                         _log_write(0, *) ""
                         _log_write(0, '(A, T34, A)') " Init: ", trim(swe%init_dofs%stats%to_string())
                         _log_write(0, '(A, T34, A)') " Displace: ", trim(swe%displace%stats%to_string())
+#if defined(_SWE_DG)
+                        _log_write(0, '(A, T34, A)') " Time steps solver: ", trim(swe%dg_timestep%stats%to_string())
+#else                        
                         _log_write(0, '(A, T34, A)') " Time steps: ", trim(swe%euler%stats%to_string())
+#endif                        
+
+#if defined(_SWE_DG)
+                        _log_write(0, '(A, T34, A)') "Predictor and Adaptions: ", trim(swe%adaption%stats%to_string())
+#else
                         _log_write(0, '(A, T34, A)') " Adaptions: ", trim(swe%adaption%stats%to_string())
+#endif                        
                         _log_write(0, '(A, T34, A)') " Grid: ", trim(grid%stats%to_string())
                         ! throughput calculations are a bit different if using patches
 #                       if defined(_SWE_PATCH)                        
                             _log_write(0, '(A, T34, F12.4, A)') " Element throughput: ", 1.0d-6 * dble(grid%stats%get_counter(traversed_cells)) * (_SWE_PATCH_ORDER_SQUARE)  / t_phase, " M/s"
                             _log_write(0, '(A, T34, F12.4, A)') " Memory throughput: ", dble(grid%stats%get_counter(traversed_memory)) * (_SWE_PATCH_ORDER_SQUARE)  / ((1024 * 1024 * 1024) * t_phase), " GB/s"
+#if defined(_SWE_DG)
+                            _log_write(0, '(A, T34, F12.4, A)') " Cell update throughput solver: ", 1.0d-6 * dble(swe%dg_timestep%stats%get_counter(traversed_cells)) * (_SWE_PATCH_ORDER_SQUARE)  / t_phase, " M/s"
+                            _log_write(0, '(A, T34, F12.4, A)') " Total cell updates solver: ", 1.0d-6 * dble(swe%dg_timestep%stats%get_counter(traversed_cells)) * (_SWE_PATCH_ORDER_SQUARE), " millions"
+                            _log_write(0, '(A, T34, F12.4, A)') " Flux solver throughput solver: ", 1.0d-6 * dble(swe%dg_timestep%stats%get_counter(traversed_edges)) * (_SWE_PATCH_NUM_EDGES)   / t_phase, " M/s"
+#else                            
                             _log_write(0, '(A, T34, F12.4, A)') " Cell update throughput: ", 1.0d-6 * dble(swe%euler%stats%get_counter(traversed_cells)) * (_SWE_PATCH_ORDER_SQUARE)  / t_phase, " M/s"
                             _log_write(0, '(A, T34, F12.4, A)') " Total cell updates: ", 1.0d-6 * dble(swe%euler%stats%get_counter(traversed_cells)) * (_SWE_PATCH_ORDER_SQUARE), " millions"
                             _log_write(0, '(A, T34, F12.4, A)') " Flux solver throughput: ", 1.0d-6 * dble(swe%euler%stats%get_counter(traversed_edges)) * (_SWE_PATCH_NUM_EDGES)   / t_phase, " M/s"
+#endif                            
 #                       else
                             _log_write(0, '(A, T34, F12.4, A)') " Element throughput: ", 1.0d-6 * dble(grid%stats%get_counter(traversed_cells)) / t_phase, " M/s"
                             _log_write(0, '(A, T34, F12.4, A)') " Memory throughput: ", dble(grid%stats%get_counter(traversed_memory)) / ((1024 * 1024 * 1024) * t_phase), " GB/s"
@@ -556,7 +589,12 @@ contains
 
                 call swe%init_dofs%clear_stats()
                 call swe%displace%clear_stats()
+#if defined(_SWE_DG)
+                call swe%dg_timestep%clear_stats()
+#else
                 call swe%euler%clear_stats()
+#endif                
+
                 call swe%adaption%clear_stats()
                 call grid%clear_stats()
 

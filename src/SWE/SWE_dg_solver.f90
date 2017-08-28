@@ -75,7 +75,7 @@ MODULE SWE_DG_solver
     end if
     
     grid%r_dt = grid%r_dt_new
-    grid%r_dt = min(cfg%r_max_time, grid%r_dt)    
+    grid%r_dt = min(cfg%r_max_time-grid%r_time, grid%r_dt)    
     call scatter(grid%r_time, grid%sections%elements_alloc%r_time)
   end subroutine post_traversal_grid_op_dg
 

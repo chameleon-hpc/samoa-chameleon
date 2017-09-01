@@ -44,6 +44,7 @@ module config
         integer			        	            :: i_adapt_time_steps			                            !< number of time steps between each linear solver solution
 
 	    logical 				                :: l_gridoutput			                            !< grid output on/off
+	    logical 				                :: l_xml_pointoutput			                            !< xml point output on/off
 	    character(256)				            :: output_dir			                            !< output directory
 
         double precision                        :: courant_number                                   !< time step size relative to the CFL condition
@@ -158,7 +159,7 @@ module config
 
         write(arguments, '(A)') "-v .false. --version .false. -h .false. --help .false."
         write(arguments, '(A, A)') trim(arguments),   " -lbtime .false. -lbsplit .false. -lbserial .false. -lbcellweight 1.0d0 -lbbndweight 0.0d0"
-        write(arguments, '(A, A)') trim(arguments),  " -asagihints 2 -phases 1 -tadapt -1.0 -nadapt 1 -asciioutput_width 60 -output_dir output -asciioutput .false. -xmloutput .false. -stestpoints '' -noprint .false. -sections 4"
+        write(arguments, '(A, A)') trim(arguments),  " -asagihints 2 -phases 1 -tadapt -1.0 -nadapt 1 -asciioutput_width 60 -output_dir output -asciioutput .false. -xmloutput .false. -xmlpointoutput .false. -stestpoints '' -noprint .false. -sections 4"
         write(arguments, '(A, A, I0)') trim(arguments), " -threads ", omp_get_max_threads()
 
         !define additional command arguments and default values depending on the choice of the scenario
@@ -246,6 +247,7 @@ module config
         config%r_adapt_time_step = iget('samoa_tadapt')
         config%courant_number = rget('samoa_courant')
         config%l_gridoutput = lget('samoa_xmloutput')
+        config%l_xml_pointoutput = lget('samoa_xmlpointoutput')
         config%output_dir = sget('samoa_output_dir', 256)
 
 #    	if defined(_DARCY)

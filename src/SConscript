@@ -64,6 +64,7 @@ f90_sources = [
 "SWE/SWE_initialize.f90",
 "SWE/SWE_output.f90",
 "SWE/SWE_xml_output.f90",
+"SWE/SWE_xml_point_output.f90",
 "SWE/ascii_output_view.f90",
 "SWE/ascii_output_model.f90",
 "SWE/SWE_point_output.f90",

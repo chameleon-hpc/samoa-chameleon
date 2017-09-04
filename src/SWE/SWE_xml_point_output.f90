@@ -223,10 +223,10 @@ MODULE SWE_xml_point_output
     ! Iterate over all elements to count stuff correctly.
     do i=1, grid_info%i_cells
        if (traversal%troubled(i).le.0) then
-          l_point_mask(i_real_points + 1 : i_real_points + i_cells_per_dg * 3) = .true.
+          l_point_mask(i_real_points + 1 : i_real_points + _SWE_DG_DOFS) = .true.
           l_cell_mask(i_real_cells + 1: i_real_cells + i_cells_per_dg) = .true.
           i_real_cells = i_real_cells + i_cells_per_dg
-          i_real_points = i_real_points + i_cells_per_dg * 3
+          i_real_points = i_real_points + _SWE_DG_DOFS
        else
           l_point_mask(i_real_points + 1 : i_real_points + i_cells_per_vf * 3) = .true.
           l_cell_mask(i_real_cells + 1: i_real_cells + i_cells_per_vf) = .true.
@@ -236,7 +236,7 @@ MODULE SWE_xml_point_output
     end do
 
     ! We now know how many cells/points we are going to write.
-    allocate(i_connectivity(i_real_points), stat = i_error); assert_eq(i_error, 0)
+    allocate(i_connectivity(i_real_cells * 3), stat = i_error); assert_eq(i_error, 0)
     allocate(i_offsets(i_real_cells), stat = i_error); assert_eq(i_error, 0)
     allocate(i_types(i_real_cells), stat = i_error); assert_eq(i_error, 0)
     allocate(r_empty(max(i_real_cells, i_real_points)), stat = i_error); assert_eq(i_error, 0)
@@ -246,12 +246,10 @@ MODULE SWE_xml_point_output
     ! Find out which cells consist of which points. This allows us to avoid writing duplicate points.
     ! Reuse as counters, they have the same value after this loop again.
     i_real_cells = 0
-    i_real_points = 0
     do i=1,i_cells
        if (l_cell_mask(i)) then
-          i_connectivity(i_real_points + 1 : i_real_points + 3) = traversal%cell_data(i)%connectivity(:)
+          i_connectivity(i_real_cells * 3 + 1 : i_real_cells * 3 + 3) = traversal%cell_data(i)%connectivity(:)
           i_real_cells = i_real_cells + 1
-          i_real_points = i_real_points + 3
        end if
     end do
     ! Offset is easier, all cells are triangles and are defined by exactly three points.
@@ -416,7 +414,7 @@ MODULE SWE_xml_point_output
              traversal%point_data(traversal%i_point_data_index + i - 1)%Q%b = element%cell%data_pers%Q_DG(cell_id)%b
              traversal%point_data(traversal%i_point_data_index + i - 1)%Q%p(1) = element%cell%data_pers%Q_DG(cell_id)%p(1)
              traversal%point_data(traversal%i_point_data_index + i - 1)%Q%p(2) = element%cell%data_pers%Q_DG(cell_id)%p(2)
-             traversal%point_data(traversal%i_point_data_index + i -1)%Q%h = element%cell%data_pers%Q_DG(cell_id)%h
+             traversal%point_data(traversal%i_point_data_index + i - 1)%Q%h = element%cell%data_pers%Q_DG(cell_id)%h
           end do
 
           ! prepare for next cell

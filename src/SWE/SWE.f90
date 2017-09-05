@@ -335,6 +335,10 @@ contains
                     call swe%point_output%traverse(grid)
                 end if
 
+                if (cfg%l_xml_pointoutput) then
+                   call swe%xml_point_output%traverse(grid)
+                end if
+                
 				r_time_next_output = r_time_next_output + cfg%r_output_time_step
 			end if
 
@@ -441,28 +445,50 @@ contains
             !regular tsunami time steps begin after the earthquake is over
 
                 do
-                   if ((cfg%r_max_time >= 0.0 .and. grid%r_time >= cfg%r_max_time) .or. (cfg%i_max_time_steps >= 0 .and. i_time_step >= cfg%i_max_time_steps)) then
-                      !print final solution
-                      if (cfg%l_ascii_output) then
-                            call swe%ascii_output%traverse(grid)
-                        end if
+                   if ((cfg%r_max_time >= 0.0 .and. grid%r_time >= cfg%r_max_time) .or. (cfg%i_max_time_steps >= 0 .and. i_time_step >= cfg%i_max_time_steps))  then
+                      !print final solution only if not written directly before
+                      if (abs((r_time_next_output - cfg%r_output_time_step) - grid%r_time) >= 10e-6) then
+                        if (cfg%l_ascii_output) then
+                                call swe%ascii_output%traverse(grid)
+                            end if
 
-                        if(cfg%l_gridoutput) then
-                            call swe%xml_output%traverse(grid)
-                        end if
+                            if(cfg%l_gridoutput) then
+                                call swe%xml_output%traverse(grid)
+                            end if
 
-                        if(cfg%l_xml_pointoutput) then
-                           call swe%xml_point_output%traverse(grid)
-                        end if
+                            if(cfg%l_xml_pointoutput) then
+                            call swe%xml_point_output%traverse(grid)
+                            end if
 
-                        if (cfg%l_pointoutput) then
-                            call swe%point_output%traverse(grid)
-                        end if
-
+                            if (cfg%l_pointoutput) then
+                                call swe%point_output%traverse(grid)
+                            end if
+                      end if
                       exit
+                   end if
+
+                   ! if ((cfg%r_max_time >= 0.0 .and. grid%r_time >= cfg%r_max_time) .or. (cfg%i_max_time_steps >= 0 .and. i_time_step >= cfg%i_max_time_steps)) then
+                   !    !print final solution
+                   !    if (cfg%l_ascii_output) then
+                   !          call swe%ascii_output%traverse(grid)
+                   !      end if
+
+                   !      if(cfg%l_gridoutput) then
+                   !          call swe%xml_output%traverse(grid)
+                   !      end if
+
+                   !      if(cfg%l_xml_pointoutput) then
+                   !         call swe%xml_point_output%traverse(grid)
+                   !      end if
+
+                   !      if (cfg%l_pointoutput) then
+                   !          call swe%point_output%traverse(grid)
+                   !      end if
+
+                   !    exit
 
                       
-                   end if
+                   ! end if
                    
                    i_time_step = i_time_step + 1
                    

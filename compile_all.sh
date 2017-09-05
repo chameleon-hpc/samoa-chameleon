@@ -7,5 +7,5 @@ cores=$(grep -c '^processor' '/proc/cpuinfo') #Includes hyperthreading. Which sh
 
 # Compile dg for all orders.
 for (( order=1; order <= 4; order+=1)) do
-    scons config=my_conf.py swe_dg_order=${order} -j ${cores}
+    scons config=my_conf.py swe_dg_order=${order} exe="samoa_dg_lake_${order}" -j ${cores}
 done

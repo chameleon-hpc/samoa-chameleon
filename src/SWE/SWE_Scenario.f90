@@ -230,7 +230,7 @@ MODULE SWE_Scenario_linear_dam_break
     function SWE_Scenario_get_scaling() result(scaling)
         real (kind = GRID_SR) :: scaling
         
-        scaling = 10.0_GRID_SR
+        scaling = 100.0_GRID_SR
     end function
 
     function SWE_Scenario_get_offset() result(offset)
@@ -250,12 +250,12 @@ MODULE SWE_Scenario_linear_dam_break
         real (kind = GRID_SR), intent(in) :: x(2)
         type(t_dof_state) :: Q
         
-        real (kind = GRID_SR), parameter :: hL = 1.0_GRID_SR, hR = 0.0_GRID_SR
+        real (kind = GRID_SR), parameter :: hL = 0.005_GRID_SR, hR = 0.001_GRID_SR
         
         Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
         
 !        if (x(1) < 0.0_GRID_SR) then
-        if ( x(1) < x(2) ) then
+        if ( x(1) < 5.0_GRID_SR ) then
             Q%h = hL
         else 
             Q%h = hR

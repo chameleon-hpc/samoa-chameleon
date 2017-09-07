@@ -449,8 +449,10 @@ MODULE SWE_Initialize_Dofs
     end where
 #endif                   
 
-    !     !call element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian)
-    !     call element%cell%data_pers%convert_fv_to_dg()
+    call element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian)
+    call element%cell%data_pers%convert_fv_to_dg()
+
+    call element%cell%data_pers%convert_dg_to_fv_bathymetry()
 
     ! #if defined(_ASAGI)
     !                  where(element%cell%data_pers%Q_DG%H+element%cell%data_pers%Q_DG%B < 0)
@@ -473,6 +475,12 @@ MODULE SWE_Initialize_Dofs
     element%cell%data_pers%Q_DG%h= element%cell%data_pers%Q_DG%h- element%cell%data_pers%Q_DG%b
     call apply_mue(element%cell%data_pers%HU,element%cell%data_pers%Q_DG%p(1))
     call apply_mue(element%cell%data_pers%HV,element%cell%data_pers%Q_DG%p(2))
+
+    call apply_phi(element%cell%data_pers%Q_DG%h,element%cell%data_pers%H)
+    element%cell%data_pers%H=element%cell%data_pers%H+element%cell%data_pers%B
+    call apply_phi(element%cell%data_pers%Q_DG%p(1),element%cell%data_pers%HU)
+    call apply_phi(element%cell%data_pers%Q_DG%p(2),element%cell%data_pers%HV)            
+
 
     !--First test for drying cells--!
     if(all(element%cell%data_pers%H-element%cell%data_pers%B > cfg%coast_height))then

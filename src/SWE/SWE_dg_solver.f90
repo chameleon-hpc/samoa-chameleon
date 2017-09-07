@@ -488,7 +488,8 @@ if(neighbours_troubled) then
 end if
 
 if(data%troubled.eq.2) then
-   data%B = get_bathymetry_at_patch(section, element, section%r_dt)
+   !   data%B = get_bathymetry_at_patch(section, element, section%r_dt)
+   call data%convert_dg_to_fv_bathymetry()
    call data%convert_dg_to_fv()
 end if
 
@@ -1273,15 +1274,11 @@ subroutine get_fv_update(update,leg)
   real(kind=GRID_SR),Dimension(_SWE_PATCH_ORDER_SQUARE) :: H, HU, HV ,B
   integer :: i,j
 
-  call apply_phi(update%Q_DG(:)%h+update%Q_DG(:)%b,H)
+  call apply_phi(update%Q_DG(:)%h,H)
   call apply_phi(update%Q_DG(:)%p(1),HU)
   call apply_phi(update%Q_DG(:)%p(2),HV)
   call apply_phi(update%Q_DG(:)%b,B)
-
-  !!!!!!print,H
-  !!!!!!print,HU
-  !!!!!!print,HV
-  !!!!!!print,B
+  H=H+B
   
   !----FV updates need to be in reverse order----!
   select case (leg)
@@ -1312,15 +1309,15 @@ subroutine get_fv_update(update,leg)
   end select
 
 
-  where (update%H < update%B )
-#if defined(_ASAGI)
-     update%H = 0.0_GRID_SR
-#else     
-     update%H = update%B + cfg%dry_tolerance
-#endif     
-     update%HU = 0.0_GRID_SR
-     update%HV = 0.0_GRID_SR
-  end where
+!   where (update%H < update%B )
+! #if defined(_ASAGI)
+!      update%H = 0.0_GRID_SR
+! #else     
+!      update%H = update%B + cfg%dry_tolerance
+! #endif     
+!      update%HU = 0.0_GRID_SR
+!      update%HV = 0.0_GRID_SR
+!   end where
 
 end subroutine get_fv_update
 
@@ -1560,7 +1557,7 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
 #if defined (_ASAGI)
                   data%H = 0.0_GRID_SR
 #else                  
-                  data%H = data%B + cfg%dry_tolerance
+                  data%H = data%B
 #endif                  
                   data%HU = 0.0_GRID_SR
                   data%HV = 0.0_GRID_SR
@@ -1597,15 +1594,15 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                section%r_dt_new = min(section%r_dt_new, volume / (edge_lengths(2) * maxWaveSpeed) )
                maxWaveSpeed=0
 
-               call apply_mue(data%h  - data%b,data%Q_DG%h)
+               call apply_mue(data%h          ,data%Q_DG%h)
                call apply_mue(data%hu         ,data%Q_DG%p(1))
                call apply_mue(data%hv         ,data%Q_DG%p(2))
+               call data%convert_fv_to_dg_bathymetry(ref_plotter_data(element%cell%geometry%i_plotter_type)%jacobian)
+               data%Q_DG%h=data%Q_DG%h-data%Q_DG%b
                
                if(all(data%H - data%B > cfg%coast_height)) then
                   if(all(data%Q_DG%H > cfg%coast_height)) then
                      data%troubled = 5+data%troubled
-
-                     call data%convert_fv_to_dg_bathymetry(ref_plotter_data(element%cell%geometry%i_plotter_type)%jacobian)
                   else
                      data%troubled = 1
                   end if

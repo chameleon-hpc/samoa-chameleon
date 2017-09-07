@@ -867,8 +867,8 @@ MODULE SWE_Euler_Timestep
                          pL = matmul(transform_matrix, QL%p)
                          pR = matmul(transform_matrix, QR%p)
 
-                         hL = max(QL%h-QL%b,0.0_GRID_SR)
-                         hR = max(QR%h-QR%b,0.0_GRID_SR)
+                         hL = QL%h-QL%b
+                         hR = QR%h-QR%b
 
                          bL = QL%b
                          bR = QR%b

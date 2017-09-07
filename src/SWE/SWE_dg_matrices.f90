@@ -23,56 +23,56 @@ MODULE SWE_dg_matrices
 ! #define 
 
 !Conversion matrices
-#include "dg_matrices/phi_1.incl"
-#include "dg_matrices/ref1_1.incl"
-#include "dg_matrices/ref2_1.incl"
-#include "dg_matrices/coarsen_1.incl"
-#include "dg_matrices/mue_lu_1.incl"
-#include "dg_matrices/mue_lu_pivot_1.incl"
+#include "dg_matrices/phi_3.incl"
+#include "dg_matrices/ref1_3.incl"
+#include "dg_matrices/ref2_3.incl"
+#include "dg_matrices/coarsen_3.incl"
+#include "dg_matrices/mue_lu_3.incl"
+#include "dg_matrices/mue_lu_pivot_3.incl"
 
 !DG_Solver matrices
-#include "dg_matrices/s_k_x_1.incl"
-#include "dg_matrices/s_k_y_1.incl"
-#include "dg_matrices/b_m_1_1.incl"
-#include "dg_matrices/b_m_2_1.incl"
-#include "dg_matrices/b_m_3_1.incl"
+#include "dg_matrices/s_k_x_3.incl"
+#include "dg_matrices/s_k_y_3.incl"
+#include "dg_matrices/b_m_1_3.incl"
+#include "dg_matrices/b_m_2_3.incl"
+#include "dg_matrices/b_m_3_3.incl"
 
-#include "dg_matrices/s_m_lu_1.incl"
-#include "dg_matrices/s_m_lu_pivot_1.incl"
+#include "dg_matrices/s_m_lu_3.incl"
+#include "dg_matrices/s_m_lu_pivot_3.incl"
 
-#include "dg_matrices/basis_der_x_1.incl"
-#include "dg_matrices/basis_der_y_1.incl"
+#include "dg_matrices/basis_der_x_3.incl"
+#include "dg_matrices/basis_der_y_3.incl"
 
 !DG_Predictor matrices
-#include "dg_matrices/s_m_1.incl"
-#include "dg_matrices/st_k_x_1.incl"
-#include "dg_matrices/st_k_y_1.incl"
+#include "dg_matrices/s_m_3.incl"
+#include "dg_matrices/st_k_x_3.incl"
+#include "dg_matrices/st_k_y_3.incl"
 
-#include "dg_matrices/st_m_1.incl"
+#include "dg_matrices/st_m_3.incl"
 
-#include "dg_matrices/st_w_k_t_1_0_1.incl"
-#include "dg_matrices/st_w_k_t_1_1_lu_1.incl"
-#include "dg_matrices/st_w_k_t_1_1_lu_pivot_1.incl"
+#include "dg_matrices/st_w_k_t_1_0_3.incl"
+#include "dg_matrices/st_w_k_t_1_1_lu_3.incl"
+#include "dg_matrices/st_w_k_t_1_1_lu_pivot_3.incl"
 
-#include "dg_matrices/basis_der_st_x_1.incl"
-#include "dg_matrices/basis_der_st_y_1.incl"
+#include "dg_matrices/basis_der_st_x_3.incl"
+#include "dg_matrices/basis_der_st_y_3.incl"
 
 
 !L2 projection
-! #include "dg_matrices/st_gl_node_vals_1.incl"
-! #include "dg_matrices/st_gl_weights_1.incl"
-! #include "dg_matrices/st_der_x_gl_node_vals_1.incl"
-! #include "dg_matrices/st_der_y_gl_node_vals_1.incl"
+! #include "dg_matrices/st_gl_node_vals_3.incl"
+! #include "dg_matrices/st_gl_weights_3.incl"
+! #include "dg_matrices/st_der_x_gl_node_vals_3.incl"
+! #include "dg_matrices/st_der_y_gl_node_vals_3.incl"
 
-! #include "dg_matrices/s_der_x_gl_node_vals_1.incl"
-! #include "dg_matrices/s_der_y_gl_node_vals_1.incl"
+! #include "dg_matrices/s_der_x_gl_node_vals_3.incl"
+! #include "dg_matrices/s_der_y_gl_node_vals_3.incl"
 
-! #include "dg_matrices/st_m_lu_1.incl"
-! #include "dg_matrices/st_m_lu_pivot_1.incl"
+! #include "dg_matrices/st_m_lu_3.incl"
+! #include "dg_matrices/st_m_lu_pivot_3.incl"
 
 
-! #include "dg_matrices/bnd_gl_node_vals_1.incl"
-! #include "dg_matrices/bnd_gl_weights_1.incl"
+! #include "dg_matrices/bnd_gl_node_vals_3.incl"
+! #include "dg_matrices/bnd_gl_weights_3.incl"
 
 
 contains 

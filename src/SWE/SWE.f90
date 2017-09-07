@@ -333,7 +333,12 @@ contains
 
                 if (cfg%l_pointoutput) then
                     call swe%point_output%traverse(grid)
-                end if
+                 end if
+                 
+                 if(cfg%l_xml_pointoutput) then
+                    call swe%xml_point_output%traverse(grid)
+                 end if
+
 
 				r_time_next_output = r_time_next_output + cfg%r_output_time_step
 			end if

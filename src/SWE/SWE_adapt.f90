@@ -147,7 +147,7 @@
           end if
 
           !--- Needed for output at distinc timestep ---!
-          if(cfg%r_output_time_step .ge. 0) then
+          if(cfg%r_output_time_step > 0) then
              if(mod(grid%r_time,cfg%r_output_time_step) > 0.0_GRID_SR) then
                 grid%r_dt = min(cfg%r_output_time_step-mod(grid%r_time,cfg%r_output_time_step), grid%r_dt)
              end if

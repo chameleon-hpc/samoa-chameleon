@@ -1610,20 +1610,21 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                   data%troubled = 1
                end if
 
-               refine = (dQ_max_norm/section%r_dt  * edge_lengths(1) * edge_lengths(1) > refinement_threshold *get_edge_size(cfg%i_max_depth)**2)
-               coarsen =(dQ_max_norm/section%r_dt  * edge_lengths(1) * edge_lengths(1) < refinement_threshold * get_edge_size(cfg%i_max_depth)**2/8.0_GRID_SR)
-               coarsen = coarsen .and. all(data%H -data%B < cfg%dry_tolerance)
-               refine  = all(data%H -data%B < cfg%dry_tolerance)
+!               refine = (dQ_max_norm/section%r_dt  * edge_lengths(1) * edge_lengths(1) > refinement_threshold *get_edge_size(cfg%i_max_depth)**2)
+!               coarsen =(dQ_max_norm/section%r_dt  * edge_lengths(1) * edge_lengths(1) < refinement_threshold * get_edge_size(cfg%i_max_depth)**2/8.0_GRID_SR)
+               coarsen = all(data%H - data%B < cfg%dry_tolerance)
+               refine  = .not.all(data%H - data%B < cfg%dry_tolerance)
+
 
 #if defined(_ASAGI)
                coarsen=.false.
                refine =.false.
 #endif               
                
-               if(data%troubled.le.3) then
+               if(data%troubled.eq.1) then
                   if ( element%cell%geometry%i_depth < cfg%i_max_depth .and. refine) then
-                     element%cell%geometry%refinement = 1
-                     traversal%i_refinements_issued = traversal%i_refinements_issued + 1_GRID_DI
+                     element%cell%geometry%refinement = cfg%i_max_depth - element%cell%geometry%i_depth
+                     traversal%i_refinements_issued = traversal%i_refinements_issued+ cfg%i_max_depth - element%cell%geometry%i_depth
                   else if ( element%cell%geometry%i_depth > cfg%i_min_depth .and. coarsen) then
                      element%cell%geometry%refinement = -1
                   endif

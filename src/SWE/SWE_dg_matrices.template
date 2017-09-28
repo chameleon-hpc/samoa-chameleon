@@ -27,8 +27,10 @@ MODULE SWE_dg_matrices
 #include "dg_matrices/ref1_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/ref2_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/coarsen_SWE_DG_ORDER_TAG.incl"
-#include "dg_matrices/mue_lu_SWE_DG_ORDER_TAG.incl"
-#include "dg_matrices/mue_lu_pivot_SWE_DG_ORDER_TAG.incl"
+#include "dg_matrices/mue_inv_SWE_DG_ORDER_TAG.incl"
+#include "dg_matrices/nodes_SWE_DG_ORDER_TAG.incl"
+!#include "dg_matrices/mue_lu_SWE_DG_ORDER_TAG.incl"
+!#include "dg_matrices/mue_lu_pivot_SWE_DG_ORDER_TAG.incl"
 
 !DG_Solver matrices
 #include "dg_matrices/s_k_x_SWE_DG_ORDER_TAG.incl"
@@ -37,8 +39,9 @@ MODULE SWE_dg_matrices
 #include "dg_matrices/b_m_2_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/b_m_3_SWE_DG_ORDER_TAG.incl"
 
-#include "dg_matrices/s_m_lu_SWE_DG_ORDER_TAG.incl"
-#include "dg_matrices/s_m_lu_pivot_SWE_DG_ORDER_TAG.incl"
+#include "dg_matrices/s_m_inv_SWE_DG_ORDER_TAG.incl"
+!#include "dg_matrices/s_m_lu_SWE_DG_ORDER_TAG.incl"
+!#include "dg_matrices/s_m_lu_pivot_SWE_DG_ORDER_TAG.incl"
 
 #include "dg_matrices/basis_der_x_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/basis_der_y_SWE_DG_ORDER_TAG.incl"
@@ -51,8 +54,9 @@ MODULE SWE_dg_matrices
 #include "dg_matrices/st_m_SWE_DG_ORDER_TAG.incl"
 
 #include "dg_matrices/st_w_k_t_1_0_SWE_DG_ORDER_TAG.incl"
-#include "dg_matrices/st_w_k_t_1_1_lu_SWE_DG_ORDER_TAG.incl"
-#include "dg_matrices/st_w_k_t_1_1_lu_pivot_SWE_DG_ORDER_TAG.incl"
+#include "dg_matrices/st_w_k_t_1_1_inv_SWE_DG_ORDER_TAG.incl"
+! #include "dg_matrices/st_w_k_t_1_1_lu_SWE_DG_ORDER_TAG.incl"
+! #include "dg_matrices/st_w_k_t_1_1_lu_pivot_SWE_DG_ORDER_TAG.incl"
 
 #include "dg_matrices/basis_der_st_x_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/basis_der_st_y_SWE_DG_ORDER_TAG.incl"

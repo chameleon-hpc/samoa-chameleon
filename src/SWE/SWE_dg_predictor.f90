@@ -215,9 +215,14 @@ MODULE SWE_dg_predictor
               - volume_flux1 &
               - volume_flux2
          
-         call lusolve(st_w_k_t_1_1_lu,_SWE_DG_ORDER*_SWE_DG_DOFS,st_w_k_t_1_1_lu_pivot ,q_temp(:,1))
-         call lusolve(st_w_k_t_1_1_lu,_SWE_DG_ORDER*_SWE_DG_DOFS,st_w_k_t_1_1_lu_pivot ,q_temp(:,2))
-         call lusolve(st_w_k_t_1_1_lu,_SWE_DG_ORDER*_SWE_DG_DOFS,st_w_k_t_1_1_lu_pivot ,q_temp(:,3))
+         ! call lusolve(st_w_k_t_1_1_lu,_SWE_DG_ORDER*_SWE_DG_DOFS,st_w_k_t_1_1_lu_pivot ,q_temp(:,1))
+         ! call lusolve(st_w_k_t_1_1_lu,_SWE_DG_ORDER*_SWE_DG_DOFS,st_w_k_t_1_1_lu_pivot ,q_temp(:,2))
+         ! call lusolve(st_w_k_t_1_1_lu,_SWE_DG_ORDER*_SWE_DG_DOFS,st_w_k_t_1_1_lu_pivot ,q_temp(:,3))
+
+         q_temp(:,1)=matmul(st_w_k_t_1_1_inv,q_temp(:,1))
+         q_temp(:,2)=matmul(st_w_k_t_1_1_inv,q_temp(:,2))
+         q_temp(:,3)=matmul(st_w_k_t_1_1_inv,q_temp(:,3))
+
          
          epsilon=0.0_GRID_SR                          
          do j=1,(_SWE_DG_ORDER)*_SWE_DG_DOFS

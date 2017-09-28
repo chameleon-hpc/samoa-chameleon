@@ -1211,10 +1211,13 @@ subroutine dg_solver(element,update1,update2,update3,dt)
     ! !!!!!!!print
 
     
+    q_temp(:,1)=matmul(s_m_inv,q_temp(:,1))
+    q_temp(:,2)=matmul(s_m_inv,q_temp(:,2))
+    q_temp(:,3)=matmul(s_m_inv,q_temp(:,3))    
 
-    call lusolve(s_m_lu, _SWE_DG_DOFS, s_m_lu_pivot,q_temp(:,1))
-    call lusolve(s_m_lu, _SWE_DG_DOFS, s_m_lu_pivot,q_temp(:,2))
-    call lusolve(s_m_lu, _SWE_DG_DOFS, s_m_lu_pivot,q_temp(:,3))
+    ! call lusolve(s_m_lu, _SWE_DG_DOFS, s_m_lu_pivot,q_temp(:,1))
+    ! call lusolve(s_m_lu, _SWE_DG_DOFS, s_m_lu_pivot,q_temp(:,2))
+    ! call lusolve(s_m_lu, _SWE_DG_DOFS, s_m_lu_pivot,q_temp(:,3))
     
     q=q-q_temp
 

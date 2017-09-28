@@ -250,9 +250,14 @@
 
                    q_temp = q_temp /_REF_TRIANGLE_SIZE_INV
 
-                   call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,q_temp(:,1))
-                   call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,q_temp(:,2))
-                   call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,q_temp(:,3))
+                   ! call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,q_temp(:,1))
+                   ! call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,q_temp(:,2))
+                   ! call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,q_temp(:,3))
+
+                   q_temp(:,1)=matmul(mue_inv,q_temp(:,1))
+                   q_temp(:,2)=matmul(mue_inv,q_temp(:,2))
+                   q_temp(:,3)=matmul(mue_inv,q_temp(:,3))
+
 !                   print*,q_temp(1:_SWE_DG_DOFS,:)
                    
                    q_temp(1:_SWE_DG_DOFS,1)=q_temp(1:_SWE_DG_DOFS,1) - dofs%Q_DG%b
@@ -312,7 +317,8 @@
                    q_temp = q_temp /_REF_TRIANGLE_SIZE_INV
 
                   
-                   call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,q_temp)
+                   !                   call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,q_temp)
+                   q_temp=matmul(mue_inv,q_temp)                   
 
                    dg=q_temp(1:_SWE_DG_DOFS)
                    
@@ -359,7 +365,8 @@
                    b_temp = b_temp /_REF_TRIANGLE_SIZE_INV
 
                   
-                   call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,b_temp)
+!                   call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,b_temp)
+                   b_temp=matmul(mue_inv,b_temp)                   
 
                    do i=1,_SWE_DG_DOFS
                       dofs%Q_DG(i)%b=b_temp(i)

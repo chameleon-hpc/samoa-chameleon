@@ -328,25 +328,26 @@ MODULE SWE_xml_point_output
     ! The array mirrored_coords maps non-mirrored coordinates to mirrored coordinates.
     integer, parameter :: num_cells = _SWE_DG_ORDER * _SWE_DG_ORDER
 # if (_SWE_DG_ORDER == 1)
-    real (kind = GRID_SR), parameter, dimension(2, _SWE_DG_DOFS) :: coords = reshape([0.0, 0.0, 1.0, 0.0, 0.0, 1.0], [2, _SWE_DG_DOFS ])
+!    real (kind = GRID_SR), parameter, dimension(2, _SWE_DG_DOFS) :: coords = reshape([0.0, 0.0, 1.0, 0.0, 0.0, 1.0], [2, _SWE_DG_DOFS ])
     integer (kind = GRID_SI), parameter, dimension(_SWE_DG_DOFS) :: mirrored_coords = [1, 3, 2]
 # elif (_SWE_DG_ORDER == 2)
-    real (kind = GRID_SR), parameter, dimension(2, _SWE_DG_DOFS) :: coords = reshape([0.0, 0.0, 0.5, 0.0, 1.0, 0.0, &
-         0.0, 0.5, 0.5, 0.5, 0.0, 1.0], [2, _SWE_DG_DOFS ])
+!    real (kind = GRID_SR), parameter, dimension(2, _SWE_DG_DOFS) :: coords = reshape([0.0, 0.0, 0.5, 0.0, 1.0, 0.0, &
+!         0.0, 0.5, 0.5, 0.5, 0.0, 1.0], [2, _SWE_DG_DOFS ])
     integer (kind = GRID_SI), parameter, dimension(_SWE_DG_DOFS) :: mirrored_coords = [1, 4, 6, 2, 5, 3]
 # elif (_SWE_DG_ORDER == 3)
-    real (kind = GRID_SR), parameter, dimension(2, _SWE_DG_DOFS) :: coords = reshape([0.0, 0.0, 1.0/3.0, 0.0, 2.0/3.0, 0.0, 1.0, 0.0, &
-         0.0, 1.0/3.0, 1.0/3.0, 1.0/3.0, 2.0/3.0, 1.0/3.0, &
-         0.0, 2.0/3.0, 1.0/3.0, 2.0/3.0, &
-         0.0, 1.0], [2, _SWE_DG_DOFS ])
+    ! real (kind = GRID_SR), parameter, dimension(2, _SWE_DG_DOFS) :: coords = reshape([0.0, 0.0, 1.0/3.0, 0.0, 2.0/3.0, 0.0, 1.0, 0.0, &
+    !      0.0, 1.0/3.0, 1.0/3.0, 1.0/3.0, 2.0/3.0, 1.0/3.0, &
+    !      0.0, 2.0/3.0, 1.0/3.0, 2.0/3.0, &
+    !      0.0, 1.0], [2, _SWE_DG_DOFS ])
     integer (kind = GRID_SI), parameter, dimension(_SWE_DG_DOFS) :: mirrored_coords = [1, 5, 8, 10, 2, 6, 9, 3, 7, 4]
 # elif (_SWE_DG_ORDER == 4)
-    real (kind = GRID_SR), parameter, dimension(2, 15)	:: coords = reshape([0.0, 0.0, 0.25, 0.0, 0.5, 0.0, 0.75, 0.0, 1.0, 0.0, &
-         0.0, 0.25, 0.25, 0.25, 0.5, 0.25, 0.75, 0.25, &
-         0.0, 0.5, 0.25, 0.5, 0.5, 0.5, &
-         0.0, 0.75, 0.25, 0.75, 0.0, 1.0], [2, _SWE_DG_DOFS])
+    ! real (kind = GRID_SR), parameter, dimension(2, 15)	:: coords = reshape([0.0, 0.0, 0.25, 0.0, 0.5, 0.0, 0.75, 0.0, 1.0, 0.0, &
+    !      0.0, 0.25, 0.25, 0.25, 0.5, 0.25, 0.75, 0.25, &
+    !      0.0, 0.5, 0.25, 0.5, 0.5, 0.5, &
+    !      0.0, 0.75, 0.25, 0.75, 0.0, 1.0], [2, _SWE_DG_DOFS])
     integer (kind = GRID_SI), parameter, dimension(_SWE_DG_DOFS) :: mirrored_coords = [ 1, 6, 10, 13, 15, 2, 7, 11, 14, 3, 8, 12, 4, 9, 5]
 #endif
+    real (kind = GRID_SR), parameter, dimension(2, _SWE_DG_DOFS)	:: coords = nodes
 
     ! Only implemented for patches and _SWE_DG!
 # if defined(_SWE_PATCH)

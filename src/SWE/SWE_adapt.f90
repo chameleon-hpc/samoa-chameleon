@@ -273,37 +273,30 @@
                    dest_element%cell%data_pers%Q_DG%H=matmul(ref2,src_element%cell%data_pers%Q_DG%H+src_element%cell%data_pers%Q_DG%B)
                    dest_element%cell%data_pers%Q_DG%p(1)=matmul(ref2,src_element%cell%data_pers%Q_DG%p(1))
                    dest_element%cell%data_pers%Q_DG%p(2)=matmul(ref2,src_element%cell%data_pers%Q_DG%p(2))
-!                   dest_element%cell%data_pers%Q_DG%B=matmul(ref2,src_element%cell%data_pers%Q_DG%B)             
                 else
                    dest_element%cell%data_pers%Q_DG%H=matmul(ref1,src_element%cell%data_pers%Q_DG%H+src_element%cell%data_pers%Q_DG%B)
                    dest_element%cell%data_pers%Q_DG%p(1)=matmul(ref1,src_element%cell%data_pers%Q_DG%p(1))
                    dest_element%cell%data_pers%Q_DG%p(2)=matmul(ref1,src_element%cell%data_pers%Q_DG%p(2))
-!                   dest_element%cell%data_pers%Q_DG%B=matmul(ref1,src_element%cell%data_pers%Q_DG%B)             
                 end if
-                
-                ! call lusolve(s_m_lu, _SWE_DG_DOFS, s_m_lu_pivot,dest_element%cell%data_pers%Q_DG%H)
-                ! call lusolve(s_m_lu, _SWE_DG_DOFS, s_m_lu_pivot,dest_element%cell%data_pers%Q_DG%p(1))
-                ! call lusolve(s_m_lu, _SWE_DG_DOFS, s_m_lu_pivot,dest_element%cell%data_pers%Q_DG%p(2))
 
                 dest_element%cell%data_pers%Q_DG%H=matmul(s_m_inv,dest_element%cell%data_pers%Q_DG%H)
                 dest_element%cell%data_pers%Q_DG%p(1)=matmul(s_m_inv,dest_element%cell%data_pers%Q_DG%p(1))
                 dest_element%cell%data_pers%Q_DG%p(2)=matmul(s_m_inv,dest_element%cell%data_pers%Q_DG%p(2))
              end do
              
-             dest_element%cell%data_pers%B = get_bathymetry_at_patch(section, dest_element%t_element_base, section%r_time)
+!              dest_element%cell%data_pers%B = get_bathymetry_at_patch(section, dest_element%t_element_base, section%r_time)
+             dest_element%cell%data_pers%Q_DG%B = get_bathymetry_at_dg_patch(section, dest_element%t_element_base, section%r_time)
 
-             call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(i_plotter_type))%jacobian)
+             call bathymetry_derivatives(dest_element%cell%data_pers,ref_plotter_data(abs(i_plotter_type))%jacobian)
+
+
+!              call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(i_plotter_type))%jacobian)
              
              dest_element%cell%data_pers%Q_DG%H=dest_element%cell%data_pers%Q_DG%H-dest_element%cell%data_pers%Q_DG%B
              
           else
 
-#endif
-             H_in = src_element%cell%data_pers%H
-             HU_in = src_element%cell%data_pers%HU
-             HV_in = src_element%cell%data_pers%HV
-             B_in = src_element%cell%data_pers%B
-             
+#endif             
           i_plotter_type = src_element%cell%geometry%i_plotter_type
           
           dry_cell_in = .false.
@@ -410,7 +403,7 @@
           end if
 !          call dest_element%cell%data_pers%convert_fv_to_dg
 
-          call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(i_plotter_type))%jacobian)
+!          call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(i_plotter_type))%jacobian)
           
           dest_element%cell%data_pers%troubled=src_element%cell%data_pers%troubled
 
@@ -511,8 +504,14 @@
                    dest_element%cell%data_pers%Q_DG%p(1)=matmul(s_m_inv,dest_element%cell%data_pers%Q_DG%p(1))
                    dest_element%cell%data_pers%Q_DG%p(2)=matmul(s_m_inv,dest_element%cell%data_pers%Q_DG%p(2))
                    !generate bythymetry from initial data
-                   dest_element%cell%data_pers%B = get_bathymetry_at_patch(section, dest_element%t_element_base, section%r_time)
-                   call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(i_plotter_type))%jacobian)
+                   
+!                   dest_element%cell%data_pers%B = get_bathymetry_at_patch(section, dest_element%t_element_base, section%r_time)
+!                   call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(i_plotter_type))%jacobian)
+                   dest_element%cell%data_pers%Q_DG%B = get_bathymetry_at_dg_patch(section, dest_element%t_element_base, section%r_time)
+
+                   call bathymetry_derivatives(dest_element%cell%data_pers,ref_plotter_data(abs(i_plotter_type))%jacobian)
+
+
                    dest_element%cell%data_pers%Q_DG%H = dest_element%cell%data_pers%Q_DG%H-dest_element%cell%data_pers%Q_DG%B
 
                    ! if cell is dry after refinement do fv coarsening

@@ -397,6 +397,22 @@
 #endif
                  end subroutine convert_fv_to_dg_bathymetry
 
+                 subroutine bathymetry_derivatives(dofs,normals)
+                   class(num_cell_data_pers) :: dofs
+                   real(kind=GRID_SR) :: b_x_temp(_SWE_DG_DOFS)
+                   real(kind=GRID_SR) :: b_y_temp(_SWE_DG_DOFS)
+                   real(kind=GRID_SR) :: normals(2,2)
+                   real(kind=GRID_SR) :: normals_normed(2,2)
+                   
+                   normals_normed=normals/NORM2(normals(1,1:2))
+
+                   b_x_temp=matmul(basis_der_x,dofs%Q_DG(:)%B)
+                   b_y_temp=matmul(basis_der_y,dofs%Q_DG(:)%B)
+
+                   dofs%Q_DG(:)%b_x=normals_normed(1,1) * b_x_temp + normals_normed(1,2) * b_y_temp
+                   dofs%Q_DG(:)%b_y=normals_normed(2,1) * b_x_temp + normals_normed(2,2) * b_y_temp
+
+                 end subroutine bathymetry_derivatives
 #endif                   
 
 		!adds two state vectors

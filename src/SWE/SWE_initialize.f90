@@ -35,6 +35,10 @@ MODULE SWE_Initialize_Bathymetry
   PUBLIC get_bathymetry_at_patch
 #       endif
 
+# if defined(_SWE_DG)
+    PUBLIC get_bathymetry_at_dg_patch
+#endif
+
 #		define _GT_NAME							t_swe_init_b_traversal
 
 #		define _GT_EDGES
@@ -44,8 +48,6 @@ MODULE SWE_Initialize_Bathymetry
 #		define _GT_PRE_TRAVERSAL_GRID_OP		pre_traversal_grid_op
 #		define _GT_POST_TRAVERSAL_GRID_OP		post_traversal_grid_op
 #		define _GT_ELEMENT_OP					element_op
-  !#		define _GT_CELL_TO_EDGE_OP				cell_to_edge_op
-
 
 #		include "SFC_generic_traversal_ringbuffer.f90"
 
@@ -205,6 +207,8 @@ MODULE SWE_Initialize_Bathymetry
 #           endif
   end function get_bathymetry_at_element
 
+
+
 #if defined (_SWE_PATCH)
   function get_bathymetry_at_patch(section, element, t) result(bathymetry)
     type(t_grid_section), intent(inout)     :: section
@@ -268,6 +272,42 @@ MODULE SWE_Initialize_Bathymetry
        end if
     end do
   end function get_bathymetry_at_patch
+#endif
+
+#if defined (_SWE_DG)
+  function get_bathymetry_at_dg_patch(section, element, t) result(bathymetry)
+    type(t_grid_section), intent(inout)            :: section
+    type(t_element_base), intent(inout)            :: element
+    real (kind = GRID_SR), intent(in)              :: t
+    real (kind = GRID_SR), dimension(_SWE_DG_DOFS) :: bathymetry
+    integer (kind = GRID_SI)                       :: i,index
+    real (kind = GRID_SR)                          :: x(2)
+
+# if (_SWE_DG_ORDER == 1)
+    integer (kind = GRID_SI), parameter, dimension(_SWE_DG_DOFS) :: mirrored_coords = [1, 3, 2]
+# elif (_SWE_DG_ORDER == 2)
+    integer (kind = GRID_SI), parameter, dimension(_SWE_DG_DOFS) :: mirrored_coords = [1, 4, 6, 2, 5, 3]
+# elif (_SWE_DG_ORDER == 3)
+    integer (kind = GRID_SI), parameter, dimension(_SWE_DG_DOFS) :: mirrored_coords = [1, 5, 8, 10, 2, 6, 9, 3, 7, 4]
+# elif (_SWE_DG_ORDER == 4)
+    integer (kind = GRID_SI), parameter, dimension(_SWE_DG_DOFS) :: mirrored_coords = [ 1, 6, 10, 13, 15, 2, 7, 11, 14, 3, 8, 12, 4, 9, 5]
+#endif
+    real (kind = GRID_SR), parameter, dimension(2, _SWE_DG_DOFS) :: coords = nodes
+
+
+    !iterate through cells in patch
+    
+    do i=1, _SWE_DG_DOFS
+       if (element%cell%geometry%i_plotter_type > 0) then 
+          index = i
+       else
+          index = mirrored_coords(i)
+       end if
+       x = samoa_barycentric_to_world_point(element%transform_data, coords(:,index))
+       bathymetry(i) = get_bathymetry_at_position(section, x, t)
+   end do
+
+  end function get_bathymetry_at_dg_patch
 #endif
 
   function get_bathymetry_at_position(section, x, t) result(bathymetry)
@@ -418,80 +458,55 @@ MODULE SWE_Initialize_Dofs
     type(t_swe_init_dofs_traversal), intent(inout)				    :: traversal
     type(t_grid_section), intent(inout)							:: section
     type(t_element_base), intent(inout)					        :: element
-
-
-
-#           if defined(_SWE_PATCH)
+#if defined(_SWE_PATCH)
     type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE)   :: Q
 #if defined(_SWE_DG)
     integer :: i,j,count
     real (kind = GRID_SR)   :: x(2)
     type(t_dof_state) :: QS
+    type(t_state), dimension(_SWE_DG_DOFS)   :: Q_DG
 #endif
 
-    !    call element%cell%data_pers%convert_dg_to_fv_bathymetry()                
-    Q(:)%b = element%cell%data_pers%B
+    !    call element%cell%data_pers%convert_dg_to_fv_bathymetry()
+
+    if(element%cell%data_pers%troubled .ge.1)then
+       element%cell%data_pers%Q_DG%B = get_bathymetry_at_dg_patch(section, element, section%r_time)
+       call bathymetry_derivatives(element%cell%data_pers,ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian)
+    end if
+
+    Q_DG(:)%b = element%cell%data_pers%Q_DG%B
+    Q(:)%b = element%cell%data_pers%B    
 
 #if defined(_ASAGI)    
     section%b_min_new=min( section%b_min_new, minval(element%cell%data_pers%B))
     section%b_max_new=max( section%b_max_new, maxval(element%cell%data_pers%B))    
 #endif
 
-    call alpha_volume_op(traversal, section, element, Q)
+    element%cell%data_pers%troubled = 0    
+    call alpha_volume_op_dg(traversal, section, element, Q_DG)
+    element%cell%data_pers%Q_DG%H    = Q_DG(:)%h-Q_DG(:)%b
+    element%cell%data_pers%Q_DG%p(1) = Q_DG(:)%p(1)
+    element%cell%data_pers%Q_DG%p(2) = Q_DG(:)%p(2)
 
-    element%cell%data_pers%H = Q(:)%h
-    element%cell%data_pers%HU = Q(:)%p(1)
-    element%cell%data_pers%HV = Q(:)%p(2)
+
+    !--First test for drying cells--!
+    if(.not.all(element%cell%data_pers%Q_DG%H > cfg%coast_height))then
+       element%cell%data_pers%B = get_bathymetry_at_patch(section, element, section%r_time)
+       element%cell%data_pers%troubled = 1
+    end if
+
+    if(element%cell%data_pers%troubled .ge.1)then
+       call alpha_volume_op(traversal, section, element, Q)
+       element%cell%data_pers%H    = Q(:)%h
+       element%cell%data_pers%HU   = Q(:)%p(1)
+       element%cell%data_pers%HV   = Q(:)%p(2)
+    end if
 
 #if defined(_ASAGI)    
     where(0.0_GRID_SR < element%cell%data_pers%B)
        element%cell%data_pers%H=0.0_GRID_SR
     end where
 #endif                   
-
-    call element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian)
-    call element%cell%data_pers%convert_fv_to_dg()
-
-    call element%cell%data_pers%convert_dg_to_fv_bathymetry()
-
-    ! #if defined(_ASAGI)
-    !                  where(element%cell%data_pers%Q_DG%H+element%cell%data_pers%Q_DG%B < 0)
-    !                     element%cell%data_pers%Q_DG%H=-element%cell%data_pers%Q_DG%B
-    !                  end where
-    ! #endif                   
-
-
-#if defined(_SWE_DG)
-
-    !call element%cell%data_pers%convert_dg_to_fv_bathymetry()
-
-    !print*
-    !print*,element%cell%data_pers%H
-    !print*,element%cell%data_pers%B    
-
-    element%cell%data_pers%troubled = 1
-    call apply_mue(element%cell%data_pers%H,element%cell%data_pers%Q_DG%h)
-    !to preserve constant total waterheight
-    element%cell%data_pers%Q_DG%h= element%cell%data_pers%Q_DG%h- element%cell%data_pers%Q_DG%b
-    call apply_mue(element%cell%data_pers%HU,element%cell%data_pers%Q_DG%p(1))
-    call apply_mue(element%cell%data_pers%HV,element%cell%data_pers%Q_DG%p(2))
-
-    call apply_phi(element%cell%data_pers%Q_DG%h,element%cell%data_pers%H)
-    element%cell%data_pers%H=element%cell%data_pers%H+element%cell%data_pers%B
-    call apply_phi(element%cell%data_pers%Q_DG%p(1),element%cell%data_pers%HU)
-    call apply_phi(element%cell%data_pers%Q_DG%p(2),element%cell%data_pers%HV)            
-
-
-    !--First test for drying cells--!
-    if(all(element%cell%data_pers%H-element%cell%data_pers%B > cfg%coast_height))then
-       if(all(element%cell%data_pers%Q_DG%H > cfg%coast_height))then
-          element%cell%data_pers%troubled = 0
-       end if
-    end if
-    !print*,element%cell%data_pers%troubled
-
-
-#endif
 
 #           else
     type(t_state), dimension(_SWE_CELL_SIZE)            :: Q
@@ -504,6 +519,70 @@ MODULE SWE_Initialize_Dofs
 #           endif
   end subroutine element_op
 
+
+
+  !*******************************
+  !Volume and DoF operators
+  !*******************************
+
+  subroutine alpha_volume_op_dg(traversal, section, element, Q)
+    type(t_swe_init_dofs_traversal), intent(inout)				    :: traversal
+    type(t_grid_section), intent(inout)							:: section
+    type(t_element_base), intent(inout)						    :: element
+    type(t_state), dimension(_SWE_DG_DOFS), intent(out)  :: Q
+    real (kind = GRID_SR), dimension(_SWE_DG_DOFS)       :: max_wave_speed
+# if (_SWE_DG_ORDER == 1)
+    integer (kind = GRID_SI), parameter, dimension(_SWE_DG_DOFS) :: mirrored_coords = [1, 3, 2]
+# elif (_SWE_DG_ORDER == 2)
+    integer (kind = GRID_SI), parameter, dimension(_SWE_DG_DOFS) :: mirrored_coords = [1, 4, 6, 2, 5, 3]
+# elif (_SWE_DG_ORDER == 3)
+    integer (kind = GRID_SI), parameter, dimension(_SWE_DG_DOFS) :: mirrored_coords = [1, 5, 8, 10, 2, 6, 9, 3, 7, 4]
+# elif (_SWE_DG_ORDER == 4)
+    integer (kind = GRID_SI), parameter, dimension(_SWE_DG_DOFS) :: mirrored_coords = [ 1, 6, 10, 13, 15, 2, 7, 11, 14, 3, 8, 12, 4, 9, 5]
+#endif
+    real (kind = GRID_SR), parameter, dimension(2, _SWE_DG_DOFS)	:: coords = nodes
+    real (kind = GRID_SR), dimension(2)	:: x
+    integer                             :: i, index
+
+    
+    !evaluate initial DoFs (not the bathymetry!)
+    element%cell%geometry%refinement = 0
+
+    do i=1,_SWE_DG_DOFS
+       if (element%cell%geometry%i_plotter_type > 0) then 
+          index = i
+       else
+          index = mirrored_coords(i)
+       end if
+       x = samoa_barycentric_to_world_point(element%transform_data, coords(:,index))
+       Q(i)%t_dof_state = get_initial_dof_state_at_position(section,x)
+    end do
+
+    if (element%cell%geometry%i_depth < cfg%i_min_depth) then
+       !refine if the minimum depth is not met
+       element%cell%geometry%refinement = 1
+       traversal%i_refinements_issued = traversal%i_refinements_issued + 1
+!    else if (element%cell%geometry%i_depth < cfg%i_max_depth) then
+    end if
+
+    !estimate initial time step
+    where (Q%h - Q%b > 0.0_GRID_SR)
+       max_wave_speed = sqrt(g * (Q%h - Q%b)) + sqrt((Q%p(1) * Q%p(1) + Q%p(2) * Q%p(2)) / ((Q%h - Q%b) * (Q%h - Q%b)))
+    elsewhere
+       max_wave_speed = 0.0_GRID_SR
+    end where
+
+    !This will cause a division by zero if the wave speeds are 0.
+    !Bue to the min operator, the error will not affect the time step.
+
+
+    section%r_dt_new = min(section%r_dt_new, element%cell%geometry%get_volume() / (sum(element%cell%geometry%get_edge_sizes()) * maxval(max_wave_speed) * _SWE_PATCH_ORDER))
+
+    
+  end subroutine alpha_volume_op_dg
+
+
+  
   !*******************************
   !Volume and DoF operators
   !*******************************

@@ -488,7 +488,7 @@ MODULE  SWE_Convergence_test
         real (kind = GRID_SR), intent(in) :: x(2)
         real (kind = GRID_SR) :: bathymetry
         
-        bathymetry=2.0_GRID_SR - sin(8*atan(1.0)*x(1)) - cos(8*atan(1.0)*x(2))
+        bathymetry=sin(8*atan(1.0)*x(1)) + cos(8*atan(1.0)*x(2))
                 
     end function
     

@@ -475,13 +475,13 @@ MODULE  SWE_Convergence_test
     function SWE_Scenario_get_scaling() result(scaling)
         real (kind = GRID_SR) :: scaling
         
-        scaling = 3.0_GRID_SR
+        scaling = 6.0_GRID_SR
     end function
 
     function SWE_Scenario_get_offset() result(offset)
         real (kind = GRID_SR) :: offset(2)
         
-        offset = -[1.0_GRID_SR, 1.0_GRID_SR]
+        offset = -[0.5_GRID_SR, 0.5_GRID_SR] * SWE_Scenario_get_scaling()
     end function
     
     function SWE_Scenario_get_bathymetry(x) result(bathymetry)

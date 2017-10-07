@@ -558,7 +558,7 @@ MODULE SWE_Initialize_Dofs
        Q(i)%t_dof_state = get_initial_dof_state_at_position(section,x)
     end do
 
-    if (element%cell%geometry%i_depth < cfg%i_min_depth) then
+    if (element%cell%geometry%i_depth < cfg%i_max_depth) then
        !refine if the minimum depth is not met
        element%cell%geometry%refinement = 1
        traversal%i_refinements_issued = traversal%i_refinements_issued + 1

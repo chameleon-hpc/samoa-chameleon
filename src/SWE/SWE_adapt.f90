@@ -265,7 +265,8 @@
 #if defined (_SWE_PATCH)
 #if defined (_SWE_DG)
           i_plotter_type = src_element%cell%geometry%i_plotter_type
-          if(src_element%cell%data_pers%troubled .le. 0) then
+          dest_element%cell%data_pers%troubled=src_element%cell%data_pers%troubled
+          if(dest_element%cell%data_pers%troubled .le. 0) then
              
              do i=1, size(refinement_path)
                 ! decide which child is being computed (first = left to hypot, second = right to hypot.)
@@ -293,12 +294,28 @@
 !              call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(i_plotter_type))%jacobian)
              
              dest_element%cell%data_pers%Q_DG%H=dest_element%cell%data_pers%Q_DG%H-dest_element%cell%data_pers%Q_DG%B
+
+
+             if(.not.all(dest_element%cell%data_pers%Q_DG%H > cfg%coast_height))then
+                dest_element%cell%data_pers%troubled=1
+             end if
              
-          else
+             if(dest_element%cell%data_pers%troubled.le.0) then
+                call dg_predictor(dest_element%cell,section%r_dt)
+             end if
+          end if
+#endif
+             
+          if(dest_element%cell%data_pers%troubled.ge.1) then
 
 #endif             
           i_plotter_type = src_element%cell%geometry%i_plotter_type
-          
+
+          H_in = src_element%cell%data_pers%H
+          HU_in = src_element%cell%data_pers%HU
+          HV_in = src_element%cell%data_pers%HV
+          B_in = src_element%cell%data_pers%B
+
           dry_cell_in = .false.
           dry_cell_out = .false.
           
@@ -407,18 +424,7 @@
           
           dest_element%cell%data_pers%troubled=src_element%cell%data_pers%troubled
 
-#if defined(_ASAGI)   
-          if(.not.all(dest_element%cell%data_pers%Q_DG%H > 500.0))then
-#else
-          if(.not.all(dest_element%cell%data_pers%Q_DG%H > cfg%coast_height))then
-#endif   
-              dest_element%cell%data_pers%troubled=1
-           end if
 
-           if(dest_element%cell%data_pers%troubled.le.0) then
-              call dg_predictor(dest_element%cell,section%r_dt)
-           end if
-#endif
 #if defined (_DEBUG)                        
            dest_element%cell%data_pers%debug_flag=-4
 #endif           

@@ -47,6 +47,48 @@ MODULE SWE_Scenario_template
 END MODULE SWE_Scenario_template
 #endif
 
+#if defined (_SWE_SCENARIO_ALL_RAREFACTION)
+MODULE SWE_Scenario_all_rarefaction
+    use Samoa_swe
+    public SWE_Scenario_get_scaling, SWE_Scenario_get_offset, SWE_Scenario_get_bathymetry, SWE_Scenario_get_initial_Q
+    contains
+
+    function SWE_Scenario_get_scaling() result(scaling)
+        real (kind = GRID_SR) :: scaling
+        
+        scaling = 4.0_GRID_SR
+    end function
+
+    function SWE_Scenario_get_offset() result(offset)
+        real (kind = GRID_SR) :: offset(2)
+        
+        offset = SWE_Scenario_get_scaling() * [-0.5_GRID_SR, -0.5_GRID_SR]
+    end function
+    
+    function SWE_Scenario_get_bathymetry(x) result(bathymetry)
+        real (kind = GRID_SR), intent(in) :: x(2)
+        real (kind = GRID_SR) :: bathymetry
+        
+        bathymetry = -0.5_GRID_SR
+    end function
+    
+    function SWE_Scenario_get_initial_Q(x) result(Q)
+        real (kind = GRID_SR), intent(in) :: x(2)
+        type(t_dof_state) :: Q
+        
+        if(x(1)< 0.0_GRID_SR)then
+           Q%p = [-0.5_GRID_SR, 0.0_GRID_SR]
+        else
+           Q%p = [0.5_GRID_SR, 0.0_GRID_SR]
+        end if
+        
+        Q%h = 0.5_GRID_SR
+    end function
+
+END MODULE SWE_Scenario_all_rarefaction
+#endif
+
+
 
 #if defined (_SWE_SCENARIO_GAUSSIAN_CURVE)
 MODULE SWE_Scenario_gaussian_curve
@@ -533,6 +575,8 @@ MODULE SWE_Scenario
         USE SWE_Scenario_single_wave_on_the_beach
 #   elif defined(_SWE_SCENARIO_CONVERGENCE_TEST)
         USE SWE_Convergence_test
+#   elif defined(_SWE_SCENARIO_ALL_RAREFACTION)
+        USE SWE_Scenario_all_rarefaction
 #   endif
 
 END MODULE SWE_Scenario

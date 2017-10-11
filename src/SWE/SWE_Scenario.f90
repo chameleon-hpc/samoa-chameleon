@@ -69,20 +69,27 @@ MODULE SWE_Scenario_all_rarefaction
         real (kind = GRID_SR), intent(in) :: x(2)
         real (kind = GRID_SR) :: bathymetry
         
-        bathymetry = -0.5_GRID_SR
+        !        bathymetry = -0.5_GRID_SR
+        bathymetry = 0.0_GRID_SR        
     end function
     
     function SWE_Scenario_get_initial_Q(x) result(Q)
         real (kind = GRID_SR), intent(in) :: x(2)
         type(t_dof_state) :: Q
-        
-        if(x(1)< 0.0_GRID_SR)then
-           Q%p = [-0.5_GRID_SR, 0.0_GRID_SR]
-        else
-           Q%p = [0.5_GRID_SR, 0.0_GRID_SR]
-        end if
-        
-        Q%h = 0.5_GRID_SR
+
+
+!        Q%p = [0.0_GRID_SR, 0.0_GRID_SR]        
+        ! if(x(1) > -1.5 .and. x(1) < 1.5) then
+        !    if(x(2) > -1.5 .and. x(2) < 1.5) then
+           
+              if(x(2) < -x(1))then
+                 Q%p = [-0.5_GRID_SR, -0.5_GRID_SR]/sqrt(2.0_GRID_SR)
+              else
+                 Q%p = [0.5_GRID_SR, 0.5_GRID_SR]/sqrt(2.0_GRID_SR)
+              end if
+        !    end if
+        ! end if
+        Q%h = 1.0
     end function
 
 END MODULE SWE_Scenario_all_rarefaction

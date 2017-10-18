@@ -386,12 +386,12 @@ if(rep%troubled.le.0) then
       !                          reflecting boundary
       length_flux = dot_product(rep%Q_DG_P(i)%p, normal_normed)
       
-      temp_Q_DG_P(i)%p(1) = rep%Q_DG_P(i)%p(1)-2.0_GRID_SR*length_flux*normal_normed(1)
-      temp_Q_DG_P(i)%p(2) = rep%Q_DG_P(i)%p(2)-2.0_GRID_SR*length_flux*normal_normed(2)
+      !temp_Q_DG_P(i)%p(1) = rep%Q_DG_P(i)%p(1)-2.0_GRID_SR*length_flux*normal_normed(1)
+      !temp_Q_DG_P(i)%p(2) = rep%Q_DG_P(i)%p(2)-2.0_GRID_SR*length_flux*normal_normed(2)
       
       !simple outflowing boundary
-      !temp_Q_DG_P(i)%p(1) =  rep%Q_DG_P(i)%p(1)
-      !temp_Q_DG_P(i)%p(2) =  rep%Q_DG_P(i)%p(2)
+      temp_Q_DG_P(i)%p(1) =  rep%Q_DG_P(i)%p(1)
+      temp_Q_DG_P(i)%p(2) =  rep%Q_DG_P(i)%p(2)
       !                            end if
       
       !zero vel bnd
@@ -407,12 +407,12 @@ else
       !                          reflecting boundary
       length_flux = rep%HU(i) * normal_normed(1) + rep%HV(i) * normal_normed(2)
       
-      update%HU(i) = rep%HU(i)-2.0_GRID_SR*length_flux*normal_normed(1)
-      update%HV(i) = rep%HV(i)-2.0_GRID_SR*length_flux*normal_normed(2)
+      !update%HU(i) = rep%HU(i)-2.0_GRID_SR*length_flux*normal_normed(1)
+      !update%HV(i) = rep%HV(i)-2.0_GRID_SR*length_flux*normal_normed(2)
       
       !simple outflowing boundary
-      !temp_Q_DG_P(i)%p(1) =  rep%Q_DG_P(i)%p(1)
-      !temp_Q_DG_P(i)%p(2) =  rep%Q_DG_P(i)%p(2)
+      temp_Q_DG_P(i)%p(1) =  rep%Q_DG_P(i)%p(1)
+      temp_Q_DG_P(i)%p(2) =  rep%Q_DG_P(i)%p(2)
       !                            end if
       
       !zero vel bnd
@@ -562,10 +562,10 @@ if(data%troubled.le.0) then
 #if defined(_SWE_DG_LIMITER_UNLIMITED)
    troubled=.false.
 #elif defined(_SWE_DG_LIMITER_HEIGHT)
-   troubled=.not.all(data%Q_DG%H< max_neighbour(1)+delta(1).and.data%Q_DG%H >min_neighbour(1)-delta(1))
+   troubled=.not.all(data%Q_DG%H < max_neighbour(1)+delta(1).and.data%Q_DG%H > min_neighbour(1)-delta(1))
 #elif defined(_SWE_DG_LIMITER_ALL)
    troubled=&
-        .not.all(data%Q_DG%H< max_neighbour(1)+delta(1).and.data%Q_DG%H >min_neighbour(1)-delta(1)) .or.&
+        .not.all(data%Q_DG%H   < max_neighbour(1)+delta(1).and.data%Q_DG%H >min_neighbour(1)-delta(1)) .or.&
         .not.all(data%Q_DG%p(1)< max_neighbour(2)+delta(2).and.data%Q_DG%p(1)>min_neighbour(2)-delta(2)) .or.&
         .not.all(data%Q_DG%p(2)< max_neighbour(3)+delta(3).and.data%Q_DG%p(2)>min_neighbour(3)-delta(3))
 #endif

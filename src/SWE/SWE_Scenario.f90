@@ -358,24 +358,23 @@ MODULE SWE_Scenario_oscillating_lake
     end function
     
     function SWE_Scenario_get_initial_Q(x) result(Q)
-        real (kind = GRID_SR), intent(in) :: x(2)
-        type(t_dof_state) :: Q
-        double precision :: w, t, sinwt, coswt, b
-        double precision :: x_scal(2)
+      real (kind = GRID_SR), intent(in) :: x(2)
+      type(t_dof_state) :: Q
+      double precision :: w, t, sinwt, coswt, b
+      double precision :: x_scal(2)
         
+      b = SWE_Scenario_get_bathymetry(x)
 
-        b = SWE_Scenario_get_bathymetry(x)
         
         t = 0.0
         w = sqrt(0.2 * g)
-        sinwt = 0.0 ! t = 0
-        coswt = 1.0 ! t = 0
-        
+        sinwt = 0.0_GRID_SR ! t = 0
+        coswt = 1.0_GRID_SR ! t = 0
+
         Q%h = max( 0.0_GRID_SR, 0.05 * (2*x(1)*coswt + 2*x(2)*sinwt) + 0.075  - b )
         
         Q%p(1) = -0.5*w*sinwt * (Q%h) 
         Q%p(2) =  0.5*w*coswt * (Q%h)
-
         
         Q%h = Q%h + b
         

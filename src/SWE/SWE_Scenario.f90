@@ -582,7 +582,7 @@ MODULE SWE_Scenario_smooth_wave
       real (kind = GRID_SR):: x_temp      
       real (kind = GRID_SR) :: bathymetry
 
-      x_temp=(x(1)+x(2))*/sqrt(2.0_GRID_SR)
+      x_temp=(x(1)+x(2))/sqrt(2.0_GRID_SR)
       bathymetry = 0.5*x_temp**2/g + 1.0_GRID_SR/x_temp * g
     end function SWE_Scenario_get_bathymetry
     

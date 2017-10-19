@@ -582,7 +582,7 @@ MODULE SWE_Scenario_smooth_wave
       real (kind = GRID_SR):: x_temp      
       real (kind = GRID_SR) :: bathymetry
 
-      x_temp=(x(1)+x(2))*sqrt(2.0_GRID_SR)/2.0_GRID_SR
+      x_temp=(x(1)+x(2))*/sqrt(2.0_GRID_SR)
       bathymetry = 0.5*x_temp**2/g + 1.0_GRID_SR/x_temp * g
     end function SWE_Scenario_get_bathymetry
     
@@ -592,10 +592,10 @@ MODULE SWE_Scenario_smooth_wave
         double precision :: w, t, sinwt, coswt, b
         double precision :: x_scal(2)
         real (kind = GRID_SR):: x_temp      
-
+        b = SWE_Scenario_get_bathymetry(x)        
         t = 0.0
         x_temp=(x(1)+x(2))*sqrt(2.0_GRID_SR)/2.0_GRID_SR
-        b = SWE_Scenario_get_bathymetry(x_temp)        
+
         
         Q%h = (1.0_GRID_SR/x_temp + exp(-t))*g
         

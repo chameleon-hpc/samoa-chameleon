@@ -568,43 +568,41 @@ MODULE SWE_Scenario_smooth_wave
     function SWE_Scenario_get_scaling() result(scaling)
         real (kind = GRID_SR) :: scaling
         
-        scaling = 0.5_GRID_SR
+        scaling = 4.0_GRID_SR
     end function
 
     function SWE_Scenario_get_offset() result(offset)
         real (kind = GRID_SR) :: offset(2)
         
-        offset = SWE_Scenario_get_scaling() * [0.5_GRID_SR, -0.5_GRID_SR]
+        offset = SWE_Scenario_get_scaling() * [0.5_GRID_SR, 0.5_GRID_SR]
     end function
     
     function SWE_Scenario_get_bathymetry(x) result(bathymetry)
-        real (kind = GRID_SR), intent(in) :: x(2)
-        real (kind = GRID_SR):: x_scal(2)
-        real (kind = GRID_SR) :: bathymetry
+      real (kind = GRID_SR), intent(in) :: x(2)
+      real (kind = GRID_SR):: x_temp      
+      real (kind = GRID_SR) :: bathymetry
 
-        bathymetry = 0.1 * (x(1)*x(1) + x(2)*x(2))
-
-    end function
+      x_temp=(x(1)+x(2))*sqrt(2.0_GRID_SR)/2.0_GRID_SR
+      bathymetry = 0.5*x_temp**2/g + 1.0_GRID_SR/x_temp * g
+    end function SWE_Scenario_get_bathymetry
     
     function SWE_Scenario_get_initial_Q(x) result(Q)
         real (kind = GRID_SR), intent(in) :: x(2)
         type(t_dof_state) :: Q
         double precision :: w, t, sinwt, coswt, b
         double precision :: x_scal(2)
+        real (kind = GRID_SR):: x_temp      
         
 
         b = SWE_Scenario_get_bathymetry(x)
         
         t = 0.0
-        w = sqrt(0.2 * g)
-        sinwt = 0.0 ! t = 0
-        coswt = 1.0 ! t = 0
+        x_temp=(x(1)+x(2))*sqrt(2.0_GRID_SR)/2.0_GRID_SR
         
-        Q%h = max( 0.0_GRID_SR, 0.05 * (2*x(1)*coswt + 2*x(2)*sinwt) + 0.075  - b )
+        Q%h = (1.0_GRID_SR/x_temp + exp(-t))*g
         
-        Q%p(1) = -0.5*w*sinwt * (Q%h) 
-        Q%p(2) =  0.5*w*coswt * (Q%h)
-
+        Q%p(1) = x_temp
+        Q%p(2) = x_temp
         
         Q%h = Q%h + b
         

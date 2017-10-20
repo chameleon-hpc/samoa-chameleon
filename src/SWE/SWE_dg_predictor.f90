@@ -139,20 +139,28 @@ MODULE SWE_dg_predictor
       end do
       
       i=0
+!      print*,i
+
+      epsilon=1.0_GRID_SR
       do while(epsilon > 1.0e-14_GRID_SR)
+         ! print*,q_i
+         ! print*,i
+         ! print*,epsilon         
          i=i+1
 #if defined(_SWE_DG_NODAL)
 
-#if defined(_DEBUG)  
+
          if (any(q_i(:,1).le.0)) then
+#if defined(_DEBUG)  
             print*,"PRED"
             print*,q_i
             print*,"FV"
             print*,cell%data_pers%H
             write(*,*), "ERROR: Waterheigth less than zero in predictor"
+#endif                        
             exit
          end if
-#endif
+
 
          !--- Flux on ref
          f1_ref = flux_1(q_i,(_SWE_DG_ORDER+1)*_SWE_DG_DOFS)
@@ -212,6 +220,7 @@ MODULE SWE_dg_predictor
               - volume_flux1 &
               - volume_flux2
          
+!         print*,"diff: ",source - volume_flux1 - volume_flux2         
          ! call lusolve(st_w_k_t_1_1_lu,_SWE_DG_ORDER*_SWE_DG_DOFS,st_w_k_t_1_1_lu_pivot ,q_temp(:,1))
          ! call lusolve(st_w_k_t_1_1_lu,_SWE_DG_ORDER*_SWE_DG_DOFS,st_w_k_t_1_1_lu_pivot ,q_temp(:,2))
          ! call lusolve(st_w_k_t_1_1_lu,_SWE_DG_ORDER*_SWE_DG_DOFS,st_w_k_t_1_1_lu_pivot ,q_temp(:,3))
@@ -239,11 +248,18 @@ MODULE SWE_dg_predictor
          q_i(1+_SWE_DG_DOFS:(_SWE_DG_ORDER+1)*_SWE_DG_DOFS,:) = q_temp
          
       end do
-      
+
+!       offset=1
+! !      print*,"Predictor"
+!       do i=1,(_SWE_DG_ORDER+1)
+!          print*
+!          print*,"h:  ",q_i(offset:offset+_SWE_DG_DOFS-1,1)
+!          print*,"hu: ",q_i(offset:offset+_SWE_DG_DOFS-1,2)/q_i(offset:offset+_SWE_DG_DOFS-1,1)
+!          offset = offset + _SWE_DG_DOFS
+!       end do   
       call cell%data_pers%set_dofs_pred(q_i)
-!      print*,"q_i"
       
-    end  associate
+    end associate
   end subroutine dg_predictor
   
 

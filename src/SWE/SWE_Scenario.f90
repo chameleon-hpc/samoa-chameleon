@@ -204,7 +204,7 @@ MODULE SWE_Scenario_resting_lake
         real (kind = GRID_SR) :: bathymetry
         
         !bathymetry = -4
-        bathymetry = -1.5 + x(1)/5
+        bathymetry = -1.5 + 1/(x(1)+100_GRID_SR)
     end function
     
     function SWE_Scenario_get_initial_Q(x) result(Q)
@@ -585,8 +585,12 @@ MODULE SWE_Scenario_smooth_wave
 
       x_temp=(x(1)+x(2))/sqrt(2.0_GRID_SR)
       x_temp=x(1)
+<<<<<<< HEAD
       bathymetry = -(0.5*x_temp**2/g + g/x_temp)
 
+=======
+      bathymetry = (0.5_GRID_SR*x_temp**2/g + g/x_temp) 
+>>>>>>> 33ee98213b17c41a9b23437e0f00155d72397b7b
     end function SWE_Scenario_get_bathymetry
     
     function SWE_Scenario_get_initial_Q(x) result(Q)
@@ -598,6 +602,7 @@ MODULE SWE_Scenario_smooth_wave
 
         b = SWE_Scenario_get_bathymetry(x)        
         t = 0.0
+
         x_temp=(x(1)+x(2))*sqrt(2.0_GRID_SR)/2.0_GRID_SR
         x_temp=x(1)
         Q%h = (1.0_GRID_SR/x_temp + 1.0_GRID_SR)*g

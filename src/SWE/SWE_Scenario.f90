@@ -1,3 +1,4 @@
+
 ! Artificial scenario selector for the SWE scenario. 
 ! To add a new scenario:
 ! 1) create a new module according to the template below
@@ -584,7 +585,12 @@ MODULE SWE_Scenario_smooth_wave
 
       x_temp=(x(1)+x(2))/sqrt(2.0_GRID_SR)
       x_temp=x(1)
+<<<<<<< HEAD
+      bathymetry = -(0.5*x_temp**2/g + g/x_temp)
+
+=======
       bathymetry = (0.5_GRID_SR*x_temp**2/g + g/x_temp) 
+>>>>>>> 33ee98213b17c41a9b23437e0f00155d72397b7b
     end function SWE_Scenario_get_bathymetry
     
     function SWE_Scenario_get_initial_Q(x) result(Q)
@@ -593,17 +599,17 @@ MODULE SWE_Scenario_smooth_wave
         double precision :: w, t, sinwt, coswt, b
         double precision :: x_scal(2)
         real (kind = GRID_SR):: x_temp      
+
         b = SWE_Scenario_get_bathymetry(x)        
         t = 0.0
-        !        x_temp=(x(1)+x(2))*sqrt(2.0_GRID_SR)/2.0_GRID_SR
-        x_temp=x(1)
 
-        
-        Q%h = (1.0_GRID_SR/x_temp + exp(-t))*g
-        
-        Q%p(1) = x_temp *h
-        !        Q%p(2) = x_temp *h
-        Q%p(2) = 0
+        x_temp=(x(1)+x(2))*sqrt(2.0_GRID_SR)/2.0_GRID_SR
+        x_temp=x(1)
+        Q%h = (1.0_GRID_SR/x_temp + 1.0_GRID_SR)*g
+
+        Q%p(1) = g+x_temp*g
+        Q%p(2) = x_temp * Q%h
+        Q%p(2) = 0.0_GRID_SR
         
         Q%h = Q%h + b
         

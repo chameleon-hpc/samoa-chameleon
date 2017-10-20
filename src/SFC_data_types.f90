@@ -657,16 +657,12 @@ MODULE SFC_data_types
                     forall (i = 1:2, j = 1:2)
                         p_cell_data%jacobian(j, i) = aint(1.5_GRID_SR * p_cell_data%jacobian(j, i), kind=GRID_SR)
                     end forall
-
-#if defined(_SWE_DG)
-                     p_cell_data%jacobian_normalized=p_cell_data%jacobian/NORM2(p_cell_data%jacobian(:,1))
-#endif
-                    
+                 
                     p_cell_data%det_jacobian = p_cell_data%jacobian(1, 1) * p_cell_data%jacobian(2, 2) - p_cell_data%jacobian(1, 2) * p_cell_data%jacobian(2, 1)
                     p_cell_data%jacobian_inv = 1.0_GRID_SR / p_cell_data%det_jacobian * reshape([ p_cell_data%jacobian(2, 2), -p_cell_data%jacobian(2, 1), -p_cell_data%jacobian(1, 2), p_cell_data%jacobian(1, 1) ], [ 2, 2 ])
 
 #if defined(_SWE_DG)
-                     p_cell_data%jacobian_inv_normalized=p_cell_data%jacobian_inv/NORM2(p_cell_data%jacobian_inv(:,1))
+                    p_cell_data%jacobian_inv_normalized = 1.0_GRID_SR / (p_cell_data%jacobian_normalized(1, 1) * p_cell_data%jacobian_normalized(2, 2) - p_cell_data%jacobian_normalized(1, 2) * p_cell_data%jacobian_normalized(2, 1)) * reshape([ p_cell_data%jacobian_normalized(2, 2), -p_cell_data%jacobian_normalized(2, 1), -p_cell_data%jacobian_normalized(1, 2), p_cell_data%jacobian_normalized(1, 1) ], [ 2, 2 ])
 #endif
 
                     _log_write(7, '(X, "jacobian: ")')

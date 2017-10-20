@@ -288,7 +288,7 @@
 !              dest_element%cell%data_pers%B = get_bathymetry_at_patch(section, dest_element%t_element_base, section%r_time)
              dest_element%cell%data_pers%Q_DG%B = get_bathymetry_at_dg_patch(section, dest_element%t_element_base, section%r_time)
 
-             call bathymetry_derivatives(dest_element%cell%data_pers,ref_plotter_data(abs(i_plotter_type))%jacobian)
+             call bathymetry_derivatives(dest_element%cell%data_pers,ref_plotter_data(abs(i_plotter_type))%jacobian_normalized)
 
 
 !              call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(i_plotter_type))%jacobian)

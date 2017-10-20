@@ -122,9 +122,7 @@ MODULE SWE_dg_predictor
     associate(Q_DG =>cell%data_pers%Q_DG ,Q_DG_P =>cell%data_pers%Q_DG_P)
       
       !--Normalize jacobian--!
-      !TODO:do this only one time
       jacobian=ref_plotter_data(abs(cell%geometry%i_plotter_type))%jacobian_normalized
-      
       jacobian_inv=ref_plotter_data(abs(cell%geometry%i_plotter_type))%jacobian_inv_normalized
       
       edge_sizes=cell%geometry%get_edge_sizes()
@@ -160,14 +158,13 @@ MODULE SWE_dg_predictor
          f1_ref = flux_1(q_i,(_SWE_DG_ORDER+1)*_SWE_DG_DOFS)
          f2_ref = flux_2(q_i,(_SWE_DG_ORDER+1)*_SWE_DG_DOFS)
          
-         !--space derivations needed for total waterheigth needed for well-balanced scheme--!
+         !--spatial derivations needed for well-balanced scheme--!
          do j=0,(_SWE_DG_ORDER)
             offset=_SWE_DG_DOFS * j
             H=q_i(offset+1:offset+_SWE_DG_DOFS,1)+b
             H_x(offset+1:offset+_SWE_DG_DOFS)= matmul(basis_der_x,H)
             H_y(offset+1:offset+_SWE_DG_DOFS)= matmul(basis_der_y,H)
          end do
-         
          
          !---Source on reference element---!
          source_ref=0

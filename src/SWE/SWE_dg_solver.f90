@@ -1074,125 +1074,126 @@ subroutine dg_solver(element,update1,update2,update3,dt)
     
     bnd_flux_contrib=-matmul(b_m_1,f2)-matmul(b_m_3,f1)+matmul(b_m_2,f1+f2)/sqrt(2.0_GRID_SR)
     
-    !!!!!!!!print,"solver"
-    !!!!!!!!print, "orig ",q
-    !!!!!!!!print,"orientation",element%cell%geometry%i_plotter_type
-    !!!!!!!!print,"jacobian_inv",jacobian_inv
-    !!!!!!!!print, "dx ",dx
-    !!!!!!!!print, "dt ",dt
-    !!!!!!!!print
-    !!!!!!!!print, "elt flux 1 "
-    !!!!!!!!print,volume_flux1(:,1)
-    !!!!!!!!print,volume_flux1(:,2)
-    !!!!!!!!print,volume_flux1(:,3)
-    !!!!!!!!print
-    !!!!!!!!print, "elt flux 2 "
-    !!!!!!!!print,volume_flux2(:,1)
-    !!!!!!!!print,volume_flux2(:,2)
-    !!!!!!!!print,volume_flux2(:,3)
-    !!!!!!!!print
-    !!!!!!!!print, "elt flux sum"
-    !!!!!!!!print,volume_flux2(:,1)+volume_flux1(:,1)
-    !!!!!!!!print,volume_flux2(:,2)+volume_flux1(:,2)
-    !!!!!!!!print,volume_flux2(:,3)+volume_flux1(:,3)
-    !!!!!!!!print
-    !!!!!!!!print, "bnd_flux_contribution "
-    !!!!!!!!print,bnd_flux_contrib(:,1)
-    !!!!!!!!print,bnd_flux_contrib(:,2)
-    !!!!!!!!print,bnd_flux_contrib(:,3)
-    !!!!!!!!print
-    !!!!!!!!print, "bnd_flux "
-    !!!!!!!!print,bnd_flux_l(:,1)+bnd_flux_r(:,1)+bnd_flux_m(:,1)
-    !!!!!!!!print,bnd_flux_l(:,2)+bnd_flux_r(:,2)+bnd_flux_m(:,2)
-    !!!!!!!!print,bnd_flux_l(:,3)+bnd_flux_r(:,3)+bnd_flux_m(:,3)
-    !!!!!!!!print,                        
-    !!!!!!!!print, "volume_flux comp"
-    !!!!!!!!print, volume_flux1(:,1)+volume_flux2(:,1)-bnd_flux_contrib(:,1)
-    !!!!!!!!print, volume_flux1(:,2)+volume_flux2(:,2)-bnd_flux_contrib(:,2)
-    !!!!!!!!print, volume_flux1(:,3)+volume_flux2(:,3)-bnd_flux_contrib(:,3)
-    !!!!!!!!print
-    !!!!!!!!print, "source"
-    !!!!!!!!print,source(:,1)
-    !!!!!!!!print,source(:,2)
-    !!!!!!!!print,source(:,3)
-    !!!!!!!!print, "bnd source"
-    !!!!!!!!print, bnd_source_contrib(:,1)
-    !!!!!!!!print, bnd_source_contrib(:,2)
-    !!!!!!!!print, bnd_source_contrib(:,3)
-    !!!!!!!!print,"source complete"
-    !!!!!!!!print,-source(:,1) - bnd_source_contrib(:,1)
-    !!!!!!!!print,-source(:,2) - bnd_source_contrib(:,2)
-    !!!!!!!!print,-source(:,3) - bnd_source_contrib(:,3)
-    !!!!!!!!print
-    !!!!!!!!print,
-    !!!!!!!!print,"comp"
-    !!!!!!!!print,(bnd_flux_l(:,1)+bnd_flux_r(:,1)+bnd_flux_m(:,1)-(volume_flux1(:,1)+volume_flux2(:,1)-bnd_flux_contrib(:,1)+bnd_source_contrib(:,1)+source(:,1)))*dt/dx
-    !!!!!!!!print,(bnd_flux_l(:,2)+bnd_flux_r(:,2)+bnd_flux_m(:,2)-(volume_flux1(:,2)+volume_flux2(:,2)-bnd_flux_contrib(:,2)+bnd_source_contrib(:,2)+source(:,2)))*dt/dx
-    !!!!!!!!print,(bnd_flux_l(:,3)+bnd_flux_r(:,3)+bnd_flux_m(:,3)-(volume_flux1(:,3)+volume_flux2(:,3)-bnd_flux_contrib(:,3)+bnd_source_contrib(:,3)+source(:,3)))*dt/dx
-    !!!!!!!!print
-    !!!!!!!!print, "bnd_flux_1_dof h"
-    !!!!!!!!print,update1%h
-    !!!!!!!!print,update1%p(1)
-    !!!!!!!!print,update1%p(2)
-    !!!!!!!!print
-    !!!!!!!!print, "bnd_flux_2_dof"
-    !!!!!!!!print,update2%h
-    !!!!!!!!print,update2%p(1)
-    !!!!!!!!print,update2%p(2)
-    !!!!!!!!print
-    !!!!!!!!print, "bnd_flux_3_dof"
-    !!!!!!!!print,update3%h
-    !!!!!!!!print,update3%p(1)
-    !!!!!!!!print,update3%p(2)
-    !!!!!!!!print
-    !!!!!!!!print, "volume_flux1 ",volume_flux1
-    !!!!!!!!print,                           
-    !!!!!!!!print, "volume_flux2 ",volume_flux2
-    !!!!!!!!print,
-     !!!!!!!!print, "f1"
-     !!!!!!!!print,f1(:,1)
-     !!!!!!!!print,f1(:,2)
-     !!!!!!!!print,f1(:,3)
-     !!!!!!!!print,
-     !!!!!!!!print, "f2"
-     !!!!!!!!print,f2(:,1)
-     !!!!!!!!print,f2(:,2)
-     !!!!!!!!print,f2(:,3)
-     !!!!!!!!print,
-    !!!!!!!!print, "f1_ref"
-    !!!!!!!!print,f1_ref(:,1)
-    !!!!!!!!print,f1_ref(:,2)
-    !!!!!!!!print,f1_ref(:,3)
-    !!!!!!!!print,
-    !!!!!!!!print, "f2_ref"
-    !!!!!!!!print,f2_ref(:,1)
-    !!!!!!!!print,f2_ref(:,2)
-    !!!!!!!!print,f2_ref(:,3)
-    !!!!!!!!Print, "elt_source"
-    !!!!!!!!print,source_ref(:,1)
-    !!!!!!!!print,source_ref(:,2)
-    !!!!!!!!print,source_ref(:,3)
-    !!!!!!!!print
-    !!!!!!!!print,"tot Height x"
-    !!!!!!!!print,H_x
-    !!!!!!!!print,"tot Height y"
-    !!!!!!!!print,H_y
+    !print*,"solver"
+    !print*, "orig ",q
+    !print*,"orientation",element%cell%geometry%i_plotter_type
+    !print*,"jacobian",jacobian
+    !print*,"jacobian_inv",jacobian_inv
+    !print*, "dx ",dx
+    !print*, "dt ",dt
+    !print*
+    !print*, "elt flux 1 "
+    !print*,volume_flux1(:,1)
+    !print*,volume_flux1(:,2)
+    !print*,volume_flux1(:,3)
+    !print*
+    !print*, "elt flux 2 "
+    !print*,volume_flux2(:,1)
+    !print*,volume_flux2(:,2)
+    !print*,volume_flux2(:,3)
+    !print*
+    !print*, "elt flux sum"
+    !print*,volume_flux2(:,1)+volume_flux1(:,1)
+    !print*,volume_flux2(:,2)+volume_flux1(:,2)
+    !print*,volume_flux2(:,3)+volume_flux1(:,3)
+    !print*
+    !print*, "bnd_flux_contribution "
+    !print*,bnd_flux_contrib(:,1)
+    !print*,bnd_flux_contrib(:,2)
+    !print*,bnd_flux_contrib(:,3)
+    !print*
+    !print*, "bnd_flux "
+    !print*,bnd_flux_l(:,1)+bnd_flux_r(:,1)+bnd_flux_m(:,1)
+    !print*,bnd_flux_l(:,2)+bnd_flux_r(:,2)+bnd_flux_m(:,2)
+    !print*,bnd_flux_l(:,3)+bnd_flux_r(:,3)+bnd_flux_m(:,3)
+    !print*,                        
+    !print*, "volume_flux comp"
+    !print*, volume_flux1(:,1)+volume_flux2(:,1)-bnd_flux_contrib(:,1)
+    !print*, volume_flux1(:,2)+volume_flux2(:,2)-bnd_flux_contrib(:,2)
+    !print*, volume_flux1(:,3)+volume_flux2(:,3)-bnd_flux_contrib(:,3)
+    !print*
+    !print*, "source"
+    !print*,source(:,1)
+    !print*,source(:,2)
+    !print*,source(:,3)
+    !print*, "bnd source"
+    !print*, bnd_source_contrib(:,1)
+    !print*, bnd_source_contrib(:,2)
+    !print*, bnd_source_contrib(:,3)
+    !print*,"source complete"
+    !print*,-source(:,1) - bnd_source_contrib(:,1)
+    !print*,-source(:,2) - bnd_source_contrib(:,2)
+    !print*,-source(:,3) - bnd_source_contrib(:,3)
+    !print*
+    !print*,
+    !print*,"comp"
+    !print*,(bnd_flux_l(:,1)+bnd_flux_r(:,1)+bnd_flux_m(:,1)-(volume_flux1(:,1)+volume_flux2(:,1)-bnd_flux_contrib(:,1)+bnd_source_contrib(:,1)+source(:,1)))*dt/dx
+    !print*,(bnd_flux_l(:,2)+bnd_flux_r(:,2)+bnd_flux_m(:,2)-(volume_flux1(:,2)+volume_flux2(:,2)-bnd_flux_contrib(:,2)+bnd_source_contrib(:,2)+source(:,2)))*dt/dx
+    !print*,(bnd_flux_l(:,3)+bnd_flux_r(:,3)+bnd_flux_m(:,3)-(volume_flux1(:,3)+volume_flux2(:,3)-bnd_flux_contrib(:,3)+bnd_source_contrib(:,3)+source(:,3)))*dt/dx
+    !print*
+    !print*, "bnd_flux_1_dof h"
+    !print*,update1%h
+    !print*,update1%p(1)
+    !print*,update1%p(2)
+    !print*
+    !print*, "bnd_flux_2_dof"
+    !print*,update2%h
+    !print*,update2%p(1)
+    !print*,update2%p(2)
+    !print*
+    !print*, "bnd_flux_3_dof"
+    !print*,update3%h
+    !print*,update3%p(1)
+    !print*,update3%p(2)
+    !print*
+    !print*, "volume_flux1 ",volume_flux1
+    !print*,                           
+    !print*, "volume_flux2 ",volume_flux2
+    !print*,
+     !print*, "f1"
+     !print*,f1(:,1)
+     !print*,f1(:,2)
+     !print*,f1(:,3)
+     !print*,
+     !print*, "f2"
+     !print*,f2(:,1)
+     !print*,f2(:,2)
+     !print*,f2(:,3)
+     !print*,
+    !print*, "f1_ref"
+    !print*,f1_ref(:,1)
+    !print*,f1_ref(:,2)
+    !print*,f1_ref(:,3)
+    !print*,
+    !print*, "f2_ref"
+    !print*,f2_ref(:,1)
+    !print*,f2_ref(:,2)
+    !print*,f2_ref(:,3)
+    !print*, "elt_source"
+    !print*,source_ref(:,1)
+    !print*,source_ref(:,2)
+    !print*,source_ref(:,3)
+    !print*
+    !print*,"tot Height x"
+    !print*,H_x
+    !print*,"tot Height y"
+    !print*,H_y
     
-    !!!!!!!!print,"orig"
-    !!!!!!!!print,q
-    !!!!!!!!print
-    !!!!!!!!print,"Q_DG_P"
-    !!!!!!!!print,q_p(:,1)
-    !!!!!!!!print,q_p(:,2)
-    !!!!!!!!print,q_p(:,3)
-    !!!!!!!!print,b
-    !!!!!!!!print
-    !!!!!!!!print,"pred height"
-    !!!!!!!!print,element%cell%data_pers%Q_DG_P(:)%h
-    !!!!!!!!print
-    !!!!!!!!print,"pred bathy"
-    !!!!!!!!print,b
-    !!!!!!!!print
+    !print*,"orig"
+    !print*,q
+    !print*
+    !print*,"Q_DG_P"
+    !print*,q_p(:,1)
+    !print*,q_p(:,2)
+    !print*,q_p(:,3)
+    !print*,b
+    !print*
+    !print*,"pred height"
+    !print*,element%cell%data_pers%Q_DG_P(:)%h
+    !print*
+    !print*,"pred bathy"
+    !print*,b
+    !print*
 
     q_temp = ( bnd_flux_l &
          + bnd_flux_m &

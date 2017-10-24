@@ -334,6 +334,10 @@
                     traversal%cell_data(traversal%i_cell_data_index)%Q%b = element%cell%data_pers%B(cell_id)
                     traversal%cell_data(traversal%i_cell_data_index)%Q%p(1) = element%cell%data_pers%HU(cell_id)
                     traversal%cell_data(traversal%i_cell_data_index)%Q%p(2) = element%cell%data_pers%HV(cell_id)
+
+		    if (traversal%cell_data(traversal%i_cell_data_index)%Q%h < traversal%cell_data(traversal%i_cell_data_index)%Q%b + cfg%dry_tolerance ) then
+                        traversal%cell_data(traversal%i_cell_data_index)%Q%h = min(0.0_GRID_SR, traversal%cell_data(traversal%i_cell_data_index)%Q%b)
+                    end if
                     
                     ! prepare for next cell
                     traversal%i_cell_data_index = traversal%i_cell_data_index + 1
@@ -416,13 +420,18 @@
 					traversal%cell_data(traversal%i_cell_data_index)%Q%p(2) = t_basis_Q_eval(r_test_point0, Q%p(2))
 			end select
 
+                if (traversal%cell_data(traversal%i_cell_data_index)%Q%h < traversal%cell_data(traversal%i_cell_data_index)%Q%b + cfg%dry_tolerance ) then
+                        traversal%cell_data(traversal%i_cell_data_index)%Q%h = min(0.0_GRID_SR, traversal%cell_data(traversal%i_cell_data_index)%Q%b)
+                end if
+                    
+
 			traversal%i_cell_data_index = traversal%i_cell_data_index + 1
 #           endif
 
                 ! set water height of dry cells to zero
-                where (traversal%cell_data(:)%Q%h < traversal%cell_data(:)%Q%b + cfg%dry_tolerance )
-                    traversal%cell_data(:)%Q%h = min(0.0_GRID_SR, traversal%cell_data(:)%Q%b)
-                end where
+                !where (traversal%cell_data(:)%Q%h < traversal%cell_data(:)%Q%b + cfg%dry_tolerance )
+                !    traversal%cell_data(:)%Q%h = min(0.0_GRID_SR, traversal%cell_data(:)%Q%b)
+                !end where
 		end subroutine
 	END MODULE
 #endif

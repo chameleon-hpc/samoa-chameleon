@@ -227,8 +227,8 @@ if env['openmp'] != 'noomp':
     env['F90FLAGS'] += ' -D_OPENMP_TASKS -D_OPENMP_TASKS_ADAPTIVITY'
 
   if env['compiler'] == 'intel':
-    env['F90FLAGS'] += ' -openmp'
-    env['LINKFLAGS'] += ' -openmp'
+    env['F90FLAGS'] += ' -qopenmp'
+    env['LINKFLAGS'] += ' -qopenmp'
   elif env['compiler'] == 'gnu':
     env['F90FLAGS'] += ' -fopenmp'
     env['LINKFLAGS'] += ' -fopenmp'
@@ -381,7 +381,7 @@ if env['target'] == 'debug':
   env.SetDefault(assertions = True)
 
   if env['compiler'] == 'intel':
-    env['F90FLAGS'] += ' -g -O0 -D_DEBUG -traceback -check all -debug all -fpe0'
+    env['F90FLAGS'] += ' -g -O0 -D_DEBUG -traceback -check all -debug all -fpe0 -check noarg_temp_created'
     env['LINKFLAGS'] += ' -g -O0 -traceback -check all -debug all -fpe0'
   elif  env['compiler'] == 'gnu':
     env['F90FLAGS'] += ' -g -O0 -D_DEBUG -fcheck=all -fbacktrace -ffpe-trap=invalid -finit-real=nan'

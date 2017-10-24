@@ -185,6 +185,14 @@ MODULE SWE_DG_solver
     
     rep%Q_DG = element%cell%data_pers%Q_DG
     rep%troubled=element%cell%data_pers%troubled
+
+    ! if(element%cell%data_pers%troubled .le. 0)then
+    !    print*,element%cell%data_pers%troubled
+    !    print*,"H:",element%cell%data_pers%Q_DG%H
+    !    print*,"Hu:",element%cell%data_pers%Q_DG%p(1)
+    !    print*,"Hv:",element%cell%data_pers%Q_DG%p(2)
+    !    print*,"B:",element%cell%data_pers%Q_DG%B
+    ! end if
     
   end function cell_to_edge_op_dg
   
@@ -248,16 +256,22 @@ if(rep1%troubled.le.0 .and. rep2%troubled.le.0) then
       rep_temp=rep2%Q_DG_P
    end if
 
-   !print,rep1%Q_DG_P%h
-   !print,rep1%Q_DG_P%p(1)
-   !print,rep1%Q_DG_P%p(2)
-   !print,rep1%Q_DG_P%b         
-   !print
-   !print,rep1%Q_DG%h
-   !print,rep1%Q_DG%p(1)
-   !print,rep1%Q_DG%p(2)
-   !print,rep1%Q_DG%b         
-   !print
+   ! print*,rep1%troubled
+   ! print*,rep1%Q_DG_P%h
+   ! print*,rep1%Q_DG_P%p(1)
+   ! print*,rep1%Q_DG_P%p(2)
+   ! print*,rep1%Q_DG_P%b
+   ! print*,rep1%Q_DG
+   ! print*,rep1%H
+   ! print*
+   ! print*,rep2%troubled   
+   ! print*,rep_temp%h
+   ! print*,rep_temp%p(1)
+   ! print*,rep_temp%p(2)
+   ! print*,rep_temp%b
+   ! print*,rep2%Q_DG
+   ! print*,rep2%H
+   ! print*
 
    !print,rep2%Q_DG_P%h
    !print,rep2%Q_DG_P%p(1)
@@ -459,7 +473,7 @@ type(t_state), dimension((_SWE_DG_ORDER+1)**2)             :: edge_l, edge_m,edg
 real(kind= GRID_SR) :: dt,dx,delta(3),max_neighbour(3),min_neighbour(3),data_max_val(3),data_min_val(3)
 integer :: indx,indx_mir,k,i,j
 real (kind=GRID_SR) :: max_wave_speed, wave_speed=0,dQ_norm,b_min,b_max
-real (kind=GRID_SR) :: refinement_threshold = 0.05_GRID_SR/_SWE_DG_ORDER
+real (kind=GRID_SR) :: refinement_threshold = 0.25_GRID_SR/_SWE_DG_ORDER
 real (kind = GRID_SR), dimension (_SWE_DG_DOFS) :: H_old, HU_old, HV_old, B_old
 real (kind = GRID_SR), dimension (_SWE_PATCH_ORDER_SQUARE) :: H, HU, HV
 logical :: drying,troubled,neighbours_troubled,refine,coarsen
@@ -489,8 +503,24 @@ end if
 
 if(data%troubled.eq.2) then
    !   data%B = get_bathymetry_at_patch(section, element, section%r_dt)
-   call data%convert_dg_to_fv_bathymetry()
-   call data%convert_dg_to_fv()
+
+   call apply_phi(data%Q_DG(:)%h+data%Q_DG(:)%b,data%h)
+   call apply_phi(data%Q_DG(:)%p(1),data%hu)
+   call apply_phi(data%Q_DG(:)%p(2),data%hv)
+   !   call apply_phi(data%Q_DG(:)%b,data%b)
+   data%b=get_bathymetry_at_patch(section, element, section%r_time)
+   ! print*,"solver"   
+   ! print*,"DG_h"
+   ! print*,data%Q_DG(:)%h+data%Q_DG(:)%b
+   ! print*,"DG_b"   
+   ! print*,data%Q_DG(:)%b
+
+   ! print*,"FV_h"    
+   ! print*,data%h
+   ! print*,"FV_b"       
+   ! print*,data%b   
+   
+   ! print*
 end if
 
 if(data%troubled.le.0) then
@@ -580,8 +610,13 @@ if(data%troubled.le.0) then
       data%Q_DG%p(2)=HV_old
       data%Q_DG%B=B_old
       data%troubled=merge(1,3,drying)
-      call element%cell%data_pers%convert_dg_to_fv()
-      data%B = get_bathymetry_at_patch(section, element, section%r_dt)
+
+      call apply_phi(data%Q_DG(:)%h+data%Q_DG(:)%b,data%h)
+      call apply_phi(data%Q_DG(:)%p(1),data%hu)
+      call apply_phi(data%Q_DG(:)%p(2),data%hv)
+   !   call apply_phi(data%Q_DG(:)%b,data%b)
+      data%b=get_bathymetry_at_patch(section, element, section%r_time)
+
    else
       do i=1,_SWE_DG_DOFS
          wave_speed =  sqrt(g * (data%Q_DG(i)%h)) + maxval(abs(data%Q_DG(i)%p/data%Q_DG(i)%h))
@@ -610,7 +645,7 @@ if(data%troubled.le.0) then
       
 
 #if defined(_ASAGI)
-      !consider bathymetrie
+      ! consider bathymetrie
       if(coarsen) then
          section%b_min=-0.1_GRID_SR
          section%b_max=0.1_GRID_SR
@@ -634,7 +669,9 @@ if(data%troubled.le.0) then
 
       !!      coarsen=coarsen.and. (cfg%i_max_depth-floor(min(element%cell%data_pers%Q_DG%b)/(section%section%b_min/(cfg%i_max_depth-cfg%i_min_depth))) < i_depth)
       coarsen=coarsen.and. (i_depth > bathy_depth)
-
+      
+!      refine=.false.
+!      coarsen=.false.      
 #endif      
       
       if (i_depth < cfg%i_max_depth .and. refine) then
@@ -1544,55 +1581,69 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                dQ_HV = dQ_HV * (-dt_div_volume)
 
                ! if the water level falls below the dry tolerance, set water level to 0 and velocity to 0
-               where (data%H < data%B + cfg%dry_tolerance)
-#if defined (_ASAGI)
-                  data%H = 0.0_GRID_SR
-#else                  
-                  data%H = data%B
-#endif                  
-                  data%HU = 0.0_GRID_SR
-                  data%HV = 0.0_GRID_SR
-               end where
+               ! where (data%H < data%B + cfg%dry_tolerance)
+               !    data%H = data%B
+               !    data%HU = 0.0_GRID_SR
+               !    data%HV = 0.0_GRID_SR
+               ! end where
 
                ! if land is flooded, init water height to dry tolerance and
                ! velocity to zero
                where (data%H < data%B + cfg%dry_tolerance .and. dQ_H > 0.0_GRID_SR)
-#if defined (_ASAGI)
-                  data%H = 0.0_GRID_SR
-#else                  
-                  data%H = data%B
+#if defined (_ASAGI)                  
+                  data%H = min(0.0_GRID_SR,data%B)
+#else
+                  data%H = data%B + cfg%dry_tolerance
 #endif                  
                   data%HU = 0.0_GRID_SR
                   data%HV = 0.0_GRID_SR
                end where
 
-               ! update unknowns
-!               !!!!print,"Before"
-!               !!!!print,data%H
 
+               ! if(any(abs(dQ_H).ge.50.0_GRID_SR))then
+               !    print*,update1%H
+               !    print*,update1%HU
+               !    print*,update1%HV
+               !    print*,update1%B
+               !    print*
+               !    print*,update2%H
+               !    print*,update2%HU
+               !    print*,update2%HV
+               !    print*,update2%B
+               !    print*                  
+               !    print*,update3%H
+               !    print*,update3%HU
+               !    print*,update3%HV
+               !    print*,update3%B
+               !    print*
+               !    print*,data%H
+               !    print*,data%HU
+               !    print*,data%HV
+               !    print*,data%B
+               !    print*
+               !    print*,dQ_h
+               !    print*,dQ_hu
+               !    print*,dQ_hv                                    
+                  
+               !    stop
+
+               ! end if
+               
                data%H  = data%H + dQ_H
                data%HU = data%HU + dQ_HU
                data%HV = data%HV + dQ_HV
-!               !!!!print
-!               !!!!print,data%H
                
-               ! if the water level falls below the dry tolerance, set water level to 0 and velocity to 0             
-
-               !!!!print, data%H -data%B
+               ! if the water level falls below the dry tolerance, set water level to 0 and velocity to 0          
                where (data%H < data%B + cfg%dry_tolerance)
-#if defined (_ASAGI)
-                  data%H = 0.0_GRID_SR
-#else                  
-                  data%H = data%B 
+#if defined (_ASAGI)                  
+                  data%H = min(0.0_GRID_SR,data%B)
+#else
+                  data%H = data%B + cfg%dry_tolerance
 #endif                  
                   data%HU = 0.0_GRID_SR
                   data%HV = 0.0_GRID_SR
                end where
 
-!               !!!!!!!print,data%H
-!               !!!!!!!print,data%HU
-!               !!!!!!!print,data%HV
-               
                maxWaveSpeed=maxval(maxWaveSpeeds)
                section%r_dt_new = min(section%r_dt_new, volume / (edge_lengths(2) * maxWaveSpeed) )
                maxWaveSpeed=0
@@ -1600,9 +1651,22 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                call apply_mue(data%h          ,data%Q_DG%h)
                call apply_mue(data%hu         ,data%Q_DG%p(1))
                call apply_mue(data%hv         ,data%Q_DG%p(2))
-               call data%convert_fv_to_dg_bathymetry(ref_plotter_data(element%cell%geometry%i_plotter_type)%jacobian)
-               data%Q_DG%h=data%Q_DG%h-data%Q_DG%b
+               ! print*,"patch"
+               ! print*,"FV_h"
+               ! print*,data%h
+               ! print*,"FV_b"    
+               ! print*,data%b               
+
+               !               call data%convert_fv_to_dg_bathymetry(ref_plotter_data(element%cell%geometry%i_plotter_type)%jacobian)
+               data%Q_DG%b=get_bathymetry_at_dg_patch(section, element, section%r_time)
+               call bathymetry_derivatives(element%cell%data_pers,ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian)
                
+               data%Q_DG%h=data%Q_DG%h-data%Q_DG%b
+!               print*,"DG_h"                   
+!               print*,data%Q_DG%h
+!               print*,"DG_b"    
+!               print*,data%Q_DG%b               
+
                if(all(data%H - data%B > cfg%coast_height)) then
                   if(all(data%Q_DG%H > cfg%coast_height)) then
                      data%troubled = 5+data%troubled

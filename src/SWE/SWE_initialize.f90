@@ -1,3 +1,4 @@
+
 ! Sam(oa)² - SFCs and Adaptive Meshes for Oceanic And Other Applications
 ! Copyright (C) 2010 Oliver Meister, Kaveh Rahnema
 ! This program is licensed under the GPL, for details see the file LICENSE
@@ -484,10 +485,9 @@ MODULE SWE_Initialize_Dofs
 
     element%cell%data_pers%troubled = 0    
     call alpha_volume_op_dg(traversal, section, element, Q_DG)
-    element%cell%data_pers%Q_DG%H    = Q_DG(:)%h-Q_DG(:)%b
+    element%cell%data_pers%Q_DG%H    = Q_DG(:)%h-Q_DG(:)%b    
     element%cell%data_pers%Q_DG%p(1) = Q_DG(:)%p(1)
     element%cell%data_pers%Q_DG%p(2) = Q_DG(:)%p(2)
-
 
     !--First test for drying cells--!
     if(.not.all(element%cell%data_pers%Q_DG%H > cfg%coast_height))then
@@ -502,11 +502,11 @@ MODULE SWE_Initialize_Dofs
        element%cell%data_pers%HV   = Q(:)%p(2)
     end if
 
-#if defined(_ASAGI)    
-    where(0.0_GRID_SR < element%cell%data_pers%B)
-       element%cell%data_pers%H=0.0_GRID_SR
-    end where
-#endif                   
+! #if defined(_ASAGI)    
+!     where(0.0_GRID_SR < element%cell%data_pers%B)
+!        element%cell%data_pers%H=0.0_GRID_SR
+!     end where
+! #endif                   
 
 #           else
     type(t_state), dimension(_SWE_CELL_SIZE)            :: Q
@@ -543,6 +543,8 @@ MODULE SWE_Initialize_Dofs
     real (kind = GRID_SR), parameter, dimension(2, _SWE_DG_DOFS)	:: coords = nodes
     real (kind = GRID_SR), dimension(2)	:: x
     integer                             :: i, index
+    integer                             :: bathy_depth
+    real (kind = GRID_SR)               :: dQ_norm
 
     
     !evaluate initial DoFs (not the bathymetry!)
@@ -558,12 +560,45 @@ MODULE SWE_Initialize_Dofs
        Q(i)%t_dof_state = get_initial_dof_state_at_position(section,x)
     end do
 
-    if (element%cell%geometry%i_depth < cfg%i_max_depth) then
+    if (element%cell%geometry%i_depth < cfg%i_min_depth) then
        !refine if the minimum depth is not met
        element%cell%geometry%refinement = 1
        traversal%i_refinements_issued = traversal%i_refinements_issued + 1
 !    else if (element%cell%geometry%i_depth < cfg%i_max_depth) then
     end if
+
+#if defined (_ASAGI)
+    if (element%cell%geometry%i_depth < cfg%i_max_depth) then
+
+       dQ_norm = maxval(abs(get_bathymetry_at_dg_patch(section, element, real(cfg%t_max_eq + 1.0, GRID_SR) ) - element%cell%data_pers%Q_DG%B))
+
+       if (dQ_norm > 2.0_SR) then
+          element%cell%data_pers%troubled = 1
+!          element%cell%geometry%refinement = 1
+!          traversal%i_refinements_issued = traversal%i_refinements_issued + 1
+       end if
+    end if
+
+
+    
+!     !high refinement on coasts low refinement on depths and mountains
+!     if((minval(element%cell%data_pers%Q_DG%B) * section%b_min) > 0) then
+!        bathy_depth= cfg%i_max_depth-floor(abs(maxval(element%cell%data_pers%Q_DG%B)/abs(section%b_min))*(cfg%i_max_depth-cfg%i_min_depth))
+!     else if((maxval(element%cell%data_pers%Q_DG%B) * section%b_max) > 0) then
+!        bathy_depth= cfg%i_max_depth-floor(abs(minval(element%cell%data_pers%Q_DG%B)/abs(section%b_max))*(cfg%i_max_depth-cfg%i_min_depth))
+!     end if
+    
+!     bathy_depth = max(min(bathy_depth,cfg%i_max_depth),cfg%i_min_depth)
+    
+!     if(element%cell%geometry%i_depth < bathy_depth)then
+!        element%cell%geometry%refinement = 1
+!        traversal%i_refinements_issued = traversal%i_refinements_issued + 1
+!     else if(element%cell%geometry%i_depth > bathy_depth)then
+!        !          element%cell%geometry%refinement = -1
+!     end if
+    
+#endif !_ASAGI
+    
 
     !estimate initial time step
     where (Q%h - Q%b > 0.0_GRID_SR)
@@ -575,9 +610,9 @@ MODULE SWE_Initialize_Dofs
     !This will cause a division by zero if the wave speeds are 0.
     !Bue to the min operator, the error will not affect the time step.
 
-
-    section%r_dt_new = min(section%r_dt_new, element%cell%geometry%get_volume() / (sum(element%cell%geometry%get_edge_sizes()) * maxval(max_wave_speed) * _SWE_PATCH_ORDER))
-
+    if (maxval(max_wave_speed) > 0.0_GRID_SR) then
+       section%r_dt_new = min(section%r_dt_new, element%cell%geometry%get_volume() / (sum(element%cell%geometry%get_edge_sizes()) * maxval(max_wave_speed) * _SWE_PATCH_ORDER))
+    end if
     
   end subroutine alpha_volume_op_dg
 
@@ -649,7 +684,12 @@ MODULE SWE_Initialize_Dofs
     end if
 #           endif
 
+#if defined(_SWE_DG)
+    traversal%i_refinements_issued = traversal%i_refinements_issued - element%cell%geometry%refinement
+#endif
+
     element%cell%geometry%refinement = 0
+!    print*,traversal%i_refinements_issued
 
     if (element%cell%geometry%i_depth < cfg%i_min_depth) then
        !refine if the minimum depth is not met
@@ -663,29 +703,31 @@ MODULE SWE_Initialize_Dofs
 
 
 # if defined(_SWE_DG)
-       !high refinement on coasts low refinement on depths and mountains
-       if((minval(element%cell%data_pers%B) * section%b_min) > 0) then
-          bathy_depth= cfg%i_max_depth-floor(abs(maxval(element%cell%data_pers%B)/abs(section%b_min))*(cfg%i_max_depth-cfg%i_min_depth))
-       else if((maxval(element%cell%data_pers%B) * section%b_max) > 0) then
-          bathy_depth= cfg%i_max_depth-floor(abs(minval(element%cell%data_pers%B)/abs(section%b_max))*(cfg%i_max_depth-cfg%i_min_depth))
-       end if
+!        !high refinement on coasts low refinement on depths and mountains
+!        if((minval(element%cell%data_pers%B) * section%b_min) > 0) then
+!           bathy_depth= cfg%i_max_depth-floor(abs(maxval(element%cell%data_pers%B)/abs(section%b_min))*(cfg%i_max_depth-cfg%i_min_depth))
+!        else if((maxval(element%cell%data_pers%B) * section%b_max) > 0) then
+!           bathy_depth= cfg%i_max_depth-floor(abs(minval(element%cell%data_pers%B)/abs(section%b_max))*(cfg%i_max_depth-cfg%i_min_depth))
+!        end if
        
-       bathy_depth = max(min(bathy_depth,cfg%i_max_depth),cfg%i_min_depth)
+!        bathy_depth = max(min(bathy_depth,cfg%i_max_depth),cfg%i_min_depth)
 
-       if(element%cell%geometry%i_depth < bathy_depth)then
-          element%cell%geometry%refinement = 1
-          traversal%i_refinements_issued = traversal%i_refinements_issued + 1
-       else if(element%cell%geometry%i_depth > bathy_depth)then
-!          element%cell%geometry%refinement = -1
-       end if
+!        if(element%cell%geometry%i_depth < bathy_depth)then
+!           if(abs(minval(element%cell%data_pers%B)) < cfg%coast_height/5.0) then
+!              element%cell%geometry%refinement = 1
+!              traversal%i_refinements_issued = traversal%i_refinements_issued + 1
+!           end if
+!        else if(element%cell%geometry%i_depth > bathy_depth)then
+! !          element%cell%geometry%refinement = -1
+!        end if
 
 
-#                   if defined (_SWE_PATCH)
+# if defined (_SWE_PATCH)
        dQ_norm = maxval(abs(get_bathymetry_at_patch(section, element, real(cfg%t_max_eq + 1.0, GRID_SR) ) - element%cell%data_pers%B))
 #                   else
        dQ_norm = abs(get_bathymetry_at_element(section, element, real(cfg%t_max_eq + 1.0, GRID_SR) ) - Q(1)%b)
 #                   endif
-
+       
        if (dQ_norm > 2.0_SR) then
           element%cell%geometry%refinement = 1
           traversal%i_refinements_issued = traversal%i_refinements_issued + 1
@@ -717,11 +759,13 @@ MODULE SWE_Initialize_Dofs
     !This will cause a division by zero if the wave speeds are 0.
     !Bue to the min operator, the error will not affect the time step.
 #           if defined _SWE_PATCH
-
+    if(maxval(max_wave_speed) > 0.0_GRID_SR)then
     section%r_dt_new = min(section%r_dt_new, element%cell%geometry%get_volume() / (sum(element%cell%geometry%get_edge_sizes()) * maxval(max_wave_speed) * _SWE_PATCH_ORDER))
 #           else
     section%r_dt_new = min(section%r_dt_new, element%cell%geometry%get_volume() / (sum(element%cell%geometry%get_edge_sizes()) * maxval(max_wave_speed)))
 #           endif
+
+    end if
 
   end subroutine alpha_volume_op
 

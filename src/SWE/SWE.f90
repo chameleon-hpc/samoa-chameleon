@@ -388,7 +388,8 @@ contains
 #endif
 #if defined(_SWE_DG)
  
-!                   call swe%dg_predictor%traverse(grid)
+                    !                   call swe%dg_predictor%traverse(grid)
+!                    print*,"predictor"
                    call swe%adaption%traverse(grid)
 #else
                    if (cfg%i_adapt_time_steps > 0 .and. mod(i_time_step, cfg%i_adapt_time_steps) == 0) then
@@ -397,12 +398,14 @@ contains
 #endif
 
 #if defined(_SWE_DG)
+!                   print*,"timestep"
                     call swe%dg_timestep%traverse(grid)
 #elif defined(_SWE_PATCH)
                     call swe%euler%traverse(grid)
-#endif                    
-
+#endif
+!                    print*,"displace"
                     !displace time-dependent bathymetry
+                    
                     call swe%displace%traverse(grid)
 
                     grid_info%i_cells = grid%get_cells(MPI_SUM, .true.)
@@ -429,7 +432,7 @@ contains
                             call swe%xml_output%traverse(grid)
                         end if
 
-                        if(cfg%xml_pointoutput) then
+                        if(cfg%l_xml_pointoutput) then
                            call swe%xml_point_output%traverse(grid)
                         end if
                         

@@ -111,6 +111,10 @@
              element%cell%data_pers%troubled = -(element%cell%data_pers%troubled-5)
           end if
 
+          if(.not.all(element%cell%data_pers%Q_DG%H > cfg%coast_height))then
+             element%cell%data_pers%troubled = 1
+          end if
+
           if(element%cell%data_pers%troubled.le.0) then
 
              call dg_predictor(element%cell,section%r_dt)
@@ -225,15 +229,15 @@
 
           dest_element%cell%data_pers%troubled=src_element%cell%data_pers%troubled
 
-          if(dest_element%cell%data_pers%troubled .le. -1 )then
-             call dg_predictor(dest_element%cell,section%r_dt)
+!          if(dest_element%cell%data_pers%troubled .le. -1 )then
+!             call dg_predictor(dest_element%cell,section%r_dt)
 #if defined (_DEBUG)                          
-             dest_element%cell%data_pers%debug_flag=-3
-          else
+!             dest_element%cell%data_pers%debug_flag=-3
+!          else
 
-             dest_element%cell%data_pers%debug_flag=src_element%cell%data_pers%troubled
+!             dest_element%cell%data_pers%debug_flag=src_element%cell%data_pers%troubled
 #endif
-          end if
+!          end if
 
 #endif
         end subroutine transfer_op
@@ -259,15 +263,22 @@
           logical                                                                     :: dry_cell
 
 #endif
-          integer					:: i
+          integer					                              :: i
 
 
 #if defined (_SWE_PATCH)
 #if defined (_SWE_DG)
+          ! print*,"src"
+          ! print*,src_element%cell%data_pers%troubled
+          ! print*,src_element%cell%data_pers%Q_DG%h
+          ! print*,src_element%cell%data_pers%Q_DG%p(1)
+          ! print*,src_element%cell%data_pers%Q_DG%p(2)
+          ! print*,src_element%cell%data_pers%Q_DG%b          
+          
           i_plotter_type = src_element%cell%geometry%i_plotter_type
           dest_element%cell%data_pers%troubled=src_element%cell%data_pers%troubled
+          
           if(dest_element%cell%data_pers%troubled .le. 0) then
-             
              do i=1, size(refinement_path)
                 ! decide which child is being computed (first = left to hypot, second = right to hypot.)
                 if ( (refinement_path(i) == 1 .and. i_plotter_type>0) .or. (refinement_path(i) == 2 .and. i_plotter_type<0)) then
@@ -283,30 +294,28 @@
                 dest_element%cell%data_pers%Q_DG%H=matmul(s_m_inv,dest_element%cell%data_pers%Q_DG%H)
                 dest_element%cell%data_pers%Q_DG%p(1)=matmul(s_m_inv,dest_element%cell%data_pers%Q_DG%p(1))
                 dest_element%cell%data_pers%Q_DG%p(2)=matmul(s_m_inv,dest_element%cell%data_pers%Q_DG%p(2))
+                dest_element%cell%data_pers%Q_DG%B = get_bathymetry_at_dg_patch(section, dest_element%t_element_base, section%r_time)
+                !call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(i_plotter_type))%jacobian)
+                dest_element%cell%data_pers%Q_DG%H=dest_element%cell%data_pers%Q_DG%H-dest_element%cell%data_pers%Q_DG%B
              end do
-             
-!              dest_element%cell%data_pers%B = get_bathymetry_at_patch(section, dest_element%t_element_base, section%r_time)
-             dest_element%cell%data_pers%Q_DG%B = get_bathymetry_at_dg_patch(section, dest_element%t_element_base, section%r_time)
-
              call bathymetry_derivatives(dest_element%cell%data_pers,ref_plotter_data(abs(i_plotter_type))%jacobian)
-
-
-!              call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(i_plotter_type))%jacobian)
              
-             dest_element%cell%data_pers%Q_DG%H=dest_element%cell%data_pers%Q_DG%H-dest_element%cell%data_pers%Q_DG%B
-
-
              if(.not.all(dest_element%cell%data_pers%Q_DG%H > cfg%coast_height))then
+                call apply_phi(src_element%cell%data_pers%Q_DG%H,src_element%cell%data_pers%H)
+                call apply_phi(src_element%cell%data_pers%Q_DG%p(1),src_element%cell%data_pers%HU)
+                call apply_phi(src_element%cell%data_pers%Q_DG%p(2),src_element%cell%data_pers%HV)
+                call apply_phi(src_element%cell%data_pers%Q_DG%b,src_element%cell%data_pers%B)
+                src_element%cell%data_pers%H=src_element%cell%data_pers%H+src_element%cell%data_pers%B
                 dest_element%cell%data_pers%troubled=1
              end if
-             
+          
              if(dest_element%cell%data_pers%troubled.le.0) then
                 call dg_predictor(dest_element%cell,section%r_dt)
              end if
           end if
 #endif
              
-          if(dest_element%cell%data_pers%troubled.ge.1) then
+       if(dest_element%cell%data_pers%troubled.ge.1) then
 
 #endif             
           i_plotter_type = src_element%cell%geometry%i_plotter_type
@@ -364,7 +373,7 @@
                 ! get bathymetry
                 dest_element%cell%data_pers%B = get_bathymetry_at_patch(section, dest_element%t_element_base, section%r_time)
                 
-!!#if defined(_ASAGI)
+!!#if defined(_ASAGI)q
           ! if cell was initially dry, we need to check if the fine cells should be initialized with h=0
                 where (dry_cell_out(:))
 #if defined(_ASAGI)                           
@@ -422,7 +431,14 @@
 
 !          call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(i_plotter_type))%jacobian)
           
-          dest_element%cell%data_pers%troubled=src_element%cell%data_pers%troubled
+          !          dest_element%cell%data_pers%troubled=src_element%cell%data_pers%troubled
+          ! print*,"dest"
+          ! print*,dest_element%cell%data_pers%troubled
+          ! print*,dest_element%cell%data_pers%Q_DG%h
+          ! print*,dest_element%cell%data_pers%Q_DG%p(1)
+          ! print*,dest_element%cell%data_pers%Q_DG%p(2)
+          ! print*,dest_element%cell%data_pers%Q_DG%b          
+
 
 
 #if defined (_DEBUG)                        

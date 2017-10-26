@@ -54,14 +54,7 @@ module c_bind_riemannsolvers
   !skip problem if in a completely dry area
   if (i_hL .le. i_dryTol .and. i_hR .le. i_dryTol) then
     return
- endif
-
- ! ! enforced: no flux for resting lake
- ! if (((i_hL + i_bL) .eq. (i_hR + i_bR)) .and. (i_huL.eq.0d0) .and. (i_hvL .eq.0d0) .and. (i_hvR.eq.0d0) .and. (i_huR.eq.0.0d0)) then
- !    return
- ! endif
-
- 
+  endif
 
   !check for wet/dry boundary
   if (i_hR.gt.i_dryTol) then
@@ -150,7 +143,6 @@ module c_bind_riemannsolvers
     case (GEOCLAW_AUG_RIEMANN)
         call riemann_aug_JCP(i_maxIter,3,i_numberOfFWaves,i_hL,i_hR,i_huL,i_huR,i_hvL,i_hvR,i_bL,i_bR,uL,uR,vL,vR,delphi,sE1,sE2,i_dryTol,i_g,waveSpeeds,fWaves)
   end select
-
 
   !eliminate ghost fluxes for wall
   do waveNumber=1,i_numberOfFWaves

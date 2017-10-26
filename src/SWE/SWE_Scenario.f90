@@ -190,7 +190,7 @@ MODULE SWE_Scenario_resting_lake
 
     function SWE_Scenario_get_scaling() result(scaling)
         real (kind = GRID_SR) :: scaling
-        scaling = 10.0_GRID_SR
+        scaling = 1.0_GRID_SR
     end function
 
     function SWE_Scenario_get_offset() result(offset)
@@ -202,9 +202,13 @@ MODULE SWE_Scenario_resting_lake
     function SWE_Scenario_get_bathymetry(x) result(bathymetry)
         real (kind = GRID_SR), intent(in) :: x(2)
         real (kind = GRID_SR) :: bathymetry
+        real (kind = GRID_SR) :: a,b,c
         
         !bathymetry = -4
-        bathymetry = -1.5 + 1/(x(1)+100_GRID_SR)
+        a=cos(0.0_GRID_SR)**2+sin(0.0_GRID_SR)**2
+        b=cos(0.0_GRID_SR)+sin(0.0_GRID_SR)
+        c = -(a*(x(1))**2 + 2*b*(x(1))*(x(2)) + a * (x(2))**2)
+        bathymetry = exp(c)
     end function
     
     function SWE_Scenario_get_initial_Q(x) result(Q)
@@ -354,7 +358,7 @@ MODULE SWE_Scenario_oscillating_lake
         real (kind = GRID_SR):: x_scal(2)
         real (kind = GRID_SR) :: bathymetry
 
-        bathymetry = 0.1 * (x(1)*x(1) + x(2)*x(2))
+        bathymetry = 0.1_GRID_SR * (x(1)*x(1) + x(2)*x(2))
 
     end function
     
@@ -368,14 +372,14 @@ MODULE SWE_Scenario_oscillating_lake
 
         
         t = 0.0
-        w = sqrt(0.2 * g)
+        w = sqrt(0.2_GRID_SR * g)
         sinwt = 0.0_GRID_SR ! t = 0
         coswt = 1.0_GRID_SR ! t = 0
 
-        Q%h = max( 0.0_GRID_SR, 0.05 * (2*x(1)*coswt + 2*x(2)*sinwt) + 0.075  - b )
+        Q%h = max( 0.0_GRID_SR, 0.05_GRID_SR * (2.0_GRID_SR*x(1)*coswt + 2.0_GRID_SR*x(2)*sinwt) + 0.075_GRID_SR  - b )
         
-        Q%p(1) = -0.5*w*sinwt * (Q%h) 
-        Q%p(2) =  0.5*w*coswt * (Q%h)
+        Q%p(1) = -0.5_GRID_SR*w*sinwt * (Q%h) 
+        Q%p(2) =  0.5_GRID_SR*w*coswt * (Q%h)
         
         Q%h = Q%h + b
         

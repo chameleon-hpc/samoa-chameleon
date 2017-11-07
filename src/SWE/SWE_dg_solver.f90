@@ -153,6 +153,14 @@ MODULE SWE_DG_solver
        end do
     else
 
+       !print*,"cte"
+       !print*,edge_type
+       !print*,element%cell%data_pers%H
+       !print*,element%cell%data_pers%HU
+       !print*,element%cell%data_pers%HV
+       !print*,element%cell%data_pers%B
+       
+       
   !----FV updates need to be in reverse order----!
        select case (edge_type)
        case (-3,3) !cells with id i*i+1 (left leg)
@@ -161,7 +169,7 @@ MODULE SWE_DG_solver
              rep%H(i+1) = element%cell%data_pers%H(j*j + 1)
              rep%HU(i+1)= element%cell%data_pers%HU(j*j + 1)
              rep%HV(i+1)= element%cell%data_pers%HV(j*j + 1)
-             rep%B(i+1) = element%cell%data_pers%B(j*j + 1)
+             rep%B(i+1) = element%cell%data_pers%B(j*j + 1) 
           end do
        case (-2,2) ! hypotenuse
           do i=1, _SWE_PATCH_ORDER
@@ -180,19 +188,19 @@ MODULE SWE_DG_solver
              rep%B(i)  = element%cell%data_pers%B(i*i)
           end do
        end select
-       
     end if
+    
+    !print*,"rep"
+    !print*,rep%H 
+    !print*,rep%HU
+    !print*,rep%HV
+    !print*,rep%B
+    
+
+    
     
     rep%Q_DG = element%cell%data_pers%Q_DG
     rep%troubled=element%cell%data_pers%troubled
-
-    ! if(element%cell%data_pers%troubled .le. 0)then
-    !    print*,element%cell%data_pers%troubled
-    !    print*,"H:",element%cell%data_pers%Q_DG%H
-    !    print*,"Hu:",element%cell%data_pers%Q_DG%p(1)
-    !    print*,"Hv:",element%cell%data_pers%Q_DG%p(2)
-    !    print*,"B:",element%cell%data_pers%Q_DG%B
-    ! end if
     
   end function cell_to_edge_op_dg
   
@@ -230,13 +238,6 @@ update2%Q_DG          =rep1%Q_DG
 
 update1%troubled      =rep2%troubled
 update2%troubled      =rep1%troubled
-
-!print
-!print,rep1%debug_flag
-!print,rep2%debug_flag
-!print
-!print,rep1%troubled
-!print,rep2%troubled
 
 if(rep1%troubled.le.0 .and. rep2%troubled.le.0) then
    
@@ -313,6 +314,16 @@ if(rep1%troubled.le.0 .and. rep2%troubled.le.0) then
 
 else
 
+   update2%H=rep1%H
+   update2%HU=rep1%HU
+   update2%HV=rep1%HV
+   update2%B=rep1%B
+   
+   update1%H=rep2%H
+   update1%HU=rep2%HU
+   update1%HV=rep2%HV
+   update1%B=rep2%B
+
    if(rep1%troubled.le.0) then
       ! do nothing conversion is performed in cell_update_op
    else
@@ -321,7 +332,7 @@ else
       update2%HV=rep1%HV
       update2%B=rep1%B
    end if
-
+   
    if(rep2%troubled.le.0) then
       ! do nothing conversion is performed in cell_update_op
    else
@@ -330,7 +341,6 @@ else
       update1%HV=rep2%HV
       update1%B=rep2%B
    end if
-
    
 end if
 
@@ -417,23 +427,6 @@ if(rep%troubled.le.0) then
 
 else
 
-   do i=1,(_SWE_PATCH_ORDER)
-      !                          reflecting boundary
-      length_flux = rep%HU(i) * normal_normed(1) + rep%HV(i) * normal_normed(2)
-      
-      !update%HU(i) = rep%HU(i)-2.0_GRID_SR*length_flux*normal_normed(1)
-      !update%HV(i) = rep%HV(i)-2.0_GRID_SR*length_flux*normal_normed(2)
-      
-      !simple outflowing boundary
-      temp_Q_DG_P(i)%p(1) =  rep%Q_DG_P(i)%p(1)
-      temp_Q_DG_P(i)%p(2) =  rep%Q_DG_P(i)%p(2)
-      !                            end if
-      
-      !zero vel bnd
-      !                          update%Q_DG_P(i)%p(1) =  0
-      !                          update%Q_DG_P(i)%p(2) =  0
-   end do
-
    
    update%H=rep%H
    update%HU=rep%HU
@@ -486,58 +479,44 @@ if (element%cell%geometry%i_plotter_type > 0) then ! if orientation = forward, r
    update3=tmp
 end if
 
+!print*,"updates"
+!print*,element%cell%geometry%i_plotter_type
+!print*,update1%troubled
+!print*,update1%H
+!print*,update1%HU
+!print*,update1%HV            
+!print*
+!print*,update2%troubled
+!print*,update2%H
+!print*,update2%HU
+!print*,update2%HV            
+!print*
+!print*,update3%troubled
+!print*,update3%H
+!print*,update3%HU
+!print*,update3%HV            
+!print*                 
 
 neighbours_troubled=(update1%troubled.ge.1).or.(update2%troubled.ge.1).or.(update3%troubled.ge.1)
 
-!!!!!!!!!print,"Troubled solver "
-!!!!!!!!!print,update1%troubled
-!!!!!!!!!print,update2%troubled
-!!!!!!!!!print,update3%troubled
-
 associate(data => element%cell%data_pers)
-  
   
 if(neighbours_troubled) then
    data%troubled=merge(data%troubled,2,data%troubled.ge.1)
 end if
 
 if(data%troubled.eq.2) then
-   !   data%B = get_bathymetry_at_patch(section, element, section%r_dt)
 
    call apply_phi(data%Q_DG(:)%h+data%Q_DG(:)%b,data%h)
    call apply_phi(data%Q_DG(:)%p(1),data%hu)
    call apply_phi(data%Q_DG(:)%p(2),data%hv)
-   !   call apply_phi(data%Q_DG(:)%b,data%b)
-   data%b=get_bathymetry_at_patch(section, element, section%r_time)
-   ! print*,"solver"   
-   ! print*,"DG_h"
-   ! print*,data%Q_DG(:)%h+data%Q_DG(:)%b
-   ! print*,"DG_b"   
-   ! print*,data%Q_DG(:)%b
 
-   ! print*,"FV_h"    
-   ! print*,data%h
-   ! print*,"FV_b"       
-   ! print*,data%b   
-   
-   ! print*
+   data%b=get_bathymetry_at_patch(section, element, section%r_time)
+
 end if
 
 if(data%troubled.le.0) then
    data%troubled=0
-
-!!!!!!!!!!!print,"updatesl"
-!!!!!!!!!!!print,edge_l(:)%H
-!!!!!!!!!!!print,edge_l(:)%p(1)
-!!!!!!!!!!!print,edge_l(:)%p(2)
-!!!!!!!!!!!print,edge_l(:)%b
-!!!!!!!!!!!print,update1%Q_DG_P(:)%H
-!!!!!!!!!!!print,update1%Q_DG_P(:)%p(1)
-!!!!!!!!!!!print,update1%Q_DG_P(:)%p(2)
-!!!!!!!!!!!print,update1%Q_DG_P(:)%b
-!!!!!!!!!!!print,flux1(:)%H
-!!!!!!!!!!!print,flux1(:)%p(1)
-!!!!!!!!!!!print,flux1(:)%p(2)
 
    H_old =data%Q_DG%H
    B_old =data%Q_DG%B
@@ -565,28 +544,9 @@ if(data%troubled.le.0) then
    delta(3) = max(0.1_GRID_SR,max_neighbour(3)-min_neighbour(3))
 
    delta=delta*1.0e-3_GRID_SR
-   !       !!!!!!!!!!!!!!!!print,"solver"
-
-    ! !!!!!!!print,element%cell%geometry%i_plotter_type
-    ! !!!!!!!print,update1%flux(:)%H
-    ! !!!!!!!print,update1%flux(:)%p(1)
-    ! !!!!!!!print,update1%flux(:)%p(2)
-    ! !!!!!!!print,update2%flux(:)%H
-    ! !!!!!!!print,update2%flux(:)%p(1)
-    ! !!!!!!!print,update2%flux(:)%p(2)
-    ! !!!!!!!print,update3%flux(:)%H
-    ! !!!!!!!print,update3%flux(:)%p(1)
-    ! !!!!!!!print,update3%flux(:)%p(2)
    
    
    call dg_solver(element,update1%flux,update2%flux,update3%flux,section%r_dt)
-
-   !       call element%cell%data_pers%convert_dg_to_fv_bathymetry()
-   !call data%convert_dg_to_fv()
-
-   ! H =data%H
-   ! HU=data%HU
-   ! HV=data%HV
 
 
 #if defined(_SWE_DG_LIMITER_UNLIMITED)
@@ -688,8 +648,7 @@ end if
 !if cell is troubled, compute fv solution and mark all edges as troubled
 
 if(data%troubled.ge.1) then
-   !!!!print,data%troubled
-   !!!!!!print,"1"
+
    if(update1%troubled.le.0) then
       call get_fv_update(update1,1)
    end if
@@ -701,35 +660,8 @@ if(data%troubled.ge.1) then
    if(update3%troubled.le.0) then
       call get_fv_update(update3,3)
    end if
-   
-   !call get_fv_update(update1,1)
-   !!!!!!print,"2"
-   !!!!!!print
-   !!!!!!print,update2%Q_DG%H
-   !!!!!!print,update2%Q_DG%p(1)
-   !!!!!!print,update2%Q_DG%p(2)
-   !!!!!!print,update2%Q_DG%B      
-   !call get_fv_update(update2,2)
-   !!!!!!print,"3"
-   !call get_fv_update(update3,3)
-
-   !call data%convert_dg_to_fv_bathymetry()      
-   !call data%convert_dg_to_fv()
 
    !-----Call FV patch solver----!
-
-   !!!!print,"update Heights"
-   !!!!print, update1%H
-   !!!!print, update2%H
-   !!!!print, update3%H
-   !!!!print, element%cell%data_pers%H
-
-   !!!!print,"update Bathy"
-   !!!!print, update1%B
-   !!!!print, update2%B
-   !!!!print, update3%B
-   !!!!print, element%cell%data_pers%B   
-
    call fv_patch_solver(traversal, section, element, update1, update2, update3)
 end if
 end associate
@@ -1064,11 +996,11 @@ subroutine dg_solver(element,update1,update2,update3,dt)
 !    b_y=Q_DG_P%b_y
 
     if(any(q_p(:,1) <= 0))then
-       !!!!!!print,"Negative water height in dg solver"
-       !!!!!!!!!print,"PRED"
-       !!!!!!!!!print,q_p(:,1)
-       !!!!!!!!!print,"FV"
-       !!!!!!!!!print,element%cell%data_pers%H(:)
+       !print*,"Negative water height in dg solver"
+       !print*,"PRED"
+       !print*,q_p(:,1)
+       !print*,"FV"
+       !print*,element%cell%data_pers%H(:)
        stop
     end if
     
@@ -1111,126 +1043,126 @@ subroutine dg_solver(element,update1,update2,update3,dt)
     
     bnd_flux_contrib=-matmul(b_m_1,f2)-matmul(b_m_3,f1)+matmul(b_m_2,f1+f2)/sqrt(2.0_GRID_SR)
     
-    !print*,"solver"
-    !print*, "orig ",q
-    !print*,"orientation",element%cell%geometry%i_plotter_type
-    !print*,"jacobian",jacobian
-    !print*,"jacobian_inv",jacobian_inv
-    !print*, "dx ",dx
-    !print*, "dt ",dt
-    !print*
-    !print*, "elt flux 1 "
-    !print*,volume_flux1(:,1)
-    !print*,volume_flux1(:,2)
-    !print*,volume_flux1(:,3)
-    !print*
-    !print*, "elt flux 2 "
-    !print*,volume_flux2(:,1)
-    !print*,volume_flux2(:,2)
-    !print*,volume_flux2(:,3)
-    !print*
-    !print*, "elt flux sum"
-    !print*,volume_flux2(:,1)+volume_flux1(:,1)
-    !print*,volume_flux2(:,2)+volume_flux1(:,2)
-    !print*,volume_flux2(:,3)+volume_flux1(:,3)
-    !print*
-    !print*, "bnd_flux_contribution "
-    !print*,bnd_flux_contrib(:,1)
-    !print*,bnd_flux_contrib(:,2)
-    !print*,bnd_flux_contrib(:,3)
-    !print*
-    !print*, "bnd_flux "
-    !print*,bnd_flux_l(:,1)+bnd_flux_r(:,1)+bnd_flux_m(:,1)
-    !print*,bnd_flux_l(:,2)+bnd_flux_r(:,2)+bnd_flux_m(:,2)
-    !print*,bnd_flux_l(:,3)+bnd_flux_r(:,3)+bnd_flux_m(:,3)
-    !print*,                        
-    !print*, "volume_flux comp"
-    !print*, volume_flux1(:,1)+volume_flux2(:,1)-bnd_flux_contrib(:,1)
-    !print*, volume_flux1(:,2)+volume_flux2(:,2)-bnd_flux_contrib(:,2)
-    !print*, volume_flux1(:,3)+volume_flux2(:,3)-bnd_flux_contrib(:,3)
-    !print*
-    !print*, "source"
-    !print*,source(:,1)
-    !print*,source(:,2)
-    !print*,source(:,3)
-    !print*, "bnd source"
-    !print*, bnd_source_contrib(:,1)
-    !print*, bnd_source_contrib(:,2)
-    !print*, bnd_source_contrib(:,3)
-    !print*,"source complete"
-    !print*,-source(:,1) - bnd_source_contrib(:,1)
-    !print*,-source(:,2) - bnd_source_contrib(:,2)
-    !print*,-source(:,3) - bnd_source_contrib(:,3)
-    !print*
-    !print*,
-    !print*,"comp"
-    !print*,(bnd_flux_l(:,1)+bnd_flux_r(:,1)+bnd_flux_m(:,1)-(volume_flux1(:,1)+volume_flux2(:,1)-bnd_flux_contrib(:,1)+bnd_source_contrib(:,1)+source(:,1)))*dt/dx
-    !print*,(bnd_flux_l(:,2)+bnd_flux_r(:,2)+bnd_flux_m(:,2)-(volume_flux1(:,2)+volume_flux2(:,2)-bnd_flux_contrib(:,2)+bnd_source_contrib(:,2)+source(:,2)))*dt/dx
-    !print*,(bnd_flux_l(:,3)+bnd_flux_r(:,3)+bnd_flux_m(:,3)-(volume_flux1(:,3)+volume_flux2(:,3)-bnd_flux_contrib(:,3)+bnd_source_contrib(:,3)+source(:,3)))*dt/dx
-    !print*
-    !print*, "bnd_flux_1_dof h"
-    !print*,update1%h
-    !print*,update1%p(1)
-    !print*,update1%p(2)
-    !print*
-    !print*, "bnd_flux_2_dof"
-    !print*,update2%h
-    !print*,update2%p(1)
-    !print*,update2%p(2)
-    !print*
-    !print*, "bnd_flux_3_dof"
-    !print*,update3%h
-    !print*,update3%p(1)
-    !print*,update3%p(2)
-    !print*
-    !print*, "volume_flux1 ",volume_flux1
-    !print*,                           
-    !print*, "volume_flux2 ",volume_flux2
-    !print*,
-     !print*, "f1"
-     !print*,f1(:,1)
-     !print*,f1(:,2)
-     !print*,f1(:,3)
-     !print*,
-     !print*, "f2"
-     !print*,f2(:,1)
-     !print*,f2(:,2)
-     !print*,f2(:,3)
-     !print*,
-    !print*, "f1_ref"
-    !print*,f1_ref(:,1)
-    !print*,f1_ref(:,2)
-    !print*,f1_ref(:,3)
-    !print*,
-    !print*, "f2_ref"
-    !print*,f2_ref(:,1)
-    !print*,f2_ref(:,2)
-    !print*,f2_ref(:,3)
-    !print*, "elt_source"
-    !print*,source_ref(:,1)
-    !print*,source_ref(:,2)
-    !print*,source_ref(:,3)
-    !print*
-    !print*,"tot Height x"
-    !print*,H_x
-    !print*,"tot Height y"
-    !print*,H_y
+    !!print*,"solver"
+    !!print*, "orig ",q
+    !!print*,"orientation",element%cell%geometry%i_plotter_type
+    !!print*,"jacobian",jacobian
+    !!print*,"jacobian_inv",jacobian_inv
+    !!print*, "dx ",dx
+    !!print*, "dt ",dt
+    !!print*
+    !!print*, "elt flux 1 "
+    !!print*,volume_flux1(:,1)
+    !!print*,volume_flux1(:,2)
+    !!print*,volume_flux1(:,3)
+    !!print*
+    !!print*, "elt flux 2 "
+    !!print*,volume_flux2(:,1)
+    !!print*,volume_flux2(:,2)
+    !!print*,volume_flux2(:,3)
+    !!print*
+    !!print*, "elt flux sum"
+    !!print*,volume_flux2(:,1)+volume_flux1(:,1)
+    !!print*,volume_flux2(:,2)+volume_flux1(:,2)
+    !!print*,volume_flux2(:,3)+volume_flux1(:,3)
+    !!print*
+    !!print*, "bnd_flux_contribution "
+    !!print*,bnd_flux_contrib(:,1)
+    !!print*,bnd_flux_contrib(:,2)
+    !!print*,bnd_flux_contrib(:,3)
+    !!print*
+    !!print*, "bnd_flux "
+    !!print*,bnd_flux_l(:,1)+bnd_flux_r(:,1)+bnd_flux_m(:,1)
+    !!print*,bnd_flux_l(:,2)+bnd_flux_r(:,2)+bnd_flux_m(:,2)
+    !!print*,bnd_flux_l(:,3)+bnd_flux_r(:,3)+bnd_flux_m(:,3)
+    !!print*,                        
+    !!print*, "volume_flux comp"
+    !!print*, volume_flux1(:,1)+volume_flux2(:,1)-bnd_flux_contrib(:,1)
+    !!print*, volume_flux1(:,2)+volume_flux2(:,2)-bnd_flux_contrib(:,2)
+    !!print*, volume_flux1(:,3)+volume_flux2(:,3)-bnd_flux_contrib(:,3)
+    !!print*
+    !!print*, "source"
+    !!print*,source(:,1)
+    !!print*,source(:,2)
+    !!print*,source(:,3)
+    !!print*, "bnd source"
+    !!print*, bnd_source_contrib(:,1)
+    !!print*, bnd_source_contrib(:,2)
+    !!print*, bnd_source_contrib(:,3)
+    !!print*,"source complete"
+    !!print*,-source(:,1) - bnd_source_contrib(:,1)
+    !!print*,-source(:,2) - bnd_source_contrib(:,2)
+    !!print*,-source(:,3) - bnd_source_contrib(:,3)
+    !!print*
+    !!print*,
+    !!print*,"comp"
+    !!print*,(bnd_flux_l(:,1)+bnd_flux_r(:,1)+bnd_flux_m(:,1)-(volume_flux1(:,1)+volume_flux2(:,1)-bnd_flux_contrib(:,1)+bnd_source_contrib(:,1)+source(:,1)))*dt/dx
+    !!print*,(bnd_flux_l(:,2)+bnd_flux_r(:,2)+bnd_flux_m(:,2)-(volume_flux1(:,2)+volume_flux2(:,2)-bnd_flux_contrib(:,2)+bnd_source_contrib(:,2)+source(:,2)))*dt/dx
+    !!print*,(bnd_flux_l(:,3)+bnd_flux_r(:,3)+bnd_flux_m(:,3)-(volume_flux1(:,3)+volume_flux2(:,3)-bnd_flux_contrib(:,3)+bnd_source_contrib(:,3)+source(:,3)))*dt/dx
+    !!print*
+    !!print*, "bnd_flux_1_dof h"
+    !!print*,update1%h
+    !!print*,update1%p(1)
+    !!print*,update1%p(2)
+    !!print*
+    !!print*, "bnd_flux_2_dof"
+    !!print*,update2%h
+    !!print*,update2%p(1)
+    !!print*,update2%p(2)
+    !!print*
+    !!print*, "bnd_flux_3_dof"
+    !!print*,update3%h
+    !!print*,update3%p(1)
+    !!print*,update3%p(2)
+    !!print*
+    !!print*, "volume_flux1 ",volume_flux1
+    !!print*,                           
+    !!print*, "volume_flux2 ",volume_flux2
+    !!print*,
+     !!print*, "f1"
+     !!print*,f1(:,1)
+     !!print*,f1(:,2)
+     !!print*,f1(:,3)
+     !!print*,
+     !!print*, "f2"
+     !!print*,f2(:,1)
+     !!print*,f2(:,2)
+     !!print*,f2(:,3)
+     !!print*,
+    !!print*, "f1_ref"
+    !!print*,f1_ref(:,1)
+    !!print*,f1_ref(:,2)
+    !!print*,f1_ref(:,3)
+    !!print*,
+    !!print*, "f2_ref"
+    !!print*,f2_ref(:,1)
+    !!print*,f2_ref(:,2)
+    !!print*,f2_ref(:,3)
+    !!print*, "elt_source"
+    !!print*,source_ref(:,1)
+    !!print*,source_ref(:,2)
+    !!print*,source_ref(:,3)
+    !!print*
+    !!print*,"tot Height x"
+    !!print*,H_x
+    !!print*,"tot Height y"
+    !!print*,H_y
     
-    !print*,"orig"
-    !print*,q
-    !print*
-    !print*,"Q_DG_P"
-    !print*,q_p(:,1)
-    !print*,q_p(:,2)
-    !print*,q_p(:,3)
-    !print*,b
-    !print*
-    !print*,"pred height"
-    !print*,element%cell%data_pers%Q_DG_P(:)%h
-    !print*
-    !print*,"pred bathy"
-    !print*,b
-    !print*
+    !!print*,"orig"
+    !!print*,q
+    !!print*
+    !!print*,"Q_DG_P"
+    !!print*,q_p(:,1)
+    !!print*,q_p(:,2)
+    !!print*,q_p(:,3)
+    !!print*,b
+    !!print*
+    !!print*,"pred height"
+    !!print*,element%cell%data_pers%Q_DG_P(:)%h
+    !!print*
+    !!print*,"pred bathy"
+    !!print*,b
+    !!print*
 
     q_temp = ( bnd_flux_l &
          + bnd_flux_m &
@@ -1392,11 +1324,32 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
             logical :: drying,troubled,coarsen,refine
             real (kind=GRID_SR) :: refinement_threshold = 0.50_GRID_SR
 
+            !print*,"updates"
+            !print*,element%cell%geometry%i_plotter_type
+            !print*,update1%H
+            !print*,update1%HU
+            !print*,update1%HV
+            !print*,update1%B
+            !print*
+            !print*,update2%H
+            !print*,update2%HU
+            !print*,update2%HV
+            !print*,update2%B
+            !print*                 
+            !print*,update3%H
+            !print*,update3%HU
+            !print*,update3%HV
+            !print*,update3%B
+            !print*                 
+
 #endif
 
+            
 #if !defined(_SWE_USE_PATCH_SOLVER)
             ! using patches, but applying geoclaw solvers on single edges
+            
             ! the normals are only needed in this case.
+            
             ! copy/compute normal vectors
             ! normal for type 2 edges is equal to the 2nd edge's normal
             normals(:,2) = element%edges(2)%ptr%transform_data%normal
@@ -1409,136 +1362,149 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                normals(:,1) = - element%edges(3)%ptr%transform_data%normal
                normals(:,3) = element%edges(1)%ptr%transform_data%normal
             end if
-#endif
+#               endif
+
+
+            ! if (element%cell%geometry%i_plotter_type > 0) then ! if orientation = forward, reverse updates
+            !    tmp=update1
+            !    update1=update3
+            !    update3=tmp
+            ! end if
 
             ! init some variables
             dQ_H = 0.0_GRID_SR
             dQ_HU = 0.0_GRID_SR
             dQ_HV = 0.0_GRID_SR
             maxWaveSpeed = 0.0_GRID_SR
-
             volume = cfg%scaling * cfg%scaling * element%cell%geometry%get_volume() / (_SWE_PATCH_ORDER_SQUARE)
             dt_div_volume = section%r_dt / volume
             edge_lengths = cfg%scaling * element%cell%geometry%get_edge_sizes() / _SWE_PATCH_ORDER
 
             associate(data => element%cell%data_pers, geom => SWE_PATCH_geometry)
 
-               ! copy cell values to arrays edges_a and edges_b
-               ! obs: cells with id > number of cells are actually ghost cells and come from edges "updates"
-               ! see t_SWE_PATCH_geometry for an explanation about ghost cell ordering
-               do i=1, _SWE_PATCH_NUM_EDGES, _SWE_PATCH_SOLVER_CHUNK_SIZE ! i -> init of chunk
-               ! if this is the last chunk and it is not a full chunk, 
-               ! it is necessary to set everything to 0 to avoid using last iteration values
-                  if (i + _SWE_PATCH_SOLVER_CHUNK_SIZE -1 > _SWE_PATCH_NUM_EDGES) then
-                     hL = 0.0_GRID_SR
-                     huL = 0.0_GRID_SR
-                     hvL = 0.0_GRID_SR
-                     bL = 0.0_GRID_SR
-                     hR = 0.0_GRID_SR
-                     huR = 0.0_GRID_SR
-                     hvR = 0.0_GRID_SR
-                     bR = 0.0_GRID_SR
-                  end if
+              ! copy cell values to arrays edges_a and edges_b
+              ! obs: cells with id > number of cells are actually ghost cells and come from edges "updates"
+              ! see t_SWE_PATCH_geometry for an explanation about ghost cell ordering
+              do i=1, _SWE_PATCH_NUM_EDGES, _SWE_PATCH_SOLVER_CHUNK_SIZE ! i -> init of chunk
 
-                  do j=1, _SWE_PATCH_SOLVER_CHUNK_SIZE ! j -> position inside chunk
-                     ind = i + j - 1 ! actual index
+                 ! if this is the last chunk and it is not a full chunk, it is necessary to set everything to 0 to avoid using last iteration values
+                 if (i + _SWE_PATCH_SOLVER_CHUNK_SIZE -1 > _SWE_PATCH_NUM_EDGES) then
+                    hL = 0.0_GRID_SR
+                    huL = 0.0_GRID_SR
+                    hvL = 0.0_GRID_SR
+                    bL = 0.0_GRID_SR
+                    hR = 0.0_GRID_SR
+                    huR = 0.0_GRID_SR
+                    hvR = 0.0_GRID_SR
+                    bR = 0.0_GRID_SR
+                 end if
 
-                     ! don't go outside array limits
-                     if (ind > _SWE_PATCH_NUM_EDGES) then
-                        exit
-                     end if
+                 do j=1, _SWE_PATCH_SOLVER_CHUNK_SIZE ! j -> position inside chunk
+                    ind = i + j - 1 ! actual index
 
-                     ! left
-                     if (geom%edges_a(ind) <= _SWE_PATCH_ORDER_SQUARE) then
-                        hL(j) = data%H(geom%edges_a(ind))
-                        huL(j) = data%HU(geom%edges_a(ind))
-                        hvL(j) = data%HV(geom%edges_a(ind))
-                        bL(j) = data%B(geom%edges_a(ind))
-                     else if (geom%edges_a(ind) <= _SWE_PATCH_ORDER_SQUARE + _SWE_PATCH_ORDER) then
-                        hL(j) = update1%H(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE)
-                        huL(j) = update1%HU(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE)
-                        hvL(j) = update1%HV(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE)
-                        bL(j) = update1%B(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE)
-                     else if (geom%edges_a(ind) <= _SWE_PATCH_ORDER_SQUARE + 2*_SWE_PATCH_ORDER) then
-                        hL(j) = update2%H(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
-                        huL(j) = update2%HU(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
-                        hvL(j) = update2%HV(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
-                        bL(j) = update2%B(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
-                     else 
-                        hL(j) = update3%H(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
-                        huL(j) = update3%HU(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
-                        hvL(j) = update3%HV(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
-                        bL(j) = update3%B(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
-                     end if
+                    ! don't go outside array limits
+                    if (ind > _SWE_PATCH_NUM_EDGES) then
+                       exit
+                    end if
 
-                     ! right
-                     if (geom%edges_b(ind) <= _SWE_PATCH_ORDER_SQUARE) then
-                        hR(j) = data%H(geom%edges_b(ind))
-                        huR(j) = data%HU(geom%edges_b(ind))
-                        hvR(j) = data%HV(geom%edges_b(ind))
-                        bR(j) = data%B(geom%edges_b(ind))
-                     else if (geom%edges_b(ind) <= _SWE_PATCH_ORDER_SQUARE + _SWE_PATCH_ORDER) then
-                        hR(j) = update1%H(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE)
-                        huR(j) = update1%HU(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE)
-                        hvR(j) = update1%HV(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE)
-                        bR(j) = update1%B(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE)
-                     else if (geom%edges_b(ind) <= _SWE_PATCH_ORDER_SQUARE + 2*_SWE_PATCH_ORDER) then
-                        hR(j) = update2%H(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
-                        huR(j) = update2%HU(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
-                        hvR(j) = update2%HV(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
-                        bR(j) = update2%B(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
-                     else 
-                        hR(j) = update3%H(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
-                        huR(j) = update3%HU(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
-                        hvR(j) = update3%HV(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
-                        bR(j) = update3%B(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
-                     end if
+                    ! left
+                    if (geom%edges_a(ind) <= _SWE_PATCH_ORDER_SQUARE) then
+                       hL(j) = data%H(geom%edges_a(ind))
+                       huL(j) = data%HU(geom%edges_a(ind))
+                       hvL(j) = data%HV(geom%edges_a(ind))
+                       bL(j) = data%B(geom%edges_a(ind))
+                    else if (geom%edges_a(ind) <= _SWE_PATCH_ORDER_SQUARE + _SWE_PATCH_ORDER) then
+                       hL(j) = update1%H(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE)
+                       huL(j) = update1%HU(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE)
+                       hvL(j) = update1%HV(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE)
+                       bL(j) = update1%B(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE)
+                    else if (geom%edges_a(ind) <= _SWE_PATCH_ORDER_SQUARE + 2*_SWE_PATCH_ORDER) then
+                       hL(j) = update2%H(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
+                       huL(j) = update2%HU(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
+                       hvL(j) = update2%HV(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
+                       bL(j) = update2%B(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
+                    else 
+                       hL(j) = update3%H(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
+                       huL(j) = update3%HU(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
+                       hvL(j) = update3%HV(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
+                       bL(j) = update3%B(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
+                    end if
 
-                     !copy transformation matrices
-                     transf(j,:,:) = geom%transform_matrices(geom%edges_orientation(ind),:,:,element%cell%geometry%i_plotter_type)
-                  end do
+                    ! right
+                    if (geom%edges_b(ind) <= _SWE_PATCH_ORDER_SQUARE) then
+                       hR(j) = data%H(geom%edges_b(ind))
+                       huR(j) = data%HU(geom%edges_b(ind))
+                       hvR(j) = data%HV(geom%edges_b(ind))
+                       bR(j) = data%B(geom%edges_b(ind))
+                    else if (geom%edges_b(ind) <= _SWE_PATCH_ORDER_SQUARE + _SWE_PATCH_ORDER) then
+                       hR(j) = update1%H(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE)
+                       huR(j) = update1%HU(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE)
+                       hvR(j) = update1%HV(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE)
+                       bR(j) = update1%B(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE)
+                    else if (geom%edges_b(ind) <= _SWE_PATCH_ORDER_SQUARE + 2*_SWE_PATCH_ORDER) then
+                       hR(j) = update2%H(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
+                       huR(j) = update2%HU(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
+                       hvR(j) = update2%HV(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
+                       bR(j) = update2%B(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
+                    else 
+                       hR(j) = update3%H(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
+                       huR(j) = update3%HU(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
+                       hvR(j) = update3%HV(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
+                       bR(j) = update3%B(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
+                    end if
 
-                  ! compute net_updates -> solve Riemann problems within chunk
+                    !copy transformation matrices
+                    transf(j,:,:) = geom%transform_matrices(geom%edges_orientation(ind),:,:,element%cell%geometry%i_plotter_type)
+                 end do
+
+                 ! compute net_updates -> solve Riemann problems within chunk
 #                       if defined (_SWE_USE_PATCH_SOLVER)
-#                       if defined(_FWAVE_FLUX) || defined(_AUG_RIEMANN_FLUX)
-                  call compute_updates_simd(transf, hL, huL, hvL, bL, hR, huR, hvR, bR, upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR, maxWaveSpeed)
-#                       elif defined(_HLLE_FLUX)
-                  call compute_updates_hlle_simd(transf, hL, huL, hvL, bL, hR, huR, hvR, bR, upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR, maxWaveSpeed)
-#                       else
-                  ! this should never happen -> SCons rules should avoid this before compiling
-#                       error "No valid SWE solver for patches/simd implementation has been defined!"
-#                       endif
+#                           if defined(_FWAVE_FLUX) || defined(_AUG_RIEMANN_FLUX)
+                 call compute_updates_simd(transf, hL, huL, hvL, bL, hR, huR, hvR, bR, upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR, maxWaveSpeed)
+#                           elif defined(_HLLE_FLUX)
+                 call compute_updates_hlle_simd(transf, hL, huL, hvL, bL, hR, huR, hvR, bR, upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR, maxWaveSpeed)
+#                           else
+                 ! this should never happen -> SCons rules should avoid this before compiling
+#                               error "No valid SWE solver for patches/simd implementation has been defined!"
+                 print *, 
+#                           endif
 #                       else                    
-                  ! using original geoclaw solver
-                  maxWaveSpeeds=0
-                  !!!!!!print,"Geoclaw"
-                  do j=1, _SWE_PATCH_SOLVER_CHUNK_SIZE
-                     ind = i + j - 1 ! actual index
+                 ! using original geoclaw solver
+                 do j=1, _SWE_PATCH_SOLVER_CHUNK_SIZE
+                    ind = i + j - 1 ! actual index
 
-                     ! don't go outside array limits
-                     if (ind > _SWE_PATCH_NUM_EDGES) then
-                        exit
-                     end if
+                    ! don't go outside array limits
+                    if (ind > _SWE_PATCH_NUM_EDGES) then
+                       exit
+                    end if
 
-                     edges_a(j)%h = hL(j)
-                     edges_a(j)%p(1) = huL(j)
-                     edges_a(j)%p(2) = hvL(j)
-                     edges_a(j)%b = bL(j)
-                     edges_b(j)%h = hR(j)
-                     edges_b(j)%p(1) = huR(j)
-                     edges_b(j)%p(2) = hvR(j)
-                     edges_b(j)%b = bR(j)
-                     call compute_geoclaw_flux(normals(:,geom%edges_orientation(ind)), edges_a(j), edges_b(j), update_a, update_b)
-                     upd_hL(j) = update_a%h
-                     upd_huL(j) = update_a%p(1)
-                     upd_hvL(j) = update_a%p(2)
-                     upd_hR(j) = update_b%h
-                     upd_huR(j) = update_b%p(1)
-                     upd_hvR(j) = update_b%p(2)
-                     maxWaveSpeeds(j)=update_a%max_wave_speed
-                  end do
+                    edges_a(j)%h = hL(j)
+                    edges_a(j)%p(1) = huL(j)
+                    edges_a(j)%p(2) = hvL(j)
+                    edges_a(j)%b = bL(j)
+                    edges_b(j)%h = hR(j)
+                    edges_b(j)%p(1) = huR(j)
+                    edges_b(j)%p(2) = hvR(j)
+                    edges_b(j)%b = bR(j)
+                    call compute_geoclaw_flux(normals(:,geom%edges_orientation(ind)), edges_a(j), edges_b(j), update_a, update_b)
+
+                    !print*,"updates"
+                    !print*,upd_hL(j) 
+                    !print*,upd_huL(j)
+                    !print*,upd_hvL(j)
+                    !print*,upd_hR(j) 
+                    !print*,upd_huR(j)                                
+                    !print*,upd_hvR(j)
+                    
+                    upd_hL(j) = update_a%h
+                    upd_huL(j) = update_a%p(1)
+                    upd_hvL(j) = update_a%p(2)
+                    upd_hR(j) = update_b%h
+                    upd_huR(j) = update_b%p(1)
+                    upd_hvR(j) = update_b%p(2)
+                    maxWaveSpeed = max(maxWaveSpeed, update_a%max_wave_speed)
+                 end do
 #                       endif
-
                   ! compute dQ
                   do j=1, _SWE_PATCH_SOLVER_CHUNK_SIZE
                      ind = i + j - 1 ! actual index
@@ -1671,6 +1637,27 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                if(all(data%H - data%B > cfg%coast_height)) then
                   if(all(data%Q_DG%H > cfg%coast_height)) then
                      data%troubled = 5+data%troubled
+
+                     ! !print*,data%h-data%b
+                     ! !print*,data%hu      
+                     ! !print*,data%hv      
+                     ! !print*,data%b
+                     ! !print*
+                     ! !print*,data%Q_DG%h-data%Q_DG%b
+                     ! !print*,data%Q_DG%hu      
+                     ! !print*,data%Q_DG%hv      
+                     ! !print*,data%Q_DG%b
+                     ! !print*
+                     ! call apply_phi(data%Q_DG(:)%h+data%Q_DG(:)%b,data%H)
+                     ! call apply_phi(data%Q_DG(:)%p(1),data%HU)
+                     ! call apply_phi(data%Q_DG(:)%p(2),data%HV)
+                     ! call apply_phi(data%Q_DG(:)%b,data%B)
+                     ! !print*,data%h-data%b
+                     ! !print*,data%hu      
+                     ! !print*,data%hv      
+                     ! !print*,data%b
+                     ! !print*
+                     
                   else
                      data%troubled = 1
                   end if

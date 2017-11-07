@@ -61,7 +61,9 @@ vars.AddVariables(
                                 'resting_lake',
                                 'parabolic_isle',
                                 'linear_beach',
-                                'convergence')),
+                                'convergence',
+                                'all_rarefaction',
+                                'smooth_wave')),
 
   EnumVariable( 'dg_limiter', '', "unlimited",
                 allowed_values=('all',
@@ -323,6 +325,13 @@ elif env['swe_scenario'] == 'linear_beach':
   env['F90FLAGS'] += ' -D_SWE_SCENARIO_SINGLE_WAVE'
 elif env['swe_scenario'] == 'convergence':
   env['F90FLAGS'] += ' -D_SWE_SCENARIO_CONVERGENCE_TEST'
+elif env['swe_scenario'] == 'all_rarefaction':
+  env['F90FLAGS'] += ' -D_SWE_SCENARIO_ALL_RAREFACTION'
+elif env['swe_scenario'] == 'smooth_wave':
+  env['F90FLAGS'] += ' -D_SWE_SCENARIO_SMOOTH_WAVE'
+  
+  
+
 
 # DG Limter
 

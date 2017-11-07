@@ -298,6 +298,7 @@
                 !call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(i_plotter_type))%jacobian)
                 dest_element%cell%data_pers%Q_DG%H=dest_element%cell%data_pers%Q_DG%H-dest_element%cell%data_pers%Q_DG%B
              end do
+
              call bathymetry_derivatives(dest_element%cell%data_pers,ref_plotter_data(abs(i_plotter_type))%jacobian)
              
              if(.not.all(dest_element%cell%data_pers%Q_DG%H > cfg%coast_height))then

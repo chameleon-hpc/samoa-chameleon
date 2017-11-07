@@ -65,8 +65,8 @@
      real (kind = GRID_SR) :: b						!< bathymetry
 
 #if defined(_SWE_DG_NODAL)
-                        real(kind=GRID_SR) ::       b_x
-                        real(kind=GRID_SR) ::       b_y
+     real(kind=GRID_SR) ::       b_x
+     real(kind=GRID_SR) ::       b_y
 #endif
                         
             contains
@@ -384,11 +384,11 @@
                    ! dofs%b_y = normals_normed(2,1) * b_x_temp + normals_normed(2,2) * b_y_temp
 
 #else
-                   b_x_temp=matmul(basis_der_x,b_temp(1:_SWE_DG_DOFS))
-                   b_y_temp=matmul(basis_der_y,b_temp(1:_SWE_DG_DOFS))
+                   ! b_x_temp=matmul(basis_der_x,b_temp(1:_SWE_DG_DOFS))
+                   ! b_y_temp=matmul(basis_der_y,b_temp(1:_SWE_DG_DOFS))
 
-                   dofs%Q_DG(:)%b_x=normals_normed(1,1) * b_x_temp + normals_normed(1,2) * b_y_temp
-                   dofs%Q_DG(:)%b_y=normals_normed(2,1) * b_x_temp + normals_normed(2,2) * b_y_temp
+                   ! dofs%Q_DG(:)%b_x=normals_normed(1,1) * b_x_temp + normals_normed(1,2) * b_y_temp
+                   ! dofs%Q_DG(:)%b_y=normals_normed(2,1) * b_x_temp + normals_normed(2,2) * b_y_temp
 
                    ! do i=0,_SWE_DG_ORDER
                    !    dofs%Q_DG_P(1+_SWE_DG_DOFS*i:_SWE_DG_DOFS*(i+1))%b_x=dofs%Q_DG(:)%b_x
@@ -402,15 +402,12 @@
                    real(kind=GRID_SR) :: b_x_temp(_SWE_DG_DOFS)
                    real(kind=GRID_SR) :: b_y_temp(_SWE_DG_DOFS)
                    real(kind=GRID_SR) :: normals(2,2)
-                   real(kind=GRID_SR) :: normals_normed(2,2)
                    
-                   normals_normed=normals/NORM2(normals(1,1:2))
-
                    b_x_temp=matmul(basis_der_x,dofs%Q_DG(:)%B)
                    b_y_temp=matmul(basis_der_y,dofs%Q_DG(:)%B)
 
-                   dofs%Q_DG(:)%b_x=normals_normed(1,1) * b_x_temp + normals_normed(1,2) * b_y_temp
-                   dofs%Q_DG(:)%b_y=normals_normed(2,1) * b_x_temp + normals_normed(2,2) * b_y_temp
+                   dofs%Q_DG(:)%b_x=normals(1,1) * b_x_temp + normals(1,2) * b_y_temp
+                   dofs%Q_DG(:)%b_y=normals(2,1) * b_x_temp + normals(2,2) * b_y_temp
 
                  end subroutine bathymetry_derivatives
 #endif                   

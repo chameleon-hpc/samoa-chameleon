@@ -472,7 +472,7 @@ MODULE SWE_Initialize_Dofs
 
     if(element%cell%data_pers%troubled .ge.1)then
        element%cell%data_pers%Q_DG%B = get_bathymetry_at_dg_patch(section, element, section%r_time)
-       call bathymetry_derivatives(element%cell%data_pers,ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian)
+       call bathymetry_derivatives(element%cell%data_pers,ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian_normalized)
     end if
 
     Q_DG(:)%b = element%cell%data_pers%Q_DG%B

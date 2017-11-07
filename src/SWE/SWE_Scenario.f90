@@ -1,3 +1,4 @@
+
 ! Artificial scenario selector for the SWE scenario. 
 ! To add a new scenario:
 ! 1) create a new module according to the template below
@@ -46,6 +47,55 @@ MODULE SWE_Scenario_template
 
 END MODULE SWE_Scenario_template
 #endif
+
+#if defined (_SWE_SCENARIO_ALL_RAREFACTION)
+MODULE SWE_Scenario_all_rarefaction
+    use Samoa_swe
+    public SWE_Scenario_get_scaling, SWE_Scenario_get_offset, SWE_Scenario_get_bathymetry, SWE_Scenario_get_initial_Q
+    contains
+
+    function SWE_Scenario_get_scaling() result(scaling)
+        real (kind = GRID_SR) :: scaling
+        
+        scaling = 4.0_GRID_SR
+    end function
+
+    function SWE_Scenario_get_offset() result(offset)
+        real (kind = GRID_SR) :: offset(2)
+        
+        offset = SWE_Scenario_get_scaling() * [-0.5_GRID_SR, -0.5_GRID_SR]
+    end function
+    
+    function SWE_Scenario_get_bathymetry(x) result(bathymetry)
+        real (kind = GRID_SR), intent(in) :: x(2)
+        real (kind = GRID_SR) :: bathymetry
+        
+        !        bathymetry = -0.5_GRID_SR
+        bathymetry = 0.0_GRID_SR        
+    end function
+    
+    function SWE_Scenario_get_initial_Q(x) result(Q)
+        real (kind = GRID_SR), intent(in) :: x(2)
+        type(t_dof_state) :: Q
+
+
+!        Q%p = [0.0_GRID_SR, 0.0_GRID_SR]        
+        ! if(x(1) > -1.5 .and. x(1) < 1.5) then
+        !    if(x(2) > -1.5 .and. x(2) < 1.5) then
+           
+              if(x(2) < -x(1))then
+                 Q%p = [-0.5_GRID_SR, -0.5_GRID_SR]/sqrt(2.0_GRID_SR)
+              else
+                 Q%p = [0.5_GRID_SR, 0.5_GRID_SR]/sqrt(2.0_GRID_SR)
+              end if
+        !    end if
+        ! end if
+        Q%h = 1.0
+    end function
+
+END MODULE SWE_Scenario_all_rarefaction
+#endif
+
 
 
 #if defined (_SWE_SCENARIO_GAUSSIAN_CURVE)
@@ -154,7 +204,7 @@ MODULE SWE_Scenario_resting_lake
         real (kind = GRID_SR) :: bathymetry
         
         !bathymetry = -4
-        bathymetry = -1.5 + x(1)/5
+        bathymetry = -1.5 + 1/(x(1)+100_GRID_SR)
     end function
     
     function SWE_Scenario_get_initial_Q(x) result(Q)
@@ -309,24 +359,23 @@ MODULE SWE_Scenario_oscillating_lake
     end function
     
     function SWE_Scenario_get_initial_Q(x) result(Q)
-        real (kind = GRID_SR), intent(in) :: x(2)
-        type(t_dof_state) :: Q
-        double precision :: w, t, sinwt, coswt, b
-        double precision :: x_scal(2)
+      real (kind = GRID_SR), intent(in) :: x(2)
+      type(t_dof_state) :: Q
+      double precision :: w, t, sinwt, coswt, b
+      double precision :: x_scal(2)
         
+      b = SWE_Scenario_get_bathymetry(x)
 
-        b = SWE_Scenario_get_bathymetry(x)
         
         t = 0.0
         w = sqrt(0.2 * g)
-        sinwt = 0.0 ! t = 0
-        coswt = 1.0 ! t = 0
-        
+        sinwt = 0.0_GRID_SR ! t = 0
+        coswt = 1.0_GRID_SR ! t = 0
+
         Q%h = max( 0.0_GRID_SR, 0.05 * (2*x(1)*coswt + 2*x(2)*sinwt) + 0.075  - b )
         
         Q%p(1) = -0.5*w*sinwt * (Q%h) 
         Q%p(2) =  0.5*w*coswt * (Q%h)
-
         
         Q%h = Q%h + b
         
@@ -511,6 +560,61 @@ MODULE  SWE_Convergence_test
 END MODULE SWE_Convergence_test
 #endif
 
+#if defined (_SWE_SCENARIO_SMOOTH_WAVE)
+MODULE SWE_Scenario_smooth_wave
+    use Samoa_swe
+    public SWE_Scenario_get_scaling, SWE_Scenario_get_offset, SWE_Scenario_get_bathymetry, SWE_Scenario_get_initial_Q
+    contains
+
+    function SWE_Scenario_get_scaling() result(scaling)
+        real (kind = GRID_SR) :: scaling
+        
+        scaling = 4.0_GRID_SR
+    end function
+
+    function SWE_Scenario_get_offset() result(offset)
+        real (kind = GRID_SR) :: offset(2)
+        
+        offset = SWE_Scenario_get_scaling() * [0.5_GRID_SR, 0.5_GRID_SR]
+    end function
+    
+    function SWE_Scenario_get_bathymetry(x) result(bathymetry)
+      real (kind = GRID_SR), intent(in) :: x(2)
+      real (kind = GRID_SR):: x_temp      
+      real (kind = GRID_SR) :: bathymetry
+
+      x_temp=(x(1)+x(2))/sqrt(2.0_GRID_SR)
+      x_temp=x(1)
+
+      bathymetry = -(0.5*x_temp**2/g + g/x_temp)
+    end function SWE_Scenario_get_bathymetry
+    
+    function SWE_Scenario_get_initial_Q(x) result(Q)
+        real (kind = GRID_SR), intent(in) :: x(2)
+        type(t_dof_state) :: Q
+        double precision :: w, t, sinwt, coswt, b
+        double precision :: x_scal(2)
+        real (kind = GRID_SR):: x_temp      
+
+        b = SWE_Scenario_get_bathymetry(x)        
+        t = 0.0
+
+        x_temp=(x(1)+x(2))*sqrt(2.0_GRID_SR)/2.0_GRID_SR
+        x_temp=x(1)
+        Q%h = (1.0_GRID_SR/x_temp + 1.0_GRID_SR)*g
+
+        Q%p(1) = g+x_temp*g
+        Q%p(2) = x_temp * Q%h
+        Q%p(2) = 0.0_GRID_SR
+        
+        Q%h = Q%h + b
+        
+    end function
+
+END MODULE SWE_Scenario_smooth_wave
+#endif
+
+
 
 
 MODULE SWE_Scenario
@@ -533,6 +637,10 @@ MODULE SWE_Scenario
         USE SWE_Scenario_single_wave_on_the_beach
 #   elif defined(_SWE_SCENARIO_CONVERGENCE_TEST)
         USE SWE_Convergence_test
+#   elif defined(_SWE_SCENARIO_ALL_RAREFACTION)
+        USE SWE_Scenario_all_rarefaction
+#   elif defined(_SWE_SCENARIO_SMOOTH_WAVE)
+        USE SWE_Scenario_smooth_wave
 #   endif
 
 END MODULE SWE_Scenario

@@ -140,7 +140,6 @@
                    end if
 
                 else
-#endif                
 
 #if defined (_SWE_PATCH)
 
@@ -165,7 +164,7 @@
              end if
 #endif
 
-
+#endif                
             !no coarsening while the earthquake takes place
 			element%cell%geometry%refinement = max(0, element%cell%geometry%refinement)
    

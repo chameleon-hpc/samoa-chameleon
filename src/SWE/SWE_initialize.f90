@@ -505,10 +505,11 @@
                     else
 #               endif
                 section%r_dt_new = min(section%r_dt_new, element%cell%geometry%get_volume() / (sum(element%cell%geometry%get_edge_sizes()) * maxval(max_wave_speed)))
-#           endif
 #               if defined _DEBUG
                     endif
 #               endif
+#           endif
+
 		end subroutine
 
 		function get_initial_dof_state_at_element(section, element) result(Q)
@@ -533,11 +534,12 @@
 
 #			if defined(_ASAGI)
 				Q%h = 0.0_GRID_SR
+				Q%p = 0.0_GRID_SR
 #			else
                 Q = SWE_Scenario_get_initial_Q(xs)
 #			endif
 
-			Q%p = 0.0_GRID_SR
+
 		end function
 	END MODULE
 #endif

@@ -339,17 +339,17 @@
 			type(t_element_base), intent(inout)						:: element
 			type(num_cell_update), intent(inout)						:: update1, update2, update3
 #           if defined (_SWE_PATCH)
-                integer                                                         :: i, j, ind
+                integer                                                         :: i
                 type(num_cell_update)                                           :: tmp !> ghost cells in correct order 
                 real(kind = GRID_SR)                                            :: volume, edge_lengths(3), maxWaveSpeed, dQ_max_norm, dt_div_volume
                 real(kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER_SQUARE)                :: dQ_H, dQ_HU, dQ_HV !> deltaQ, used to compute cell updates
-                real(kind = GRID_SR), DIMENSION(_SWE_PATCH_SOLVER_CHUNK_SIZE)           :: hL, huL, hvL, bL
-                real(kind = GRID_SR), DIMENSION(_SWE_PATCH_SOLVER_CHUNK_SIZE)           :: hR, huR, hvR, bR
-                real(kind = GRID_SR), DIMENSION(_SWE_PATCH_SOLVER_CHUNK_SIZE)           :: upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR
-                real(kind = GRID_SR), DIMENSION(_SWE_PATCH_SOLVER_CHUNK_SIZE,2,2)       :: transf
+                real(kind = GRID_SR), DIMENSION(_SWE_PATCH_NUM_EDGES)           :: hL, huL, hvL, bL
+                real(kind = GRID_SR), DIMENSION(_SWE_PATCH_NUM_EDGES)           :: hR, huR, hvR, bR
+                real(kind = GRID_SR), DIMENSION(_SWE_PATCH_NUM_EDGES)           :: upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR
+                real(kind = GRID_SR), DIMENSION(_SWE_PATCH_NUM_EDGES,2,2)       :: transf
 
 #               if !defined (_SWE_USE_PATCH_SOLVER)
-                    type(t_state), dimension(_SWE_PATCH_SOLVER_CHUNK_SIZE)              :: edges_a, edges_b
+                    type(t_state), dimension(_SWE_PATCH_NUM_EDGES)              :: edges_a, edges_b
                     type(t_update)                                              :: update_a, update_b
                     real(kind = GRID_SR), dimension(2,3)                        :: normals
 #               endif
@@ -409,139 +409,113 @@
                     ! copy cell values to arrays edges_a and edges_b
                     ! obs: cells with id > number of cells are actually ghost cells and come from edges "updates"
                     ! see t_SWE_PATCH_geometry for an explanation about ghost cell ordering
-                    do i=1, _SWE_PATCH_NUM_EDGES, _SWE_PATCH_SOLVER_CHUNK_SIZE ! i -> init of chunk
-                        
-                        ! if this is the last chunk and it is not a full chunk, it is necessary to set everything to 0 to avoid using last iteration values
-                        if (i + _SWE_PATCH_SOLVER_CHUNK_SIZE -1 > _SWE_PATCH_NUM_EDGES) then
-                            hL = 0.0_GRID_SR
-                            huL = 0.0_GRID_SR
-                            hvL = 0.0_GRID_SR
-                            bL = 0.0_GRID_SR
-                            hR = 0.0_GRID_SR
-                            huR = 0.0_GRID_SR
-                            hvR = 0.0_GRID_SR
-                            bR = 0.0_GRID_SR
+                    do i=1, _SWE_PATCH_NUM_EDGES
+                            
+                        ! cells left to the edges
+                        if (geom%edges_a(i) <= _SWE_PATCH_ORDER_SQUARE) then
+                            ! data for internal cells come from cell data
+                            hL(i) = data%H(geom%edges_a(i))
+                            huL(i) = data%HU(geom%edges_a(i))
+                            hvL(i) = data%HV(geom%edges_a(i))
+                            bL(i) = data%B(geom%edges_a(i))
+                        else if (geom%edges_a(i) <= _SWE_PATCH_ORDER_SQUARE + _SWE_PATCH_ORDER) then
+                            ! data for ghost cells come from edge (update) date
+                            hL(i) = update1%H(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE)
+                            huL(i) = update1%HU(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE)
+                            hvL(i) = update1%HV(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE)
+                            bL(i) = update1%B(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE)
+                        else if (geom%edges_a(i) <= _SWE_PATCH_ORDER_SQUARE + 2*_SWE_PATCH_ORDER) then
+                            ! data for ghost cells come from edge (update) date
+                            hL(i) = update2%H(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
+                            huL(i) = update2%HU(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
+                            hvL(i) = update2%HV(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
+                            bL(i) = update2%B(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
+                        else 
+                            ! data for ghost cells come from edge (update) date
+                            hL(i) = update3%H(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
+                            huL(i) = update3%HU(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
+                            hvL(i) = update3%HV(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
+                            bL(i) = update3%B(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
                         end if
                         
-                        do j=1, _SWE_PATCH_SOLVER_CHUNK_SIZE ! j -> position inside chunk
-                            ind = i + j - 1 ! actual index
-                           
-                            ! don't go outside array limits
-                            if (ind > _SWE_PATCH_NUM_EDGES) then
-                                exit
-                            end if
-                            
-                            ! left
-                            if (geom%edges_a(ind) <= _SWE_PATCH_ORDER_SQUARE) then
-                                hL(j) = data%H(geom%edges_a(ind))
-                                huL(j) = data%HU(geom%edges_a(ind))
-                                hvL(j) = data%HV(geom%edges_a(ind))
-                                bL(j) = data%B(geom%edges_a(ind))
-                            else if (geom%edges_a(ind) <= _SWE_PATCH_ORDER_SQUARE + _SWE_PATCH_ORDER) then
-                                hL(j) = update1%H(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE)
-                                huL(j) = update1%HU(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE)
-                                hvL(j) = update1%HV(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE)
-                                bL(j) = update1%B(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE)
-                            else if (geom%edges_a(ind) <= _SWE_PATCH_ORDER_SQUARE + 2*_SWE_PATCH_ORDER) then
-                                hL(j) = update2%H(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
-                                huL(j) = update2%HU(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
-                                hvL(j) = update2%HV(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
-                                bL(j) = update2%B(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
-                            else 
-                                hL(j) = update3%H(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
-                                huL(j) = update3%HU(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
-                                hvL(j) = update3%HV(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
-                                bL(j) = update3%B(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
-                            end if
-                            
-                            ! right
-                            if (geom%edges_b(ind) <= _SWE_PATCH_ORDER_SQUARE) then
-                                hR(j) = data%H(geom%edges_b(ind))
-                                huR(j) = data%HU(geom%edges_b(ind))
-                                hvR(j) = data%HV(geom%edges_b(ind))
-                                bR(j) = data%B(geom%edges_b(ind))
-                            else if (geom%edges_b(ind) <= _SWE_PATCH_ORDER_SQUARE + _SWE_PATCH_ORDER) then
-                                hR(j) = update1%H(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE)
-                                huR(j) = update1%HU(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE)
-                                hvR(j) = update1%HV(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE)
-                                bR(j) = update1%B(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE)
-                            else if (geom%edges_b(ind) <= _SWE_PATCH_ORDER_SQUARE + 2*_SWE_PATCH_ORDER) then
-                                hR(j) = update2%H(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
-                                huR(j) = update2%HU(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
-                                hvR(j) = update2%HV(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
-                                bR(j) = update2%B(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
-                            else 
-                                hR(j) = update3%H(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
-                                huR(j) = update3%HU(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
-                                hvR(j) = update3%HV(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
-                                bR(j) = update3%B(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
-                            end if
-                            
-                            !copy transformation matrices
-                            transf(j,:,:) = geom%transform_matrices(geom%edges_orientation(ind),:,:,element%cell%geometry%i_plotter_type)
-                        end do
+                        ! cells right to the edges
+                        if (geom%edges_b(i) <= _SWE_PATCH_ORDER_SQUARE) then
+                            ! data for internal cells come from cell data
+                            hR(i) = data%H(geom%edges_b(i))
+                            huR(i) = data%HU(geom%edges_b(i))
+                            hvR(i) = data%HV(geom%edges_b(i))
+                            bR(i) = data%B(geom%edges_b(i))
+                        else if (geom%edges_b(i) <= _SWE_PATCH_ORDER_SQUARE + _SWE_PATCH_ORDER) then
+                            ! data for ghost cells come from edge (update) date
+                            hR(i) = update1%H(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE)
+                            huR(i) = update1%HU(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE)
+                            hvR(i) = update1%HV(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE)
+                            bR(i) = update1%B(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE)
+                        else if (geom%edges_b(i) <= _SWE_PATCH_ORDER_SQUARE + 2*_SWE_PATCH_ORDER) then
+                            ! data for ghost cells come from edge (update) date
+                            hR(i) = update2%H(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
+                            huR(i) = update2%HU(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
+                            hvR(i) = update2%HV(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
+                            bR(i) = update2%B(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
+                        else 
+                            ! data for ghost cells come from edge (update) date
+                            hR(i) = update3%H(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
+                            huR(i) = update3%HU(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
+                            hvR(i) = update3%HV(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
+                            bR(i) = update3%B(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
+                        end if
+                        
+                        !copy transformation matrices
+                        transf(i,:,:) = geom%transform_matrices(geom%edges_orientation(i),:,:,element%cell%geometry%i_plotter_type)
+                    end do
 
-                        ! compute net_updates -> solve Riemann problems within chunk
-#                       if defined (_SWE_USE_PATCH_SOLVER)
-#                           if defined(_FWAVE_FLUX) || defined(_AUG_RIEMANN_FLUX)
-                                call compute_updates_simd(transf, hL, huL, hvL, bL, hR, huR, hvR, bR, upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR, maxWaveSpeed)
+                   ! compute net_updates -> solve Riemann problems within chunk
+#                   if defined (_SWE_USE_PATCH_SOLVER)
+#                       if defined(_FWAVE_FLUX) || defined(_AUG_RIEMANN_FLUX)
+                            call compute_updates_simd(transf, hL, huL, hvL, bL, hR, huR, hvR, bR, upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR, maxWaveSpeed)
 #                           elif defined(_HLLE_FLUX)
                                 call compute_updates_hlle_simd(transf, hL, huL, hvL, bL, hR, huR, hvR, bR, upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR, maxWaveSpeed)
 #                           else
                                 ! this should never happen -> SCons rules should avoid this before compiling
 #                               error "No valid SWE solver for patches/simd implementation has been defined!"
-                                    print *, 
+                                print *, 
 #                           endif
-#                       else                    
-                            ! using original geoclaw solver
-                            do j=1, _SWE_PATCH_SOLVER_CHUNK_SIZE
-                                ind = i + j - 1 ! actual index
-                                
-                                ! don't go outside array limits
-                                if (ind > _SWE_PATCH_NUM_EDGES) then
-                                    exit
-                                end if
-                                
-                                edges_a(j)%h = hL(j)
-                                edges_a(j)%p(1) = huL(j)
-                                edges_a(j)%p(2) = hvL(j)
-                                edges_a(j)%b = bL(j)
-                                edges_b(j)%h = hR(j)
-                                edges_b(j)%p(1) = huR(j)
-                                edges_b(j)%p(2) = hvR(j)
-                                edges_b(j)%b = bR(j)
-                                call compute_geoclaw_flux(normals(:,geom%edges_orientation(ind)), edges_a(j), edges_b(j), update_a, update_b)
-                                upd_hL(j) = update_a%h
-                                upd_huL(j) = update_a%p(1)
-                                upd_hvL(j) = update_a%p(2)
-                                upd_hR(j) = update_b%h
-                                upd_huR(j) = update_b%p(1)
-                                upd_hvR(j) = update_b%p(2)
-                                maxWaveSpeed = max(maxWaveSpeed, update_a%max_wave_speed)
-                            end do
-#                       endif
-
-                        ! compute dQ
-                        do j=1, _SWE_PATCH_SOLVER_CHUNK_SIZE
-                            ind = i + j - 1 ! actual index
-                            
-                            ! don't go outside array limits
-                            if (ind > _SWE_PATCH_NUM_EDGES) then
-                                exit
-                            end if
-                            
-                            if (geom%edges_a(ind) <= _SWE_PATCH_ORDER_SQUARE) then !ignore ghost cells
-                                dQ_H(geom%edges_a(ind)) = dQ_H(geom%edges_a(ind)) + upd_hL(j) * edge_lengths(geom%edges_orientation(ind))
-                                dQ_HU(geom%edges_a(ind)) = dQ_HU(geom%edges_a(ind)) + upd_huL(j) * edge_lengths(geom%edges_orientation(ind))
-                                dQ_HV(geom%edges_a(ind)) = dQ_HV(geom%edges_a(ind)) + upd_hvL(j) * edge_lengths(geom%edges_orientation(ind))
-                            end if
-                            if (geom%edges_b(ind) <= _SWE_PATCH_ORDER_SQUARE) then
-                                dQ_H(geom%edges_b(ind)) = dQ_H(geom%edges_b(ind)) + upd_hR(j) * edge_lengths(geom%edges_orientation(ind))
-                                dQ_HU(geom%edges_b(ind)) = dQ_HU(geom%edges_b(ind)) + upd_huR(j) * edge_lengths(geom%edges_orientation(ind))
-                                dQ_HV(geom%edges_b(ind)) = dQ_HV(geom%edges_b(ind)) + upd_hvR(j) * edge_lengths(geom%edges_orientation(ind))
-                            end if
+#                   else                    
+                        ! using original geoclaw solver
+                        do i=1, _SWE_PATCH_NUM_EDGES
+                            edges_a(i)%h = hL(i)
+                            edges_a(i)%p(1) = huL(i)
+                            edges_a(i)%p(2) = hvL(i)
+                            edges_a(i)%b = bL(i)
+                            edges_b(i)%h = hR(i)
+                            edges_b(i)%p(1) = huR(i)
+                            edges_b(i)%p(2) = hvR(i)
+                            edges_b(i)%b = bR(i)
+                            call compute_geoclaw_flux(normals(:,geom%edges_orientation(i)), edges_a(i), edges_b(i), update_a, update_b)
+                            upd_hL(i) = update_a%h
+                            upd_huL(i) = update_a%p(1)
+                            upd_hvL(i) = update_a%p(2)
+                            upd_hR(i) = update_b%h
+                            upd_huR(i) = update_b%p(1)
+                            upd_hvR(i) = update_b%p(2)
+                            maxWaveSpeed = max(maxWaveSpeed, update_a%max_wave_speed)
                         end do
-                    end do 
+#                   endif
+
+                    ! compute dQ
+                    do i=1, _SWE_PATCH_NUM_EDGES
+                        
+                        if (geom%edges_a(i) <= _SWE_PATCH_ORDER_SQUARE) then !ignore ghost cells
+                            dQ_H(geom%edges_a(i)) = dQ_H(geom%edges_a(i)) + upd_hL(i) * edge_lengths(geom%edges_orientation(i))
+                            dQ_HU(geom%edges_a(i)) = dQ_HU(geom%edges_a(i)) + upd_huL(i) * edge_lengths(geom%edges_orientation(i))
+                            dQ_HV(geom%edges_a(i)) = dQ_HV(geom%edges_a(i)) + upd_hvL(i) * edge_lengths(geom%edges_orientation(i))
+                        end if
+                        if (geom%edges_b(i) <= _SWE_PATCH_ORDER_SQUARE) then
+                            dQ_H(geom%edges_b(i)) = dQ_H(geom%edges_b(i)) + upd_hR(i) * edge_lengths(geom%edges_orientation(i))
+                            dQ_HU(geom%edges_b(i)) = dQ_HU(geom%edges_b(i)) + upd_huR(i) * edge_lengths(geom%edges_orientation(i))
+                            dQ_HV(geom%edges_b(i)) = dQ_HV(geom%edges_b(i)) + upd_hvR(i) * edge_lengths(geom%edges_orientation(i))
+                        end if
+                    end do
                     
                     !set refinement condition -> Here I am using the same ones as in the original no-patches implementation, but considering only the max value.
                     element%cell%geometry%refinement = 0

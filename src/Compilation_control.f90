@@ -36,20 +36,6 @@
 #define _SWE_PATCH_ORDER_SQUARE     (_SWE_PATCH_ORDER*_SWE_PATCH_ORDER)
 #define _SWE_PATCH_NUM_EDGES            (3*_SWE_PATCH_ORDER*(_SWE_PATCH_ORDER+1)/2)
 
-! Number of Riemann Problems solver on each iteration of the SWE patch solvers.
-! --> See SWE/SWE_euler_timestep.f90 and SWE/SWE_patch_solvers.f90
-! Small numbers make sure that auxiliary arrays fit in the cache. 
-! This is specially important for the Xeon Phi, because of its smaller caches.
-#if defined(_SINGLE_PRECISION)
-#   define _SWE_PATCH_SOLVER_CHUNK_SIZE 16
-#elif defined(_DOUBLE_PRECISION) 
-#   define _SWE_PATCH_SOLVER_CHUNK_SIZE 8
-#elif defined(_QUAD_PRECISION) 
-#   define _SWE_PATCH_SOLVER_CHUNK_SIZE 4
-#else
-#   define _SWE_PATCH_SOLVER_CHUNK_SIZE 1
-#endif
-
 
 #define _NUMA_ORDER 				0
 #define _NUMA_CELL_SIZE				((_NUMA_ORDER + 1) * (_NUMA_ORDER + 2)) / 2

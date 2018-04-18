@@ -96,7 +96,7 @@ vars.AddVariables(
 
   PathVariable( 'asagi_dir', 'ASAGI directory', '.'),
   
-  PathVariable( 'netcdf_dir', 'NetCDF directory: only required when machine=mic, because NetCDF libs need to be compiled with -mmic.', '.'),
+  PathVariable( 'netcdf_dir', 'NetCDF directory: only required when machine=knc, because NetCDF libs need to be compiled with -mmic.', '.'),
 
   EnumVariable( 'precision', 'floating point precision', 'double',
                 allowed_values=('single', 'double', 'quad')
@@ -114,7 +114,7 @@ vars.AddVariables(
               ),
 
   EnumVariable( 'machine', 'target machine', 'host',
-                allowed_values=('SSE4.2', 'AVX', 'host', 'mic')
+                allowed_values=('SSE4.2', 'AVX', 'host', 'knc', 'knl')
               ),
 
   BoolVariable( 'library', 'build samoa as a library', False),
@@ -224,8 +224,10 @@ if env['asagi']:
   env['F90FLAGS'] += ' -D_ASAGI'
   env['LINKFLAGS'] += ' -Wl,--rpath,' + os.path.abspath(env['asagi_dir']) + '/lib'
   env.Append(LIBPATH = env['asagi_dir'] + '/lib:')
-  if env['machine'] == 'mic':
+  if env['machine'] == 'knc':
     env.Append(LIBS = ['asagi_mic'])
+  elif env['machine'] == 'knl':
+    env.Append(LIBS = ['asagi_knl'])
   else:
     env.Append(LIBS = ['asagi', 'numa'])
 
@@ -377,11 +379,17 @@ else:
 if env['compiler'] == 'intel':
   if env['machine'] == 'host':
     env['F90FLAGS'] += ' -xHost'
-  elif env['machine'] == 'mic':
+  elif env['machine'] == 'knc':
     env['F90'] += ' -mmic'
     env['LINK'] += ' -mmic'
     if env['netcdf_dir'] != '.' and env['asagi']: 
       env['LINKFLAGS'] += ' -L' + env['netcdf_dir']  + '/lib -lnetcdf'
+  elif env['machine'] == 'knl':
+    env['F90'] += ' -xMIC-AVX512'
+    env['LINK'] += ' -xMIC-AVX512'      
+    if env['netcdf_dir'] != '.' and env['asagi']:
+      env['LINKFLAGS'] += ' -L' + env['netcdf_dir']  + '/lib -lnetcdf'
+      print "Is this even working?"
   elif env['machine'] == 'SSE4.2':
     env['F90FLAGS'] += ' -xSSE4.2'
   elif env['machine'] == 'AVX':
@@ -393,6 +401,12 @@ elif env['compiler'] == 'gnu':
     env['F90FLAGS'] += ' -msse4.2 -mno-avx'
   elif env['machine'] == 'AVX':
     env['F90FLAGS'] += ' -mavx'
+  elif env['machine'] == 'knc':
+      print "Error: machine=knc requires compiler=intel"
+      Exit(-1)
+  elif env['machine'] == 'knl':
+      print "Error: machine=knl requires compiler=intel"
+      Exit(-1)
 
 #Enable or disable assertions
 if env['assertions']:
@@ -450,8 +464,8 @@ if env['exe'] == 'samoa':
     if env['target'] != 'release':
       program_name += '_' + env['target']
 
-    if env['machine'] == 'mic':
-      program_name += '_mic'
+    if env['machine'] == 'knc':
+      program_name += '_knc'
 else:
     program_name = env['exe']
 

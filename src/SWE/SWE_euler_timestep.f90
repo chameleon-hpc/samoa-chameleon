@@ -341,8 +341,8 @@
 #           if defined (_SWE_PATCH)
                 integer                                                         :: i
                 type(num_cell_update)                                           :: tmp !> ghost cells in correct order 
-                real(kind = GRID_SR)                                            :: volume, edge_lengths(3), maxWaveSpeed, dQ_max_norm, dt_div_volume
-                real(kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER_SQUARE)                :: dQ_H, dQ_HU, dQ_HV !> deltaQ, used to compute cell updates
+                real(kind = GRID_SR)                                            :: volume, edge_lengths(3), maxWaveSpeed, maxWaveSpeedLocal, dQ_max_norm, dt_div_volume
+                real(kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER_SQUARE)        :: dQ_H, dQ_HU, dQ_HV !> deltaQ, used to compute cell updates
                 real(kind = GRID_SR), DIMENSION(_SWE_PATCH_NUM_EDGES)           :: hL_list, huL_list, hvL_list, bL_list
                 real(kind = GRID_SR), DIMENSION(_SWE_PATCH_NUM_EDGES)           :: hR_list, huR_list, hvR_list, bR_list
                 real(kind = GRID_SR), DIMENSION(_SWE_PATCH_NUM_EDGES)           :: upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR
@@ -353,14 +353,14 @@
                     type(t_update)                                              :: update_a, update_b
                     real(kind = GRID_SR), dimension(2,3)                        :: normals
 #               endif
-                !DIR$ ASSUME_ALIGNED hL: 64
-                !DIR$ ASSUME_ALIGNED hR: 64
-                !DIR$ ASSUME_ALIGNED huL: 64
-                !DIR$ ASSUME_ALIGNED huR: 64
-                !DIR$ ASSUME_ALIGNED hvL: 64
-                !DIR$ ASSUME_ALIGNED hvR: 64
-                !DIR$ ASSUME_ALIGNED bL: 64
-                !DIR$ ASSUME_ALIGNED bR: 64
+                !DIR$ ASSUME_ALIGNED hL_list: 64
+                !DIR$ ASSUME_ALIGNED hR_list: 64
+                !DIR$ ASSUME_ALIGNED huL_list: 64
+                !DIR$ ASSUME_ALIGNED huR_list: 64
+                !DIR$ ASSUME_ALIGNED hvL_list: 64
+                !DIR$ ASSUME_ALIGNED hvR_list: 64
+                !DIR$ ASSUME_ALIGNED bL_list: 64
+                !DIR$ ASSUME_ALIGNED bR_list: 64
                 !DIR$ ASSUME_ALIGNED upd_hL: 64
                 !DIR$ ASSUME_ALIGNED upd_hR: 64
                 !DIR$ ASSUME_ALIGNED upd_huL: 64
@@ -400,6 +400,12 @@
                 dQ_HU = 0.0_GRID_SR
                 dQ_HV = 0.0_GRID_SR
                 maxWaveSpeed = 0.0_GRID_SR
+                upd_hL = 0.0_GRID_SR
+                upd_huL = 0.0_GRID_SR
+                upd_hvL = 0.0_GRID_SR
+                upd_hR = 0.0_GRID_SR
+                upd_huR = 0.0_GRID_SR
+                upd_hvR = 0.0_GRID_SR
                 volume = cfg%scaling * cfg%scaling * element%cell%geometry%get_volume() / (_SWE_PATCH_ORDER_SQUARE)
                 dt_div_volume = section%r_dt / volume
                 edge_lengths = cfg%scaling * element%cell%geometry%get_edge_sizes() / _SWE_PATCH_ORDER
@@ -482,23 +488,28 @@
 #                           endif
 #                   else                    
                         ! using original geoclaw solver
+                        !$OMP SIMD PRIVATE(maxWaveSpeedLocal) REDUCTION(max: maxWaveSpeed)
                         do i=1, _SWE_PATCH_NUM_EDGES
-                            edges_a(i)%h = hL_list(i)
-                            edges_a(i)%p(1) = huL_list(i)
-                            edges_a(i)%p(2) = hvL_list(i)
-                            edges_a(i)%b = bL_list(i)
-                            edges_b(i)%h = hR_list(i)
-                            edges_b(i)%p(1) = huR_list(i)
-                            edges_b(i)%p(2) = hvR_list(i)
-                            edges_b(i)%b = bR_list(i)
-                            call compute_geoclaw_flux(normals(:,geom%edges_orientation(i)), edges_a(i), edges_b(i), update_a, update_b)
-                            upd_hL(i) = update_a%h
-                            upd_huL(i) = update_a%p(1)
-                            upd_hvL(i) = update_a%p(2)
-                            upd_hR(i) = update_b%h
-                            upd_huR(i) = update_b%p(1)
-                            upd_hvR(i) = update_b%p(2)
-                            maxWaveSpeed = max(maxWaveSpeed, update_a%max_wave_speed)
+!                             edges_a(i)%h = hL_list(i)
+!                             edges_a(i)%p(1) = huL_list(i)
+!                             edges_a(i)%p(2) = hvL_list(i)
+!                             edges_a(i)%b = bL_list(i)
+!                             edges_b(i)%h = hR_list(i)
+!                             edges_b(i)%p(1) = huR_list(i)
+!                             edges_b(i)%p(2) = hvR_list(i)
+!                             edges_b(i)%b = bR_list(i)
+                           
+                            !DIR$ FORCEINLINE
+                            call compute_geoclaw_flux_vec(normals(1,geom%edges_orientation(i)), normals(2,geom%edges_orientation(i)), hL_list(i), hR_list(i), huL_list(i), huR_list(i), hvL_list(i), hvR_list(i), bL_list(i), bR_list(i), upd_hL(i), upd_hR(i), upd_huL(i), upd_huR(i), upd_hvL(i), upd_hvR(i), maxWaveSpeedLocal)
+                            maxWaveSpeed = max(maxWaveSpeed, maxWaveSpeedLocal)
+
+!                             call compute_geoclaw_flux(normals(:,geom%edges_orientation(i)), edges_a(i), edges_b(i), update_a, update_b)
+!                             upd_hL(i) = update_a%h
+!                             upd_huL(i) = update_a%p(1)
+!                             upd_hvL(i) = update_a%p(2)
+!                             upd_hR(i) = update_b%h
+!                             upd_huR(i) = update_b%p(1)
+!                             upd_hvR(i) = update_b%p(2)
                         end do
 #                   endif
 
@@ -750,7 +761,7 @@
 #           endif
 		end subroutine
 
-		!> Augmented Riemann solver from geoclaw
+		!> Riemann solvers from geoclaw
 		subroutine compute_geoclaw_flux(normal, QL, QR, fluxL, fluxR)
 			type(t_state), intent(in)           :: QL, QR
 			type(t_update), intent(out)         :: fluxL, fluxR
@@ -769,6 +780,7 @@
 			hR = QR%h - QR%b
 			bL = QL%b
 			bR = QR%b
+
 			
 #           if defined(_FWAVE_FLUX)
                 call c_bind_geoclaw_solver(GEOCLAW_FWAVE, 1, 3, hL, hR, pL(1), pR(1), pL(2), pR(2), bL, bR, real(cfg%dry_tolerance, GRID_SR), g, net_updatesL, net_updatesR, max_wave_speed)
@@ -786,6 +798,111 @@
 			fluxR%p = matmul(net_updatesR(2:3), transform_matrix)
 			fluxR%max_wave_speed = max_wave_speed
 		end subroutine
+		
+		! vectorizable version (only with patches)
+        subroutine compute_geoclaw_flux_vec(normal_x, normal_y, hL, hR, huL, huR, hvL, hvR, bL, bR, upd_hL, upd_hR, upd_huL, upd_huR, upd_hvL, upd_hvR, maxWaveSpeed)
+            real(kind = GRID_SR), intent(in)    :: normal_x, normal_y
+            real(kind = GRID_SR), intent(inout)    :: hL, hR, huL, huR, hvL, hvR, bL, bR
+            real(kind = GRID_SR), intent(out)   :: upd_hL, upd_hR, upd_huL, upd_huR, upd_hvL, upd_hvR
+            real(kind = GRID_SR), intent(out)   :: maxWaveSpeed
+
+            real(kind = GRID_SR)                :: transform_matrix(2, 2)
+            real(kind = GRID_SR)                :: pL, pR ! pressure forcing, not considered here
+            real(kind = GRID_SR)                :: waveSpeeds(3) ! output of Riemann solver: sw
+            real(kind = GRID_SR)                :: fWaves(3,3) ! output of Riemann solver: fw
+            integer                             :: equationNumber, waveNumber
+
+            transform_matrix(1, :) = [ normal_x, normal_y ]
+            transform_matrix(2, :) = [-normal_y, normal_x]
+
+            !DIR$ FORCEINLINE
+            call apply_transformations_before_vec(transform_matrix, huL, hvL)
+            !DIR$ FORCEINLINE
+            call apply_transformations_before_vec(transform_matrix, huR, hvR)
+            hL = hL - bL
+            hR = hR - bR
+            
+#if 0            
+#           if defined(_FWAVE_FLUX)
+                call c_bind_geoclaw_solver(GEOCLAW_FWAVE, 1, 3, hL, hR, huL, huR, hvL, hvR, bL, bR, real(cfg%dry_tolerance, GRID_SR), g, net_updatesL, net_updatesR, max_wave_speed)
+#           elif defined(_AUG_RIEMANN_FLUX)
+                call c_bind_geoclaw_solver(GEOCLAW_AUG_RIEMANN, 1, 3, hL, hR, pL(1), pR(1), pL(2), pR(2), bL, bR, real(cfg%dry_tolerance, GRID_SR), g, net_updatesL, net_updatesR, max_wave_speed)
+#           elif defined(_HLLE_FLUX)
+                call compute_updates_hlle_single(hL, hR, pL(1), pR(1), pL(2), pR(2), bL, bR, net_updatesL, net_updatesR, max_wave_speed)
+#           endif
+#endif
+
+            ! pressure forcing is not considered in these solvers
+            pL = 0.0_GRID_SR
+            pR = 0.0_GRID_SR
+            
+            ! init output from solve_riemann_problem
+            waveSpeeds(:) = 0.0_GRID_SR
+            fWaves(:,:) = 0.0_GRID_SR
+            
+            !DIR$ FORCEINLINE
+            call solve_riemann_problem_vec(hL, hR, huL, huR, hvL, hvR, bL, bR, pL, pR, real(cfg%dry_tolerance, GRID_SR), g, waveSpeeds, fWaves)
+            
+            ! use Riemann solution to compute net updates
+            do  waveNumber=1,3
+                if (waveSpeeds(waveNumber).lt.0.d0) then
+                    upd_hL = upd_hL + fWaves(1,waveNumber)
+                    upd_huL = upd_huL + fWaves(2,waveNumber)
+                    upd_hvL = upd_hvL + fWaves(3,waveNumber)
+                else if (waveSpeeds(waveNumber).gt.0.d0) then
+                    upd_hR = upd_hR + fWaves(1,waveNumber)
+                    upd_huR = upd_huR + fWaves(2,waveNumber)
+                    upd_hvR = upd_hvR + fWaves(3,waveNumber)                    
+                else
+                    upd_hL = upd_hL + 0.5d0 * fWaves(1,waveNumber)
+                    upd_huL = upd_huL + 0.5d0 * fWaves(2,waveNumber)
+                    upd_hvL = upd_hvL + 0.5d0 * fWaves(3,waveNumber)
+                    
+                    upd_hR = upd_hR + 0.5d0 * fWaves(1,waveNumber)
+                    upd_huR = upd_huR + 0.5d0 * fWaves(2,waveNumber)
+                    upd_hvR = upd_hvR + 0.5d0 * fWaves(3,waveNumber)        
+                endif
+            enddo
+
+            !******************************************************
+            !* necessary part of the GeoClaw subroutine rpn - end *
+            !******************************************************
+
+            !compute maximum wave speed
+            waveSpeeds = abs(waveSpeeds)
+            maxWaveSpeed = maxVal(waveSpeeds)
+            
+            ! inverse transformations
+            !DIR$ FORCEINLINE
+            call apply_transformations_after_vec(transform_matrix, upd_huL, upd_hvL)
+            !DIR$ FORCEINLINE
+            call apply_transformations_after_vec(transform_matrix, upd_huR, upd_hvR)
+
+        end subroutine
+        
+        ! change base so hu/hv become ortogonal/perperdicular to edge
+        subroutine apply_transformations_before_vec(transform_matrix, hu, hv)
+            real(kind = GRID_SR), intent(in)         :: transform_matrix(2,2)
+            real(kind = GRID_SR), intent(inout)      :: hu, hv           
+            
+            real(kind = GRID_SR)                     :: temp
+            
+            temp = hu
+            hu = transform_matrix(1,1) * hu + transform_matrix(1,2) * hv
+            hv = transform_matrix(2,1) * temp + transform_matrix(2,2) * hv
+        end subroutine
+        
+        ! transform back to original base
+        subroutine apply_transformations_after_vec(transform_matrix, hu, hv)
+            real(kind = GRID_SR), intent(in)         :: transform_matrix(2,2)
+            real(kind = GRID_SR), intent(inout)      :: hu, hv           
+            
+            real(kind = GRID_SR)                     :: temp
+            
+            temp = hu
+            hu = transform_matrix(1,1) * hu + transform_matrix(2,1) * hv
+            hv = transform_matrix(1,2) * temp + transform_matrix(2,2) * hv
+        end subroutine  
 
         pure subroutine node_write_op(local_node, neighbor_node)
             type(t_node_data), intent(inout)			    :: local_node

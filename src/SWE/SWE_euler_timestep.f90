@@ -13,7 +13,6 @@
 		use c_bind_riemannsolvers
 #       if defined(_SWE_PATCH)
             use SWE_PATCH
-            use SWE_PATCH_Solvers
 #       endif
 #       if defined(_HLLE_FLUX)
             use SWE_HLLE
@@ -280,7 +279,7 @@
                 end do
 #           else
 				call compute_geoclaw_flux(edge%transform_data%normal, rep1%Q(1), rep2%Q(1), update1%flux(1), update2%flux(1))
-#			endif
+#	endif
 
 			_log_write(6, '(4X, A, F0.3, 1X, F0.3, 1X, F0.3, 1X, F0.3)') "flux 1 out: ", update1%flux
 			_log_write(6, '(4X, A, F0.3, 1X, F0.3, 1X, F0.3, 1X, F0.3)') "flux 2 out: ", update2%flux
@@ -346,13 +345,8 @@
                 real(kind = GRID_SR), DIMENSION(_SWE_PATCH_NUM_EDGES)           :: hL_list, huL_list, hvL_list, bL_list
                 real(kind = GRID_SR), DIMENSION(_SWE_PATCH_NUM_EDGES)           :: hR_list, huR_list, hvR_list, bR_list
                 real(kind = GRID_SR), DIMENSION(_SWE_PATCH_NUM_EDGES)           :: upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR
-                real(kind = GRID_SR), DIMENSION(_SWE_PATCH_NUM_EDGES,2,2)       :: transf
-
-#               if !defined (_SWE_USE_PATCH_SOLVER)
-                    type(t_state), dimension(_SWE_PATCH_NUM_EDGES)              :: edges_a, edges_b
-                    type(t_update)                                              :: update_a, update_b
-                    real(kind = GRID_SR), dimension(2,3)                        :: normals
-#               endif
+                real(kind = GRID_SR), dimension(2,3)                            :: normals ! 1st index = x or y, 2nd index = edge orientation in patch (1, 2 or 3, see SWE_PATCH)
+                
                 !DIR$ ASSUME_ALIGNED hL_list: 64
                 !DIR$ ASSUME_ALIGNED hR_list: 64
                 !DIR$ ASSUME_ALIGNED huL_list: 64
@@ -367,26 +361,19 @@
                 !DIR$ ASSUME_ALIGNED upd_huR: 64
                 !DIR$ ASSUME_ALIGNED upd_hvL: 64
                 !DIR$ ASSUME_ALIGNED upd_hvR: 64
-                !DIR$ ASSUME_ALIGNED transf: 64
                 
-#               if !defined(_SWE_USE_PATCH_SOLVER)
-                    ! using patches, but applying geoclaw solvers on single edges
-            
-                    ! the normals are only needed in this case.
-
-                    ! copy/compute normal vectors
-                    ! normal for type 2 edges is equal to the 2nd edge's normal
-                    normals(:,2) = element%edges(2)%ptr%transform_data%normal
-                    ! normal for types 1 and 3 depend on cell orientation.
-                    ! notice that normal for type 1 points inwards. That's why it is multiplied by -1.
-                    if (element%cell%geometry%i_plotter_type < 0) then ! orientation = backward
-                        normals(:,1) = - element%edges(1)%ptr%transform_data%normal
-                        normals(:,3) = element%edges(3)%ptr%transform_data%normal
-                    else ! orientation = forward, so reverse edge order
-                        normals(:,1) = - element%edges(3)%ptr%transform_data%normal
-                        normals(:,3) = element%edges(1)%ptr%transform_data%normal
-                    end if
-#               endif
+                ! copy/compute normal vectors
+                ! normal for type 2 edges is equal to the 2nd edge's normal
+                normals(:,2) = element%edges(2)%ptr%transform_data%normal
+                ! normal for types 1 and 3 depend on cell orientation.
+                ! notice that normal for type 1 points inwards. That's why it is multiplied by -1.
+                if (element%cell%geometry%i_plotter_type < 0) then ! orientation = backward
+                    normals(:,1) = - element%edges(1)%ptr%transform_data%normal
+                    normals(:,3) = element%edges(3)%ptr%transform_data%normal
+                else ! orientation = forward, so reverse edge order
+                    normals(:,1) = - element%edges(3)%ptr%transform_data%normal
+                    normals(:,3) = element%edges(1)%ptr%transform_data%normal
+                end if
 
                 
                 if (element%cell%geometry%i_plotter_type > 0) then ! if orientation = forward, reverse updates
@@ -470,52 +457,29 @@
                             hvR_list(i) = update3%HV(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
                             bR_list(i) = update3%B(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
                         end if
-                        
-                        !copy transformation matrices
-                        transf(i,:,:) = geom%transform_matrices(geom%edges_orientation(i),:,:,element%cell%geometry%i_plotter_type)
                     end do
 
-                   ! compute net_updates -> solve Riemann problems within chunk
-#                   if defined (_SWE_USE_PATCH_SOLVER)
-#                       if defined(_FWAVE_FLUX) || defined(_AUG_RIEMANN_FLUX)
-                            call compute_updates_simd(transf, hL_list, huL_list, hvL_list, bL_list, hR_list, huR_list, hvR_list, bR_list, upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR, maxWaveSpeed)
-#                           elif defined(_HLLE_FLUX)
-                                call compute_updates_hlle_simd(transf, hL, huL_list, hvL_list, bL_list, hR_list, huR_list, hvR_list, bR_list, upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR, maxWaveSpeed)
-#                           else
-                                ! this should never happen -> SCons rules should avoid this before compiling
-#                               error "No valid SWE solver for patches/simd implementation has been defined!"
-                                print *, 
-#                           endif
-#                   else                    
-                        ! using original geoclaw solver
+#                   if defined(_SWE_PATCH_VEC_SIMD) || defined(_SWE_PATCH_VEC_INLINE)
+                        ! Vectorization! (Requires OpenMP 4.0 or later)
                         !$OMP SIMD PRIVATE(maxWaveSpeedLocal) REDUCTION(max: maxWaveSpeed)
-                        do i=1, _SWE_PATCH_NUM_EDGES
-!                             edges_a(i)%h = hL_list(i)
-!                             edges_a(i)%p(1) = huL_list(i)
-!                             edges_a(i)%p(2) = hvL_list(i)
-!                             edges_a(i)%b = bL_list(i)
-!                             edges_b(i)%h = hR_list(i)
-!                             edges_b(i)%p(1) = huR_list(i)
-!                             edges_b(i)%p(2) = hvR_list(i)
-!                             edges_b(i)%b = bR_list(i)
-                           
-                            !DIR$ FORCEINLINE
-                            call compute_geoclaw_flux_vec(normals(1,geom%edges_orientation(i)), normals(2,geom%edges_orientation(i)), hL_list(i), hR_list(i), huL_list(i), huR_list(i), hvL_list(i), hvR_list(i), bL_list(i), bR_list(i), upd_hL(i), upd_hR(i), upd_huL(i), upd_huR(i), upd_hvL(i), upd_hvR(i), maxWaveSpeedLocal)
-                            maxWaveSpeed = max(maxWaveSpeed, maxWaveSpeedLocal)
-
-!                             call compute_geoclaw_flux(normals(:,geom%edges_orientation(i)), edges_a(i), edges_b(i), update_a, update_b)
-!                             upd_hL(i) = update_a%h
-!                             upd_huL(i) = update_a%p(1)
-!                             upd_hvL(i) = update_a%p(2)
-!                             upd_hR(i) = update_b%h
-!                             upd_huR(i) = update_b%p(1)
-!                             upd_hvR(i) = update_b%p(2)
-                        end do
 #                   endif
+                    do i=1, _SWE_PATCH_NUM_EDGES
+
+#                       if defined(_SWE_PATCH_VEC_INLINE)
+                            ! Warning: inlining this subroutine into an OMP SIMD loop may cause
+                            ! bugs and incorrect calculations depending on the compiler version
+                            ! Check the results!
+                            
+                            ! Recommended compiler: ifort 17.0
+                            
+                            !DIR$ FORCEINLINE
+#                       endif
+                        call compute_geoclaw_flux_in_patch(normals(1,geom%edges_orientation(i)), normals(2,geom%edges_orientation(i)), hL_list(i), hR_list(i), huL_list(i), huR_list(i), hvL_list(i), hvR_list(i), bL_list(i), bR_list(i), upd_hL(i), upd_hR(i), upd_huL(i), upd_huR(i), upd_hvL(i), upd_hvR(i), maxWaveSpeedLocal)
+                        maxWaveSpeed = max(maxWaveSpeed, maxWaveSpeedLocal)
+                    end do
 
                     ! compute dQ
                     do i=1, _SWE_PATCH_NUM_EDGES
-                        
                         if (geom%edges_a(i) <= _SWE_PATCH_ORDER_SQUARE) then !ignore ghost cells
                             dQ_H(geom%edges_a(i)) = dQ_H(geom%edges_a(i)) + upd_hL(i) * edge_lengths(geom%edges_orientation(i))
                             dQ_HU(geom%edges_a(i)) = dQ_HU(geom%edges_a(i)) + upd_huL(i) * edge_lengths(geom%edges_orientation(i))
@@ -797,112 +761,107 @@
 			fluxR%h = net_updatesR(1)
 			fluxR%p = matmul(net_updatesR(2:3), transform_matrix)
 			fluxR%max_wave_speed = max_wave_speed
-		end subroutine
-		
-		! vectorizable version (only with patches)
-        subroutine compute_geoclaw_flux_vec(normal_x, normal_y, hL, hR, huL, huR, hvL, hvR, bL, bR, upd_hL, upd_hR, upd_huL, upd_huR, upd_hvL, upd_hvR, maxWaveSpeed)
-            real(kind = GRID_SR), intent(in)    :: normal_x, normal_y
-            real(kind = GRID_SR), intent(inout)    :: hL, hR, huL, huR, hvL, hvR, bL, bR
-            real(kind = GRID_SR), intent(out)   :: upd_hL, upd_hR, upd_huL, upd_huR, upd_hvL, upd_hvR
-            real(kind = GRID_SR), intent(out)   :: maxWaveSpeed
+	end subroutine
 
-            real(kind = GRID_SR)                :: transform_matrix(2, 2)
-            real(kind = GRID_SR)                :: pL, pR ! pressure forcing, not considered here
-            real(kind = GRID_SR)                :: waveSpeeds(3) ! output of Riemann solver: sw
-            real(kind = GRID_SR)                :: fWaves(3,3) ! output of Riemann solver: fw
-            integer                             :: equationNumber, waveNumber
+#       if defined(_SWE_PATCH)
+            ! version for SWE patches (vectorizable)
+            subroutine compute_geoclaw_flux_in_patch(normal_x, normal_y, hL, hR, huL, huR, hvL, hvR, bL, bR, upd_hL, upd_hR, upd_huL, upd_huR, upd_hvL, upd_hvR, maxWaveSpeed)
+#               if defined(_SWE_PATCH_VEC_SIMD)
+                    !$OMP DECLARE SIMD(compute_geoclaw_flux_in_patch)
+#               endif
+                real(kind = GRID_SR), intent(in)    :: normal_x, normal_y
+                real(kind = GRID_SR), intent(inout)    :: hL, hR, huL, huR, hvL, hvR, bL, bR
+                real(kind = GRID_SR), intent(out)   :: upd_hL, upd_hR, upd_huL, upd_huR, upd_hvL, upd_hvR
+                real(kind = GRID_SR), intent(out)   :: maxWaveSpeed
 
-            transform_matrix(1, :) = [ normal_x, normal_y ]
-            transform_matrix(2, :) = [-normal_y, normal_x]
+                real(kind = GRID_SR)                :: transform_matrix(2, 2)
+                real(kind = GRID_SR)                :: pL, pR ! pressure forcing, not considered here
+                real(kind = GRID_SR)                :: waveSpeeds(3) ! output of Riemann solver: sw
+                real(kind = GRID_SR)                :: fWaves(3,3) ! output of Riemann solver: fw
+                integer                             :: equationNumber, waveNumber
 
-            !DIR$ FORCEINLINE
-            call apply_transformations_before_vec(transform_matrix, huL, hvL)
-            !DIR$ FORCEINLINE
-            call apply_transformations_before_vec(transform_matrix, huR, hvR)
-            hL = hL - bL
-            hR = hR - bR
-            
-#if 0            
-#           if defined(_FWAVE_FLUX)
-                call c_bind_geoclaw_solver(GEOCLAW_FWAVE, 1, 3, hL, hR, huL, huR, hvL, hvR, bL, bR, real(cfg%dry_tolerance, GRID_SR), g, net_updatesL, net_updatesR, max_wave_speed)
-#           elif defined(_AUG_RIEMANN_FLUX)
-                call c_bind_geoclaw_solver(GEOCLAW_AUG_RIEMANN, 1, 3, hL, hR, pL(1), pR(1), pL(2), pR(2), bL, bR, real(cfg%dry_tolerance, GRID_SR), g, net_updatesL, net_updatesR, max_wave_speed)
-#           elif defined(_HLLE_FLUX)
-                call compute_updates_hlle_single(hL, hR, pL(1), pR(1), pL(2), pR(2), bL, bR, net_updatesL, net_updatesR, max_wave_speed)
-#           endif
-#endif
+                transform_matrix(1, :) = [ normal_x, normal_y ]
+                transform_matrix(2, :) = [-normal_y, normal_x]
 
-            ! pressure forcing is not considered in these solvers
-            pL = 0.0_GRID_SR
-            pR = 0.0_GRID_SR
-            
-            ! init output from solve_riemann_problem
-            waveSpeeds(:) = 0.0_GRID_SR
-            fWaves(:,:) = 0.0_GRID_SR
-            
-            !DIR$ FORCEINLINE
-            call solve_riemann_problem_vec(hL, hR, huL, huR, hvL, hvR, bL, bR, pL, pR, real(cfg%dry_tolerance, GRID_SR), g, waveSpeeds, fWaves)
-            
-            ! use Riemann solution to compute net updates
-            do  waveNumber=1,3
-                if (waveSpeeds(waveNumber).lt.0.d0) then
-                    upd_hL = upd_hL + fWaves(1,waveNumber)
-                    upd_huL = upd_huL + fWaves(2,waveNumber)
-                    upd_hvL = upd_hvL + fWaves(3,waveNumber)
-                else if (waveSpeeds(waveNumber).gt.0.d0) then
-                    upd_hR = upd_hR + fWaves(1,waveNumber)
-                    upd_huR = upd_huR + fWaves(2,waveNumber)
-                    upd_hvR = upd_hvR + fWaves(3,waveNumber)                    
-                else
-                    upd_hL = upd_hL + 0.5d0 * fWaves(1,waveNumber)
-                    upd_huL = upd_huL + 0.5d0 * fWaves(2,waveNumber)
-                    upd_hvL = upd_hvL + 0.5d0 * fWaves(3,waveNumber)
-                    
-                    upd_hR = upd_hR + 0.5d0 * fWaves(1,waveNumber)
-                    upd_huR = upd_huR + 0.5d0 * fWaves(2,waveNumber)
-                    upd_hvR = upd_hvR + 0.5d0 * fWaves(3,waveNumber)        
-                endif
-            enddo
+                call apply_transformations_before(transform_matrix, huL, hvL)
+                call apply_transformations_before(transform_matrix, huR, hvR)
+                hL = hL - bL
+                hR = hR - bR
+                
+                ! pressure forcing is not considered in these solvers
+                pL = 0.0_GRID_SR
+                pR = 0.0_GRID_SR
+                
+                ! init output from solve_riemann_problem
+                waveSpeeds(:) = 0.0_GRID_SR
+                fWaves(:,:) = 0.0_GRID_SR
+                
+#               if defined(_SWE_PATCH_VEC_INLINE)
+                    !DIR$ FORCEINLINE
+#               endif
+                call solve_riemann_problem(hL, hR, huL, huR, hvL, hvR, bL, bR, pL, pR, real(cfg%dry_tolerance, GRID_SR), g, waveSpeeds, fWaves)
+                
+                ! use Riemann solution to compute net updates
+                do  waveNumber=1,3
+                    if (waveSpeeds(waveNumber).lt.0.d0) then
+                        upd_hL = upd_hL + fWaves(1,waveNumber)
+                        upd_huL = upd_huL + fWaves(2,waveNumber)
+                        upd_hvL = upd_hvL + fWaves(3,waveNumber)
+                    else if (waveSpeeds(waveNumber).gt.0.d0) then
+                        upd_hR = upd_hR + fWaves(1,waveNumber)
+                        upd_huR = upd_huR + fWaves(2,waveNumber)
+                        upd_hvR = upd_hvR + fWaves(3,waveNumber)                    
+                    else
+                        upd_hL = upd_hL + 0.5d0 * fWaves(1,waveNumber)
+                        upd_huL = upd_huL + 0.5d0 * fWaves(2,waveNumber)
+                        upd_hvL = upd_hvL + 0.5d0 * fWaves(3,waveNumber)
+                        
+                        upd_hR = upd_hR + 0.5d0 * fWaves(1,waveNumber)
+                        upd_huR = upd_huR + 0.5d0 * fWaves(2,waveNumber)
+                        upd_hvR = upd_hvR + 0.5d0 * fWaves(3,waveNumber)        
+                    endif
+                enddo
 
-            !******************************************************
-            !* necessary part of the GeoClaw subroutine rpn - end *
-            !******************************************************
+                !compute maximum wave speed
+                waveSpeeds = abs(waveSpeeds)
+                maxWaveSpeed = maxVal(waveSpeeds)
+                
+                ! inverse transformations
+                call apply_transformations_after(transform_matrix, upd_huL, upd_hvL)
+                call apply_transformations_after(transform_matrix, upd_huR, upd_hvR)
 
-            !compute maximum wave speed
-            waveSpeeds = abs(waveSpeeds)
-            maxWaveSpeed = maxVal(waveSpeeds)
+            end subroutine
             
-            ! inverse transformations
-            !DIR$ FORCEINLINE
-            call apply_transformations_after_vec(transform_matrix, upd_huL, upd_hvL)
-            !DIR$ FORCEINLINE
-            call apply_transformations_after_vec(transform_matrix, upd_huR, upd_hvR)
-
-        end subroutine
-        
-        ! change base so hu/hv become ortogonal/perperdicular to edge
-        subroutine apply_transformations_before_vec(transform_matrix, hu, hv)
-            real(kind = GRID_SR), intent(in)         :: transform_matrix(2,2)
-            real(kind = GRID_SR), intent(inout)      :: hu, hv           
+            ! change base so hu/hv become ortogonal/perperdicular to edge
+            subroutine apply_transformations_before(transform_matrix, hu, hv)
+#               if defined(_SWE_PATCH_VEC_SIMD)
+                    !$OMP DECLARE SIMD(apply_transformations_before)
+#               endif
+                real(kind = GRID_SR), intent(in)         :: transform_matrix(2,2)
+                real(kind = GRID_SR), intent(inout)      :: hu, hv           
+                
+                real(kind = GRID_SR)                     :: temp
+                
+                temp = hu
+                hu = transform_matrix(1,1) * hu + transform_matrix(1,2) * hv
+                hv = transform_matrix(2,1) * temp + transform_matrix(2,2) * hv
+            end subroutine
             
-            real(kind = GRID_SR)                     :: temp
-            
-            temp = hu
-            hu = transform_matrix(1,1) * hu + transform_matrix(1,2) * hv
-            hv = transform_matrix(2,1) * temp + transform_matrix(2,2) * hv
-        end subroutine
-        
-        ! transform back to original base
-        subroutine apply_transformations_after_vec(transform_matrix, hu, hv)
-            real(kind = GRID_SR), intent(in)         :: transform_matrix(2,2)
-            real(kind = GRID_SR), intent(inout)      :: hu, hv           
-            
-            real(kind = GRID_SR)                     :: temp
-            
-            temp = hu
-            hu = transform_matrix(1,1) * hu + transform_matrix(2,1) * hv
-            hv = transform_matrix(1,2) * temp + transform_matrix(2,2) * hv
-        end subroutine  
+            ! transform back to original base
+            subroutine apply_transformations_after(transform_matrix, hu, hv)
+#               if defined(_SWE_PATCH_VEC_SIMD)
+                    !$OMP DECLARE SIMD(apply_transformations_after)
+#               endif
+                real(kind = GRID_SR), intent(in)         :: transform_matrix(2,2)
+                real(kind = GRID_SR), intent(inout)      :: hu, hv           
+                
+                real(kind = GRID_SR)                     :: temp
+                
+                temp = hu
+                hu = transform_matrix(1,1) * hu + transform_matrix(2,1) * hv
+                hv = transform_matrix(1,2) * temp + transform_matrix(2,2) * hv
+            end subroutine
+#       endif
 
         pure subroutine node_write_op(local_node, neighbor_node)
             type(t_node_data), intent(inout)			    :: local_node

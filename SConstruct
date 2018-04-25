@@ -48,7 +48,9 @@ vars.AddVariables(
   
   ( 'swe_patch_order', 'order of triangular patches, 1=no_patches', 1),
   
-  BoolVariable( 'swe_patch_solver', 'use patch solver? if False, a original non-vectorizable geoclaw implementation will be used', False),
+  EnumVariable( 'swe_patch_vec', 'which vectorized implementation apply to SWE patches? ', 'off',
+                allowed_values=('off', 'simd_procedures', 'inline')
+              ),
   
   EnumVariable( 'swe_scenario', 'artificial scenario for SWE (only considered when not using ASAGI)', 'radial_dam_break',
                 allowed_values=('radial_dam_break', 'linear_dam_break', 'square_dam_break', 'oscillating_lake')
@@ -270,18 +272,15 @@ if (int(env['swe_patch_order'])) > 1:
   env['F90FLAGS'] += ' -D_SWE_PATCH'
   env['F90FLAGS'] += ' -D_SWE_PATCH_ORDER=' + env['swe_patch_order']
   
-if env['swe_patch_solver']:
-  if (int(env['swe_patch_order'])) <= 1:
-      print "Error: patch solvers are only available when using patches. Set swe_patch_solver=False or swe_patch_order=2 or higher"
-      Exit(-1)
-  env['F90FLAGS'] += ' -D_SWE_USE_PATCH_SOLVER'
+#Vectorization options for SWE patches
+if env['swe_patch_vec'] != 'off' and int(env['swe_patch_order']) <= 1 :
+  print "Error: vectorization is only available when using patches. Set swe_patch_vec=off or swe_patch_order=2 or higher"
+  Exit(-1)
+if env['swe_patch_vec'] == 'simd_procedures':
+  env['F90FLAGS'] += ' -D_SWE_PATCH_VEC_SIMD'
+elif env['swe_patch_vec'] == 'inline':
+  env['F90FLAGS'] += ' -D_SWE_PATCH_VEC_INLINE'
   
-#Check if solver is really available (some are not/only available when using patch solvers)
-if (int(env['swe_patch_order'])) > 1 and env['swe_patch_solver']:
-    if env['flux_solver'] != 'hlle' and env['flux_solver'] != 'fwave' and env['flux_solver'] != 'aug_riemann':
-        print "Error: Only hlle, fwave and aug_riemann solvers are available as patch solvers. Try using another solver or setting swe_patch_solver=True"
-        Exit(-1)
-        
 #Select artificial scenario for SWE (if not using ASAGI)
 if env['scenario'] == 'swe':
   if env['swe_scenario'] == 'radial_dam_break':

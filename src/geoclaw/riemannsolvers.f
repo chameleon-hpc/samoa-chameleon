@@ -1,6 +1,10 @@
 c-----------------------------------------------------------------------
       subroutine riemann_aug_JCP(maxiter,meqn,mwaves,hL,hR,huL,huR,
      &   hvL,hvR,bL,bR,uL,uR,vL,vR,delphi,sE1,sE2,drytol,g,sw,fw)
+#     if defined(_SWE_PATCH_VEC_SIMD)
+!$OMP DECLARE SIMD(riemann_aug_JCP) 
+!$OMP+   UNIFORM(maxiter,meqn,mwaves,drytol,g) 
+#     endif
 
       ! solve shallow water equations given single left and right states
       ! This solver is described in J. Comput. Phys. (6): 3089-3113, March 2008
@@ -12,9 +16,8 @@ c-----------------------------------------------------------------------
       ! instabilities that arise (with any solver) as flow becomes transcritical over variable topo
       ! due to loss of hyperbolicity.
 
-
-
       implicit none
+
 
       !input
       integer meqn,mwaves,maxiter
@@ -261,12 +264,18 @@ c        !solve for beta(k) using Cramers Rule=================
 c-----------------------------------------------------------------------
       subroutine riemann_ssqfwave(maxiter,meqn,mwaves,hL,hR,huL,huR,
      &    hvL,hvR,bL,bR,uL,uR,vL,vR,delphi,sE1,sE2,drytol,g,sw,fw)
+     
+#    if defined(_SWE_PATCH_VEC_SIMD)
+!$OMP DECLARE SIMD(riemann_ssqfwave) 
+!$OMP+   UNIFORM(maxiter,meqn,mwaves,drytol,g) 
+#    endif
 
       ! solve shallow water equations given single left and right states
       ! steady state wave is subtracted from delta [q,f]^T before decomposition
 
+     
       implicit none
-
+      
       !input
       integer meqn,mwaves,maxiter
 
@@ -445,7 +454,9 @@ c               hustar=huL+alpha1*sE1
 c-----------------------------------------------------------------------
       subroutine riemann_fwave(meqn,mwaves,hL,hR,huL,huR,hvL,hvR,
      &            bL,bR,uL,uR,vL,vR,delphi,s1,s2,drytol,g,sw,fw)
-
+#   if defined(_SWE_PATCH_VEC_SIMD)
+        !$OMP DECLARE SIMD(riemann_fwave) UNIFORM(meqn,mwaves,drytol,g)
+#   endif
       ! solve shallow water equations given single left and right states
       ! solution has two waves.
       ! flux - source is decomposed.
@@ -506,6 +517,9 @@ c-----------------------------------------------------------------------
 c=============================================================================
       subroutine riemanntype(hL,hR,uL,uR,hm,s1m,s2m,rare1,rare2,
      &             maxiter,drytol,g)
+#   if defined(_SWE_PATCH_VEC_SIMD)
+        !$OMP DECLARE SIMD(riemanntype) UNIFORM(maxiter,drytol,g)
+#   endif
 
       !determine the Riemann structure (wave-type in each family)
 

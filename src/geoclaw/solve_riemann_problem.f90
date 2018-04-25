@@ -1,5 +1,7 @@
-subroutine solve_riemann_problem_vec(hL, hR, huL, huR, hvL, hvR, bL, bR, pL, pR, drytol, g, sw, fw)      
-    implicit none
+subroutine solve_riemann_problem(hL, hR, huL, huR, hvL, hvR, bL, bR, pL, pR, drytol, g, sw, fw)      
+#   if defined(_SWE_PATCH_VEC_SIMD)
+        !$OMP DECLARE SIMD(solve_riemann_problem) UNIFORM(drytol, g)
+#   endif
 
     !input
     double precision hL, hR, huL, huR, hvL, hvR, bL, bR, pL, pR, g, drytol
@@ -121,15 +123,10 @@ subroutine solve_riemann_problem_vec(hL, hR, huL, huR, hvL, hvR, bL, bR, pL, pR,
 
     maxiter = 1
 
-    !-DIR$ FORCEINLINE
+#   if defined(_SWE_PATCH_VEC_INLINE)
+        !DIR$ FORCEINLINE
+#   endif
     call riemann_aug_JCP(1,3,3, hL, hR, huL, huR, hvL, hvR, bL, bR, uL, uR, vL, vR, delphi, sE1, sE2, dryTol, g, sw, fw)
-!      print *, "sw", sw
-!      print *, "fw", fw
-!      print *, "h_end", hL, hR
-!      print *, "======"
-!     call riemann_aug_JCP(maxiter,3,3,hL,hR,huL, &
-!         huR,hvL,hvR,bL,bR,uL,uR,vL,vR,phiL,phiR,pL,pR,sE1,sE2, &
-!         drytol,g,rho,sw1,sw2,sw3,fw11,fw12,fw13,fw21,fw22,fw23,fw31,fw32,fw33)
 
     ! For completely dry states, waves should be always zero!
     ! (these problems could have been skipped, but to allow 

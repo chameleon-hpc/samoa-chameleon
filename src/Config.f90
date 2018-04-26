@@ -518,10 +518,12 @@ module config
         _log_write(0, '(" Adaptivity: min depth: ", I0, ", max depth: ", I0, ", start depth: ", I0)') config%i_min_depth, config%i_max_depth, config%i_start_depth
         
 #       if defined(_SWE_PATCH)
-#           if defined(_SWE_USE_PATCH_SOLVER)
-                _log_write(0, '(" SWE: Patches: Yes, order: ", I0, ", using patch solver: Yes")') _SWE_PATCH_ORDER
-#           else
-                _log_write(0, '(" SWE: Patches: Yes, order: ", I0, ", using patch solver: No")') _SWE_PATCH_ORDER
+#           if defined(_SWE_PATCH_VEC_SIMD)
+                _log_write(0, '(" SWE: Patches: Yes, order: ", I0, ", vectorization: SIMD procedures")') _SWE_PATCH_ORDER
+#           elif defined(_SWE_PATCH_VEC_SIMD)
+                _log_write(0, '(" SWE: Patches: Yes, order: ", I0, ", vectorization: Inlined procedures")') _SWE_PATCH_ORDER
+#            else
+                _log_write(0, '(" SWE: Patches: Yes, order: ", I0, ", vectorization: Off")') _SWE_PATCH_ORDER
 #           endif
 #       elif defined (_SWE)
             _log_write(0, '(" SWE: Patches: No")')
@@ -566,8 +568,6 @@ module config
             _log_write(0, '(" Scenario: Flux solver: ", A)')  "F-Wave"
 #       elif defined(_AUG_RIEMANN_FLUX)
             _log_write(0, '(" Scenario: Flux solver: ", A)')  "Augmented Riemann"
-#       elif defined(_HLLE_FLUX)
-            _log_write(0, '(" Scenario: Flux solver: ", A)')  "HLLE"
 #       else
 #           error Invalid flux solver!
 #       endif

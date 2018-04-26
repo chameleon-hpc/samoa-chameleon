@@ -123,10 +123,20 @@ subroutine solve_riemann_problem(hL, hR, huL, huR, hvL, hvR, bL, bR, pL, pR, dry
 
     maxiter = 1
 
+    ! Call the solver!
+    
 #   if defined(_SWE_PATCH_VEC_INLINE)
         !DIR$ FORCEINLINE
 #   endif
-    call riemann_aug_JCP(1,3,3, hL, hR, huL, huR, hvL, hvR, bL, bR, uL, uR, vL, vR, delphi, sE1, sE2, dryTol, g, sw, fw)
+#   if defined (_FWAVE_FLUX)
+        call riemann_fwave(3,3, hL, hR, huL, huR, hvL, hvR, bL, bR, uL, uR, vL, vR, delphi, sE1, sE2, dryTol, g, sw,fw)
+#   elif defined (_AUG_RIEMANN_FLUX)
+        call riemann_aug_JCP(1,3,3, hL, hR, huL, huR, hvL, hvR, bL, bR, uL, uR, vL, vR, delphi, sE1, sE2, dryTol, g, sw, fw)
+#   else
+        ! this should never happen -> SCons rules should avoid this before compiling
+#       error "No valid SWE solver for patches/simd implementation has been defined!"
+#   endif
+
 
     ! For completely dry states, waves should be always zero!
     ! (these problems could have been skipped, but to allow 

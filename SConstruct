@@ -43,7 +43,7 @@ vars.AddVariables(
               ),
 
   EnumVariable( 'flux_solver', 'flux solver for FV problems', 'upwind',
-                allowed_values=('upwind', 'lf', 'lfbath', 'llf', 'llfbath', 'fwave', 'aug_riemann', 'hlle')
+                allowed_values=('upwind', 'lf', 'lfbath', 'llf', 'llfbath', 'fwave', 'aug_riemann')
               ),
   
   ( 'swe_patch_order', 'order of triangular patches, 1=no_patches', 1),
@@ -264,8 +264,6 @@ elif env['flux_solver'] == 'fwave':
   env['F90FLAGS'] += ' -D_FWAVE_FLUX'
 elif env['flux_solver'] == 'aug_riemann':
   env['F90FLAGS'] += ' -D_AUG_RIEMANN_FLUX'
-elif env['flux_solver'] == 'hlle':
-  env['F90FLAGS'] += ' -D_HLLE_FLUX'
 
 #Patches options for SWE scenario
 if (int(env['swe_patch_order'])) > 1:

@@ -14,9 +14,6 @@
 #       if defined(_SWE_PATCH)
             use SWE_PATCH
 #       endif
-#       if defined(_HLLE_FLUX)
-            use SWE_HLLE
-#       endif
 		implicit none
 
         type num_traversal_data
@@ -65,6 +62,7 @@
                 type(t_node_data)                       :: node
                 integer                                 :: blocklengths(2), types(2), disps(2), type_size, i_error
                 integer (kind = MPI_ADDRESS_KIND)       :: lb, ub
+
 
                 blocklengths(1) = 1
                 blocklengths(2) = 1

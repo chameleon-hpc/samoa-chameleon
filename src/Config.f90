@@ -520,8 +520,8 @@ module config
 #       if defined(_SWE_PATCH)
 #           if defined(_SWE_PATCH_VEC_SIMD)
                 _log_write(0, '(" SWE: Patches: Yes, order: ", I0, ", vectorization: SIMD procedures")') _SWE_PATCH_ORDER
-#           elif defined(_SWE_PATCH_VEC_SIMD)
-                _log_write(0, '(" SWE: Patches: Yes, order: ", I0, ", vectorization: Inlined procedures")') _SWE_PATCH_ORDER
+#           elif defined(_SWE_PATCH_VEC_INLINE)
+                _log_write(0, '(" SWE: Patches: Yes, order: ", I0, ", vectorization: Inline procedures")') _SWE_PATCH_ORDER
 #            else
                 _log_write(0, '(" SWE: Patches: Yes, order: ", I0, ", vectorization: Off")') _SWE_PATCH_ORDER
 #           endif

@@ -49,7 +49,7 @@ vars.AddVariables(
   ( 'swe_patch_order', 'order of triangular patches, 1=no_patches', 1),
   
   EnumVariable( 'swe_patch_vec', 'which vectorized implementation apply to SWE patches? ', 'off',
-                allowed_values=('off', 'simd_procedures', 'inline')
+                allowed_values=('off', 'simd_procedures', 'inline_procedures')
               ),
   
   EnumVariable( 'swe_scenario', 'artificial scenario for SWE (only considered when not using ASAGI)', 'radial_dam_break',
@@ -276,7 +276,7 @@ if env['swe_patch_vec'] != 'off' and int(env['swe_patch_order']) <= 1 :
   Exit(-1)
 if env['swe_patch_vec'] == 'simd_procedures':
   env['F90FLAGS'] += ' -D_SWE_PATCH_VEC_SIMD'
-elif env['swe_patch_vec'] == 'inline':
+elif env['swe_patch_vec'] == 'inline_procedures':
   env['F90FLAGS'] += ' -D_SWE_PATCH_VEC_INLINE'
   
 #Select artificial scenario for SWE (if not using ASAGI)

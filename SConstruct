@@ -39,7 +39,7 @@ vars.AddVariables(
   PathVariable( 'build_dir', 'build directory', 'bin/', PathVariable.PathIsDirCreate),
 
   EnumVariable( 'scenario', 'target scenario', 'darcy',
-                allowed_values=('darcy', 'swe', 'generic', 'flash') #, 'heat_eq', 'tests')
+                allowed_values=('darcy', 'swe', 'swe2l', 'generic', 'flash') #, 'heat_eq', 'tests')
               ),
 
   EnumVariable( 'flux_solver', 'flux solver for FV problems', 'upwind',
@@ -189,6 +189,10 @@ elif env['scenario'] == 'swe':
   env['F90FLAGS'] += ' -D_SWE'
   env.SetDefault(asagi = True)
   env.SetDefault(library = False)
+elif env['scenario'] == 'swe2l':
+  env['F90FLAGS'] += ' -D_SWE2L'
+  env.SetDefault(asagi = False)
+  env.SetDefault(library = False)
 elif env['scenario'] == 'generic':
   env['F90FLAGS'] += ' -D_GENERIC'
   env.SetDefault(asagi = False)
@@ -280,7 +284,7 @@ elif env['swe_patch_vec'] == 'inline_procedures':
   env['F90FLAGS'] += ' -D_SWE_PATCH_VEC_INLINE'
   
 #Select artificial scenario for SWE (if not using ASAGI)
-if env['scenario'] == 'swe':
+if env['scenario'] == 'swe' or env['scenario'] == 'swe2l':
   if env['swe_scenario'] == 'radial_dam_break':
     env['F90FLAGS'] += ' -D_SWE_SCENARIO_RADIAL_DAM_BREAK'
   elif env['swe_scenario'] == 'linear_dam_break':

@@ -24,7 +24,7 @@
 # define _DARCY_PROD_PRESSURE
 
 !for the SWE scenario, a skeleton operator is required
-#if defined(_SWE) || defined(_NUMA) || defined(_FLASH)
+#if defined(_SWE) || defined(_SWE2L) || defined(_NUMA) || defined(_FLASH)
 #	define _USE_SKELETON_OP
 #endif
 

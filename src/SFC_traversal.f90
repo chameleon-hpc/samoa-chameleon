@@ -21,6 +21,8 @@ MODULE SFC_traversal
 		use Tests
 #	elif defined(_SWE)
 		use SWE
+#	elif defined(_SWE2L)
+		use SWE2L
 #	elif defined(_FLASH)
 		use FLASH
 #	elif defined(_NUMA)
@@ -45,7 +47,7 @@ MODULE SFC_traversal
 
 #	    elif defined(_DARCY)
             type(t_darcy)                                                   :: darcy
-#	    elif defined(_SWE)
+#	    elif defined(_SWE) || defined(_SWE2L)
            type(t_swe)          											:: swe
 #	    elif defined(_FLASH)
            type(t_flash)          											:: flash
@@ -94,7 +96,7 @@ MODULE SFC_traversal
 			!$omp end parallel
 
 			call darcy%destroy(grid, cfg%l_log)
-#		elif defined(_SWE)
+#		elif defined(_SWE) || defined(_SWE2L)
             !create initial grid
             call init_grid(grid, cfg%i_start_depth)
 			call swe%create(grid, cfg%l_log, cfg%i_asagi_mode)

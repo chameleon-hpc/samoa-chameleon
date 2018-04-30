@@ -13,6 +13,8 @@ MODULE SFC_data_types
 		use Darcy_data_types
 #	elif defined(_SWE)
 		use SWE_data_types
+#	elif defined(_SWE2L)
+		use SWE2L_data_types
 #	elif defined(_FLASH)
 		use FLASH_data_types
 #	elif defined(_NUMA)

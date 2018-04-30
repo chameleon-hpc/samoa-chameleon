@@ -7,15 +7,14 @@
 
 #include "Compilation_control.f90"
 
-#if defined(_SWE)
 
 !*******************
 !* MODULE TEMPLATE *
 !*******************
 #if 0
-MODULE SWE_Scenario_template
+MODULE SWE2L_Scenario_template
     use iso_c_binding
-    use Samoa_swe
+    use Samoa_swe2l
     public SWE_Scenario_get_scaling, SWE_Scenario_get_offset, SWE_Scenario_get_bathymetry, SWE_Scenario_get_initial_Q
     contains
 
@@ -46,7 +45,7 @@ MODULE SWE_Scenario_template
         Q%h = 0.0_GRID_SR
     end function
 
-END MODULE SWE_Scenario_radial_dam_break
+END MODULE 
 #endif
 
 
@@ -55,9 +54,9 @@ END MODULE SWE_Scenario_radial_dam_break
 !* Radial Dam Break *
 !********************
 #if defined (_SWE_SCENARIO_RADIAL_DAM_BREAK)
-MODULE SWE_Scenario_radial_dam_break
+MODULE SWE2L_Scenario_radial_dam_break
     use iso_c_binding
-    use Samoa_swe
+    use Samoa_swe2l
     public SWE_Scenario_get_scaling, SWE_Scenario_get_offset, SWE_Scenario_get_bathymetry, SWE_Scenario_get_initial_Q
     contains
 
@@ -97,7 +96,7 @@ MODULE SWE_Scenario_radial_dam_break
         end if
     end function
 
-END MODULE SWE_Scenario_radial_dam_break
+END MODULE 
 #endif
 
 
@@ -105,9 +104,9 @@ END MODULE SWE_Scenario_radial_dam_break
 !* Linear Dam Break *
 !********************
 #if defined (_SWE_SCENARIO_LINEAR_DAM_BREAK)
-MODULE SWE_Scenario_linear_dam_break
+MODULE SWE2L_Scenario_linear_dam_break
     use iso_c_binding
-    use Samoa_swe
+    use Samoa_swe2l
     public SWE_Scenario_get_scaling, SWE_Scenario_get_offset, SWE_Scenario_get_bathymetry, SWE_Scenario_get_initial_Q
     contains
 
@@ -145,16 +144,16 @@ MODULE SWE_Scenario_linear_dam_break
         end if
     end function
 
-END MODULE SWE_Scenario_linear_dam_break
+END MODULE
 #endif
 
 !********************
 !* Square Dam Break *
 !********************
 #if defined (_SWE_SCENARIO_SQUARE_DAM_BREAK)
-MODULE SWE_Scenario_square_dam_break
+MODULE SWE2L_Scenario_square_dam_break
     use iso_c_binding
-    use Samoa_swe
+    use Samoa_swe2l
     public SWE_Scenario_get_scaling, SWE_Scenario_get_offset, SWE_Scenario_get_bathymetry, SWE_Scenario_get_initial_Q
     contains
 
@@ -195,7 +194,7 @@ MODULE SWE_Scenario_square_dam_break
         end if
     end function
 
-END MODULE SWE_Scenario_square_dam_break
+END MODULE 
 #endif
 
 !********************
@@ -215,9 +214,9 @@ END MODULE SWE_Scenario_square_dam_break
 ! --> with w = sqrt( 0.2 g )
 
 #if defined (_SWE_SCENARIO_OSCILLATING_LAKE)
-MODULE SWE_Scenario_oscillating_lake
+MODULE SWE2L_Scenario_oscillating_lake
     use iso_c_binding
-    use Samoa_swe
+    use Samoa_swe2l
     public SWE_Scenario_get_scaling, SWE_Scenario_get_offset, SWE_Scenario_get_bathymetry, SWE_Scenario_get_initial_Q
     contains
 
@@ -262,22 +261,20 @@ MODULE SWE_Scenario_oscillating_lake
         
     end function
 
-END MODULE SWE_Scenario_oscillating_lake
+END MODULE 
 #endif
 
 
-MODULE SWE_Scenario
+MODULE SWE2L_Scenario
 
 #   if defined(_SWE_SCENARIO_RADIAL_DAM_BREAK)
-        USE SWE_Scenario_radial_dam_break
+        USE SWE2L_Scenario_radial_dam_break
 #   elif defined(_SWE_SCENARIO_LINEAR_DAM_BREAK)
-        USE SWE_Scenario_linear_dam_break
+        USE SWE2L_Scenario_linear_dam_break
 #   elif defined(_SWE_SCENARIO_SQUARE_DAM_BREAK)
-        USE SWE_Scenario_square_dam_break
+        USE SWE2L_Scenario_square_dam_break
 #   elif defined(_SWE_SCENARIO_OSCILLATING_LAKE)
-        USE SWE_Scenario_oscillating_lake
+        USE SWE2L_Scenario_oscillating_lake
 #   endif
 
-END MODULE SWE_Scenario
-
-#endif
+END MODULE

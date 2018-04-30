@@ -103,7 +103,7 @@ module config
 			double precision			        :: S_refinement_threshold				            !< saturation refinement threshold
 
             logical 				            :: l_well_output			                        !< well output on/off
-#    	elif defined(_SWE)
+#    	elif defined(_SWE) || defined(_SWE2L)
             double precision                    :: scaling, offset(2)                               !< grid scaling and offset of the computational domain
 
 #           if defined(_ASAGI)
@@ -194,6 +194,8 @@ module config
             write(arguments, '(A, A)') trim(arguments), " -dmin 0 -dmax 16 -dstart 0 -nmax -1 -tmax 1.0d0 -nout -1 -tout -1.0d0"
 #    	elif defined(_SWE)
             write(arguments, '(A, A)') trim(arguments), " -dmin 0 -dmax 14 -dstart 0 -courant 0.45d0 -nmax -1 -tmax 3600.0d0 -nout -1 -tout -1.0d0 -drytolerance 0.01d0 -fbath data/tohoku_static/bath.nc -fdispl data/tohoku_static/displ.nc"
+#    	elif defined(_SWE2L)
+            write(arguments, '(A, A)') trim(arguments), " -dmin 0 -dmax 14 -dstart 0 -courant 0.45d0 -nmax -1 -tmax 3600.0d0 -nout -1 -tout -1.0d0 -drytolerance 0.01d0 "
 #	    elif defined(_FLASH)
             write(arguments, '(A, A)') trim(arguments), " -dmin 0 -dmax 14 -dstart 0 -courant 0.45d0 -nmax -1 -tmax 3600.0d0 -nout -1 -tout -1.0d0 -drytolerance 0.01d0 -fbath data/tohoku_static/bath.nc -fdispl data/tohoku_static/displ.nc"
 #    	elif defined(_NUMA)

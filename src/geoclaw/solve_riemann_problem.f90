@@ -1,23 +1,35 @@
+
 subroutine solve_riemann_problem(hL, hR, huL, huR, hvL, hvR, bL, bR, pL, pR, drytol, g, sw, fw)      
 #   if defined(_SWE_PATCH_VEC_SIMD)
         !$OMP DECLARE SIMD(solve_riemann_problem) UNIFORM(drytol, g)
 #   endif
 
+    !data precision
+#   if defined(_SINGLE_PRECISION)
+        integer, PARAMETER :: GRID_SR = kind(1.0e0)
+#   elif defined(_DOUBLE_PRECISION)
+        integer, PARAMETER :: GRID_SR = kind(1.0d0)
+#   elif defined(_QUAD_PRECISION)
+        integer, PARAMETER :: GRID_SR = kind(1.0q0)
+#   else
+#       error "No floating point precision is chosen!"
+#   endif
+
     !input
-    double precision hL, hR, huL, huR, hvL, hvR, bL, bR, pL, pR, g, drytol
+    real(kind = GRID_SR) hL, hR, huL, huR, hvL, hvR, bL, bR, pL, pR, g, drytol
 
     !output
-    double precision sw(3), fw(3,3)
+    real(kind = GRID_SR) sw(3), fw(3,3)
 
     !local only
     integer m,i,mw,maxiter
-    double precision wall(3)
-    double precision uR,uL,vR,vL,phiR,phiL,delphi
-    double precision sL,sR,sRoe1,sRoe2,sE1,sE2,uhat,chat
-    double precision s1m,s2m
-    double precision hstar,hstartest,hstarHLL,sLtest,sRtest
-    double precision tw,dxdc      
-    double precision sqrt_ghL, sqrt_ghR
+    real(kind = GRID_SR) wall(3)
+    real(kind = GRID_SR) uR,uL,vR,vL,phiR,phiL,delphi
+    real(kind = GRID_SR) sL,sR,sRoe1,sRoe2,sE1,sE2,uhat,chat
+    real(kind = GRID_SR) s1m,s2m
+    real(kind = GRID_SR) hstar,hstartest,hstarHLL,sLtest,sRtest
+    real(kind = GRID_SR) tw,dxdc      
+    real(kind = GRID_SR) sqrt_ghL, sqrt_ghR
     logical rare1,rare2
 
     ! For completely dry states, do not skip problem (hinders
@@ -123,18 +135,39 @@ subroutine solve_riemann_problem(hL, hR, huL, huR, hvL, hvR, bL, bR, pL, pR, dry
 
     maxiter = 1
 
-    ! Call the solver!
+    !********************
+    !* Call the solver! *
+    !********************
+    
+    ! First, check if subroutine should be inline. Then, call the appropriate solver depending on floating-point precision
     
 #   if defined(_SWE_PATCH_VEC_INLINE)
         !DIR$ FORCEINLINE
 #   endif
+
 #   if defined (_FWAVE_FLUX)
-        call riemann_fwave(3,3, hL, hR, huL, huR, hvL, hvR, bL, bR, uL, uR, vL, vR, delphi, sE1, sE2, dryTol, g, sw,fw)
+
+#       if defined(_SINGLE_PRECISION)
+            call riemann_fwave_sp(3,3, hL, hR, huL, huR, hvL, hvR, bL, bR, uL, uR, vL, vR, delphi, sE1, sE2, dryTol, g, sw,fw)
+#       elif defined(_DOUBLE_PRECISION)
+            call riemann_fwave(3,3, hL, hR, huL, huR, hvL, hvR, bL, bR, uL, uR, vL, vR, delphi, sE1, sE2, dryTol, g, sw,fw)
+#       elif defined(_QUAD_PRECISION)
+            call riemann_fwave_qp(3,3, hL, hR, huL, huR, hvL, hvR, bL, bR, uL, uR, vL, vR, delphi, sE1, sE2, dryTol, g, sw,fw)
+#       endif
+
 #   elif defined (_AUG_RIEMANN_FLUX)
-        call riemann_aug_JCP(1,3,3, hL, hR, huL, huR, hvL, hvR, bL, bR, uL, uR, vL, vR, delphi, sE1, sE2, dryTol, g, sw, fw)
+#       if defined(_SINGLE_PRECISION)
+            call riemann_aug_JCP_sp(1,3,3, hL, hR, huL, huR, hvL, hvR, bL, bR, uL, uR, vL, vR, delphi, sE1, sE2, dryTol, g, sw, fw)
+#       elif defined(_DOUBLE_PRECISION)
+            call riemann_aug_JCP(1,3,3, hL, hR, huL, huR, hvL, hvR, bL, bR, uL, uR, vL, vR, delphi, sE1, sE2, dryTol, g, sw, fw)
+#       elif defined(_QUAD_PRECISION)
+            call riemann_aug_JCP_qp(1,3,3, hL, hR, huL, huR, hvL, hvR, bL, bR, uL, uR, vL, vR, delphi, sE1, sE2, dryTol, g, sw, fw)
+#   endif
+        
 #   else
         ! this should never happen -> SCons rules should avoid this before compiling
 #       error "No valid SWE solver for patches/simd implementation has been defined!"
+
 #   endif
 
 

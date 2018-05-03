@@ -455,7 +455,7 @@ c-----------------------------------------------------------------------
       subroutine riemann_fwave_sp(meqn,mwaves,hL,hR,huL,huR,hvL,hvR,
      &            bL,bR,uL,uR,vL,vR,delphi,s1,s2,drytol,g,sw,fw)
 #   if defined(_SWE_PATCH_VEC_SIMD)
-        !$OMP DECLARE SIMD(riemann_fwave) UNIFORM(meqn,mwaves,drytol,g)
+      !$OMP DECLARE SIMD(riemann_fwave_sp) UNIFORM(meqn,mwaves,drytol,g)
 #   endif
       ! solve shallow water equations given single left and right states
       ! solution has two waves.
@@ -518,7 +518,7 @@ c=============================================================================
       subroutine riemanntype_sp(hL,hR,uL,uR,hm,s1m,s2m,rare1,rare2,
      &             maxiter,drytol,g)
 #   if defined(_SWE_PATCH_VEC_SIMD)
-        !$OMP DECLARE SIMD(riemanntype) UNIFORM(maxiter,drytol,g)
+        !$OMP DECLARE SIMD(riemanntype_sp) UNIFORM(maxiter,drytol,g)
 #   endif
 
       !determine the Riemann structure (wave-type in each family)

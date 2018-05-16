@@ -358,7 +358,7 @@ elif env['target'] == 'release':
   env.SetDefault(assertions = False)
 
   if env['compiler'] == 'intel':
-    env['F90FLAGS'] += ' -fast -fno-alias -align all -inline-level=2 -funroll-loops -unroll'
+    env['F90FLAGS'] += ' -O3 -ipo -fno-alias -align all -inline-level=2 -funroll-loops -unroll'
     env['LINKFLAGS'] += ' -O3 -ip -ipo'
   elif  env['compiler'] == 'gnu':
     env['F90FLAGS'] += ' -Ofast -march=native -malign-double -funroll-loops -fstrict-aliasing -finline-limit=2048'

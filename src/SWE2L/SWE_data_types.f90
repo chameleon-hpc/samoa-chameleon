@@ -93,7 +93,7 @@
                 real (kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER_SQUARE):: H2, HU2, HV2 !< extra unknowns for second layer
 #           endif
 			type(t_state), DIMENSION(_SWE_CELL_SIZE)									:: Q						!< cell status vector
-			type(t_state), DIMENSION(_SWE_CELL_SIZE)									:: Q2	!< vector of second layer unknowns
+			type(t_dof_state), DIMENSION(_SWE_CELL_SIZE)									:: Q2	!< vector of second layer unknowns
 		END type num_cell_data_pers
 
 		!> Cell representation on an edge, this would typically be everything required from a cell to compute the flux function on an edge
@@ -103,7 +103,7 @@
                 real (kind = GRID_SR), dimension (_SWE_PATCH_ORDER) :: H2, HU2, HV2 !< extra unknowns for second layer
 #           endif
 			type(t_state), DIMENSION(_SWE_EDGE_SIZE)									:: Q						!< cell representation
-			type(t_state), DIMENSION(_SWE_EDGE_SIZE)									:: Q2	!< vector of second layer unknowns
+			type(t_dof_state), DIMENSION(_SWE_EDGE_SIZE)									:: Q2	!< vector of second layer unknowns
 		end type
 
 		!> Cell update, this would typically be a flux function
@@ -113,7 +113,7 @@
                 real (kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER) :: H2, HU2, HV2 !< extra unknowns for second layer
 #           endif
 			type(t_update), DIMENSION(_SWE_EDGE_SIZE)									:: flux						!< cell update
-			type(t_state),  DIMENSION(_SWE_EDGE_SIZE)									:: flux2	!< vector of second layer unknowns
+			type(t_dof_state), DIMENSION(_SWE_EDGE_SIZE)									:: flux2	!< vector of second layer unknowns
 		end type
 
 		!*************************

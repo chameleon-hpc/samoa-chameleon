@@ -195,7 +195,7 @@ module config
 #    	elif defined(_SWE)
             write(arguments, '(A, A)') trim(arguments), " -dmin 0 -dmax 14 -dstart 0 -courant 0.45d0 -nmax -1 -tmax 3600.0d0 -nout -1 -tout -1.0d0 -drytolerance 0.01d0 -fbath data/tohoku_static/bath.nc -fdispl data/tohoku_static/displ.nc"
 #    	elif defined(_SWE2L)
-            write(arguments, '(A, A)') trim(arguments), " -dmin 0 -dmax 14 -dstart 0 -courant 0.45d0 -nmax -1 -tmax 3600.0d0 -nout -1 -tout -1.0d0 -drytolerance 0.01d0 "
+            write(arguments, '(A, A)') trim(arguments), " -dmin 0 -dmax 14 -dstart 0 -courant 0.45d0 -nmax -1 -tmax 3.0d0 -nout -1 -tout -1.0d0 -drytolerance 0.01d0 "
 #	    elif defined(_FLASH)
             write(arguments, '(A, A)') trim(arguments), " -dmin 0 -dmax 14 -dstart 0 -courant 0.45d0 -nmax -1 -tmax 3600.0d0 -nout -1 -tout -1.0d0 -drytolerance 0.01d0 -fbath data/tohoku_static/bath.nc -fdispl data/tohoku_static/displ.nc"
 #    	elif defined(_NUMA)
@@ -298,7 +298,7 @@ module config
 
             config%l_lse_output = lget('samoa_lseoutput')
             config%l_well_output = lget('samoa_welloutput')
-#    	elif defined(_SWE) || defined(_FLASH)
+#    	elif defined(_SWE) || defined(_FLASH) || defined(_SWE2L)
 #		    if defined(_ASAGI)
                 config%s_bathymetry_file = sget('samoa_fbath', 256)
                 config%s_displacement_file = sget('samoa_fdispl', 256)
@@ -394,7 +394,7 @@ module config
                     PRINT '(A, L, A)',     "	-welloutput             enable well data output (value: ", config%l_well_output, ")"
                     PRINT '(A, ES9.2, A)',  "	-p_ref_th               pressure refinement threshold (value: ", config%p_refinement_threshold, ")"
                     PRINT '(A, ES9.2, A)',  "	-S_ref_th               saturation refinement threshold (value: ", config%S_refinement_threshold, ")"
-#          	    elif defined(_SWE)
+#          	    elif defined(_SWE) || defined(_SWE2L)
 #    	            if defined(_ASAGI)
                         PRINT '(A, A, A)',  "	-fbath <value>          bathymetry file (value: ", trim(config%s_bathymetry_file), ")"
                         PRINT '(A, A, A)',  "	-fdispl <value>         displacement file (value: ", trim(config%s_displacement_file), ")"
@@ -456,6 +456,8 @@ module config
             _log_write(0, '(" Scenario: Darcy")')
 #		elif defined(_SWE)
             _log_write(0, '(" Scenario: SWE")')
+#		elif defined(_SWE2L)
+            _log_write(0, '(" Scenario: SWE2L")')
 #		elif defined(_NUMA)
             _log_write(0, '(" Scenario: NUMA")')
 #		elif defined(_GENERIC)
@@ -527,7 +529,7 @@ module config
 #            else
                 _log_write(0, '(" SWE: Patches: Yes, order: ", I0, ", vectorization: Off")') _SWE_PATCH_ORDER
 #           endif
-#       elif defined (_SWE)
+#       elif defined (_SWE) || defined(_SWE2L)
             _log_write(0, '(" SWE: Patches: No")')
 #       endif
 
@@ -629,7 +631,7 @@ module config
             _log_write(0, '(" Darcy: pressure refinement threshold: ", ES9.2, ", saturation refinement threshold: ", ES9.2)') config%p_refinement_threshold, config%S_refinement_threshold
 #		elif defined(_FLASH)
             _log_write(0, '(" Flash: bathymetry file: ", A, ", displacement file: ", A)') trim(config%s_bathymetry_file), trim(config%s_displacement_file)
-#		elif defined(_SWE)
+#		elif defined(_SWE) || defined(_SWE2L)
 
             !check if the data files exixst
 #    	    if defined(_ASAGI)
@@ -648,7 +650,7 @@ module config
         _log_write(0, '("")')
     end subroutine
 
-#   if defined(_SWE)
+#   if defined(_SWE) || defined(_SWE2L)
         subroutine parse_testpoints(config)
             class(t_config), intent(inout)          :: config
 

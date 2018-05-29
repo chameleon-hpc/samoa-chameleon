@@ -2,6 +2,7 @@
 ! Copyright (C) 2010 Oliver Meister, Kaveh Rahnema
 ! This program is licensed under the GPL, for details see the file LICENSE
 
+! SWE2L: THIS FILE WAS MODIFIED FOR THE TWO-LAYER CODE
 
 #include "Compilation_control.f90"
 
@@ -23,12 +24,14 @@
 		!> Output point data
 		type t_output_point_data
 			type(t_state)											:: Q
+			type(t_dof_state)										:: Q2
 			real (kind = GRID_SR), dimension(2)						:: coords		!< position
 		end type
 
 		!> Output cell data
 		type t_output_cell_data
 			type(t_state)											:: Q
+			type(t_dof_state)										:: Q2
 			integer (kind = GRID_SI)								:: rank
 			integer (kind = GRID_SI)								:: section_index
 			integer (kind = BYTE)									:: depth
@@ -107,17 +110,21 @@
 
                     e_io = vtk%VTK_DAT_XML('pnode', 'OPEN')
                         if (i_element_order > 0) then
-                            e_io = vtk%VTK_VAR_XML('water height', 1.0_GRID_SR, 1)
+                            e_io = vtk%VTK_VAR_XML('water height (top layer)', 1.0_GRID_SR, 1)
+                            e_io = vtk%VTK_VAR_XML('water height (bottom layer)', 1.0_GRID_SR, 1)
                             e_io = vtk%VTK_VAR_XML('bathymetry', 1.0_GRID_SR, 1)
-                            e_io = vtk%VTK_VAR_XML('momentum', 1.0_GRID_SR, 3)
+                            e_io = vtk%VTK_VAR_XML('momentum (top layer)', 1.0_GRID_SR, 3)
+                            e_io = vtk%VTK_VAR_XML('momentum (bottom layer)', 1.0_GRID_SR, 3)
                         end if
                     e_io = vtk%VTK_DAT_XML('pnode', 'CLOSE')
 
                     e_io = vtk%VTK_DAT_XML('pcell', 'OPEN')
                         if (i_element_order == 0) then
-                            e_io = vtk%VTK_VAR_XML('water height', 1.0_GRID_SR, 1)
+                            e_io = vtk%VTK_VAR_XML('water height (top layer)', 1.0_GRID_SR, 1)
+                            e_io = vtk%VTK_VAR_XML('water height (bottom layer)', 1.0_GRID_SR, 1)
                             e_io = vtk%VTK_VAR_XML('bathymetry', 1.0_GRID_SR, 1)
-                            e_io = vtk%VTK_VAR_XML('momentum', 1.0_GRID_SR, 3)
+                            e_io = vtk%VTK_VAR_XML('momentum (top layer)', 1.0_GRID_SR, 3)
+                            e_io = vtk%VTK_VAR_XML('momentum (bottom layer)', 1.0_GRID_SR, 3)
                         end if
 
                         e_io = vtk%VTK_VAR_XML('rank', 1_GRID_SI, 1)
@@ -247,17 +254,21 @@
 
                     e_io = vtk%VTK_DAT_XML('node', 'OPEN')
                         if (i_element_order > 0) then
-                            e_io = vtk%VTK_VAR_XML(i_points, 'water height', traversal%point_data%Q%h)
+                            e_io = vtk%VTK_VAR_XML(i_points, 'water height (top layer)', traversal%point_data%Q%h)
+                            e_io = vtk%VTK_VAR_XML(i_points, 'water height (bottom layer)', traversal%point_data%Q2%h)
                             e_io = vtk%VTK_VAR_XML(i_points, 'bathymetry', traversal%point_data%Q%b)
-                            e_io = vtk%VTK_VAR_XML(i_points, 'momentum',  traversal%point_data%Q%p(1), traversal%point_data%Q%p(2), r_empty(1:i_points))
+                            e_io = vtk%VTK_VAR_XML(i_points, 'momentum (top layer)',  traversal%point_data%Q%p(1), traversal%point_data%Q%p(2), r_empty(1:i_points))
+                            e_io = vtk%VTK_VAR_XML(i_points, 'momentum (bottom layer)',  traversal%point_data%Q2%p(1), traversal%point_data%Q2%p(2), r_empty(1:i_points))
                         end if
                     e_io = vtk%VTK_DAT_XML('node', 'CLOSE')
 
                     e_io = vtk%VTK_DAT_XML('cell', 'OPEN')
                         if (i_element_order == 0) then
-                            e_io = vtk%VTK_VAR_XML(i_cells, 'water height', traversal%cell_data%Q%h)
+                            e_io = vtk%VTK_VAR_XML(i_cells, 'water height (top layer)', traversal%cell_data%Q%h)
+                            e_io = vtk%VTK_VAR_XML(i_cells, 'water height (bottom layer)', traversal%cell_data%Q2%h)
                             e_io = vtk%VTK_VAR_XML(i_cells, 'bathymetry', traversal%cell_data%Q%b)
-                            e_io = vtk%VTK_VAR_XML(i_cells, 'momentum', traversal%cell_data%Q%p(1), traversal%cell_data%Q%p(2), r_empty(1:i_cells))
+                            e_io = vtk%VTK_VAR_XML(i_cells, 'momentum (top layer)', traversal%cell_data%Q%p(1), traversal%cell_data%Q%p(2), r_empty(1:i_cells))
+                            e_io = vtk%VTK_VAR_XML(i_cells, 'momentum (bottom layer)', traversal%cell_data%Q2%p(1), traversal%cell_data%Q2%p(2), r_empty(1:i_cells))
                         end if
 
                         e_io = vtk%VTK_VAR_XML(i_cells, 'rank', traversal%cell_data%rank)
@@ -331,12 +342,20 @@
                     traversal%cell_data(traversal%i_cell_data_index)%id_in_patch = cell_id
 
                     traversal%cell_data(traversal%i_cell_data_index)%Q%h = element%cell%data_pers%H(cell_id)
+                    traversal%cell_data(traversal%i_cell_data_index)%Q2%h = element%cell%data_pers%H2(cell_id)
                     traversal%cell_data(traversal%i_cell_data_index)%Q%b = element%cell%data_pers%B(cell_id)
                     traversal%cell_data(traversal%i_cell_data_index)%Q%p(1) = element%cell%data_pers%HU(cell_id)
                     traversal%cell_data(traversal%i_cell_data_index)%Q%p(2) = element%cell%data_pers%HV(cell_id)
+                    traversal%cell_data(traversal%i_cell_data_index)%Q2%p(1) = element%cell%data_pers%HU2(cell_id)
+                    traversal%cell_data(traversal%i_cell_data_index)%Q2%p(2) = element%cell%data_pers%HV2(cell_id)
 
+                    ! set water height of dry cells to zero where appropriate -> top layer
 		    if (traversal%cell_data(traversal%i_cell_data_index)%Q%h < traversal%cell_data(traversal%i_cell_data_index)%Q%b + cfg%dry_tolerance ) then
                         traversal%cell_data(traversal%i_cell_data_index)%Q%h = min(0.0_GRID_SR, traversal%cell_data(traversal%i_cell_data_index)%Q%b)
+                    end if
+                    ! set water height of dry cells to zero where appropriate -> bottom layer
+                    if (traversal%cell_data(traversal%i_cell_data_index)%Q2%h < traversal%cell_data(traversal%i_cell_data_index)%Q%b + cfg%dry_tolerance ) then
+                        traversal%cell_data(traversal%i_cell_data_index)%Q2%h = min(0.0_GRID_SR, traversal%cell_data(traversal%i_cell_data_index)%Q%b)
                     end if
                     
                     ! prepare for next cell
@@ -414,14 +433,24 @@
 
 					traversal%i_point_data_index = traversal%i_point_data_index + 3
 
-					traversal%cell_data(traversal%i_cell_data_index)%Q%h = t_basis_Q_eval(r_test_point0, Q%h)
-					traversal%cell_data(traversal%i_cell_data_index)%Q%b = t_basis_Q_eval(r_test_point0, Q%b)
-					traversal%cell_data(traversal%i_cell_data_index)%Q%p(1) = t_basis_Q_eval(r_test_point0, Q%p(1))
-					traversal%cell_data(traversal%i_cell_data_index)%Q%p(2) = t_basis_Q_eval(r_test_point0, Q%p(2))
+					! top layer + bathymetry
+					traversal%cell_data(traversal%i_cell_data_index)%Q%h = element%cell%data_pers%Q(1)%h
+					traversal%cell_data(traversal%i_cell_data_index)%Q%b = element%cell%data_pers%Q(1)%b
+					traversal%cell_data(traversal%i_cell_data_index)%Q%p(1) = element%cell%data_pers%Q(1)%p(1)
+					traversal%cell_data(traversal%i_cell_data_index)%Q%p(2) = element%cell%data_pers%Q(1)%p(2)
+					! bottom layer
+					traversal%cell_data(traversal%i_cell_data_index)%Q2%h = element%cell%data_pers%Q2(1)%h
+					traversal%cell_data(traversal%i_cell_data_index)%Q2%p(1) = element%cell%data_pers%Q2(1)%p(1)
+					traversal%cell_data(traversal%i_cell_data_index)%Q2%p(2) = element%cell%data_pers%Q2(1)%p(2)
 			end select
 
+                ! set water height of dry cells to zero where appropriate -> top layer
                 if (traversal%cell_data(traversal%i_cell_data_index)%Q%h < traversal%cell_data(traversal%i_cell_data_index)%Q%b + cfg%dry_tolerance ) then
                         traversal%cell_data(traversal%i_cell_data_index)%Q%h = min(0.0_GRID_SR, traversal%cell_data(traversal%i_cell_data_index)%Q%b)
+                end if
+                ! set water height of dry cells to zero where appropriate -> bottom layer
+                if (traversal%cell_data(traversal%i_cell_data_index)%Q2%h < traversal%cell_data(traversal%i_cell_data_index)%Q%b + cfg%dry_tolerance ) then
+                        traversal%cell_data(traversal%i_cell_data_index)%Q2%h = min(0.0_GRID_SR, traversal%cell_data(traversal%i_cell_data_index)%Q%b)
                 end if
                     
 

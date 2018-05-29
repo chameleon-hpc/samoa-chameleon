@@ -1,3 +1,9 @@
+! Sam(oa)Â² - SFCs and Adaptive Meshes for Oceanic And Other Applications
+! Copyright (C) 2010 Oliver Meister, Kaveh Rahnema
+! This program is licensed under the GPL, for details see the file LICENSE
+
+! SWE2L: THIS FILE WAS MODIFIED FOR THE TWO-LAYER CODE
+
 ! Artificial scenario selector for the SWE scenario. 
 ! To add a new scenario:
 ! 1) create a new module according to the template below
@@ -6,7 +12,7 @@
 ! 4) Don't forget to use #if defined(_NEW_MACRO) to avoid conflicts!
 
 #include "Compilation_control.f90"
-
+#if defined _SWE2L
 
 !*******************
 !* MODULE TEMPLATE *
@@ -39,10 +45,13 @@ MODULE SWE2L_Scenario_template
     
     function SWE_Scenario_get_initial_Q(x) result(Q)
         real (kind = c_double), intent(in) :: x(3)
-        type(t_dof_state) :: Q
+        type(t_dof_state) :: Q(2)
         
-        Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
-        Q%h = 0.0_GRID_SR
+        Q(1)%p = [0.0_GRID_SR, 0.0_GRID_SR]
+        Q(1)%h = 0.0_GRID_SR
+        
+        Q(2)%p = [0.0_GRID_SR, 0.0_GRID_SR]
+        Q(2)%h = 0.0_GRID_SR
     end function
 
 END MODULE 
@@ -50,11 +59,16 @@ END MODULE
 
 
 
-!********************
-!* Radial Dam Break *
-!********************
-#if defined (_SWE_SCENARIO_RADIAL_DAM_BREAK)
-MODULE SWE2L_Scenario_radial_dam_break
+!***************
+!* Bowl radial *
+!****************
+
+! Scenario with two layers of water based on the GeoClaw scenario:
+! https://github.com/clawpack/geoclaw/tree/master/examples/multi-layer/bowl-radial
+! https://github.com/clawpack/geoclaw/blob/master/examples/multi-layer/bowl-radial/maketopo.py
+
+!#if defined (_SWE_SCENARIO_RADIAL_BOWL_RADIAL)
+MODULE SWE2L_Scenario_bowl_radial
     use iso_c_binding
     use Samoa_swe2l
     public SWE_Scenario_get_scaling, SWE_Scenario_get_offset, SWE_Scenario_get_bathymetry, SWE_Scenario_get_initial_Q
@@ -63,7 +77,7 @@ MODULE SWE2L_Scenario_radial_dam_break
     function SWE_Scenario_get_scaling() result(scaling)
         real (kind = GRID_SR) :: scaling
         
-        scaling = 100000.0_GRID_SR
+        scaling = 200.0_GRID_SR
     end function
 
     function SWE_Scenario_get_offset() result(offset)
@@ -74,207 +88,56 @@ MODULE SWE2L_Scenario_radial_dam_break
     
     function SWE_Scenario_get_bathymetry(x) result(bathymetry)
         real (kind = c_double), intent(in) :: x(3)
-        real (kind = GRID_SR) :: bathymetry
+        real (kind = GRID_SR) :: bathymetry, zmin
         
-        if (x(1)*x(1) + x(2)*x(2) < (0.25_GRID_SR * SWE_Scenario_get_scaling()) ** 2 ) then
-            bathymetry = -5.0_GRID_SR
-        else 
-            bathymetry = -10.0_GRID_SR
+        zmin = 80.0
+        bathymetry = 1.0e-2 * (x(1)*x(1) + x(2)*x(2)) - zmin
+        
+    end function
+    
+    function SWE_Scenario_get_initial_Q(x) result (Q)
+        real (kind = c_double), intent(in) :: x(3)
+        type(t_dof_state) :: Q(2)
+        real (kind = GRID_SR) :: b, z
+        
+        ! All velocities/momenta are zero
+        Q(1)%p = [0.0_GRID_SR, 0.0_GRID_SR]
+        Q(2)%p = [0.0_GRID_SR, 0.0_GRID_SR]
+        
+        ! Bottom layer surface is -20
+        Q(2)%h = -20.0_GRID_SR
+        
+        ! Top layer surface is given by qinit_func in GeoClaw script maketopo.py (hump.xyz)
+        ! (from https://github.com/clawpack/geoclaw/blob/master/examples/multi-layer/bowl-radial/maketopo.py )
+        z = -(x(1)*x(1) + x(2)*x(2))/100.0_GRID_SR
+        if (z > -10) then
+            z = 4.0_GRID_SR * exp(z)
+        else
+            z = 0.0_GRID_SR
         end if
-    end function
-    
-    function SWE_Scenario_get_initial_Q(x) result(Q)
-        real (kind = c_double), intent(in) :: x(3)
-        type(t_dof_state) :: Q
+        Q(1)%h = z
         
-        Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
-        
-        if (x(1)*x(1) + x(2)*x(2) < (0.15_GRID_SR * SWE_Scenario_get_scaling()) ** 2 ) then
-            Q%h = 10.0_GRID_SR
-        else 
-            Q%h = 0.0_GRID_SR
-        end if
-    end function
-
-END MODULE 
-#endif
-
-
-!********************
-!* Linear Dam Break *
-!********************
-#if defined (_SWE_SCENARIO_LINEAR_DAM_BREAK)
-MODULE SWE2L_Scenario_linear_dam_break
-    use iso_c_binding
-    use Samoa_swe2l
-    public SWE_Scenario_get_scaling, SWE_Scenario_get_offset, SWE_Scenario_get_bathymetry, SWE_Scenario_get_initial_Q
-    contains
-
-    function SWE_Scenario_get_scaling() result(scaling)
-        real (kind = GRID_SR) :: scaling
-        
-        scaling = 100000.0_GRID_SR
-    end function
-
-    function SWE_Scenario_get_offset() result(offset)
-        real (kind = GRID_SR) :: offset(2)
-        
-        offset = SWE_Scenario_get_scaling() * [-0.5_GRID_SR, -0.5_GRID_SR]
-    end function
-    
-    function SWE_Scenario_get_bathymetry(x) result(bathymetry)
-        real (kind = c_double), intent(in) :: x(3)
-        real (kind = GRID_SR) :: bathymetry
-        
-        bathymetry = -10.0_GRID_SR
-    end function
-    
-    function SWE_Scenario_get_initial_Q(x) result(Q)
-        real (kind = c_double), intent(in) :: x(3)
-        type(t_dof_state) :: Q
-        
-        real (kind = GRID_SR), parameter :: hL = 10.0_GRID_SR, hR = 0.0_GRID_SR
-        
-        Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
-        
-        if (x(1) < 0.0_GRID_SR) then
-            Q%h = hL
-        else 
-            Q%h = hR
-        end if
-    end function
-
-END MODULE
-#endif
-
-!********************
-!* Square Dam Break *
-!********************
-#if defined (_SWE_SCENARIO_SQUARE_DAM_BREAK)
-MODULE SWE2L_Scenario_square_dam_break
-    use iso_c_binding
-    use Samoa_swe2l
-    public SWE_Scenario_get_scaling, SWE_Scenario_get_offset, SWE_Scenario_get_bathymetry, SWE_Scenario_get_initial_Q
-    contains
-
-    function SWE_Scenario_get_scaling() result(scaling)
-        real (kind = GRID_SR) :: scaling
-        
-        scaling = 100000.0_GRID_SR
-    end function
-
-    function SWE_Scenario_get_offset() result(offset)
-        real (kind = GRID_SR) :: offset(2)
-        
-        offset = SWE_Scenario_get_scaling() * [-0.5_GRID_SR, -0.5_GRID_SR]
-    end function
-    
-    function SWE_Scenario_get_bathymetry(x) result(bathymetry)
-        real (kind = c_double), intent(in) :: x(3)
-        real (kind = GRID_SR) :: bathymetry
-        
-        bathymetry = -10.0_GRID_SR
-    end function
-    
-    function SWE_Scenario_get_initial_Q(x) result(Q)
-        real (kind = c_double), intent(in) :: x(3)
-        type(t_dof_state) :: Q
-        real (kind = GRID_SR) :: border
-        
-        real (kind = GRID_SR), parameter :: hOut = 0.0_GRID_SR, hIn = 10.0_GRID_SR
-        
-        border = 0.2_GRID_SR * SWE_Scenario_get_scaling() 
-        
-        Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
-        
-        if (x(1) < -border .or. x(1) > border .or. x(2) < -border .or. x(2) > border ) then
-            Q%h = hOut
-        else 
-            Q%h = hIn
-        end if
-    end function
-
-END MODULE 
-#endif
-
-!********************
-!* Oscillating Lake *
-!********************
-! Proposed in: 
-! [1] Gallardo et al., 2007. On a well-balanced high-order finite volume scheme for shallow water equations with topography and dry areas. Journal of Computational Physics, volume 227
-! [2] Meister & Ortleb, 2014. On unconditionally positive implicit time integration for the dg scheme applied to shallow water flows. International Journal for Numerical Methods in Fluids, volume 76, 69-94.
-!
-! Domain: [-2, 2]²
-! Bathymetry: b(x,y) = 0.1 (x² + y²)
-!
-! Analytic solution:
-! H(x,y,t) = max{ 0.0, 0.05 * (2x cos(wt) + 2y sin(wt) + 0.075 - b(x,y) ) }
-! u(x,y,t) = -0.5w sin(wt)
-! v(x,y,t) =  0.5w cos(wt)
-! --> with w = sqrt( 0.2 g )
-
-#if defined (_SWE_SCENARIO_OSCILLATING_LAKE)
-MODULE SWE2L_Scenario_oscillating_lake
-    use iso_c_binding
-    use Samoa_swe2l
-    public SWE_Scenario_get_scaling, SWE_Scenario_get_offset, SWE_Scenario_get_bathymetry, SWE_Scenario_get_initial_Q
-    contains
-
-    function SWE_Scenario_get_scaling() result(scaling)
-        real (kind = GRID_SR) :: scaling
-        
-        scaling = 4.0_GRID_SR
-    end function
-
-    function SWE_Scenario_get_offset() result(offset)
-        real (kind = GRID_SR) :: offset(2)
-        
-        offset = SWE_Scenario_get_scaling() * [-0.5_GRID_SR, -0.5_GRID_SR]
-    end function
-    
-    function SWE_Scenario_get_bathymetry(x) result(bathymetry)
-        real (kind = c_double), intent(in) :: x(3)
-        real (kind = GRID_SR) :: bathymetry
-        
-        bathymetry = 0.1 * (x(1)*x(1) + x(2)*x(2))
-    end function
-    
-    function SWE_Scenario_get_initial_Q(x) result(Q)
-        real (kind = c_double), intent(in) :: x(3)
-        type(t_dof_state) :: Q
-        double precision :: w, t, sinwt, coswt, b
-        
+        ! check for dry layers
         b = SWE_Scenario_get_bathymetry(x)
-        
-        t = 0.0
-        w = sqrt(0.2 * g)
-        sinwt = 0.0 ! t = 0
-        coswt = 1.0 ! t = 0
-        
-        Q%h = max( 0.0_GRID_SR, 0.05 * (2*x(1)*coswt + 2*x(2)*sinwt) + 0.075  - b )
-        
-        Q%p(1) = -0.5*w*sinwt * (Q%h) 
-        Q%p(2) =  0.5*w*coswt * (Q%h)
-
-        
-        Q%h = Q%h + b
-        
+        Q(2)%h = max(Q(2)%h,b)
+        Q(1)%h = max(Q(1)%h,Q(2)%h)       
+       
     end function
 
 END MODULE 
-#endif
+!#endif
 
 
 MODULE SWE2L_Scenario
 
-#   if defined(_SWE_SCENARIO_RADIAL_DAM_BREAK)
-        USE SWE2L_Scenario_radial_dam_break
-#   elif defined(_SWE_SCENARIO_LINEAR_DAM_BREAK)
-        USE SWE2L_Scenario_linear_dam_break
-#   elif defined(_SWE_SCENARIO_SQUARE_DAM_BREAK)
-        USE SWE2L_Scenario_square_dam_break
-#   elif defined(_SWE_SCENARIO_OSCILLATING_LAKE)
-        USE SWE2L_Scenario_oscillating_lake
-#   endif
+    ! Currently there is only one scenario for SWE2L (bowl_radial)
+    ! Thus, the current implementation igores the SCons option swe_scenario and associated #defines.
+    
+    ! If you want to create additional scenarios, try to use the same organization
+    ! as we used for the single-layer SWEs (check src/SWE/SWE_Scenario.f90)
+    
+    USE SWE2L_Scenario_bowl_radial
 
 END MODULE
+
+#endif

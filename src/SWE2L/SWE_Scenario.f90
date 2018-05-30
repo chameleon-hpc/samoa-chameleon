@@ -45,13 +45,13 @@ MODULE SWE2L_Scenario_template
     
     function SWE_Scenario_get_initial_Q(x) result(Q)
         real (kind = c_double), intent(in) :: x(3)
-        type(t_dof_state) :: Q(2)
+        type(t_dof_state) :: Q
         
-        Q(1)%p = [0.0_GRID_SR, 0.0_GRID_SR]
-        Q(1)%h = 0.0_GRID_SR
+        Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
+        Q%h = 0.0_GRID_SR
         
-        Q(2)%p = [0.0_GRID_SR, 0.0_GRID_SR]
-        Q(2)%h = 0.0_GRID_SR
+        Q%p2 = [0.0_GRID_SR, 0.0_GRID_SR]
+        Q%h2 = 0.0_GRID_SR
     end function
 
 END MODULE 
@@ -97,15 +97,15 @@ MODULE SWE2L_Scenario_bowl_radial
     
     function SWE_Scenario_get_initial_Q(x) result (Q)
         real (kind = c_double), intent(in) :: x(3)
-        type(t_dof_state) :: Q(2)
+        type(t_dof_state) :: Q
         real (kind = GRID_SR) :: b, z
         
         ! All velocities/momenta are zero
-        Q(1)%p = [0.0_GRID_SR, 0.0_GRID_SR]
-        Q(2)%p = [0.0_GRID_SR, 0.0_GRID_SR]
+        Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
+        Q%p2 = [0.0_GRID_SR, 0.0_GRID_SR]
         
         ! Bottom layer surface is -20
-        Q(2)%h = -20.0_GRID_SR
+        Q%h2 = -20.0_GRID_SR
         
         ! Top layer surface is given by qinit_func in GeoClaw script maketopo.py (hump.xyz)
         ! (from https://github.com/clawpack/geoclaw/blob/master/examples/multi-layer/bowl-radial/maketopo.py )
@@ -115,12 +115,12 @@ MODULE SWE2L_Scenario_bowl_radial
         else
             z = 0.0_GRID_SR
         end if
-        Q(1)%h = z
+        Q%h = z
         
         ! check for dry layers
         b = SWE_Scenario_get_bathymetry(x)
-        Q(2)%h = max(Q(2)%h,b)
-        Q(1)%h = max(Q(1)%h,Q(2)%h)       
+        Q%h = max(Q%h,Q%h2)
+        Q%h2 = max(Q%h2,b)
        
     end function
 

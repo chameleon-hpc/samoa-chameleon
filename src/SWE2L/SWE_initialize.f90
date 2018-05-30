@@ -358,34 +358,29 @@
 			type(t_element_base), intent(inout)					        :: element
 
 #           if defined(_SWE_PATCH)
-                type(t_state), dimension(2,_SWE_PATCH_ORDER_SQUARE)   :: Q
+                type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE)   :: Q
                 
-                Q(1,:)%b = element%cell%data_pers%B
+                Q(:)%b = element%cell%data_pers%B
 
                 call alpha_volume_op(traversal, section, element, Q)
                 
                 ! top layer
-                element%cell%data_pers%H = Q(1,:)%h
-                element%cell%data_pers%HU = Q(1,:)%p(1)
-                element%cell%data_pers%HV = Q(1,:)%p(2)
+                element%cell%data_pers%H = Q(:)%h
+                element%cell%data_pers%HU = Q(:)%p(1)
+                element%cell%data_pers%HV = Q(:)%p(2)
                 ! bottom layer
-                element%cell%data_pers%H2 = Q(2,:)%h
-                element%cell%data_pers%HU2 = Q(2,:)%p(1)
-                element%cell%data_pers%HV2 = Q(2,:)%p(2)
+                element%cell%data_pers%H2 = Q(:)%h2
+                element%cell%data_pers%HU2 = Q(:)%p2(1)
+                element%cell%data_pers%HV2 = Q(:)%p2(2)
                 
 #           else
-            type(t_state), dimension(2,_SWE_CELL_SIZE)            :: Q
+            type(t_state), dimension(_SWE_CELL_SIZE)            :: Q
 
-			!call gv_Q%read(element, Q)
-			Q(1,:)%b = element%cell%data_pers%Q%b
+			call gv_Q%read(element, Q)
 
 			call alpha_volume_op(traversal, section, element, Q)
 
-			!call gv_Q%write(element, Q)
-			element%cell%data_pers%Q = Q(1,:)
-			element%cell%data_pers%Q2%h = Q(2,1)%h
-			element%cell%data_pers%Q2%p(1) = Q(2,1)%p(1)
-			element%cell%data_pers%Q2%p(2) = Q(2,1)%p(2)
+			call gv_Q%write(element, Q)
 #           endif
 		end subroutine
 
@@ -398,19 +393,19 @@
 			type(t_grid_section), intent(inout)							:: section
 			type(t_element_base), intent(inout)						    :: element
 #           if defined(_SWE_PATCH)
-                type(t_state), dimension(2,_SWE_PATCH_ORDER_SQUARE), intent(out)  :: Q
+                type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE), intent(out)  :: Q
                 real (kind = GRID_SR), dimension(_SWE_PATCH_ORDER_SQUARE)       :: max_wave_speed
                 real (kind = GRID_SR), DIMENSION(2)                             :: r_coords     !< cell coords within patch
                 integer (kind = GRID_SI)                                        :: j, row, col, cell_id
 #           else
-                type(t_state), dimension(2,_SWE_CELL_SIZE), intent(out)   :: Q
+                type(t_state), dimension(_SWE_CELL_SIZE), intent(out)   :: Q
                 real (kind = GRID_SR)               :: max_wave_speed(_SWE_CELL_SIZE)
 #           endif
 
 			real (kind = GRID_SR)               :: x(2)
 			real (kind = GRID_SR)               :: dQ_norm
 			real (kind = GRID_SR), parameter    :: probes(2, 3) = reshape([1.0, 0.0, 0.0, 0.0, 0.0, 1.0], [2, 3])
-			type(t_dof_state)	                :: Q_test(2,3), Q_vec(2)
+			type(t_dof_state)	                :: Q_test(3)
 			integer                             :: i
 
 
@@ -435,9 +430,7 @@
                         r_coords(:) = r_coords(:) + SWE_PATCH_geometry%coords(:,j,cell_id) 
                     end do
                     r_coords = r_coords / 3
-                    Q_vec = get_initial_dof_state_at_position(section, samoa_barycentric_to_world_point(element%transform_data, r_coords))
-                    Q(1,i)%t_dof_state = Q_vec(1)
-                    Q(2,i)%t_dof_state = Q_vec(2)
+                    Q(i)%t_dof_state = get_initial_dof_state_at_position(section, samoa_barycentric_to_world_point(element%transform_data, r_coords))
 
                     col = col + 1
                     if (col == 2*row) then
@@ -461,20 +454,18 @@
                 end where
                 
 #           else	
-                Q_vec = get_initial_dof_state_at_element(section, element)
-                Q(1,:)%t_dof_state = Q_vec(1)
-                Q(2,:)%t_dof_state = Q_vec(2)
+                Q%t_dof_state = get_initial_dof_state_at_element(section, element)
 			
                 ! dry cells (top layer)
-                if (Q(1,1)%h < Q(1,1)%b + cfg%dry_tolerance) then
-                    Q(1,1)%h  = Q(1,1)%b
-                    Q(1,1)%p(:) = [0.0_GRID_SR, 0.0_GRID_SR]
+                if (Q(1)%h < Q(1)%b + cfg%dry_tolerance) then
+                    Q(1)%h  = Q(1)%b
+                    Q(1)%p(:) = [0.0_GRID_SR, 0.0_GRID_SR]
                 end if
                 
                 ! dry cells (bottom layer)
-                if (Q(2,1)%h < Q(1,1)%b + cfg%dry_tolerance) then
-                    Q(2,1)%h  = Q(1,1)%b
-                    Q(2,1)%p(:) = [0.0_GRID_SR, 0.0_GRID_SR]
+                if (Q(1)%h2 < Q(1)%b + cfg%dry_tolerance) then
+                    Q(1)%h2  = Q(1)%b
+                    Q(1)%p2(:) = [0.0_GRID_SR, 0.0_GRID_SR]
                 end if
             
 #           endif
@@ -506,7 +497,7 @@
 
                     do i = 1, 3
                         x = samoa_barycentric_to_world_point(element%transform_data, probes(:, i))
-                        Q_test(:,i) = get_initial_dof_state_at_position(section, x)
+                        Q_test(i) = get_initial_dof_state_at_position(section, x)
                     end do
 
                     if (maxval(Q_test%h) > minval(Q_test%h)) then
@@ -518,8 +509,8 @@
 
 			!estimate initial time step
 
-			where (Q(1,:)%h - Q(1,:)%b > 0.0_GRID_SR)
-				max_wave_speed = sqrt(g * (Q(1,:)%h - Q(1,:)%b)) + sqrt((Q(1,:)%p(1) * Q(1,:)%p(1) + Q(1,:)%p(2) * Q(1,:)%p(2)) / ((Q(1,:)%h - Q(1,:)%b) * (Q(1,:)%h - Q(1,:)%b)))
+			where (Q%h - Q%b > 0.0_GRID_SR)
+                                max_wave_speed = sqrt(g * (Q%h - Q%b)) + sqrt((Q%p(1) * Q%p(1) + Q%p(2) * Q%p(2)) / ((Q%h - Q%b) * (Q%h - Q%b)))
 			elsewhere
 				max_wave_speed = 0.0_GRID_SR
 			end where
@@ -545,7 +536,7 @@
 		function get_initial_dof_state_at_element(section, element) result(Q)
 			type(t_grid_section), intent(inout)		:: section
 			type(t_element_base), intent(inout)     :: element
-			type(t_dof_state)						:: Q(2)
+			type(t_dof_state)						:: Q
 
 			real (kind = GRID_SR)		            :: x(2)
 
@@ -556,7 +547,7 @@
 		function get_initial_dof_state_at_position(section, x) result(Q)
 			type(t_grid_section), intent(inout)					:: section
 			real (kind = GRID_SR), intent(in)		            :: x(:)            !< position in world coordinates
-			type(t_dof_state)							        :: Q(2)
+			type(t_dof_state)							        :: Q
 
             real (kind = c_double)                              :: xs(3)
 

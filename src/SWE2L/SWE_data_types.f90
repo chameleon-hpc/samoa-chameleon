@@ -42,8 +42,8 @@
 
 		!> state vector of DoFs, either as absoulte values or updates
 		type t_dof_state
-			real (kind = GRID_SR)													:: h						!< water change
-			real (kind = GRID_SR), dimension(2)										:: p						!< momentum change
+			real (kind = GRID_SR)			:: h, h2	!< water heights (top and bottom layer)
+			real (kind = GRID_SR), dimension(2)	:: p, p2	!< momentum (top and bottom layer)
 
             contains
 
@@ -58,7 +58,7 @@
 
 		!> cell state vector including bathymetry
 		type, extends(t_dof_state) :: t_state
-			real (kind = GRID_SR)													:: b						!< bathymetry
+			real (kind = GRID_SR)			:: b !< bathymetry
 
             contains
 
@@ -92,8 +92,7 @@
                 real (kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER_SQUARE):: H, HU, HV, B !< unknowns + bathymetry in triangular patch
                 real (kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER_SQUARE):: H2, HU2, HV2 !< extra unknowns for second layer
 #           endif
-			type(t_state), DIMENSION(_SWE_CELL_SIZE)									:: Q						!< cell status vector
-			type(t_dof_state), DIMENSION(_SWE_CELL_SIZE)									:: Q2	!< vector of second layer unknowns
+			type(t_state), DIMENSION(_SWE_CELL_SIZE)									:: Q	!< cell status vector
 		END type num_cell_data_pers
 
 		!> Cell representation on an edge, this would typically be everything required from a cell to compute the flux function on an edge
@@ -102,8 +101,7 @@
                 real (kind = GRID_SR), dimension (_SWE_PATCH_ORDER) :: H, HU, HV, B !< edge stores ghost cells for communication of ghost cells
                 real (kind = GRID_SR), dimension (_SWE_PATCH_ORDER) :: H2, HU2, HV2 !< extra unknowns for second layer
 #           endif
-			type(t_state), DIMENSION(_SWE_EDGE_SIZE)									:: Q						!< cell representation
-			type(t_dof_state), DIMENSION(_SWE_EDGE_SIZE)									:: Q2	!< vector of second layer unknowns
+			type(t_state), DIMENSION(_SWE_EDGE_SIZE)     :: Q    !< cell representation
 		end type
 
 		!> Cell update, this would typically be a flux function
@@ -112,8 +110,7 @@
                 real (kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER) :: H, HU, HV, B !< values of ghost cells
                 real (kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER) :: H2, HU2, HV2 !< extra unknowns for second layer
 #           endif
-			type(t_update), DIMENSION(_SWE_EDGE_SIZE)									:: flux						!< cell update
-			type(t_dof_state), DIMENSION(_SWE_EDGE_SIZE)									:: flux2	!< vector of second layer unknowns
+			type(t_update), DIMENSION(_SWE_EDGE_SIZE)			:: flux						!< cell update
 		end type
 
 		!*************************
@@ -154,7 +151,7 @@
 			type (t_state), intent(in)		:: Q2
 			type (t_state)					:: Q_out
 
-			Q_out = t_state(Q1%h + Q2%h, Q1%p + Q2%p, Q1%b + Q2%b)
+			Q_out = t_state(Q1%h + Q2%h, Q1%h2 + Q2%h2, Q1%p + Q2%p, Q1%p2 + Q2%p2, Q1%b + Q2%b)
 		end function
 
 		!adds two update vectors
@@ -163,7 +160,7 @@
 			type (t_update), intent(in)		    :: f2
 			type (t_update)					    :: f_out
 
-			f_out = t_update(f1%h + f2%h, f1%p + f2%p, max_wave_speed = max(f1%max_wave_speed, f2%max_wave_speed))
+			f_out = t_update(f1%h + f2%h, f1%h2 + f2%h2, f1%p + f2%p, f1%p2 + f2%p2, max_wave_speed = max(f1%max_wave_speed, f2%max_wave_speed))
 		end function
 
 		!adds two dof state vectors
@@ -172,7 +169,7 @@
 			type (t_dof_state), intent(in)		:: Q2
 			type (t_dof_state)					:: Q_out
 
-			Q_out = t_dof_state(Q1%h + Q2%h, Q1%p + Q2%p)
+			Q_out = t_dof_state(Q1%h + Q2%h, Q1%h2 + Q2%h2, Q1%p + Q2%p, Q1%p2 + Q2%p2)
 		end function
 
 		!inverts a dof state vector
@@ -180,7 +177,7 @@
 			class (t_dof_state), intent(in)		:: f
 			type (t_dof_state)					:: f_out
 
-			f_out = t_dof_state(-f%h, -f%p)
+			f_out = t_dof_state(-f%h, -f%h2, -f%p, -f%p2)
 		end function
 
 		!multiplies a scalar with a dof state vector
@@ -189,7 +186,7 @@
 			real (kind = GRID_SR), intent(in)		:: s
 			type (t_dof_state)					:: f_out
 
-			f_out = t_dof_state(s * f%h, s * f%p)
+			f_out = t_dof_state(s * f%h, s * f%h2, s * f%p, s * f%p2)
 		end function
 	END MODULE SWE2L_data_types
 #endif

@@ -90,8 +90,8 @@ MODULE SWE2L_Scenario_bowl_radial
         real (kind = c_double), intent(in) :: x(3)
         real (kind = GRID_SR) :: bathymetry, zmin
         
-        zmin = 80.0
-        bathymetry = 1.0e-2 * (x(1)*x(1) + x(2)*x(2)) - zmin
+        zmin = 80.0_GRID_SR
+        bathymetry = 1.0e-2_GRID_SR * (x(1)*x(1) + x(2)*x(2)) - zmin
         
     end function
     
@@ -110,7 +110,7 @@ MODULE SWE2L_Scenario_bowl_radial
         ! Top layer surface is given by qinit_func in GeoClaw script maketopo.py (hump.xyz)
         ! (from https://github.com/clawpack/geoclaw/blob/master/examples/multi-layer/bowl-radial/maketopo.py )
         z = -(x(1)*x(1) + x(2)*x(2))/100.0_GRID_SR
-        if (z > -10) then
+        if (z > -10_GRID_SR) then
             z = 4.0_GRID_SR * exp(z)
         else
             z = 0.0_GRID_SR

@@ -192,7 +192,7 @@
                     end do
                 end associate
                 
-                associate(H => element%cell%data_pers%H, HU => element%cell%data_pers%HU, HV => element%cell%data_pers%HV, B => element%cell%data_pers%B)
+                associate(data => element%cell%data_pers)
                     ! copy boundary values to respective edges
                     ! left leg cells go to edge 1
                     ! hypotenuse cells go to edge 2
@@ -200,24 +200,33 @@
                     select case (edge_type)
                     case (1) !cells with id i*i+1 (left leg)
                         do i=0, _SWE_PATCH_ORDER - 1
-                            rep%H(i+1) = H(i*i + 1)
-                            rep%HU(i+1) = HU(i*i + 1)
-                            rep%HV(i+1) = HV(i*i + 1)
-                            rep%B(i+1) = B(i*i + 1)
+                            rep%H(i+1) = data%H(i*i + 1)
+                            rep%HU(i+1) = data%HU(i*i + 1)
+                            rep%HV(i+1) = data%HV(i*i + 1)
+                            rep%B(i+1) = data%B(i*i + 1)
+                            rep%H2(i+1) = data%H2(i*i + 1)
+                            rep%HU2(i+1) = data%HU2(i*i + 1)
+                            rep%HV2(i+1) = data%HV2(i*i + 1)
                         end do
                     case (2) ! hypotenuse
                         do i=1, _SWE_PATCH_ORDER
-                            rep%H(i) = H((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*i - 1)
-                            rep%HU(i) = HU((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*i - 1)
-                            rep%HV(i) = HV((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*i - 1)
-                            rep%B(i) = B((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*i - 1)
+                            rep%H(i) = data%H((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*i - 1)
+                            rep%HU(i) = data%HU((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*i - 1)
+                            rep%HV(i) = data%HV((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*i - 1)
+                            rep%B(i) = data%B((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*i - 1)
+                            rep%H2(i) = data%H2((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*i - 1)
+                            rep%HU2(i) = data%HU2((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*i - 1)
+                            rep%HV2(i) = data%HV2((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*i - 1)
                         end do
                     case (3) !cells with id i*i (right leg)
                         do i=1, _SWE_PATCH_ORDER
-                            rep%H(_SWE_PATCH_ORDER + 1 - i) = H(i*i)
-                            rep%HU(_SWE_PATCH_ORDER + 1 - i) = HU(i*i)
-                            rep%HV(_SWE_PATCH_ORDER + 1 - i) = HV(i*i)
-                            rep%B(_SWE_PATCH_ORDER + 1 - i) = B(i*i)
+                            rep%H(_SWE_PATCH_ORDER + 1 - i) = data%H(i*i)
+                            rep%HU(_SWE_PATCH_ORDER + 1 - i) = data%HU(i*i)
+                            rep%HV(_SWE_PATCH_ORDER + 1 - i) = data%HV(i*i)
+                            rep%B(_SWE_PATCH_ORDER + 1 - i) = data%B(i*i)
+                            rep%H2(_SWE_PATCH_ORDER + 1 - i) = data%H2(i*i)
+                            rep%HU2(_SWE_PATCH_ORDER + 1 - i) = data%HU2(i*i)
+                            rep%HV2(_SWE_PATCH_ORDER + 1 - i) = data%HV2(i*i)
                         end do
                     end select
                 end associate
@@ -270,14 +279,20 @@
                     update1%HU(i) = rep2%HU(_SWE_PATCH_ORDER + 1 - i)
                     update1%HV(i) = rep2%HV(_SWE_PATCH_ORDER + 1 - i)
                     update1%B(i) = rep2%B(_SWE_PATCH_ORDER + 1 - i)
-                    
+                    update1%H2(i) = rep2%H2(_SWE_PATCH_ORDER + 1 - i)
+                    update1%HU2(i) = rep2%HU2(_SWE_PATCH_ORDER + 1 - i)
+                    update1%HV2(i) = rep2%HV2(_SWE_PATCH_ORDER + 1 - i)
                     
                     update2%H(i) = rep1%H(_SWE_PATCH_ORDER + 1 - i)
                     update2%HU(i) = rep1%HU(_SWE_PATCH_ORDER + 1 - i)
                     update2%HV(i) = rep1%HV(_SWE_PATCH_ORDER + 1 - i)
                     update2%B(i) = rep1%B(_SWE_PATCH_ORDER + 1 - i)
+                    update2%H2(i) = rep1%H2(_SWE_PATCH_ORDER + 1 - i)
+                    update2%HU2(i) = rep1%HU2(_SWE_PATCH_ORDER + 1 - i)
+                    update2%HV2(i) = rep1%HV2(_SWE_PATCH_ORDER + 1 - i)
                 end do
 #           else
+                ! TODO
 				call compute_geoclaw_flux(edge%transform_data%normal, rep1%Q(1), rep2%Q(1), update1%flux(1), update2%flux(1))
 #	endif
 
@@ -327,7 +342,11 @@
                 update%HU = rep%HU
                 update%HV = rep%HV
                 update%B = rep%B
+                update%H2 = rep%H2
+                update%HU2 = rep%HU2
+                update%HV2 = rep%HV2
 #           else
+                ! TODO
 				call compute_geoclaw_flux(edge%transform_data%normal, rep%Q(1), bnd_rep, update%flux(1), bnd_flux)
 #			endif
 		end subroutine
@@ -342,9 +361,13 @@
                 type(num_cell_update)                                           :: tmp !> ghost cells in correct order 
                 real(kind = GRID_SR)                                            :: volume, edge_lengths(3), maxWaveSpeed, maxWaveSpeedLocal, dQ_max_norm, dt_div_volume
                 real(kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER_SQUARE)        :: dQ_H, dQ_HU, dQ_HV !> deltaQ, used to compute cell updates
+                real(kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER_SQUARE)        :: dQ_H2, dQ_HU2, dQ_HV2
                 real(kind = GRID_SR), DIMENSION(_SWE_PATCH_NUM_EDGES)           :: hL, huL, hvL, bL
                 real(kind = GRID_SR), DIMENSION(_SWE_PATCH_NUM_EDGES)           :: hR, huR, hvR, bR
+                real(kind = GRID_SR), DIMENSION(_SWE_PATCH_NUM_EDGES)           :: hL2, huL2, hvL2
+                real(kind = GRID_SR), DIMENSION(_SWE_PATCH_NUM_EDGES)           :: hR2, huR2, hvR2
                 real(kind = GRID_SR), DIMENSION(_SWE_PATCH_NUM_EDGES)           :: upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR
+                real(kind = GRID_SR), DIMENSION(_SWE_PATCH_NUM_EDGES)           :: upd_hL2, upd_huL2, upd_hvL2, upd_hR2, upd_huR2, upd_hvR2
                 real(kind = GRID_SR), dimension(2,3)                            :: normals ! 1st index = x or y, 2nd index = edge orientation in patch (1, 2 or 3, see SWE_PATCH)
                 real(kind = GRID_SR)                                            :: normal_x, normal_y
                 
@@ -356,12 +379,18 @@
                 !DIR$ ASSUME_ALIGNED hvR: 64
                 !DIR$ ASSUME_ALIGNED bL: 64
                 !DIR$ ASSUME_ALIGNED bR: 64
-                !DIR$ ASSUME_ALIGNED upd_hL: 64
-                !DIR$ ASSUME_ALIGNED upd_hR: 64
-                !DIR$ ASSUME_ALIGNED upd_huL: 64
-                !DIR$ ASSUME_ALIGNED upd_huR: 64
-                !DIR$ ASSUME_ALIGNED upd_hvL: 64
-                !DIR$ ASSUME_ALIGNED upd_hvR: 64
+                !DIR$ ASSUME_ALIGNED hL2: 64
+                !DIR$ ASSUME_ALIGNED hR2: 64
+                !DIR$ ASSUME_ALIGNED huL2: 64
+                !DIR$ ASSUME_ALIGNED huR2: 64
+                !DIR$ ASSUME_ALIGNED hvL2: 64
+                !DIR$ ASSUME_ALIGNED hvR2: 64
+                !DIR$ ASSUME_ALIGNED upd_hL2: 64
+                !DIR$ ASSUME_ALIGNED upd_hR2: 64
+                !DIR$ ASSUME_ALIGNED upd_huL2: 64
+                !DIR$ ASSUME_ALIGNED upd_huR2: 64
+                !DIR$ ASSUME_ALIGNED upd_hvL2: 64
+                !DIR$ ASSUME_ALIGNED upd_hvR2: 64
                 
                 ! copy/compute normal vectors
                 ! normal for type 2 edges is equal to the 2nd edge's normal
@@ -387,6 +416,9 @@
                 dQ_H = 0.0_GRID_SR
                 dQ_HU = 0.0_GRID_SR
                 dQ_HV = 0.0_GRID_SR
+                dQ_H2 = 0.0_GRID_SR
+                dQ_HU2 = 0.0_GRID_SR
+                dQ_HV2 = 0.0_GRID_SR
                 maxWaveSpeed = 0.0_GRID_SR
                 upd_hL = 0.0_GRID_SR
                 upd_huL = 0.0_GRID_SR
@@ -394,6 +426,13 @@
                 upd_hR = 0.0_GRID_SR
                 upd_huR = 0.0_GRID_SR
                 upd_hvR = 0.0_GRID_SR
+                upd_hL2 = 0.0_GRID_SR
+                upd_huL2 = 0.0_GRID_SR
+                upd_hvL2 = 0.0_GRID_SR
+                upd_hR2 = 0.0_GRID_SR
+                upd_huR2 = 0.0_GRID_SR
+                upd_hvR2 = 0.0_GRID_SR
+                
                 volume = cfg%scaling * cfg%scaling * element%cell%geometry%get_volume() / (_SWE_PATCH_ORDER_SQUARE)
                 dt_div_volume = section%r_dt / volume
                 edge_lengths = cfg%scaling * element%cell%geometry%get_edge_sizes() / _SWE_PATCH_ORDER
@@ -412,24 +451,36 @@
                             huL(i) = data%HU(geom%edges_a(i))
                             hvL(i) = data%HV(geom%edges_a(i))
                             bL(i) = data%B(geom%edges_a(i))
+                            hL2(i) = data%H2(geom%edges_a(i))
+                            huL2(i) = data%HU2(geom%edges_a(i))
+                            hvL2(i) = data%HV2(geom%edges_a(i))
                         else if (geom%edges_a(i) <= _SWE_PATCH_ORDER_SQUARE + _SWE_PATCH_ORDER) then
                             ! data for ghost cells come from edge (update) date
                             hL(i) = update1%H(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE)
                             huL(i) = update1%HU(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE)
                             hvL(i) = update1%HV(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE)
                             bL(i) = update1%B(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE)
+                            hL2(i) = update1%H2(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE)
+                            huL2(i) = update1%HU2(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE)
+                            hvL2(i) = update1%HV2(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE)
                         else if (geom%edges_a(i) <= _SWE_PATCH_ORDER_SQUARE + 2*_SWE_PATCH_ORDER) then
                             ! data for ghost cells come from edge (update) date
                             hL(i) = update2%H(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
                             huL(i) = update2%HU(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
                             hvL(i) = update2%HV(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
                             bL(i) = update2%B(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
+                            hL2(i) = update2%H2(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
+                            huL2(i) = update2%HU2(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
+                            hvL2(i) = update2%HV2(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
                         else 
                             ! data for ghost cells come from edge (update) date
                             hL(i) = update3%H(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
                             huL(i) = update3%HU(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
                             hvL(i) = update3%HV(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
                             bL(i) = update3%B(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
+                            hL2(i) = update3%H2(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
+                            huL2(i) = update3%HU2(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
+                            hvL2(i) = update3%HV2(geom%edges_a(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
                         end if
                         
                         ! cells right to the edges
@@ -439,24 +490,36 @@
                             huR(i) = data%HU(geom%edges_b(i))
                             hvR(i) = data%HV(geom%edges_b(i))
                             bR(i) = data%B(geom%edges_b(i))
+                            hR2(i) = data%H2(geom%edges_b(i))
+                            huR2(i) = data%HU2(geom%edges_b(i))
+                            hvR2(i) = data%HV2(geom%edges_b(i))
                         else if (geom%edges_b(i) <= _SWE_PATCH_ORDER_SQUARE + _SWE_PATCH_ORDER) then
                             ! data for ghost cells come from edge (update) date
                             hR(i) = update1%H(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE)
                             huR(i) = update1%HU(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE)
                             hvR(i) = update1%HV(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE)
                             bR(i) = update1%B(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE)
+                            hR2(i) = update1%H2(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE)
+                            huR2(i) = update1%HU2(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE)
+                            hvR2(i) = update1%HV2(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE)
                         else if (geom%edges_b(i) <= _SWE_PATCH_ORDER_SQUARE + 2*_SWE_PATCH_ORDER) then
                             ! data for ghost cells come from edge (update) date
                             hR(i) = update2%H(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
                             huR(i) = update2%HU(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
                             hvR(i) = update2%HV(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
                             bR(i) = update2%B(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
+                            hR2(i) = update2%H2(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
+                            huR2(i) = update2%HU2(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
+                            hvR2(i) = update2%HV2(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
                         else 
                             ! data for ghost cells come from edge (update) date
                             hR(i) = update3%H(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
                             huR(i) = update3%HU(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
                             hvR(i) = update3%HV(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
                             bR(i) = update3%B(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
+                            hR2(i) = update3%H2(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
+                            huR2(i) = update3%HU2(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
+                            hvR2(i) = update3%HV2(geom%edges_b(i) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
                         end if
                     end do
 
@@ -478,21 +541,32 @@
                             
                             !DIR$ FORCEINLINE
 #                       endif
-                        call compute_geoclaw_flux_in_patch(normal_x, normal_y, hL(i), hR(i), huL(i), huR(i), hvL(i), hvR(i), bL(i), bR(i), upd_hL(i), upd_hR(i), upd_huL(i), upd_huR(i), upd_hvL(i), upd_hvR(i), maxWaveSpeedLocal)
+                        call compute_geoclaw_flux_in_patch(normal_x, normal_y, &
+                                                            hL(i), hR(i), huL(i), huR(i), hvL(i), hvR(i), bL(i), bR(i), &
+                                                            hL2(i), hR2(i), huL2(i), huR2(i), hvL2(i), hvR2(i), &
+                                                            upd_hL(i), upd_hR(i), upd_huL(i), upd_huR(i), upd_hvL(i), upd_hvR(i), &
+                                                            upd_hL2(i), upd_hR2(i), upd_huL2(i), upd_huR2(i), upd_hvL2(i), upd_hvR2(i), &
+                                                            maxWaveSpeedLocal)
                         maxWaveSpeed = max(maxWaveSpeed, maxWaveSpeedLocal)
                     end do
-
+                    
                     ! compute dQ
                     do i=1, _SWE_PATCH_NUM_EDGES
                         if (geom%edges_a(i) <= _SWE_PATCH_ORDER_SQUARE) then !ignore ghost cells
                             dQ_H(geom%edges_a(i)) = dQ_H(geom%edges_a(i)) + upd_hL(i) * edge_lengths(geom%edges_orientation(i))
                             dQ_HU(geom%edges_a(i)) = dQ_HU(geom%edges_a(i)) + upd_huL(i) * edge_lengths(geom%edges_orientation(i))
                             dQ_HV(geom%edges_a(i)) = dQ_HV(geom%edges_a(i)) + upd_hvL(i) * edge_lengths(geom%edges_orientation(i))
+                            dQ_H2(geom%edges_a(i)) = dQ_H2(geom%edges_a(i)) + upd_hL2(i) * edge_lengths(geom%edges_orientation(i))
+                            dQ_HU2(geom%edges_a(i)) = dQ_HU2(geom%edges_a(i)) + upd_huL2(i) * edge_lengths(geom%edges_orientation(i))
+                            dQ_HV2(geom%edges_a(i)) = dQ_HV2(geom%edges_a(i)) + upd_hvL2(i) * edge_lengths(geom%edges_orientation(i))
                         end if
                         if (geom%edges_b(i) <= _SWE_PATCH_ORDER_SQUARE) then
                             dQ_H(geom%edges_b(i)) = dQ_H(geom%edges_b(i)) + upd_hR(i) * edge_lengths(geom%edges_orientation(i))
                             dQ_HU(geom%edges_b(i)) = dQ_HU(geom%edges_b(i)) + upd_huR(i) * edge_lengths(geom%edges_orientation(i))
                             dQ_HV(geom%edges_b(i)) = dQ_HV(geom%edges_b(i)) + upd_hvR(i) * edge_lengths(geom%edges_orientation(i))
+                            dQ_H2(geom%edges_b(i)) = dQ_H2(geom%edges_b(i)) + upd_hR2(i) * edge_lengths(geom%edges_orientation(i))
+                            dQ_HU2(geom%edges_b(i)) = dQ_HU2(geom%edges_b(i)) + upd_huR2(i) * edge_lengths(geom%edges_orientation(i))
+                            dQ_HV2(geom%edges_b(i)) = dQ_HV2(geom%edges_b(i)) + upd_hvR2(i) * edge_lengths(geom%edges_orientation(i))
                         end if
                     end do
                     
@@ -510,25 +584,42 @@
                     dQ_H = dQ_H * (-dt_div_volume)
                     dQ_HU = dQ_HU * (-dt_div_volume)
                     dQ_HV = dQ_HV * (-dt_div_volume)
+                    dQ_H2 = dQ_H2 * (-dt_div_volume)
+                    dQ_HU2 = dQ_HU2 * (-dt_div_volume)
+                    dQ_HV2 = dQ_HV2 * (-dt_div_volume)
                     
                     ! if land is flooded, init water height to dry tolerance and
                     ! velocity to zero
-                    where (data%H < data%B + cfg%dry_tolerance .and. dQ_H > 0.0_GRID_SR)
-                        data%H = data%B + cfg%dry_tolerance
+!                     where (data%H < data%H2 + cfg%dry_tolerance .and. dQ_H > 0.0_GRID_SR)
+!                         data%H = data%H2 + cfg%dry_tolerance
+!                         data%HU = 0.0_GRID_SR
+!                         data%HV = 0.0_GRID_SR
+!                     end where
+!                     where (data%H2 < data%B + cfg%dry_tolerance .and. dQ_H2 > 0.0_GRID_SR)
+!                         data%H2 = data%B + cfg%dry_tolerance
+!                         data%HU2 = 0.0_GRID_SR
+!                         data%HV2 = 0.0_GRID_SR
+!                     end where
+! 
+
+                    ! update unknowns
+                    data%H = data%H + dQ_H + dQ_H2
+                    data%HU = data%HU + dQ_HU
+                    data%HV = data%HV + dQ_HV
+                    data%H2 = data%H2 + dQ_H2
+                    data%HU2 = data%HU2 + dQ_HU2
+                    data%HV2 = data%HV2 + dQ_HV2
+                    
+                    !if the water level falls below the dry tolerance, set water level to 0 and velocity to 0
+                    where (data%H < data%H2 + cfg%dry_tolerance) 
+                        data%H = data%H2
                         data%HU = 0.0_GRID_SR
                         data%HV = 0.0_GRID_SR
                     end where
-
-                    ! update unknowns
-                    data%H = data%H + dQ_H
-                    data%HU = data%HU + dQ_HU
-                    data%HV = data%HV + dQ_HV
-                    
-                    ! if the water level falls below the dry tolerance, set water level to 0 and velocity to 0
-                    where (data%H < data%B + cfg%dry_tolerance) 
-                        data%H = data%B
-                        data%HU = 0.0_GRID_SR
-                        data%HV = 0.0_GRID_SR
+                    where (data%H2 < data%B + cfg%dry_tolerance) 
+                        data%H2 = data%B
+                        data%HU2 = 0.0_GRID_SR
+                        data%HV2 = 0.0_GRID_SR
                     end where
                     
                     ! compute next dt
@@ -539,6 +630,8 @@
 			!local variables
 
 			type(t_state)   :: dQ(_SWE_CELL_SIZE)
+			
+            ! TODO
 
 			call volume_op(element%cell%geometry, traversal%i_refinements_issued, element%cell%geometry%i_depth, &
                 element%cell%geometry%refinement, section%r_dt_new, dQ, [update1%flux, update2%flux, update3%flux], section%r_dt)
@@ -767,28 +860,47 @@
 
 #       if defined(_SWE_PATCH)
             ! version for SWE patches (vectorizable)
-            subroutine compute_geoclaw_flux_in_patch(normal_x, normal_y, hL, hR, huL, huR, hvL, hvR, bL, bR, upd_hL, upd_hR, upd_huL, upd_huR, upd_hvL, upd_hvR, maxWaveSpeed)
+            subroutine compute_geoclaw_flux_in_patch(normal_x, normal_y, &
+                                                        hL, hR, huL, huR, hvL, hvR, bL, bR, &
+                                                        hL2, hR2, huL2, huR2, hvL2, hvR2, &
+                                                        upd_hL, upd_hR, upd_huL, upd_huR, upd_hvL, upd_hvR, &
+                                                        upd_hL2, upd_hR2, upd_huL2, upd_huR2, upd_hvL2, upd_hvR2, &
+                                                        maxWaveSpeed)
 #               if defined(_SWE_PATCH_VEC_SIMD)
                     !$OMP DECLARE SIMD(compute_geoclaw_flux_in_patch)
 #               endif
                 real(kind = GRID_SR), intent(in)    :: normal_x, normal_y
                 real(kind = GRID_SR), intent(inout)    :: hL, hR, huL, huR, hvL, hvR, bL, bR
+                real(kind = GRID_SR), intent(inout)    :: hL2, hR2, huL2, huR2, hvL2, hvR2
                 real(kind = GRID_SR), intent(out)   :: upd_hL, upd_hR, upd_huL, upd_huR, upd_hvL, upd_hvR
+                real(kind = GRID_SR), intent(out)   :: upd_hL2, upd_hR2, upd_huL2, upd_huR2, upd_hvL2, upd_hvR2
                 real(kind = GRID_SR), intent(out)   :: maxWaveSpeed
 
                 real(kind = GRID_SR)                :: transform_matrix(2, 2)
                 real(kind = GRID_SR)                :: pL, pR ! pressure forcing, not considered here
-                real(kind = GRID_SR)                :: waveSpeeds(3) ! output of Riemann solver: sw
-                real(kind = GRID_SR)                :: fWaves(3,3) ! output of Riemann solver: fw
-                integer                             :: equationNumber, waveNumber
+                real(kind = GRID_SR)                :: waveSpeeds(6) ! output of Riemann solver: sw
+                real(kind = GRID_SR)                :: fWaves(6,6) ! output of Riemann solver: fw
+                integer                             :: equationNumber, waveNumber, i, j
+                
+                ! Used to call the Riemann solver:
+                real(kind=8), dimension(2) :: h_l, h_r, hu_l, hu_r, hv_l, hv_r
+                real(kind=8):: b_l, b_r
+                real(kind=8), dimension(2) :: h_hat_l, h_hat_r
 
                 transform_matrix(1, :) = [ normal_x, normal_y ]
                 transform_matrix(2, :) = [-normal_y, normal_x]
 
                 call apply_transformations_before(transform_matrix, huL, hvL)
                 call apply_transformations_before(transform_matrix, huR, hvR)
-                hL = hL - bL
-                hR = hR - bR
+                call apply_transformations_before(transform_matrix, huL2, hvL2)
+                call apply_transformations_before(transform_matrix, huR2, hvR2)
+                
+                ! in this implementation we consider h1 and h2 the water elevation relative to some mean level,
+                ! but the Riemann solvers considers that these variables represent the actual height of the water column:
+                hL = hL - hL2
+                hL2 = hL2 - bL
+                hR = hR - hR2
+                hR2 = hR2 - bR
                 
                 ! pressure forcing is not considered in these solvers
                 pL = 0.0_GRID_SR
@@ -798,29 +910,41 @@
                 waveSpeeds(:) = 0.0_GRID_SR
                 fWaves(:,:) = 0.0_GRID_SR
                 
+                ! copy data to input vars for Riemann solver
+                h_l  = [hL,hL2]
+                hu_l = [huL,huL2]
+                hv_l = [hvL,hvL2]
+                h_r  = [hR,hR2]
+                hu_r = [huR,huR2]
+                hv_r = [hvR,hvR2]
+                b_l = bL
+                b_r = bR
+                ! These are not considered in this sam(oa)^2 implementation:
+                h_hat_l = 0.0_GRID_SR
+                h_hat_r = 0.0_GRID_SR
+
 #               if defined(_SWE_PATCH_VEC_INLINE)
                     !DIR$ FORCEINLINE
 #               endif
-                call solve_riemann_problem(hL, hR, huL, huR, hvL, hvR, bL, bR, pL, pR, real(cfg%dry_tolerance, GRID_SR), g, waveSpeeds, fWaves)
-                
+                call solve_riemann_problem_SWE2L(6,6,2,3, h_l,h_r, hu_l,hu_r, hv_l,hv_r, b_l,b_r, h_hat_l,h_hat_r, &
+                                                    fWaves, waveSpeeds, [real(cfg%dry_tolerance,kind=8),real(cfg%dry_tolerance,kind=8)], g) 
+
                 ! use Riemann solution to compute net updates
-                do  waveNumber=1,3
-                    if (waveSpeeds(waveNumber).lt.0.d0) then
+                do  waveNumber=1,6
+                    if (waveSpeeds(waveNumber) <= 0.d0) then
                         upd_hL = upd_hL + fWaves(1,waveNumber)
                         upd_huL = upd_huL + fWaves(2,waveNumber)
                         upd_hvL = upd_hvL + fWaves(3,waveNumber)
-                    else if (waveSpeeds(waveNumber).gt.0.d0) then
+                        upd_hL2 = upd_hL2 + fWaves(4,waveNumber)
+                        upd_huL2 = upd_huL2 + fWaves(5,waveNumber)
+                        upd_hvL2 = upd_hvL2 + fWaves(6,waveNumber)
+                    else !if (waveSpeeds(waveNumber) > 0.d0) then
                         upd_hR = upd_hR + fWaves(1,waveNumber)
                         upd_huR = upd_huR + fWaves(2,waveNumber)
                         upd_hvR = upd_hvR + fWaves(3,waveNumber)                    
-                    else
-                        upd_hL = upd_hL + 0.5d0 * fWaves(1,waveNumber)
-                        upd_huL = upd_huL + 0.5d0 * fWaves(2,waveNumber)
-                        upd_hvL = upd_hvL + 0.5d0 * fWaves(3,waveNumber)
-                        
-                        upd_hR = upd_hR + 0.5d0 * fWaves(1,waveNumber)
-                        upd_huR = upd_huR + 0.5d0 * fWaves(2,waveNumber)
-                        upd_hvR = upd_hvR + 0.5d0 * fWaves(3,waveNumber)        
+                        upd_hR2 = upd_hR2 + fWaves(4,waveNumber)
+                        upd_huR2 = upd_huR2 + fWaves(5,waveNumber)
+                        upd_hvR2 = upd_hvR2 + fWaves(6,waveNumber)  
                     endif
                 enddo
 
@@ -831,6 +955,8 @@
                 ! inverse transformations
                 call apply_transformations_after(transform_matrix, upd_huL, upd_hvL)
                 call apply_transformations_after(transform_matrix, upd_huR, upd_hvR)
+                call apply_transformations_after(transform_matrix, upd_huL2, upd_hvL2)
+                call apply_transformations_after(transform_matrix, upd_huR2, upd_hvR2)
 
             end subroutine
             

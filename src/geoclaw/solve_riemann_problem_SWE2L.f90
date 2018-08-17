@@ -1,15 +1,4 @@
-subroutine solve_rpn2(meqn,mwaves, n_index,t_index, h_l,h_r, hu_l,hu_r, hv_l,hv_r, b_l,b_r, h_hat_l,h_hat_r, fw_priv, sw_priv)
-
-
-    use amr_module, only: mcapa
-
-    use geoclaw_module, only: g => grav, rho, pi, earth_radius
-
-    use multilayer_module, only: num_layers, eigen_func
-    use multilayer_module, only: dry_tolerance, aux_layer_index, r
-    use multilayer_module, only: eigen_method, inundation_method
-    use multilayer_module, only: eigen_func, inundation_eigen_func
-    use statistics
+subroutine solve_riemann_problem_SWE2L(meqn,mwaves, n_index,t_index, h_l,h_r, hu_l,hu_r, hv_l,hv_r, b_l,b_r, h_hat_l,h_hat_r, fw_priv, sw_priv, dry_tolerance, g)
 
     implicit none
     
@@ -50,17 +39,19 @@ subroutine solve_rpn2(meqn,mwaves, n_index,t_index, h_l,h_r, hu_l,hu_r, hv_l,hv_
     real(kind=8), dimension(6) :: delta, flux_r, flux_l
     real(kind=8) :: delta1,delta2,delta3,delta4,delta5,delta6
     integer, dimension(6) :: pivot
-    real(kind=8) :: eig_vec(6,6),   A11, A12, A13, A14, A15, A16, &
-                                    A21, A22, A23, A24, A25, A26, &
-                                    A31, A32, A33, A34, A35, A36, &
-                                    A41, A42, A43, A44, A45, A46, &
-                                    A51, A52, A53, A54, A55, A56, &
-                                    A61, A62, A63, A64, A65, A66
+    real(kind=8) :: eig_vec(6,6), A(6,6)
     real(kind=8) :: beta(6), alpha(4), fw(3, 3), sw(3)
     logical, dimension(2) :: dry_state_l, dry_state_r
     logical :: inundation
+    
+    ! In Geoclaw these are set in the multilayer_module:
+    integer, parameter :: eigen_method=2, inundation_method=2
 
-    external dgesv
+    ! In Geoclaw these are set in geoclaw_module. Here they come as subroutine parameters.
+    real(kind=8), intent(in) :: dry_tolerance(2), g
+    
+    ! And these are simply defined here as constants
+    real(kind=8), parameter :: rho(2) = [0.9d0, 1.0d0], r = 0.9d0 ! r=rho(1)/rho(2)
     
     dry_state_l = .false.
     dry_state_r = .false.
@@ -122,7 +113,6 @@ subroutine solve_rpn2(meqn,mwaves, n_index,t_index, h_l,h_r, hu_l,hu_r, hv_l,hv_
                 (.not. dry_state_l(1) .and.       dry_state_l(2) .and.        &  ! F T F T
                 .not. dry_state_r(1) .and.       dry_state_r(2))       .or.  &
                 num_dry_states == 3) then
-
         ! Set wet layer index so that we can handle both the bottom and top
         ! layers being dry while the other is wet
         if (.not.dry_state_l(1) .or. .not.dry_state_r(1)) then
@@ -142,25 +132,25 @@ subroutine solve_rpn2(meqn,mwaves, n_index,t_index, h_l,h_r, hu_l,hu_r, hv_l,hv_
             hvL = hv_l(2)
             hvR = hv_r(2)
         else
-!             print *, "Invalid dry layer state reached."
-!             print *, "dry states: ", dry_state_l, dry_state_r
-!             print *, "        left            |             right"
-!             print *, "====================================================="
-!             print "(2d16.8)", h_l(1), h_r(1)
-!             print "(2d16.8)", hu_l(1), hu_r(1)
-!             print "(2d16.8)", hv_l(1), hv_r(1)
-!             print "(2d16.8)", h_l(2), h_r(2)
-!             print "(2d16.8)", hu_l(2), hu_r(2)
-!             print "(2d16.8)", hv_l(2), hv_r(2)
-!             print "(2d16.8)", b_l, b_r
-!             stop
+            print *, "Invalid dry layer state reached."
+            print *, "dry states: ", dry_state_l, dry_state_r
+            print *, "        left            |             right"
+            print *, "====================================================="
+            print "(2d16.8)", h_l(1), h_r(1)
+            print "(2d16.8)", hu_l(1), hu_r(1)
+            print "(2d16.8)", hv_l(1), hv_r(1)
+            print "(2d16.8)", h_l(2), h_r(2)
+            print "(2d16.8)", hu_l(2), hu_r(2)
+            print "(2d16.8)", hv_l(2), hv_r(2)
+            print "(2d16.8)", b_l, b_r
+            stop
         end if
 
         !DIR$ FORCEINLINE
         call solve_single_layer_rp(layer_index, hL, hR, huL, huR,      &
                                               hvL, hvR, b_l, b_r,      &
-                                              fw, sw)
-          
+                                              fw, sw, dry_tolerance, g)
+         
 
         ! Update speeds and waves
         ! Note that we represent all the waves in the first three arrays
@@ -171,14 +161,14 @@ subroutine solve_rpn2(meqn,mwaves, n_index,t_index, h_l,h_r, hu_l,hu_r, hv_l,hv_
         
         if (layer_index == 1) then
             sw_priv(1:3) = sw(:)
-            fw_priv(1, 1:3) = fw(1, :) * rho(layer_index)
-            fw_priv(n_index, 1:3) = fw(2, :) * rho(layer_index)
-            fw_priv(t_index, 1:3) = fw(3, :) * rho(layer_index)
+            fw_priv(1, 1:3) = fw(1, :)
+            fw_priv(n_index, 1:3) = fw(2, :)
+            fw_priv(t_index, 1:3) = fw(3, :)
         else
             sw_priv(4:6) = sw(:)
-            fw_priv(1, 4:6) = fw(1, :) * rho(layer_index)
-            fw_priv(n_index, 4:6) = fw(2, :) * rho(layer_index)
-            fw_priv(t_index, 4:6) = fw(3, :) * rho(layer_index)
+            fw_priv(1, 4:6) = fw(1, :)
+            fw_priv(n_index, 4:6) = fw(2, :)
+            fw_priv(t_index, 4:6) = fw(3, :)
         end if
 
         ! Go on to next cell, lat-long and fluctuation calculations are 
@@ -232,9 +222,9 @@ subroutine solve_rpn2(meqn,mwaves, n_index,t_index, h_l,h_r, hu_l,hu_r, hv_l,hv_
             ! Inundation occurs
             inundation = sum(h_l) + b_l > b_r
             if (inundation) then
-!                 print *, "Inundation in this case not yet handled."
-!                 print *, "  dry_state = ", dry_state_l, dry_state_r
-!                 stop 
+                 print *, "Inundation in this case not yet handled."
+                 print *, "  dry_state = ", dry_state_l, dry_state_r
+                 stop 
 
             ! Wall boundary
             else
@@ -264,9 +254,9 @@ subroutine solve_rpn2(meqn,mwaves, n_index,t_index, h_l,h_r, hu_l,hu_r, hv_l,hv_
             ! Inundation
             inundation = sum(h_r) + b_r > b_l
             if (inundation) then
-!                 print *, "Inundation in this case not yet handled."
-!                 print *, "  dry_state = ", dry_state_l, dry_state_r
-!                 stop 
+                 print *, "Inundation in this case not yet handled."
+                 print *, "  dry_state = ", dry_state_l, dry_state_r
+                 stop 
 
             ! Wall
             else
@@ -283,9 +273,9 @@ subroutine solve_rpn2(meqn,mwaves, n_index,t_index, h_l,h_r, hu_l,hu_r, hv_l,hv_
 
                 flux_transfer_r = 0.d0
                 flux_transfer_l = 0.d0
+                
                 momentum_transfer(1) = 0.d0
                 momentum_transfer(2) = 0.d0
-
             end if
 
         ! ==================================================================
@@ -328,7 +318,7 @@ subroutine solve_rpn2(meqn,mwaves, n_index,t_index, h_l,h_r, hu_l,hu_r, hv_l,hv_
                 flux_transfer_l = 0.d0
                 momentum_transfer(1) = g * rho(1) * h_ave(1) * (b_r - flux_h_l(2) - b_l)
                 momentum_transfer(2) = 0.d0
-
+                
             end if
 
         ! ==================================================================
@@ -370,7 +360,7 @@ subroutine solve_rpn2(meqn,mwaves, n_index,t_index, h_l,h_r, hu_l,hu_r, hv_l,hv_
                 flux_transfer_l = 0.d0
                 momentum_transfer(1) = g * rho(1) * h_ave(1) * (b_r + flux_h_r(2) - b_l)
                 momentum_transfer(2) = 0.d0
-
+                
             end if
 
         ! ==================================================================
@@ -383,25 +373,26 @@ subroutine solve_rpn2(meqn,mwaves, n_index,t_index, h_l,h_r, hu_l,hu_r, hv_l,hv_
 
             ! Flux evaulation
             momentum_transfer(1) =  g * rho(1) * h_ave(1) * (h_r(2) - h_l(2) + b_r - b_l)
-            momentum_transfer(2) = -g * rho(1) * h_ave(1) * (h_r(2) - h_l(2)) + g * rho(2) * h_ave(2) * (b_r - b_l)
+            momentum_transfer(2) =  -g * rho(1) * h_ave(1) * (h_r(2) - h_l(2)) + g * rho(2) * h_ave(2) * (b_r - b_l)
+            !g * (-rho(1) * h_ave(1) * (h_r(2) - h_l(2)) + rho(2) * h_ave(2) * (b_r - b_l))
             flux_transfer_r = g * rho(1) * h_r(1) * h_r(2)
             flux_transfer_l = g * rho(1) * h_l(1) * h_l(2)
 
         ! ==================================================================
         !  We do not yet handle this case - F F F F and F F F F 
         else
-!             print *, "Unhandled dry-state condition reached."
-!             print *, "dry states: ", dry_state_l, dry_state_r
-!             print *, "        left            |             right"
-!             print *, "====================================================="
-!             print "(2d16.8)", h_l(1), h_r(1)
-!             print "(2d16.8)", hu_l(1), hu_r(1)
-!             print "(2d16.8)", hv_l(1), hv_r(1)
-!             print "(2d16.8)", h_l(2), h_r(2)
-!             print "(2d16.8)", hu_l(2), hu_r(2)
-!             print "(2d16.8)", hv_l(2), hv_r(2)
-!             print "(2d16.8)", b_l, b_r
-!             stop
+             print *, "Unhandled dry-state condition reached."
+             print *, "dry states: ", dry_state_l, dry_state_r
+             print *, "        left            |             right"
+             print *, "====================================================="
+             print "(2d16.8)", h_l(1), h_r(1)
+             print "(2d16.8)", hu_l(1), hu_r(1)
+             print "(2d16.8)", hv_l(1), hv_r(1)
+             print "(2d16.8)", h_l(2), h_r(2)
+             print "(2d16.8)", hu_l(2), hu_r(2)
+             print "(2d16.8)", hv_l(2), hv_r(2)
+             print "(2d16.8)", b_l, b_r
+             stop
         end if
 
         ! ==================================================================
@@ -413,7 +404,7 @@ subroutine solve_rpn2(meqn,mwaves, n_index,t_index, h_l,h_r, hu_l,hu_r, hv_l,hv_
                                         eigen_u_l, eigen_u_r,               &
                                         eigen_v_l, eigen_v_r,               &
                                         n_index, t_index,                   &
-                                        lambda, eig_vec)
+                                        lambda, eig_vec, g, r)
                             
             ! Internal wave corrections
             if (inundation_method == 1) then
@@ -469,12 +460,13 @@ subroutine solve_rpn2(meqn,mwaves, n_index,t_index, h_l,h_r, hu_l,hu_r, hv_l,hv_
 
             end if
         else
+
             !DIR$ FORCEINLINE
-            call eigen(eigen_h_l, eigen_h_r,                    &
+            call eigen(eigen_h_l, eigen_h_r,                         &
                             eigen_u_l, eigen_u_r,                    &
                             eigen_v_l, eigen_v_r,                    &
                             n_index, t_index,                        &
-                            lambda, eig_vec)
+                            lambda, eig_vec, g, r)
 
         end if
 
@@ -486,6 +478,7 @@ subroutine solve_rpn2(meqn,mwaves, n_index,t_index, h_l,h_r, hu_l,hu_r, hv_l,hv_
         do j=1,2
             layer_index = 3*(j-1)
             flux_r(layer_index+1) = rho(j) * flux_hu_r(j)
+            
             flux_r(layer_index+n_index) = rho(j) * (flux_h_r(j) * flux_u_r(j)**2 + 0.5d0 * g * flux_h_r(j)**2)
             flux_r(layer_index+t_index) = rho(j) * flux_h_r(j) * flux_u_r(j) * flux_v_r(j)
             
@@ -515,235 +508,40 @@ subroutine solve_rpn2(meqn,mwaves, n_index,t_index, h_l,h_r, hu_l,hu_r, hv_l,hv_
         !    INFO - (int) - Status of result
         !  Note that the solution (betas) are in delta after the call
         ! ======================================================================
-!         A = eig_vec ! We need to do this as the return matrix is modified and
-!                     ! we have to use eig_vec again to compute fwaves
+        A = eig_vec ! We need to do this as the return matrix is modified and
+                    ! we have to use eig_vec again to compute fwaves
 
-        delta1 = delta(1)
-        delta2 = delta(2)
-        delta3 = delta(3)
-        delta4 = delta(4)
-        delta5 = delta(5)
-        delta6 = delta(6)
-
-        A11 = eig_vec(1,1)
-        A12 = eig_vec(1,2)
-        A13 = eig_vec(1,3)
-        A14 = eig_vec(1,4)
-        A15 = eig_vec(1,5)
-        A16 = eig_vec(1,6)
-        !===
-        A21 = eig_vec(2,1)
-        A22 = eig_vec(2,2)
-        A23 = eig_vec(2,3)
-        A24 = eig_vec(2,4)
-        A25 = eig_vec(2,5)
-        A26 = eig_vec(2,6)
-        !===
-        A31 = eig_vec(3,1)
-        A32 = eig_vec(3,2)
-        A33 = eig_vec(3,3)
-        A34 = eig_vec(3,4)
-        A35 = eig_vec(3,5)
-        A36 = eig_vec(3,6)
-        !===
-        A41 = eig_vec(4,1)
-        A42 = eig_vec(4,2)
-        A43 = eig_vec(4,3)
-        A44 = eig_vec(4,4)
-        A45 = eig_vec(4,5)
-        A46 = eig_vec(4,6)
-        !===
-        A51 = eig_vec(5,1)
-        A52 = eig_vec(5,2)
-        A53 = eig_vec(5,3)
-        A54 = eig_vec(5,4)
-        A55 = eig_vec(5,5)
-        A56 = eig_vec(5,6)
-        !===
-        A61 = eig_vec(6,1)
-        A62 = eig_vec(6,2)
-        A63 = eig_vec(6,3)
-        A64 = eig_vec(6,4)
-        A65 = eig_vec(6,5)
-        A66 = eig_vec(6,6)
-
-        ! instead of using a library, use a self-contained code -> vectorization
-        !DIR$ FORCEINLINE
-        call LU_scalars(A11, A12, A13, A14, A15, A16, &
-                A21, A22, A23, A24, A25, A26, &
-                A31, A32, A33, A34, A35, A36, &
-                A41, A42, A43, A44, A45, A46, &
-                A51, A52, A53, A54, A55, A56, &
-                A61, A62, A63, A64, A65, A66, &
-                6,delta1,delta2,delta3,delta4,delta5,delta6)
-        delta(1) = delta1
-        delta(2) = delta2
-        delta(3) = delta3
-        delta(4) = delta4
-        delta(5) = delta5
-        delta(6) = delta6
-
-            
-        !call dgesv(6,1,A,6,pivot,delta,6,info)
-!             if (.not.(info == 0)) then
-!                 print *, "dry states: ", dry_state_l, dry_state_r
-!                 print *, "        left            |             right"
-!                 print *, "====================================================="
-!                 print "(2d16.8)", h_l(1), h_r(1)
-!                 print "(2d16.8)", hu_l(1), hu_r(1)
-!                 print "(2d16.8)", hv_l(1), hv_r(1)
-!                 print "(2d16.8)", h_l(2), h_r(2)
-!                 print "(2d16.8)", hu_l(2), hu_r(2)
-!                 print "(2d16.8)", hv_l(2), hv_r(2)
-!                 print "(2d16.8)", b_l, b_r
-!                 print *,""
-!                 print "(a,i2)","In normal solver: ixy=",ixy
-!                 print "(a,i3)","  Error solving R beta = delta,",info
-!                 print "(a,6d16.8)","  Eigenspeeds: ",s(:,i)
-!                 print "(a)","  Eigenvectors:"
-!                 do j=1,6
-!                     print "(a,6d16.8)","  ",(eig_vec(j,mw),mw=1,6)
-!                 enddo
-!                 stop
-!             endif
         beta = delta
-
+        
+        !-DIR$ FORCEINLINE
+        call LU(A, 6, beta)
+        
+        !-DIR$ FORCEINLINE            
+        !call LUDCMP(A,6,pivot,info,info2)
+        !-DIR$ FORCEINLINE
+        !call LUBKSB(A,6,pivot,beta)
+        
+        !-DIR$ FORCEINLINE
+        !call dgesv(6,1,A,6,pivot,beta,6,info)
+        
         ! ======================================================================
         ! Compute fwaves
         forall(mw=1:mwaves)
             fw_priv(:,mw) = eig_vec(:,mw) * beta(mw)
         end forall
+
+        ! This method computes the waves in terms of mass, but here we consider the water height
+        ! -> so divide them by rho(1) or rho(2)
+        fw_priv(:,1:3) = fw_priv(:,1:3) / rho(1)
+        fw_priv(:,4:6) = fw_priv(:,4:6) / rho(2)
+
     end if
+end subroutine
 
-end subroutine solve_rpn2
-
-
-! ==================================
-!  Solve the single-layer equations
-! ==================================
-! subroutine solve_sinlge_layer_rp(layer_index, h_l, h_r,                        &
-!                                               hu_l, hu_r,                      &
-!                                               hv_l, hv_r,                      &
-!                                               u_l, u_r,                        &
-!                                               v_l, v_r,                        &
-!                                               b_l, b_r,                        &
-!                                               fw, sw)
+subroutine solve_single_layer_rp(layer_index, hL, hR, huL, huR, hvL, hvR, bL, bR, fw, sw, dry_tolerance, g)
 
 !     use geoclaw_module, only: g => grav
 !     use multilayer_module, only: dry_tolerance
-
-!     implicit none
-
-!     ! Input
-!     integer, intent(in) :: layer_index
-!     real(kind=8), intent(in out), dimension(2) :: h_l, h_r
-!     real(kind=8), intent(in out), dimension(2) :: hu_l, hu_r
-!     real(kind=8), intent(in out), dimension(2) :: hv_l, hv_r
-!     real(kind=8), intent(in out), dimension(2) :: u_r, u_l
-!     real(kind=8), intent(in out), dimension(2) :: v_r, v_l
-!     real(kind=8), intent(in out) :: b_l, b_r
-
-!     ! Output
-!     real(kind=8), intent(out) :: fw(3, 3), sw(3)
-
-!     ! Local storage
-!     integer :: m, mw
-!     logical :: rare(2)
-!     real(kind=8) :: wall(3), h_star, h_star_test, sm(2)
-!     real(kind=8) :: phi_l, phi_r, s_l, s_r, u_hat, c_hat, s_roe(2), s_E(2)
-
-!     ! Algorithm parameters
-!     integer, parameter :: MAX_ITERATIONS = 1
-
-!     wall = 1.d0
-    
-!     ! Calculate momentum fluxes
-!     phi_l = 0.5d0 * g * h_l(layer_index)**2      &
-!                         + h_l(layer_index) * u_l(layer_index)**2
-!     phi_r = 0.5d0 * g * h_r(layer_index)**2      &
-!                         + h_r(layer_index) * u_r(layer_index)**2
-     
-!     ! Check for dry state to right
-!     if (h_r(layer_index) < dry_tolerance(layer_index)) then
-!         call riemanntype(h_l(layer_index), h_l(layer_index),   &
-!                          u_l(layer_index),-u_l(layer_index),   &
-!                          h_star, sm(1), sm(2), rare(1), rare(2), 1,    &
-!                          dry_tolerance(layer_index), g)
-!         h_star_test = max(h_l(layer_index), h_star)
-!         ! Right state should become ghost values that mirror left for wall problem
-!         if (h_star_test + b_l < b_r) then 
-!             wall(2:3) = 0.d0
-!             h_r(layer_index) = h_l(layer_index)
-!             hu_r(layer_index) = -hu_l(layer_index)
-!             b_r = b_l
-!             phi_r = phi_l
-!             u_r(layer_index) = -u_l(layer_index)
-!             v_r(layer_index) = v_l(layer_index)
-!         else if (h_l(layer_index) + b_l < b_r) then
-!             b_r = h_l(layer_index) + b_l
-!         endif
-!     ! Check for drystate to left, i.e right surface is lower than left topo
-!     else if (h_l(layer_index) < dry_tolerance(layer_index)) then 
-!         call riemanntype(h_r(layer_index), h_r(layer_index),   &
-!                         -u_r(layer_index), u_r(layer_index),   &
-!                          h_star, sm(1), sm(2), rare(1), rare(2), 1,    &
-!                          dry_tolerance(layer_index), g)
-!         h_star_test = max(h_r(layer_index), h_star)
-!         ! Left state should become ghost values that mirror right
-!         if (h_star_test + b_r < b_l) then  
-!            wall(1:2) = 0.d0
-!            h_l(layer_index) = h_r(layer_index)
-!            hu_l(layer_index) = -hu_r(layer_index)
-!            b_l = b_r
-!            phi_l = phi_r
-!            u_l(layer_index) = -u_r(layer_index)
-!            v_l(layer_index) = v_r(layer_index)
-!         else if (h_r(layer_index) + b_r < b_l) then
-!            b_l = h_r(layer_index) + b_r
-!         endif
-!     endif
-
-!     ! Determine wave speeds
-!     ! 1 wave speed of left state
-!     s_l = u_l(layer_index) - sqrt(g * h_l(layer_index))
-!     ! 2 wave speed of right state
-!     s_r = u_r(layer_index) + sqrt(g * h_r(layer_index))
-    
-!     ! Roe average
-!     u_hat = (sqrt(g * h_l(layer_index)) * u_l(layer_index)     &
-!            + sqrt(g * h_r(layer_index)) * u_r(layer_index))    &
-!            / (sqrt(g * h_r(layer_index)) + sqrt(g * h_l(layer_index))) 
-!     c_hat = sqrt(g * 0.5d0 * (h_r(layer_index) + h_l(layer_index))) 
-!     s_roe(1) = u_hat - c_hat ! Roe wave speed 1 wave
-!     s_roe(2) = u_hat + c_hat ! Roe wave speed 2 wave
-!     s_E(1) = min(s_l, s_roe(1)) ! Eindfeldt speed 1 wave
-!     s_E(2) = max(s_r, s_roe(2)) ! Eindfeldt speed 2 wave
-    
-!     ! Solve Riemann problem
-!     call riemann_aug_JCP(MAX_ITERATIONS, 3, 3,                         &
-!                          h_l(layer_index), h_r(layer_index),   &
-!                          hu_l(layer_index), hu_r(layer_index), &
-!                          hv_l(layer_index), hv_r(layer_index), &
-!                          b_l, b_r,                                     &
-!                          u_l(layer_index), u_r(layer_index),   &
-!                          v_l(layer_index), v_r(layer_index),   &
-!                          phi_l, phi_r, s_E(1), s_E(2),           &
-!                          dry_tolerance(layer_index), g, sw, fw)
-    
-!     ! Eliminate ghost fluxes for wall
-!     do mw=1,3
-!         sw(mw) = sw(mw) * wall(mw)
-!         do m=1,3
-!            fw(m, mw) = fw(m, mw) * wall(mw)
-!         enddo
-!     enddo
-
-! end subroutine solve_sinlge_layer_rp
-
-subroutine solve_single_layer_rp(layer_index, hL, hR, huL, huR, hvL, hvR, bL, bR, fw, sw)
-
-    use geoclaw_module, only: g => grav
-    use multilayer_module, only: dry_tolerance
 
     implicit none
 
@@ -759,18 +557,14 @@ subroutine solve_single_layer_rp(layer_index, hL, hR, huL, huR, hvL, hvR, bL, bR
     ! Locals
     integer :: mw
     real(kind=8) :: uL, uR, vL, vR, pL, pR
-    real(kind=8) :: phiL, phiR, wall(3), drytol
+    real(kind=8) :: phiL, phiR, wall(3), drytol, delphi
     real(kind=8) :: hstar, hstartest, s1m, s2m, rare1, rare2, sL, sR, uhat, chat, sRoe1, sRoe2, sE1, sE2
 
     ! Parameters (should be anyway)
     integer :: maxiter
-
-    ! Density used in pressure gradient calculation
-    ! This needs to be realistic here as compared to air density so we cannot
-    ! use what is stored in the multilayer_module unless real densities are 
-    ! being used
-    ! TODO - fix this limitation 
-    real(kind=8), parameter :: rho = 1025.d0
+    
+    ! In Geoclaw these are set in geoclaw_module. Here they come as subroutine parameters.
+    real(kind=8), intent(in) :: dry_tolerance(2), g
 
     drytol = dry_tolerance(layer_index)
 
@@ -784,7 +578,7 @@ subroutine solve_single_layer_rp(layer_index, hL, hR, huL, huR, hvL, hvR, bL, bR
 !     bR = b_r
     pL = 0.d0
     pR = 0.d0
-
+    
     ! ========================================
     !  Begin Snipped Code From rpn2_geoclaw.f
     ! ========================================
@@ -853,6 +647,11 @@ subroutine solve_single_layer_rp(layer_index, hL, hR, huL, huR, hvL, hvR, bL, bR
                bL=hR+bR
             endif
          endif
+         
+         !BUGFIX:
+         !Problem: loss of significance may occur in phiR-phiL, causing divergence of the steady state.
+         !Action:  Compute delphi=phiR-phiL explicitly. delphi is arithmetically equivalent to phiR-phiL, but with far smaller numerical loss.
+         delphi = (huR - huL)*(uL + uR) - uL*uR*(hR - hL) + (0.5d0*g*(bR + hR - bL - hL)*(hR + hL)) - 0.5d0*g*(hR + hL)*(bR - bL)
 
          !determine wave speeds
          sL=uL-sqrt(g*hL) ! 1 wave speed of left state
@@ -873,8 +672,8 @@ subroutine solve_single_layer_rp(layer_index, hL, hR, huL, huR, hvL, hvR, bL, bR
 
          !DIR$ FORCEINLINE
          call riemann_aug_JCP(maxiter,3,3,hL,hR,huL,huR,hvL,hvR,bL,bR,uL,uR, &
-                                          vL,vR,phiL,phiR,pL,pR,sE1,sE2,     &
-                                          drytol,g,rho,sw,fw)
+                                          vL,vR,delphi,sE1,sE2,     &
+                                          drytol,g,sw,fw)
 
 !         call riemann_ssqfwave(maxiter,meqn,mwaves,hL,hR,huL,huR,
 !     &     hvL,hvR,bL,bR,uL,uR,vL,vR,phiL,phiR,sE1,sE2,drytol,g,sw,fw)
@@ -891,6 +690,14 @@ subroutine solve_single_layer_rp(layer_index, hL, hR, huL, huR, hvL, hvR, bL, bR
                fw(3,mw)=fw(3,mw)*wall(mw)
          enddo
          
+        ! For completely dry states, waves should be always zero!
+        ! (these problems could have been skipped, but to allow 
+        ! vectorization they weren't)
+        if (hL < drytol .and. hR < drytol) then
+            sw(:) = 0.0d0
+            fw(:,:) = 0.0d0   
+        endif
+         
 end subroutine solve_single_layer_rp
 
 
@@ -899,23 +706,22 @@ end subroutine solve_single_layer_rp
 ! ==========================================================================
 !  Code from linearized_eigen(), multilayer_module
 ! ==========================================================================
-subroutine eigen(h_l,h_r,u_l,u_r,v_l,v_r,n_index,t_index,s,eig_vec)
-    use multilayer_module
-    use geoclaw_module, only: grav
+subroutine eigen(h_l,h_r,u_l,u_r,v_l,v_r,n_index,t_index,s,eig_vec,g,r)
+!     use multilayer_module
+!     use geoclaw_module, only: grav
 
     implicit none
     
     ! Input
     double precision, dimension(2), intent(in) :: h_l,h_r,u_l,u_r,v_l,v_r
     integer, intent(in) :: n_index,t_index
+    double precision, intent(in) :: g, r
     
     ! Output
     double precision, intent(inout) :: s(6),eig_vec(6,6)
         
     ! Local
-    double precision :: gamma_l,gamma_r,alpha(4),g
-    
-    g = grav
+    double precision :: gamma_l,gamma_r,alpha(4)
         
     ! Calculate relevant quantities
     gamma_l = h_l(2) / h_l(1)

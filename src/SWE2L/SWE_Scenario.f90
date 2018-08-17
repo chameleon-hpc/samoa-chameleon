@@ -92,7 +92,6 @@ MODULE SWE2L_Scenario_bowl_radial
         
         zmin = 80.0_GRID_SR
         bathymetry = 1.0e-2_GRID_SR * (x(1)*x(1) + x(2)*x(2)) - zmin
-        
     end function
     
     function SWE_Scenario_get_initial_Q(x) result (Q)
@@ -109,7 +108,7 @@ MODULE SWE2L_Scenario_bowl_radial
         
         ! Top layer surface is given by qinit_func in GeoClaw script maketopo.py (hump.xyz)
         ! (from https://github.com/clawpack/geoclaw/blob/master/examples/multi-layer/bowl-radial/maketopo.py )
-        z = -(x(1)*x(1) + x(2)*x(2))/100.0_GRID_SR
+        z = -(x(1)*x(1) + x(2)*x(2))*0.01_GRID_SR
         if (z > -10_GRID_SR) then
             z = 4.0_GRID_SR * exp(z)
         else
@@ -119,8 +118,12 @@ MODULE SWE2L_Scenario_bowl_radial
         
         ! check for dry layers
         b = SWE_Scenario_get_bathymetry(x)
-        Q%h = max(Q%h,Q%h2)
-        Q%h2 = max(Q%h2,b)
+        if (Q%h2 <= b) then
+            Q%h2 = b
+        end if
+        if (Q%h <= Q%h2) then
+            Q%h = Q%h2
+        end if
        
     end function
 

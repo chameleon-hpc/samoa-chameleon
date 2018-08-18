@@ -292,8 +292,7 @@
                     update2%HV2(i) = rep1%HV2(_SWE_PATCH_ORDER + 1 - i)
                 end do
 #           else
-                ! TODO
-				call compute_geoclaw_flux(edge%transform_data%normal, rep1%Q(1), rep2%Q(1), update1%flux(1), update2%flux(1))
+                call compute_geoclaw_flux_wrapper(edge, rep1, rep2, update1, update2)
 #	endif
 
 			_log_write(6, '(4X, A, F0.3, 1X, F0.3, 1X, F0.3, 1X, F0.3)') "flux 1 out: ", update1%flux
@@ -321,8 +320,8 @@
 			type(num_cell_rep), intent(in)									:: rep
 			type(num_cell_update), intent(out)								:: update
 
-			type(t_state)													:: bnd_rep
-			type(t_update)													:: bnd_flux
+			type(num_cell_rep)												:: bnd_rep
+			type(num_cell_update)											:: bnd_flux
 			integer                                                         :: i
 
             !SLIP: reflect momentum at normal
@@ -332,7 +331,7 @@
 			!bnd_rep = t_state(rep%Q(1)%h, -rep%Q(1)%p, rep%Q(1)%b)
 
 			!OUTFLOW: copy values
-			bnd_rep = rep%Q(1)
+			bnd_rep = rep
 
 #			if defined (_LF_FLUX) || defined (_LF_BATH_FLUX) || defined (_LLF_FLUX) || defined (_LLF_BATH_FLUX)
 				call compute_lf_flux(edge%transform_data%normal, rep%Q(1), bnd_rep, update%flux(1), bnd_flux)
@@ -346,10 +345,65 @@
                 update%HU2 = rep%HU2
                 update%HV2 = rep%HV2
 #           else
-                ! TODO
-				call compute_geoclaw_flux(edge%transform_data%normal, rep%Q(1), bnd_rep, update%flux(1), bnd_flux)
+                call compute_geoclaw_flux_wrapper(edge, rep, bnd_rep, update, bnd_flux)
 #			endif
 		end subroutine
+		
+		subroutine compute_geoclaw_flux_wrapper(edge, rep1, rep2, update1, update2)
+            type(t_edge_data), intent(in)                                   :: edge
+            type(num_cell_rep), intent(in)                                  :: rep1, rep2
+            type(num_cell_update), intent(out)                              :: update1, update2
+            
+            real(kind = GRID_SR) :: normal_x, normal_y
+            real(kind = GRID_SR) :: hL, hR, huL, huR, hvL, hvR, bL, bR
+            real(kind = GRID_SR) :: hL2, hR2, huL2, huR2, hvL2, hvR2
+            real(kind = GRID_SR) :: upd_hL, upd_hR, upd_huL, upd_huR, upd_hvL, upd_hvR
+            real(kind = GRID_SR) :: upd_hL2, upd_hR2, upd_huL2, upd_huR2, upd_hvL2, upd_hvR2
+            real(kind = GRID_SR) :: maxWaveSpeed
+            
+                
+            normal_x = edge%transform_data%normal(1)
+            normal_y = edge%transform_data%normal(2)
+            
+            hL   = rep1%Q(1)%h
+            huL  = rep1%Q(1)%p(1)
+            hvL  = rep1%Q(1)%p(2)
+            bL   = rep1%Q(1)%b
+            hL2  = rep1%Q(1)%h2
+            huL2 = rep1%Q(1)%p2(1)
+            hvL2 = rep1%Q(1)%p2(2)
+            
+            hR   = rep2%Q(1)%h
+            huR  = rep2%Q(1)%p(1)
+            hvR  = rep2%Q(1)%p(2)
+            bR   = rep2%Q(1)%b
+            hR2  = rep2%Q(1)%h2
+            huR2 = rep2%Q(1)%p2(1)
+            hvR2 = rep2%Q(1)%p2(2)         
+
+            call compute_geoclaw_flux_in_patch(normal_x, normal_y, &
+                                                hL, hR, huL, huR, hvL, hvR, bL, bR, &
+                                                hL2, hR2, huL2, huR2, hvL2, hvR2, &
+                                                upd_hL, upd_hR, upd_huL, upd_huR, upd_hvL, upd_hvR, &
+                                                upd_hL2, upd_hR2, upd_huL2, upd_huR2, upd_hvL2, upd_hvR2, &
+                                                maxWaveSpeed)
+            
+            update1%flux(1)%h     = upd_hL
+            update1%flux(1)%p(1)  = upd_huL
+            update1%flux(1)%p(2)  = upd_hvL
+            update1%flux(1)%h2    = upd_hL2
+            update1%flux(1)%p2(1) = upd_huL2
+            update1%flux(1)%p2(2)  = upd_hvL2
+            update1%flux(1)%max_wave_speed = maxWaveSpeed
+            
+            update2%flux(1)%h     = upd_hR
+            update2%flux(1)%p(1)  = upd_huR
+            update2%flux(1)%p(2)  = upd_hvR
+            update2%flux(1)%h2    = upd_hR2
+            update2%flux(1)%p2(1) = upd_huR2
+            update2%flux(1)%p2(2)  = upd_hvR2
+            update2%flux(1)%max_wave_speed = maxWaveSpeed            
+		end subroutine 
 
 		subroutine cell_update_op(traversal, section, element, update1, update2, update3)
 			type(t_swe_euler_timestep_traversal), intent(inout)				:: traversal
@@ -420,18 +474,6 @@
                 dQ_HU2 = 0.0_GRID_SR
                 dQ_HV2 = 0.0_GRID_SR
                 maxWaveSpeed = 0.0_GRID_SR
-                upd_hL = 0.0_GRID_SR
-                upd_huL = 0.0_GRID_SR
-                upd_hvL = 0.0_GRID_SR
-                upd_hR = 0.0_GRID_SR
-                upd_huR = 0.0_GRID_SR
-                upd_hvR = 0.0_GRID_SR
-                upd_hL2 = 0.0_GRID_SR
-                upd_huL2 = 0.0_GRID_SR
-                upd_hvL2 = 0.0_GRID_SR
-                upd_hR2 = 0.0_GRID_SR
-                upd_huR2 = 0.0_GRID_SR
-                upd_hvR2 = 0.0_GRID_SR
                 
                 volume = cfg%scaling * cfg%scaling * element%cell%geometry%get_volume() / (_SWE_PATCH_ORDER_SQUARE)
                 dt_div_volume = section%r_dt / volume
@@ -630,25 +672,27 @@
 			!local variables
 
 			type(t_state)   :: dQ(_SWE_CELL_SIZE)
-			
-            ! TODO
 
 			call volume_op(element%cell%geometry, traversal%i_refinements_issued, element%cell%geometry%i_depth, &
                 element%cell%geometry%refinement, section%r_dt_new, dQ, [update1%flux, update2%flux, update3%flux], section%r_dt)
 
-			!if land is flooded, init water height to dry tolerance and velocity to 0
-			if (element%cell%data_pers%Q(1)%h < element%cell%data_pers%Q(1)%b + cfg%dry_tolerance .and. dQ(1)%h > 0.0_GRID_SR) then
-                element%cell%data_pers%Q(1)%h = element%cell%data_pers%Q(1)%b + cfg%dry_tolerance
-                element%cell%data_pers%Q(1)%p = [0.0_GRID_SR, 0.0_GRID_SR]
-                !print '("Wetting:", 2(X, F0.0))', cfg%scaling * element%transform_data%custom_data%offset + cfg%offset
-            end if
+! 			!if land is flooded, init water height to dry tolerance and velocity to 0
+! 			if (element%cell%data_pers%Q(1)%h < element%cell%data_pers%Q(1)%b + cfg%dry_tolerance .and. dQ(1)%h > 0.0_GRID_SR) then
+!                 element%cell%data_pers%Q(1)%h = element%cell%data_pers%Q(1)%b + cfg%dry_tolerance
+!                 element%cell%data_pers%Q(1)%p = [0.0_GRID_SR, 0.0_GRID_SR]
+!                 !print '("Wetting:", 2(X, F0.0))', cfg%scaling * element%transform_data%custom_data%offset + cfg%offset
+!             end if
 
             call gv_Q%add(element, dQ)
 
 			!if the water level falls below the dry tolerance, set water level to 0 and velocity to 0
-			if (element%cell%data_pers%Q(1)%h < element%cell%data_pers%Q(1)%b + cfg%dry_tolerance) then
-                element%cell%data_pers%Q(1)%h = element%cell%data_pers%Q(1)%b
+           if (element%cell%data_pers%Q(1)%h < element%cell%data_pers%Q(1)%h2 + cfg%dry_tolerance) then
+                element%cell%data_pers%Q(1)%h = element%cell%data_pers%Q(1)%h2
                 element%cell%data_pers%Q(1)%p = [0.0_GRID_SR, 0.0_GRID_SR]
+           end if
+           if (element%cell%data_pers%Q(1)%h2 < element%cell%data_pers%Q(1)%b + cfg%dry_tolerance) then
+                element%cell%data_pers%Q(1)%h2 = element%cell%data_pers%Q(1)%b
+                element%cell%data_pers%Q(1)%p2 = [0.0_GRID_SR, 0.0_GRID_SR]
            end if
 #          endif
 		end subroutine
@@ -695,12 +739,15 @@
 
 			volume = cfg%scaling * cfg%scaling * cell%get_volume()
 			edge_lengths = cfg%scaling * cell%get_edge_sizes()
-
+			
 			dQ%h = dot_product(edge_lengths, fluxes%h)
+			dQ%h2= dot_product(edge_lengths, fluxes%h2)
 			dQ%p(1) = dot_product(edge_lengths, fluxes%p(1))
 			dQ%p(2) = dot_product(edge_lengths, fluxes%p(2))
+			dQ%p2(1) = dot_product(edge_lengths, fluxes%p2(1))
+			dQ%p2(2) = dot_product(edge_lengths, fluxes%p2(2))
 			dQ%b = 0.0_GRID_SR
-
+			
 			!set refinement condition
 
 			i_refinement = 0
@@ -830,35 +877,42 @@
 
 			real(kind = GRID_SR)				:: transform_matrix(2, 2)
 			real(kind = GRID_SR)			    :: net_updatesL(3), net_updatesR(3), max_wave_speed
-			real(kind = GRID_SR)                :: pL(2), pR(2), hL, hR, bL, bR
+			real(kind = GRID_SR)                :: pL(2), pR(2), pL2(2), pR2(2), hL, hR, hL2, hR2, bL, bR
 
-			transform_matrix(1, :) = normal
-			transform_matrix(2, :) = [-normal(2), normal(1)]
-
-			pL = matmul(transform_matrix, QL%p)
-			pR = matmul(transform_matrix, QR%p)
-			hL = QL%h - QL%b
-			hR = QR%h - QR%b
-			bL = QL%b
-			bR = QR%b
+! 			transform_matrix(1, :) = normal
+! 			transform_matrix(2, :) = [-normal(2), normal(1)]
+! 
+! 			pL = matmul(transform_matrix, QL%p)
+! 			pR = matmul(transform_matrix, QR%p)
+! 			pL2 = matmul(transform_matrix, QL%p2)
+! 			pR2 = matmul(transform_matrix, QR%p2)
+! 			hL2 = QL%h2 - QL%b
+! 			hR2 = QR%h2 - QR%b
+! 			hL = QL%h - hL2
+! 			hR = QR%h - hR2
+! 			bL = QL%b
+! 			bR = QR%b
+! 			
+! 			call solve_riemann_problem_SWE2L(6,6,2,3, h_l,h_r, hu_l,hu_r, hv_l,hv_r, b_l,b_r, h_hat_l,h_hat_r, &
+!                                                     fWaves, waveSpeeds, [real(cfg%dry_tolerance,kind=8),real(cfg%dry_tolerance,kind=8)], g) 
 
 			
-#           if defined(_FWAVE_FLUX)
-                call c_bind_geoclaw_solver(GEOCLAW_FWAVE, 1, 3, hL, hR, pL(1), pR(1), pL(2), pR(2), bL, bR, real(cfg%dry_tolerance, GRID_SR), g, net_updatesL, net_updatesR, max_wave_speed)
-#           elif defined(_AUG_RIEMANN_FLUX)
-                call c_bind_geoclaw_solver(GEOCLAW_AUG_RIEMANN, 1, 3, hL, hR, pL(1), pR(1), pL(2), pR(2), bL, bR, real(cfg%dry_tolerance, GRID_SR), g, net_updatesL, net_updatesR, max_wave_speed)
-#           endif
-
-			fluxL%h = net_updatesL(1)
-			fluxL%p = matmul(net_updatesL(2:3), transform_matrix)
-			fluxL%max_wave_speed = max_wave_speed
-
-			fluxR%h = net_updatesR(1)
-			fluxR%p = matmul(net_updatesR(2:3), transform_matrix)
-			fluxR%max_wave_speed = max_wave_speed
+! #           if defined(_FWAVE_FLUX)
+!                 call c_bind_geoclaw_solver(GEOCLAW_FWAVE, 1, 3, hL, hR, pL(1), pR(1), pL(2), pR(2), bL, bR, real(cfg%dry_tolerance, GRID_SR), g, net_updatesL, net_updatesR, max_wave_speed)
+! #           elif defined(_AUG_RIEMANN_FLUX)
+!                 call c_bind_geoclaw_solver(GEOCLAW_AUG_RIEMANN, 1, 3, hL, hR, pL(1), pR(1), pL(2), pR(2), bL, bR, real(cfg%dry_tolerance, GRID_SR), g, net_updatesL, net_updatesR, max_wave_speed)
+! #           endif
+! 
+! 			fluxL%h = net_updatesL(1)
+! 			fluxL%p = matmul(net_updatesL(2:3), transform_matrix)
+! 			fluxL%max_wave_speed = max_wave_speed
+! 
+! 			fluxR%h = net_updatesR(1)
+! 			fluxR%p = matmul(net_updatesR(2:3), transform_matrix)
+! 			fluxR%max_wave_speed = max_wave_speed
 	end subroutine
 
-#       if defined(_SWE_PATCH)
+!#       if defined(_SWE_PATCH)
             ! version for SWE patches (vectorizable)
             subroutine compute_geoclaw_flux_in_patch(normal_x, normal_y, &
                                                         hL, hR, huL, huR, hvL, hvR, bL, bR, &
@@ -890,6 +944,7 @@
                 transform_matrix(1, :) = [ normal_x, normal_y ]
                 transform_matrix(2, :) = [-normal_y, normal_x]
 
+                ! TODO: I think these can now be replace with simple matrix operations
                 call apply_transformations_before(transform_matrix, huL, hvL)
                 call apply_transformations_before(transform_matrix, huR, hvR)
                 call apply_transformations_before(transform_matrix, huL2, hvL2)
@@ -929,6 +984,18 @@
                 call solve_riemann_problem_SWE2L(6,6,2,3, h_l,h_r, hu_l,hu_r, hv_l,hv_r, b_l,b_r, h_hat_l,h_hat_r, &
                                                     fWaves, waveSpeeds, [real(cfg%dry_tolerance,kind=8),real(cfg%dry_tolerance,kind=8)], g) 
 
+                upd_hL = 0.0_GRID_SR
+                upd_huL = 0.0_GRID_SR
+                upd_hvL = 0.0_GRID_SR
+                upd_hR = 0.0_GRID_SR
+                upd_huR = 0.0_GRID_SR
+                upd_hvR = 0.0_GRID_SR
+                upd_hL2 = 0.0_GRID_SR
+                upd_huL2 = 0.0_GRID_SR
+                upd_hvL2 = 0.0_GRID_SR
+                upd_hR2 = 0.0_GRID_SR
+                upd_huR2 = 0.0_GRID_SR
+                upd_hvR2 = 0.0_GRID_SR
                 ! use Riemann solution to compute net updates
                 do  waveNumber=1,6
                     if (waveSpeeds(waveNumber) <= 0.d0) then
@@ -989,7 +1056,7 @@
                 hu = transform_matrix(1,1) * hu + transform_matrix(2,1) * hv
                 hv = transform_matrix(1,2) * temp + transform_matrix(2,2) * hv
             end subroutine
-#       endif
+!#       endif
 
         pure subroutine node_write_op(local_node, neighbor_node)
             type(t_node_data), intent(inout)			    :: local_node

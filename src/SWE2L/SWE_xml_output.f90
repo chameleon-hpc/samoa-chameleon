@@ -353,13 +353,13 @@
                     traversal%cell_data(traversal%i_cell_data_index)%Q%p2(2) = element%cell%data_pers%HV2(cell_id)
 
                     ! set water height of dry cells to zero where appropriate -> top layer
-		    if (traversal%cell_data(traversal%i_cell_data_index)%Q%h < traversal%cell_data(traversal%i_cell_data_index)%Q%b + cfg%dry_tolerance ) then
-                        !traversal%cell_data(traversal%i_cell_data_index)%Q%h = min(0.0_GRID_SR, traversal%cell_data(traversal%i_cell_data_index)%Q%b)
+		    if (traversal%cell_data(traversal%i_cell_data_index)%Q%h < traversal%cell_data(traversal%i_cell_data_index)%Q%h2 + cfg%dry_tolerance .or. &
+                        traversal%cell_data(traversal%i_cell_data_index)%Q%h < traversal%cell_data(traversal%i_cell_data_index)%Q%b + cfg%dry_tolerance ) then
+                        
                         traversal%cell_data(traversal%i_cell_data_index)%Q%h = NaN
                     end if
                     ! set water height of dry cells to zero where appropriate -> bottom layer
                     if (traversal%cell_data(traversal%i_cell_data_index)%Q%h2 < traversal%cell_data(traversal%i_cell_data_index)%Q%b + cfg%dry_tolerance ) then
-                        !traversal%cell_data(traversal%i_cell_data_index)%Q%h2 = min(0.0_GRID_SR, traversal%cell_data(traversal%i_cell_data_index)%Q%b)
                         traversal%cell_data(traversal%i_cell_data_index)%Q%h2 = NaN
                     end if
                     
@@ -449,16 +449,18 @@
 					traversal%cell_data(traversal%i_cell_data_index)%Q%p2(2) = element%cell%data_pers%Q(1)%p2(2)
 			end select
 
+
                 ! set water height of dry cells to zero where appropriate -> top layer
-                if (traversal%cell_data(traversal%i_cell_data_index)%Q%h < traversal%cell_data(traversal%i_cell_data_index)%Q%b + cfg%dry_tolerance ) then
-                        !traversal%cell_data(traversal%i_cell_data_index)%Q%h = min(0.0_GRID_SR, traversal%cell_data(traversal%i_cell_data_index)%Q%b)
+                if (traversal%cell_data(traversal%i_cell_data_index)%Q%h < traversal%cell_data(traversal%i_cell_data_index)%Q%h2 + cfg%dry_tolerance .or. &
+                    traversal%cell_data(traversal%i_cell_data_index)%Q%h < traversal%cell_data(traversal%i_cell_data_index)%Q%b + cfg%dry_tolerance) then
+                    
                         traversal%cell_data(traversal%i_cell_data_index)%Q%h = NaN
                 end if
                 ! set water height of dry cells to zero where appropriate -> bottom layer
                 if (traversal%cell_data(traversal%i_cell_data_index)%Q%h2 < traversal%cell_data(traversal%i_cell_data_index)%Q%b + cfg%dry_tolerance ) then
-                        !traversal%cell_data(traversal%i_cell_data_index)%Q%h2 = min(0.0_GRID_SR, traversal%cell_data(traversal%i_cell_data_index)%Q%b)
                         traversal%cell_data(traversal%i_cell_data_index)%Q%h2 = NaN
                 end if
+
                     
 
 			traversal%i_cell_data_index = traversal%i_cell_data_index + 1

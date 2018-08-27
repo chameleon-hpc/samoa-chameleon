@@ -614,7 +614,7 @@
                     
                     !set refinement condition -> Here I am using the same ones as in the original no-patches implementation, but considering only the max value.
                     element%cell%geometry%refinement = 0
-                    dQ_max_norm = maxval(abs(dQ_H))
+                    dQ_max_norm = maxval(max(abs(dQ_H),abs(dQ_H2)))
 
                     if (element%cell%geometry%i_depth < cfg%i_max_depth .and. dQ_max_norm > 5.0_GRID_SR * cfg%scaling * get_edge_size(cfg%i_max_depth) / _SWE_PATCH_ORDER ) then
                         element%cell%geometry%refinement = 1
@@ -653,15 +653,15 @@
                     data%HV2 = data%HV2 + dQ_HV2
                     
                     !if the water level falls below the dry tolerance, set water level to 0 and velocity to 0
-                    where (data%H < data%H2 + cfg%dry_tolerance) 
-                        data%H = data%H2
-                        data%HU = 0.0_GRID_SR
-                        data%HV = 0.0_GRID_SR
-                    end where
                     where (data%H2 < data%B + cfg%dry_tolerance) 
                         data%H2 = data%B
                         data%HU2 = 0.0_GRID_SR
                         data%HV2 = 0.0_GRID_SR
+                    end where
+                    where (data%H < data%H2 + cfg%dry_tolerance) 
+                        data%H = data%H2
+                        data%HU = 0.0_GRID_SR
+                        data%HV = 0.0_GRID_SR
                     end where
                     
                     ! compute next dt
@@ -686,13 +686,13 @@
             call gv_Q%add(element, dQ)
 
 			!if the water level falls below the dry tolerance, set water level to 0 and velocity to 0
-           if (element%cell%data_pers%Q(1)%h < element%cell%data_pers%Q(1)%h2 + cfg%dry_tolerance) then
-                element%cell%data_pers%Q(1)%h = element%cell%data_pers%Q(1)%h2
-                element%cell%data_pers%Q(1)%p = [0.0_GRID_SR, 0.0_GRID_SR]
-           end if
            if (element%cell%data_pers%Q(1)%h2 < element%cell%data_pers%Q(1)%b + cfg%dry_tolerance) then
                 element%cell%data_pers%Q(1)%h2 = element%cell%data_pers%Q(1)%b
                 element%cell%data_pers%Q(1)%p2 = [0.0_GRID_SR, 0.0_GRID_SR]
+           end if
+           if (element%cell%data_pers%Q(1)%h < element%cell%data_pers%Q(1)%h2 + cfg%dry_tolerance) then
+                element%cell%data_pers%Q(1)%h = element%cell%data_pers%Q(1)%h2
+                element%cell%data_pers%Q(1)%p = [0.0_GRID_SR, 0.0_GRID_SR]
            end if
 #          endif
 		end subroutine
@@ -751,7 +751,7 @@
 			!set refinement condition
 
 			i_refinement = 0
-			dQ_norm = abs(dQ(1)%h)
+			dQ_norm = max(abs(dQ(1)%h),abs(dQ(1)%h2))
 
 			if (i_depth < cfg%i_max_depth .and. dQ_norm > refinement_threshold * cfg%scaling * get_edge_size(cfg%i_max_depth)) then
 				i_refinement = 1

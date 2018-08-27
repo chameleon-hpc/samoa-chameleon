@@ -195,7 +195,7 @@ module config
 #    	elif defined(_SWE)
             write(arguments, '(A, A)') trim(arguments), " -dmin 0 -dmax 14 -dstart 0 -courant 0.45d0 -nmax -1 -tmax 3600.0d0 -nout -1 -tout -1.0d0 -drytolerance 0.01d0 -fbath data/tohoku_static/bath.nc -fdispl data/tohoku_static/displ.nc"
 #    	elif defined(_SWE2L)
-            write(arguments, '(A, A)') trim(arguments), " -dmin 0 -dmax 14 -dstart 0 -courant 0.45d0 -nmax -1 -tmax 3.0d0 -nout -1 -tout -1.0d0 -drytolerance 0.01d0 "
+            write(arguments, '(A, A)') trim(arguments), " -dmin 0 -dmax 14 -dstart 0 -courant 0.45d0 -nmax -1 -tmax 3.0d0 -nout -1 -tout -1.0d0 -drytolerance 0.1d0 "
 #	    elif defined(_FLASH)
             write(arguments, '(A, A)') trim(arguments), " -dmin 0 -dmax 14 -dstart 0 -courant 0.45d0 -nmax -1 -tmax 3600.0d0 -nout -1 -tout -1.0d0 -drytolerance 0.01d0 -fbath data/tohoku_static/bath.nc -fdispl data/tohoku_static/displ.nc"
 #    	elif defined(_NUMA)

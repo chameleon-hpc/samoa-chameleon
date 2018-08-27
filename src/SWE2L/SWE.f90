@@ -272,7 +272,6 @@
                 grid%l_grid_generation = .true.
 
 				call swe%adaption%traverse(grid)
-				call swe%init_dofs%traverse(grid) ! TEMP! <--- remove this
 
                 !output grids during initial phase if and only if t_out is 0
                 if (cfg%r_output_time_step == 0.0_GRID_SR) then
@@ -363,8 +362,7 @@
 #if defined(_IPM)
 	 	    call mpi_pcontrol( 1,"adaption_traversal"//char(0))	
 #endif
-                        ! TEMP!
-                        !call swe%adaption%traverse(grid)
+                        call swe%adaption%traverse(grid)
 #if defined(_IPM)
 	 	    call mpi_pcontrol( -1,"adaption_traversal"//char(0))	
 #endif
@@ -440,8 +438,7 @@
 #if defined(_IPM)
 	 	    call mpi_pcontrol( 1,"adaption_traversal"//char(0))	
 #endif
-                    ! TEMP!
-                    !call swe%adaption%traverse(grid)
+                    call swe%adaption%traverse(grid)
 #if defined(_IPM)
 	 	    call mpi_pcontrol( -1,"adaption_traversal"//char(0))	
 #endif

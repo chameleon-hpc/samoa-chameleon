@@ -115,16 +115,6 @@ MODULE SWE2L_Scenario_bowl_radial
             z = 0.0_GRID_SR
         end if
         Q%h = z
-        
-        ! check for dry layers
-        b = SWE_Scenario_get_bathymetry(x)
-        if (Q%h2 <= b) then
-            Q%h2 = b
-        end if
-        if (Q%h <= Q%h2) then
-            Q%h = Q%h2
-        end if
-       
     end function
 
 END MODULE 

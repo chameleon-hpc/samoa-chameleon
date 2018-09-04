@@ -805,7 +805,14 @@
             ! version for SWE patches (vectorizable)
             subroutine compute_geoclaw_flux_in_patch(normal_x, normal_y, hL, hR, huL, huR, hvL, hvR, bL, bR, upd_hL, upd_hR, upd_huL, upd_huR, upd_hvL, upd_hvR, maxWaveSpeed)
 #               if defined(_SWE_PATCH_VEC_SIMD)
-                    !$OMP DECLARE SIMD(compute_geoclaw_flux_in_patch)
+#                   if defined(__MIC__) 
+                        !$OMP DECLARE SIMD(compute_geoclaw_flux_in_patch) simdlen(8) processor(mic)
+#                   elif defined(__AVX512F__)
+                        !$OMP DECLARE SIMD(compute_geoclaw_flux_in_patch) simdlen(8)
+#                   else
+                        !$OMP DECLARE SIMD(compute_geoclaw_flux_in_patch) simdlen(4) 
+                        !!processor(core_4th_gen_avx)
+#                   endif
 #               endif
                 real(kind = GRID_SR), intent(in)    :: normal_x, normal_y
                 real(kind = GRID_SR), intent(inout)    :: hL, hR, huL, huR, hvL, hvR, bL, bR

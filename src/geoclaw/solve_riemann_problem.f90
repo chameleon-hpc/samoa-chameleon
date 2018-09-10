@@ -139,11 +139,10 @@ subroutine solve_riemann_problem(hL, hR, huL, huR, hvL, hvR, bL, bR, pL, pR, dry
     !* Call the solver! *
     !********************
     
-    ! First, check if subroutine should be inline. Then, call the appropriate solver depending on floating-point precision
+    ! Call the appropriate solver depending on floating-point precision
     
-#   if defined(_SWE_PATCH_VEC_INLINE)
-        !DIR$ FORCEINLINE
-#   endif
+    ! always inline the solver! -> usually a lot faster, especially with vectorization
+    !DIR$ FORCEINLINE
 
 #   if defined (_FWAVE_FLUX)
 

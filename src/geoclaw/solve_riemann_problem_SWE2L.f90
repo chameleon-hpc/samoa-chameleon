@@ -513,7 +513,7 @@ subroutine solve_riemann_problem_SWE2L(meqn,mwaves, n_index,t_index, h_l,h_r, hu
 
         beta = delta
         
-        !-DIR$ FORCEINLINE
+        !DIR$ FORCEINLINE
         call LU(A, 6, beta)
         
         !-DIR$ FORCEINLINE            

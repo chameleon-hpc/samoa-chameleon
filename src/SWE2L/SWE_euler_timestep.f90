@@ -666,10 +666,10 @@
                     element%cell%geometry%refinement = 0
                     dQ_max_norm = maxval(max(abs(dQ_H),abs(dQ_H2)))
 
-                    if (element%cell%geometry%i_depth < cfg%i_max_depth .and. dQ_max_norm > 5.0_GRID_SR * cfg%scaling * get_edge_size(cfg%i_max_depth) / _SWE_PATCH_ORDER ) then
+                    if (element%cell%geometry%i_depth < cfg%i_max_depth .and. dQ_max_norm > 0.5_GRID_SR * cfg%scaling * get_edge_size(cfg%i_max_depth) / _SWE_PATCH_ORDER ) then
                         element%cell%geometry%refinement = 1
                         traversal%i_refinements_issued = traversal%i_refinements_issued + 1_GRID_DI
-                    else if (element%cell%geometry%i_depth > cfg%i_min_depth .and. dQ_max_norm < 5.0_GRID_SR * cfg%scaling * get_edge_size(cfg%i_max_depth) / (_SWE_PATCH_ORDER * 8.0_SR) ) then
+                    else if (element%cell%geometry%i_depth > cfg%i_min_depth .and. dQ_max_norm < 0.5_GRID_SR * cfg%scaling * get_edge_size(cfg%i_max_depth) / (_SWE_PATCH_ORDER * 8.0_SR) ) then
                         element%cell%geometry%refinement = -1
                     endif
 
@@ -703,12 +703,12 @@
                     data%HV2 = data%HV2 + dQ_HV2
                     
                     !if the water level falls below the dry tolerance, set water level to 0 and velocity to 0
-                    where (data%H2 < data%B + cfg%dry_tolerance) 
+                    where (dq_H2 < 0.0_GRID_SR .and. data%H2 < data%B + cfg%dry_tolerance)
                         data%H2 = data%B
                         data%HU2 = 0.0_GRID_SR
                         data%HV2 = 0.0_GRID_SR
                     end where
-                    where (data%H < data%H2 + cfg%dry_tolerance) 
+                    where (dQ_H + dq_H2 < 0.0_GRID_SR .and. data%H < data%H2 + cfg%dry_tolerance)
                         data%H = data%H2
                         data%HU = 0.0_GRID_SR
                         data%HV = 0.0_GRID_SR
@@ -735,16 +735,19 @@
 
             call gv_Q%add(element, dQ)
 
-			!if the water level falls below the dry tolerance, set water level to 0 and velocity to 0
-           if (element%cell%data_pers%Q(1)%h < element%cell%data_pers%Q(1)%h2 + cfg%dry_tolerance) then
+            ! top level is also affected by the bottom level variation
+            element%cell%data_pers%Q(1)%h = element%cell%data_pers%Q(1)%h + dQ(1)%h2
+
+            !if the water level falls below the dry tolerance, set water level to 0 and velocity to 0
+            if (dQ(1)%H2 < 0.0_GRID_SR .and. element%cell%data_pers%Q(1)%h < element%cell%data_pers%Q(1)%h2 + cfg%dry_tolerance) then
                 element%cell%data_pers%Q(1)%h = element%cell%data_pers%Q(1)%h2
                 element%cell%data_pers%Q(1)%p = [0.0_GRID_SR, 0.0_GRID_SR]
-           end if
-           if (element%cell%data_pers%Q(1)%h2 < element%cell%data_pers%Q(1)%b + cfg%dry_tolerance) then
+            end if
+            if (dQ(1)%H < 0.0_GRID_SR .and. element%cell%data_pers%Q(1)%h2 < element%cell%data_pers%Q(1)%b + cfg%dry_tolerance) then
                 element%cell%data_pers%Q(1)%h2 = element%cell%data_pers%Q(1)%b
                 element%cell%data_pers%Q(1)%p2 = [0.0_GRID_SR, 0.0_GRID_SR]
-           end if
-#          endif
+            end if
+#           endif
 		end subroutine
 
 		subroutine cell_last_touch_op(traversal, section, cell)
@@ -780,7 +783,7 @@
 
 			real(kind = GRID_SR)											    :: volume, dQ_norm, edge_lengths(3)
 			integer (kind = BYTE)												:: i
-			real (kind = GRID_SR), parameter                                    :: refinement_threshold = 5.0_SR
+			real (kind = GRID_SR), parameter                                    :: refinement_threshold = 0.5_SR
 
 			_log_write(6, '(3X, A)') "swe cell update op:"
 			_log_write(6, '(4X, A, 4(X, F0.3))') "edge 1 flux in:", fluxes(1)
@@ -799,7 +802,6 @@
 			dQ%b = 0.0_GRID_SR
 			
 			!set refinement condition
-
 			i_refinement = 0
 			dQ_norm = max(abs(dQ(1)%h),abs(dQ(1)%h2))
 
@@ -1009,6 +1011,10 @@
                 
                 ! in this implementation we consider h1 and h2 the water elevation relative to some mean level,
                 ! but the Riemann solvers considers that these variables represent the actual height of the water column:
+                hL2 = max(hL2, bL)
+                hL = max(hL, hL2)
+                hR2 = max(hR2, bR)
+                hR = max(hR, hR2)
                 hL = hL - hL2
                 hL2 = hL2 - bL
                 hR = hR - hR2

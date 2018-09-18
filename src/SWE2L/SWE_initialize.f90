@@ -439,35 +439,8 @@
                     end if
                 end do
                 
-                ! dry cells (top layer)
-                where (element%cell%data_pers%H < element%cell%data_pers%B + cfg%dry_tolerance) 
-                    element%cell%data_pers%H  = element%cell%data_pers%B
-                    element%cell%data_pers%HU = 0.0_GRID_SR
-                    element%cell%data_pers%HV = 0.0_GRID_SR
-                end where
-                
-                ! dry cells (bottom layer)
-                where (element%cell%data_pers%H2 < element%cell%data_pers%B + cfg%dry_tolerance) 
-                    element%cell%data_pers%H2  = element%cell%data_pers%B
-                    element%cell%data_pers%HU2 = 0.0_GRID_SR
-                    element%cell%data_pers%HV2 = 0.0_GRID_SR
-                end where
-                
 #           else	
                 Q%t_dof_state = get_initial_dof_state_at_element(section, element)
-			
-                ! dry cells (top layer)
-                if (Q(1)%h < Q(1)%b + cfg%dry_tolerance) then
-                    Q(1)%h  = Q(1)%b
-                    Q(1)%p(:) = [0.0_GRID_SR, 0.0_GRID_SR]
-                end if
-                
-                ! dry cells (bottom layer)
-                if (Q(1)%h2 < Q(1)%b + cfg%dry_tolerance) then
-                    Q(1)%h2  = Q(1)%b
-                    Q(1)%p2(:) = [0.0_GRID_SR, 0.0_GRID_SR]
-                end if
-            
 #           endif
 
 			element%cell%geometry%refinement = 0

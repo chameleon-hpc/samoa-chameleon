@@ -114,7 +114,12 @@ MODULE SWE2L_Scenario_bowl_radial
         else
             z = 0.0_GRID_SR
         end if
-        Q%h = z
+        
+        if (z >= 0.05) then
+            Q%h = z 
+        else
+            Q%h = 0.0_GRID_SR
+        end if
     end function
 
 END MODULE 

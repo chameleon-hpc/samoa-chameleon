@@ -1,4 +1,7 @@
 subroutine solve_riemann_problem_SWE2L(meqn,mwaves, n_index,t_index, h_l,h_r, hu_l,hu_r, hv_l,hv_r, b_l,b_r, h_hat_l,h_hat_r, fw_priv, sw_priv, dry_tolerance, g)
+#   if defined(_SWE_PATCH_VEC_SIMD)
+        !$OMP DECLARE SIMD(solve_riemann_problem_SWE2L) UNIFORM(meqn, mwaves, n_index, t_index, dry_tolerance, g)
+#   endif
 
     implicit none
     

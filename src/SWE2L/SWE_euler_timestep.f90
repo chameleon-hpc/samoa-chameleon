@@ -1041,9 +1041,7 @@
                 h_hat_l = 0.0_GRID_SR
                 h_hat_r = 0.0_GRID_SR
 
-#               if defined(_SWE_PATCH_VEC_INLINE)
-                    !DIR$ FORCEINLINE
-#               endif
+                !DIR$ FORCEINLINE
                 call solve_riemann_problem_SWE2L(6,6,2,3, h_l,h_r, hu_l,hu_r, hv_l,hv_r, b_l,b_r, h_hat_l,h_hat_r, &
                                                     fWaves, waveSpeeds, [real(cfg%dry_tolerance,kind=8),real(cfg%dry_tolerance,kind=8)], g) 
 

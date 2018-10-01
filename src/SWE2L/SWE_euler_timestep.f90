@@ -666,10 +666,10 @@
                     element%cell%geometry%refinement = 0
                     dQ_max_norm = maxval(max(abs(dQ_H),abs(dQ_H2)))
 
-                    if (element%cell%geometry%i_depth < cfg%i_max_depth .and. dQ_max_norm > 0.1_GRID_SR * cfg%scaling * get_edge_size(cfg%i_max_depth) / _SWE_PATCH_ORDER ) then
+                    if (element%cell%geometry%i_depth < cfg%i_max_depth .and. dQ_max_norm > 0.02_GRID_SR * cfg%scaling * get_edge_size(cfg%i_max_depth) / _SWE_PATCH_ORDER ) then
                         element%cell%geometry%refinement = 1
                         traversal%i_refinements_issued = traversal%i_refinements_issued + 1_GRID_DI
-                    else if (element%cell%geometry%i_depth > cfg%i_min_depth .and. dQ_max_norm < 0.1_GRID_SR * cfg%scaling * get_edge_size(cfg%i_max_depth) / (_SWE_PATCH_ORDER * 8.0_SR) ) then
+                    else if (element%cell%geometry%i_depth > cfg%i_min_depth .and. dQ_max_norm < 0.02_GRID_SR * cfg%scaling * get_edge_size(cfg%i_max_depth) / (_SWE_PATCH_ORDER * 8.0_SR) ) then
                         element%cell%geometry%refinement = -1
                     endif
 
@@ -783,7 +783,7 @@
 
 			real(kind = GRID_SR)											    :: volume, dQ_norm, edge_lengths(3)
 			integer (kind = BYTE)												:: i
-			real (kind = GRID_SR), parameter                                    :: refinement_threshold = 0.1_SR
+			real (kind = GRID_SR), parameter                                    :: refinement_threshold = 0.02_SR
 
 			_log_write(6, '(3X, A)') "swe cell update op:"
 			_log_write(6, '(4X, A, 4(X, F0.3))') "edge 1 flux in:", fluxes(1)

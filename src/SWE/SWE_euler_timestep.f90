@@ -352,7 +352,7 @@
                 real(kind = GRID_SR), DIMENSION(_SWE_CHUNK_SIZE)                :: hR, huR, hvR, bR
                 real(kind = GRID_SR), DIMENSION(_SWE_CHUNK_SIZE)                :: upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR
                 real(kind = GRID_SR), dimension(2,3)                            :: normals ! 1st index = x or y, 2nd index = edge orientation in patch (1, 2 or 3, see SWE_PATCH)
-                real(kind = GRID_SR)                                            :: normal_x, normal_y
+                real(kind = GRID_SR), DIMENSION(_SWE_CHUNK_SIZE)                :: normals_x, normals_y
                 
                 !DIR$ ASSUME_ALIGNED hL: 64
                 !DIR$ ASSUME_ALIGNED hR: 64
@@ -435,6 +435,10 @@
                         do j=1, min(edgesLeft, _SWE_CHUNK_SIZE)  ! j -> position inside chunk
                             ind = i + j - 1 ! actual index
                             
+                            ! edge normals
+                            normals_x(j) = normals(1,geom%edges_orientation(ind))
+                            normals_y(j) = normals(2,geom%edges_orientation(ind))
+                            
                             ! cells left to the edges
                             if (geom%edges_a(ind) <= _SWE_PATCH_ORDER_SQUARE) then
                                 ! data for internal cells come from cell data
@@ -492,25 +496,20 @@
 
 #                       if defined(_SWE_PATCH_VEC_SIMD) || defined(_SWE_PATCH_VEC_INLINE)
                             ! Vectorization! (Requires OpenMP 4.0 or later)
-                            !$OMP SIMD PRIVATE(maxWaveSpeedLocal,normal_x,normal_y) REDUCTION(max: maxWaveSpeed)
+                            !$OMP SIMD PRIVATE(maxWaveSpeedLocal) REDUCTION(max: maxWaveSpeed)
 #                       endif
-                        do j=1, min(edgesLeft, _SWE_CHUNK_SIZE)
-                        
-                            ind = i + j - 1 ! actual index
-                            
-                            normal_x = normals(1,geom%edges_orientation(ind))
-                            normal_y = normals(2,geom%edges_orientation(ind))
+                        do j=1,  _SWE_CHUNK_SIZE
 
 #                           if defined(_SWE_PATCH_VEC_INLINE)
                                 ! Warning: inlining this subroutine into an OMP SIMD loop may cause
                                 ! bugs and incorrect calculations depending on the compiler version
                                 ! Check the results!
                         
-                                ! Recommended compiler: ifort 17.0
+                                ! Recommended compiler: ifort 17.0 or 19.0
                         
                                 !DIR$ FORCEINLINE
 #                           endif
-                            call compute_geoclaw_flux_in_patch(normal_x, normal_y, hL(j), hR(j), huL(j), huR(j), hvL(j), hvR(j), bL(j), bR(j), upd_hL(j), upd_hR(j), upd_huL(j), upd_huR(j), upd_hvL(j), upd_hvR(j), maxWaveSpeedLocal)
+                            call compute_geoclaw_flux_in_patch(normals_x(j), normals_y(j), hL(j), hR(j), huL(j), huR(j), hvL(j), hvR(j), bL(j), bR(j), upd_hL(j), upd_hR(j), upd_huL(j), upd_huR(j), upd_hvL(j), upd_hvR(j), maxWaveSpeedLocal)
                             maxWaveSpeed = max(maxWaveSpeed, maxWaveSpeedLocal)
                             
                         end do

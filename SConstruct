@@ -193,6 +193,15 @@ elif env['scenario'] == 'swe2l':
   env['F90FLAGS'] += ' -D_SWE2L'
   env.SetDefault(asagi = False)
   env.SetDefault(library = False)
+  
+  # restrictions to swe2l:
+  if env['asagi']:
+    print "Error: asagi is still not supported for swe2l scenario."
+    Exit(-1)
+  if env['flux_solver'] not in ['fwave','aug_riemann']:
+    print "Error: for swe2l scenario, flux_solver must be 'fwave' or 'aug_riemann'."
+    Exit(-1)
+    
 elif env['scenario'] == 'generic':
   env['F90FLAGS'] += ' -D_GENERIC'
   env.SetDefault(asagi = False)

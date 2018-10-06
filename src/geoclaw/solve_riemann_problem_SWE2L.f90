@@ -160,6 +160,7 @@ subroutine solve_riemann_problem_SWE2L(meqn,mwaves, n_index,t_index, h_l,h_r, hu
             hvL = hv_l(2)
             hvR = hv_r(2)
         else
+#           if !defined(_SWE_PATCH_VEC_SIMD) && !defined(_SWE_PATCH_VEC_INLINE)
             print *, "Invalid dry layer state reached."
             print *, "dry states: ", dry_state_l, dry_state_r
             print *, "        left            |             right"
@@ -172,6 +173,7 @@ subroutine solve_riemann_problem_SWE2L(meqn,mwaves, n_index,t_index, h_l,h_r, hu
             print "(2d16.8)", hv_l(2), hv_r(2)
             print "(2d16.8)", b_l, b_r
             stop
+#           endif
         end if
 
         !DIR$ FORCEINLINE
@@ -250,9 +252,12 @@ subroutine solve_riemann_problem_SWE2L(meqn,mwaves, n_index,t_index, h_l,h_r, hu
             ! Inundation occurs
             inundation = sum(h_l) + b_l > b_r
             if (inundation) then
+#           if !defined(_SWE_PATCH_VEC_SIMD) && !defined(_SWE_PATCH_VEC_INLINE)
+
                  print *, "Inundation in this case not yet handled."
                  print *, "  dry_state = ", dry_state_l, dry_state_r
                  stop 
+#           endif
 
             ! Wall boundary
             else
@@ -282,9 +287,11 @@ subroutine solve_riemann_problem_SWE2L(meqn,mwaves, n_index,t_index, h_l,h_r, hu
             ! Inundation
             inundation = sum(h_r) + b_r > b_l
             if (inundation) then
+#           if !defined(_SWE_PATCH_VEC_SIMD) && !defined(_SWE_PATCH_VEC_INLINE)
                  print *, "Inundation in this case not yet handled."
                  print *, "  dry_state = ", dry_state_l, dry_state_r
                  stop 
+#           endif
 
             ! Wall
             else
@@ -409,6 +416,7 @@ subroutine solve_riemann_problem_SWE2L(meqn,mwaves, n_index,t_index, h_l,h_r, hu
         ! ==================================================================
         !  We do not yet handle this case - F F F F and F F F F 
         else
+#           if !defined(_SWE_PATCH_VEC_SIMD) && !defined(_SWE_PATCH_VEC_INLINE)
              print *, "Unhandled dry-state condition reached."
              print *, "dry states: ", dry_state_l, dry_state_r
              print *, "        left            |             right"
@@ -421,6 +429,7 @@ subroutine solve_riemann_problem_SWE2L(meqn,mwaves, n_index,t_index, h_l,h_r, hu
              print "(2d16.8)", hv_l(2), hv_r(2)
              print "(2d16.8)", b_l, b_r
              stop
+#           endif
         end if
 
         ! ==================================================================

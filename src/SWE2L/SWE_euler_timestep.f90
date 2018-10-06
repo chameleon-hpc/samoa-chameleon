@@ -431,7 +431,7 @@
                 real(kind = GRID_SR), DIMENSION(_SWE_CHUNK_SIZE)           :: upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR
                 real(kind = GRID_SR), DIMENSION(_SWE_CHUNK_SIZE)           :: upd_hL2, upd_huL2, upd_hvL2, upd_hR2, upd_huR2, upd_hvR2
                 real(kind = GRID_SR), dimension(2,3)                            :: normals ! 1st index = x or y, 2nd index = edge orientation in patch (1, 2 or 3, see SWE_PATCH)
-                real(kind = GRID_SR)                                            :: normal_x, normal_y
+                real(kind = GRID_SR), DIMENSION(_SWE_CHUNK_SIZE)                :: normals_x, normals_y
                 
                 !DIR$ ASSUME_ALIGNED hL: 64
                 !DIR$ ASSUME_ALIGNED hR: 64
@@ -495,23 +495,6 @@
                     do i=1, _SWE_PATCH_NUM_EDGES, _SWE_CHUNK_SIZE ! i -> init of chunk
                     
                         edgesLeft = _SWE_PATCH_NUM_EDGES - i + 1 ! number of edges that still haven't been processed
-                    
-                        if (i + _SWE_CHUNK_SIZE -1 > _SWE_PATCH_NUM_EDGES) then
-                            hL = 0.0_GRID_SR
-                            huL = 0.0_GRID_SR
-                            hvL = 0.0_GRID_SR
-                            hL2 = 0.0_GRID_SR
-                            huL2 = 0.0_GRID_SR
-                            hvL2 = 0.0_GRID_SR
-                            bL = 0.0_GRID_SR
-                            hR = 0.0_GRID_SR
-                            huR = 0.0_GRID_SR
-                            hvR = 0.0_GRID_SR
-                            hR2 = 0.0_GRID_SR
-                            huR2 = 0.0_GRID_SR
-                            hvR2 = 0.0_GRID_SR
-                            bR = 0.0_GRID_SR
-                        end if
                         
                         upd_hL = 0.0_GRID_SR
                         upd_huL = 0.0_GRID_SR
@@ -529,7 +512,9 @@
                         do j=1, min(edgesLeft, _SWE_CHUNK_SIZE)  ! j -> position inside chunk
                             ind = i + j - 1 ! actual index
                             
-                            ! cells left to the edges
+                            ! edge normals
+                            normals_x(j) = normals(1,geom%edges_orientation(ind))
+                            normals_y(j) = normals(2,geom%edges_orientation(ind))
                             
                             ! cells left to the edges
                             if (geom%edges_a(ind) <= _SWE_PATCH_ORDER_SQUARE) then
@@ -612,14 +597,9 @@
 
 #                       if defined(_SWE_PATCH_VEC_SIMD) || defined(_SWE_PATCH_VEC_INLINE)
                             ! Vectorization! (Requires OpenMP 4.0 or later)
-                            !$OMP SIMD PRIVATE(maxWaveSpeedLocal,normal_x,normal_y) REDUCTION(max: maxWaveSpeed)
+                            !$OMP SIMD PRIVATE(maxWaveSpeedLocal) REDUCTION(max: maxWaveSpeed)
 #                       endif
                         do j=1, min(edgesLeft, _SWE_CHUNK_SIZE)
-                        
-                            ind = i + j - 1 ! actual index
-                            
-                            normal_x = normals(1,geom%edges_orientation(ind))
-                            normal_y = normals(2,geom%edges_orientation(ind))
 
 #                           if defined(_SWE_PATCH_VEC_INLINE)
                                 ! Warning: inlining this subroutine into an OMP SIMD loop may cause
@@ -630,7 +610,7 @@
                         
                                 !DIR$ FORCEINLINE
 #                           endif
-                            call compute_geoclaw_flux_in_patch(normal_x, normal_y, &
+                            call compute_geoclaw_flux_in_patch(normals_x(j), normals_y(j), &
                                                             hL(j), hR(j), huL(j), huR(j), hvL(j), hvR(j), bL(j), bR(j), &
                                                             hL2(j), hR2(j), huL2(j), huR2(j), hvL2(j), hvR2(j), &
                                                             upd_hL(j), upd_hR(j), upd_huL(j), upd_huR(j), upd_hvL(j), upd_hvR(j), &

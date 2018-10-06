@@ -14,9 +14,6 @@
 #       if defined(_SWE_PATCH)
             use SWE_PATCH
 #       endif
-#       if defined(_HLLE_FLUX)
-            use SWE_HLLE
-#       endif
 		implicit none
 
         type num_traversal_data
@@ -263,9 +260,7 @@
 			_log_write(6, '(4X, A, F0.3, 1X, F0.3, 1X, F0.3, 1X, F0.3)') "Q 1 in: ", rep1%Q
 			_log_write(6, '(4X, A, F0.3, 1X, F0.3, 1X, F0.3, 1X, F0.3)') "Q 2 in: ", rep2%Q
 
-#			if defined (_LF_FLUX) || defined (_LF_BATH_FLUX) || defined (_LLF_FLUX) || defined (_LLF_BATH_FLUX)
-				call compute_lf_flux(edge%transform_data%normal, rep1%Q(1), rep2%Q(1), update1%flux(1), update2%flux(1))
-#           elif defined (_SWE_PATCH)
+#           if defined (_SWE_PATCH)
                 ! invert values in edges
                 ! cells are copied in inverse order because the neighbor 
                 ! ghost cells will have a mirrored numbering! See a (poorly-drawn) example:
@@ -333,9 +328,7 @@
 			!OUTFLOW: copy values
 			bnd_rep = rep
 
-#			if defined (_LF_FLUX) || defined (_LF_BATH_FLUX) || defined (_LLF_FLUX) || defined (_LLF_BATH_FLUX)
-				call compute_lf_flux(edge%transform_data%normal, rep%Q(1), bnd_rep, update%flux(1), bnd_flux)
-#           elif defined (_SWE_PATCH)
+#           if defined (_SWE_PATCH)
                 ! boundary conditions on ghost cells
                 update%H = rep%H
                 update%HU = rep%HU
@@ -810,142 +803,6 @@
 			_log_write(6, '(4X, A, 4(X, F0.3))') "dQ out: ", dQ
 		end subroutine
 
-		!> Lax Friedrichs flux. Depending on compiler flags, the function implements
-		!> the global or local variant with or without bathymetry
-		pure subroutine compute_lf_flux(normal, QL, QR, fluxL, fluxR)
-			type(t_state), intent(in)							:: QL, QR
-			type(t_update), intent(out) 						:: fluxL, fluxR
-			real(kind = GRID_SR), intent(in)		            :: normal(2)
-
-			real(kind = GRID_SR)								:: vL, vR, hL, hR, alpha
-
-#           if defined(_LF_BATH_FLUX) || defined(_LLF_BATH_FLUX)
-                if (QL%h - QL%b < cfg%dry_tolerance .or. QR%h - QR%b < cfg%dry_tolerance) then
-                    hL = 0.0_SR; hR = 0.0_SR
-                    vL = 0.0_SR; vR = 0.0_SR
-
-                    fluxL%max_wave_speed = 0.0_SR; fluxR%max_wave_speed = 0.0_SR
-                    fluxL%h = 0.0_SR; fluxR%h = 0.0_SR
-                    fluxL%p = 0.0_SR; fluxR%p = 0.0_SR
-
-                    !This boundary treatment assumes a wall condition.
-                    !For the mass flux, we choose pR := -hL * vL, vR = 0 (walls are immovable), hence hR must be infinite.
-                    !For the momentum flux we choose hR := 0, vR := 0 (implying there is no hydrostatic pressure), bR := bL + hL (there is a wall to the right)
-
-                    if (QL%h - QL%b < cfg%dry_tolerance .and. QR%h - QR%b < cfg%dry_tolerance) then
-                    else if (QL%h - QL%b < cfg%dry_tolerance) then
-                        hR = max(QR%h - QR%b, 0.0_SR)
-                        vR = dot_product(normal, QR%p / (QR%h - QR%b))
-                        fluxR%max_wave_speed = sqrt(g * hR) + abs(vR)
-                        fluxR%p = -0.5_SR * vR * QR%p - 0.5_GRID_SR * g * hR * hR * normal + 0.5_SR * fluxR%max_wave_speed * QR%p
-                    else if (QR%h - QR%b < cfg%dry_tolerance) then
-                        hL = max(QL%h - QL%b, 0.0_SR)
-                        vL = dot_product(normal, QL%p / (QL%h - QL%b))
-                        fluxL%max_wave_speed = sqrt(g * hL) + abs(vL)
-                        fluxL%p = 0.5_SR * vL * QL%p + 0.5_GRID_SR * g * hL * hL * normal + 0.5_SR * fluxL%max_wave_speed * QL%p
-                    end if
-
-                    return
-                end if
-
-                hL = max(QL%h - QL%b, 0.0_SR)
-                hR = max(QR%h - QR%b, 0.0_SR)
-
-                vL = dot_product(normal, QL%p / (QL%h - QL%b))
-                vR = dot_product(normal, QR%p / (QR%h - QR%b))
-
-                fluxL%max_wave_speed = sqrt(g * hL) + abs(vL)
-                fluxR%max_wave_speed = sqrt(g * hR) + abs(vR)
-
-#               if defined(_LLF_BATH_FLUX)
-                    alpha = max(fluxL%max_wave_speed, fluxR%max_wave_speed)
-#               else
-                    alpha = 100.0_GRID_SR
-#               endif
-
-                !Except for the diffusion term, the mass flux is the standard LF flux
-                fluxL%h = 0.5_GRID_SR * (hL * vL + hR * vR + alpha * (QL%h - QR%h))
-                fluxR%h = -fluxL%h
-
-                !The base momentum flux is similar to the standard LF flux.
-                fluxL%p = 0.5_GRID_SR * (QL%p * vL + QR%p * vR + 0.5_GRID_SR * g * (hL * hL + hR * hR) * normal + alpha * (QL%p - QR%p))
-                fluxR%p = -fluxL%p
-
-                !The source term $\Delta x \ \Psi = $-1/2 g \ \frac{1}{2} \ (h_l + h_r) \ (b_r - b_l)$ [LeVeque] is added on both sides with a weight of 1/2.
-                !This factor ensures that the method is well-balanced.
-                fluxL%p = fluxL%p + 0.25_SR * g * (hL + hR) * (QR%b - QL%b) * normal
-                fluxR%p = fluxR%p + 0.25_SR * g * (hL + hR) * (QR%b - QL%b) * normal
-#           elif defined(_LF_FLUX) || defined(_LLF_FLUX)
-                real(kind = GRID_SR), parameter					:: b = 0.0_GRID_SR     !default constant bathymetry
-
-                hL = max(QL%h - b, 0.0_SR)
-                hR = max(QR%h - b, 0.0_SR)
-
-                vL = dot_product(normal, QL%p / (QL%h - b))
-                vR = dot_product(normal, QR%p / (QR%h - b))
-
-                fluxL%max_wave_speed = sqrt(g * (QL%h - b)) + abs(vL)
-                fluxR%max_wave_speed = sqrt(g * (QR%h - b)) + abs(vR)
-
-#               if defined(_LLF_FLUX)
-                    alpha = max(fluxL%max_wave_speed, fluxR%max_wave_speed)
-#               else
-                    alpha = 100.0_GRID_SR
-#               endif
-
-                fluxL%h = 0.5_GRID_SR * (vL * hL + vR * hR + alpha * (QL%h - QR%h))
-                fluxR%h = -fluxL%h
-
-                fluxL%p = 0.5_GRID_SR * (vL * vL * hL + vR * vR * hR + 0.5_GRID_SR * g * (hL * hL + hR * hR) * normal + alpha * (QL%p - QR%p))
-                fluxR%p = -fluxL%p
-#           endif
-		end subroutine
-
-		!> Riemann solvers from geoclaw
-		subroutine compute_geoclaw_flux(normal, QL, QR, fluxL, fluxR)
-			type(t_state), intent(in)           :: QL, QR
-			type(t_update), intent(out)         :: fluxL, fluxR
-			real(kind = GRID_SR), intent(in)    :: normal(2)
-
-			real(kind = GRID_SR)				:: transform_matrix(2, 2)
-			real(kind = GRID_SR)			    :: net_updatesL(3), net_updatesR(3), max_wave_speed
-			real(kind = GRID_SR)                :: pL(2), pR(2), pL2(2), pR2(2), hL, hR, hL2, hR2, bL, bR
-
-! 			transform_matrix(1, :) = normal
-! 			transform_matrix(2, :) = [-normal(2), normal(1)]
-! 
-! 			pL = matmul(transform_matrix, QL%p)
-! 			pR = matmul(transform_matrix, QR%p)
-! 			pL2 = matmul(transform_matrix, QL%p2)
-! 			pR2 = matmul(transform_matrix, QR%p2)
-! 			hL2 = QL%h2 - QL%b
-! 			hR2 = QR%h2 - QR%b
-! 			hL = QL%h - hL2
-! 			hR = QR%h - hR2
-! 			bL = QL%b
-! 			bR = QR%b
-! 			
-! 			call solve_riemann_problem_SWE2L(6,6,2,3, h_l,h_r, hu_l,hu_r, hv_l,hv_r, b_l,b_r, h_hat_l,h_hat_r, &
-!                                                     fWaves, waveSpeeds, [real(cfg%dry_tolerance,kind=8),real(cfg%dry_tolerance,kind=8)], g) 
-
-			
-! #           if defined(_FWAVE_FLUX)
-!                 call c_bind_geoclaw_solver(GEOCLAW_FWAVE, 1, 3, hL, hR, pL(1), pR(1), pL(2), pR(2), bL, bR, real(cfg%dry_tolerance, GRID_SR), g, net_updatesL, net_updatesR, max_wave_speed)
-! #           elif defined(_AUG_RIEMANN_FLUX)
-!                 call c_bind_geoclaw_solver(GEOCLAW_AUG_RIEMANN, 1, 3, hL, hR, pL(1), pR(1), pL(2), pR(2), bL, bR, real(cfg%dry_tolerance, GRID_SR), g, net_updatesL, net_updatesR, max_wave_speed)
-! #           endif
-! 
-! 			fluxL%h = net_updatesL(1)
-! 			fluxL%p = matmul(net_updatesL(2:3), transform_matrix)
-! 			fluxL%max_wave_speed = max_wave_speed
-! 
-! 			fluxR%h = net_updatesR(1)
-! 			fluxR%p = matmul(net_updatesR(2:3), transform_matrix)
-! 			fluxR%max_wave_speed = max_wave_speed
-	end subroutine
-
-!#       if defined(_SWE_PATCH)
-            ! version for SWE patches (vectorizable)
             subroutine compute_geoclaw_flux_in_patch(normal_x, normal_y, &
                                                         hL, hR, huL, huR, hvL, hvR, bL, bR, &
                                                         hL2, hR2, huL2, huR2, hvL2, hvR2, &
@@ -1097,7 +954,6 @@
                 hu = transform_matrix(1,1) * hu + transform_matrix(2,1) * hv
                 hv = transform_matrix(1,2) * temp + transform_matrix(2,2) * hv
             end subroutine
-!#       endif
 
         pure subroutine node_write_op(local_node, neighbor_node)
             type(t_node_data), intent(inout)			    :: local_node

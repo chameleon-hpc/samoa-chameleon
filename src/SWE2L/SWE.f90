@@ -165,22 +165,22 @@
                     end if
 
                     if (rank_MPI == 0) then
-                        _log_write(1, '(" SWE: loaded ", A, ", domain: [", F0.2, ", ", F0.2, "] x [", F0.2, ", ", F0.2, "]")') &
+                        _log_write(1, '(" SWE2L: loaded ", A, ", domain: [", F0.2, ", ", F0.2, "] x [", F0.2, ", ", F0.2, "]")') &
                             trim(cfg%s_bathymetry_file), asagi_grid_min(afh_b, 0), asagi_grid_max(afh_b, 0),  asagi_grid_min(afh_b, 1), asagi_grid_max(afh_b, 1)
-                        _log_write(1, '(" SWE:  dx: ", F0.2, " dy: ", F0.2)') asagi_grid_delta(afh_b, 0), asagi_grid_delta(afh_b, 1)
+                        _log_write(1, '(" SWE2L:  dx: ", F0.2, " dy: ", F0.2)') asagi_grid_delta(afh_b, 0), asagi_grid_delta(afh_b, 1)
 
                         !if the data file has more than two dimensions, we assume that it contains time-dependent displacements
                         if (asagi_grid_dimensions(afh_d) > 2) then
-                            _log_write(1, '(" SWE: loaded ", A, ", domain: [", F0.2, ", ", F0.2, "] x [", F0.2, ", ", F0.2, "], time: [", F0.2, ", ", F0.2, "]")') &
+                            _log_write(1, '(" SWE2L: loaded ", A, ", domain: [", F0.2, ", ", F0.2, "] x [", F0.2, ", ", F0.2, "], time: [", F0.2, ", ", F0.2, "]")') &
                             trim(cfg%s_displacement_file), asagi_grid_min(afh_d, 0), asagi_grid_max(afh_d, 0),  asagi_grid_min(afh_d, 1), asagi_grid_max(afh_d, 1), asagi_grid_min(afh_d, 2), asagi_grid_max(afh_d, 2)
-                            _log_write(1, '(" SWE:  dx: ", F0.2, " dy: ", F0.2, " dt: ", F0.2)') asagi_grid_delta(afh_d, 0), asagi_grid_delta(afh_d, 1), asagi_grid_delta(afh_d, 2)
+                            _log_write(1, '(" SWE2L:  dx: ", F0.2, " dy: ", F0.2, " dt: ", F0.2)') asagi_grid_delta(afh_d, 0), asagi_grid_delta(afh_d, 1), asagi_grid_delta(afh_d, 2)
                         else
-                            _log_write(1, '(" SWE: loaded ", A, ", domain: [", F0.2, ", ", F0.2, "] x [", F0.2, ", ", F0.2, "]")') &
+                            _log_write(1, '(" SWE2L: loaded ", A, ", domain: [", F0.2, ", ", F0.2, "] x [", F0.2, ", ", F0.2, "]")') &
                             trim(cfg%s_displacement_file), asagi_grid_min(afh_d, 0), asagi_grid_max(afh_d, 0),  asagi_grid_min(afh_d, 1), asagi_grid_max(afh_d, 1)
-                            _log_write(1, '(" SWE:  dx: ", F0.2, " dy: ", F0.2)') asagi_grid_delta(afh_d, 0), asagi_grid_delta(afh_d, 1)
+                            _log_write(1, '(" SWE2L:  dx: ", F0.2, " dy: ", F0.2)') asagi_grid_delta(afh_d, 0), asagi_grid_delta(afh_d, 1)
                         end if
 
-                        _log_write(1, '(" SWE: computational domain: [", F0.2, ", ", F0.2, "] x [", F0.2, ", ", F0.2, "]")'), cfg%offset(1), cfg%offset(1) + cfg%scaling, cfg%offset(2), cfg%offset(2) + cfg%scaling
+                        _log_write(1, '(" SWE2L: computational domain: [", F0.2, ", ", F0.2, "] x [", F0.2, ", ", F0.2, "]")'), cfg%offset(1), cfg%offset(1) + cfg%scaling, cfg%offset(2), cfg%offset(2) + cfg%scaling
                     end if
                end associate
 #           else
@@ -234,7 +234,7 @@
 
             if (rank_MPI == 0) then
                 !$omp master
-                _log_write(0, *) "SWE: setting initial values and a priori refinement.."
+                _log_write(0, *) "SWE2L: setting initial values and a priori refinement.."
                 _log_write(0, *) ""
                 !$omp end master
             end if
@@ -255,9 +255,9 @@
                 if (rank_MPI == 0) then
                     !$omp master
 #                   if defined(_SWE_PATCH)
-                        _log_write(1, "(A, I0, A, I0, A, I0, A)") " SWE: ", i_initial_step, " adaptions, ", grid_info%i_cells, " patches = ", grid_info%i_cells * _SWE_PATCH_ORDER_SQUARE, " cells"
+                        _log_write(1, "(A, I0, A, I0, A, I0, A)") " SWE2L: ", i_initial_step, " adaptions, ", grid_info%i_cells, " patches = ", grid_info%i_cells * _SWE_PATCH_ORDER_SQUARE, " cells"
 #                   else
-                        _log_write(1, "(A, I0, A, I0, A)") " SWE: ", i_initial_step, " adaptions, ", grid_info%i_cells, " cells"
+                        _log_write(1, "(A, I0, A, I0, A)") " SWE2L: ", i_initial_step, " adaptions, ", grid_info%i_cells, " cells"
 #                   endif
                     !$omp end master
                 end if
@@ -299,7 +299,7 @@
 
             if (rank_MPI == 0) then
                 !$omp master
-                _log_write(0, *) "SWE: done."
+                _log_write(0, *) "SWE2L: done."
                 _log_write(0, *) ""
 
                 call grid_info%print()
@@ -336,7 +336,7 @@
             call grid%reduce_stats(MPI_SUM, .true.)
 
             if (rank_MPI == 0) then
-                _log_write(0, *) "SWE: running time steps.."
+                _log_write(0, *) "SWE2L: running time steps.."
                 _log_write(0, *) ""
 			end if
             !$omp end master
@@ -390,9 +390,9 @@
                     if (rank_MPI == 0) then
                         !$omp master
 #                       if defined (_SWE_PATCH)
-                            _log_write(1, '(" SWE: EQ time step: ", I0, ", sim. time:", A, ", dt:", A, ", patches : " I0, " cells: ", I0)') i_time_step, trim(time_to_hrt(DBLE(grid%r_time))), trim(time_to_hrt(DBLE(grid%r_dt))), grid_info%i_cells, grid_info%i_cells * _SWE_PATCH_ORDER_SQUARE
+                            _log_write(1, '(" SWE2L: EQ time step: ", I0, ", sim. time:", A, ", dt:", A, ", patches : " I0, " cells: ", I0)') i_time_step, trim(time_to_hrt(DBLE(grid%r_time))), trim(time_to_hrt(DBLE(grid%r_dt))), grid_info%i_cells, grid_info%i_cells * _SWE_PATCH_ORDER_SQUARE
 #                       else
-                            _log_write(1, '(" SWE: EQ time step: ", I0, ", sim. time:", A, ", dt:", A, ", cells: ", I0)') i_time_step, trim(time_to_hrt(DBLE(grid%r_time))), trim(time_to_hrt(DBLE(grid%r_dt))), grid_info%i_cells
+                            _log_write(1, '(" SWE2L: EQ time step: ", I0, ", sim. time:", A, ", dt:", A, ", cells: ", I0)') i_time_step, trim(time_to_hrt(DBLE(grid%r_time))), trim(time_to_hrt(DBLE(grid%r_dt))), grid_info%i_cells
 #                       endif
 
                         !$omp end master
@@ -457,9 +457,9 @@
                 if (rank_MPI == 0) then
                     !$omp master
 #                       if defined (_SWE_PATCH)
-                            _log_write(1, '(" SWE: time step: ", I0, ", sim. time:", A, ", dt:", A, ", patches : " I0, " cells: ", I0)') i_time_step, trim(time_to_hrt(DBLE(grid%r_time))), trim(time_to_hrt(DBLE(grid%r_dt))), grid_info%i_cells, grid_info%i_cells * _SWE_PATCH_ORDER_SQUARE
+                            _log_write(1, '(" SWE2L: time step: ", I0, ", sim. time:", A, ", dt:", A, ", patches : " I0, " cells: ", I0)') i_time_step, trim(time_to_hrt(DBLE(grid%r_time))), trim(time_to_hrt(DBLE(grid%r_dt))), grid_info%i_cells, grid_info%i_cells * _SWE_PATCH_ORDER_SQUARE
 #                       else
-                            _log_write(1, '(" SWE: time step: ", I0, ", sim. time:", A, ", dt:", A, ", cells: ", I0)') i_time_step, trim(time_to_hrt(DBLE(grid%r_time))), trim(time_to_hrt(DBLE(grid%r_dt))), grid_info%i_cells
+                            _log_write(1, '(" SWE2L: time step: ", I0, ", sim. time:", A, ", dt:", A, ", cells: ", I0)') i_time_step, trim(time_to_hrt(DBLE(grid%r_time))), trim(time_to_hrt(DBLE(grid%r_dt))), grid_info%i_cells
 #                       endif
                     !$omp end master
                 end if
@@ -497,7 +497,7 @@
 
             !$omp master
             if (rank_MPI == 0) then
-                _log_write(0, '(" SWE: done.")')
+                _log_write(0, '(" SWE2L: done.")')
                 _log_write(0, '()')
                 _log_write(0, '("  Cells: avg: ", I0, " max: ", I0)') grid_info%i_cells / (omp_get_max_threads() * size_MPI), grid_info_max%i_cells
                 _log_write(0, '()')

@@ -83,7 +83,7 @@
 		if (allocated(r_testpoints)) then
         	deallocate(r_testpoints)
     	end if
-		allocate (r_testpoints(size(cfg%r_testpoints, dim=1), 8), stat = erro)
+		allocate (r_testpoints(size(cfg%r_testpoints, dim=1), 11), stat = erro)
 
         r_testpoints(:,:) = 0
 
@@ -183,9 +183,9 @@
             write(pout_file_name, "(A, A, I0, A, F10.3, A, F10.3, A, I0, A)") TRIM(traversal%s_file_stamp), "_d", cfg%i_max_depth, "_cou", cfg%courant_number, "_dry", cfg%dry_tolerance, "_pointoutput_", traversal%i_output_iteration, ".txt"
 
             open(unit=out_unit, file=pout_file_name, action="write", status="replace")
-                write(out_unit, "(A)") "x, y, z, p(1), p(2), h, b, dist_to_cell_center, time"
+                write(out_unit, "(A)") "x, y, z, p(1), p(2), h, b, dist_to_cell_center, time, h2, p2(1), p2(2)"
                 do i=1, size(r_testpoints, dim=1)
-                    write(out_unit, "(8(F0.15,A),F0.15)") cfg%r_testpoints(i,1), ",", cfg%r_testpoints(i,2), ",", dble(0.0), ",", r_testpoints(i,3), ",", r_testpoints(i,4), ",", r_testpoints(i,5), ",", r_testpoints(i,6), ",", r_testpoints(i,7), ",", r_testpoints(i,8)
+                    write(out_unit, "(11(F0.15,A),F0.15)") cfg%r_testpoints(i,1), ",", cfg%r_testpoints(i,2), ",", dble(0.0), ",", r_testpoints(i,3), ",", r_testpoints(i,4), ",", r_testpoints(i,5), ",", r_testpoints(i,6), ",", r_testpoints(i,7), ",", r_testpoints(i,8), ",", r_testpoints(i,9), ",", r_testpoints(i,10), ",", r_testpoints(i,11)
                 end do
             close(out_unit)
         end if
@@ -278,6 +278,9 @@
 #                               else
                                     r_testpoints(i,8) = section%r_time
 #                               endif
+                                r_testpoints(i,9) = data%H2(j)
+                                r_testpoints(i,10) = data%HU2(j)
+                                r_testpoints(i,11) = data%HV2(j)
                             end if
                         end do
                     end if
@@ -308,6 +311,9 @@
 #                   else
                         r_testpoints(i,8) = section%r_time
 #                   endif
+                    r_testpoints(i,9) = Q%h2
+                    r_testpoints(i,10) = Q%p2(1)
+                    r_testpoints(i,11) = Q%p2(2)
                 end if
 			end if
 		end do

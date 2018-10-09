@@ -498,7 +498,7 @@
                             ! Vectorization! (Requires OpenMP 4.0 or later)
                             !$OMP SIMD PRIVATE(maxWaveSpeedLocal) REDUCTION(max: maxWaveSpeed)
 #                       endif
-                        do j=1,  _SWE_CHUNK_SIZE
+                        do j=1, min(edgesLeft, _SWE_CHUNK_SIZE)
 
 #                           if defined(_SWE_PATCH_VEC_INLINE)
                                 ! Warning: inlining this subroutine into an OMP SIMD loop may cause

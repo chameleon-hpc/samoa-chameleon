@@ -580,6 +580,7 @@ if(data%troubled.le.0) then
    else
       do i=1,_SWE_DG_DOFS
          wave_speed =  sqrt(g * (data%Q_DG(i)%h)) + maxval(abs(data%Q_DG(i)%p/data%Q_DG(i)%h))
+
          section%r_dt_new = min(section%r_dt_new,cfg%scaling*  element%transform_data%custom_data%scaling  / (wave_speed* (_SWE_DG_ORDER*4.0_GRID_SR +2.0_GRID_SR)))
          max_wave_speed = max(max_wave_speed,wave_speed)
       end do
@@ -1308,7 +1309,6 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
             real(kind = GRID_SR), DIMENSION(_SWE_PATCH_SOLVER_CHUNK_SIZE)           :: hR, huR, hvR, bR
             real(kind = GRID_SR), DIMENSION(_SWE_PATCH_SOLVER_CHUNK_SIZE)           :: upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR
             real(kind = GRID_SR), DIMENSION(_SWE_PATCH_SOLVER_CHUNK_SIZE,2,2)       :: transf
-            real(kind= GRID_SR) :: maxWaveSpeeds (_SWE_PATCH_ORDER_SQUARE)
 
 #if !defined (_SWE_USE_PATCH_SOLVER)
             type(t_state), dimension(_SWE_PATCH_SOLVER_CHUNK_SIZE)      :: edges_a, edges_b
@@ -1611,9 +1611,12 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                   data%HV = 0.0_GRID_SR
                end where
 
-               maxWaveSpeed=maxval(maxWaveSpeeds)
-               section%r_dt_new = min(section%r_dt_new, volume / (edge_lengths(2) * maxWaveSpeed) )
-               maxWaveSpeed=0
+               ! maxWaveSpeed=maxval(maxWaveSpeeds)
+               if(maxWaveSpeed > 0.0_GRID_SR) then
+                  section%r_dt_new = min(section%r_dt_new, volume / (edge_lengths(2) * maxWaveSpeed) )
+                  maxWaveSpeed=0
+               end if
+
 
                call apply_mue(data%h          ,data%Q_DG%h)
                call apply_mue(data%hu         ,data%Q_DG%p(1))

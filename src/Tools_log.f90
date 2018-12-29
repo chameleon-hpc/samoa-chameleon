@@ -232,7 +232,7 @@ MODULE Tools_log
 
             call system_clock(counts, count_rate)
 
-            time = dble(counts) / dble(count_rate)
+            wtime = dble(counts) / dble(count_rate)
 #       endif
     end function
 

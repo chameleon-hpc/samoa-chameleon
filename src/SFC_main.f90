@@ -7,11 +7,20 @@
 
 PROGRAM samoa
 	USE SFC_traversal
-
+#ifdef CHAMELEON
+        USE chameleon_lib
+#endif
 	implicit none
+#ifdef CHAMELEON
+       integer :: ierr
+#endif
 
     !init MPI
     call init_mpi()
+#ifdef CHAMELEON
+    ierr = chameleon_init()
+    ierr = chameleon_determine_base_addresses(c_null_ptr)
+#endif
 
     !read config from program arguments and print it out
     call cfg%read_from_program_arguments()
@@ -26,6 +35,9 @@ PROGRAM samoa
     !run scenario selector
     call sfc_generic()
 
+#ifdef CHAMELEON
+    ierr = chameleon_finalize()
+#endif
     !finalize MPI
     call finalize_mpi()
 

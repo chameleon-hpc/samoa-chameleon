@@ -88,6 +88,10 @@ vars.AddVariables(
 
   BoolVariable( 'standard', 'check for Fortran 2008 standard compatibility', False),
 
+  BoolVariable( 'chameleon', 'use chameleon library for load balancing', False),
+  
+  PathVariable( 'chameleon_dir', 'chameleon directory', '.'),
+
   BoolVariable( 'ipm', 'IPM support', False),
 
   PathVariable( 'ipm_dir', 'IPM directory', '.'),
@@ -253,6 +257,14 @@ if env['ipm']:
   env['LINKFLAGS'] += ' -Wl,--rpath,' + os.path.abspath(env['ipm_dir']) + '/lib'
   env.AppendUnique(LIBPATH = env['ipm_dir'] + '/lib')
   env.Append(LIBS = ['ipmf','ipm'])
+
+#set compilation flags and preprocessor macros for the Chameleon library
+if env['chameleon']:
+  env.Append(F90PATH = os.path.abspath(env['chameleon_dir']+'/include'))
+  env['F90FLAGS'] += ' -DCHAMELEON'
+  env['LINKFLAGS'] += ' -Wl,--rpath,' + os.path.abspath(env['chameleon_dir']) +'/chameleon'
+  env.AppendUnique(LIBPATH = env['chameleon_dir'] + '/lib')
+  env.Append(LIBS = ['chameleon'])
   
 #Enable or disable timing of ASAGI calls
 if env['asagi_timing']:

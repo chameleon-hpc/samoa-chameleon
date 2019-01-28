@@ -362,6 +362,39 @@ subroutine traverse(traversal, grid)
     !$omp barrier
     call thread_stats%stop_time(sync_time)
 
+#if defined _GT_USE_CHAMELEON
+    do i_section = i_first_local_section, i_last_local_section
+
+        !call traversal%sections(i_section)%stats%start_time(inner_compute_time)
+        call traverse_section_wrapper_chameleon(traversal%sections(i_section), grid%sections%elements_alloc(i_section))
+        !call traversal%sections(i_section)%stats%stop_time(inner_compute_time)
+
+    end do
+
+    i_error = chameleon_distributed_taskwait(0)
+
+    do i_section = i_first_local_section, i_last_local_section
+        !WARNING: Do not use thread_stats to track sync times here,
+        !a race condition can occur otherwise.
+        call traversal%sections(i_section)%stats%start_time(sync_time)
+#       if !defined(_GT_NODE_MPI_TYPE) && !defined(_GT_EDGE_MPI_TYPE)
+            call send_mpi_boundary(grid%sections%elements_alloc(i_section))
+#       elif defined(_GT_NODE_MPI_TYPE) && !defined(_GT_EDGE_MPI_TYPE)
+            call send_mpi_boundary(grid%sections%elements_alloc(i_section), mpi_node_type_optional=traversal%mpi_node_type)
+#       elif defined(_GT_EDGE_MPI_TYPE) && !defined(_GT_NODE_MPI_TYPE)
+            call send_mpi_boundary(grid%sections%elements_alloc(i_section), mpi_edge_type_optional=traversal%mpi_edge_type)
+#       else
+            call send_mpi_boundary(grid%sections%elements_alloc(i_section), mpi_edge_type_optional=traversal%mpi_edge_type, mpi_node_type_optional=traversal%mpi_node_type)
+#       endif
+        call traversal%sections(i_section)%stats%stop_time(sync_time)
+    end do 
+
+    call thread_stats%start_time(sync_time)
+
+    !wait until all computation is done
+    !$omp barrier
+    call thread_stats%stop_time(sync_time)
+#else
     do i_section = i_first_local_section, i_last_local_section
 #       if defined(_OPENMP_TASKS)
             !$omp task default(shared) firstprivate(i_section) mergeable
@@ -398,6 +431,7 @@ subroutine traverse(traversal, grid)
     !wait until all computation is done
     !$omp barrier
     call thread_stats%stop_time(sync_time)
+#endif
 
     !sync and call post traversal operator
     call thread_stats%start_time(sync_time)
@@ -461,6 +495,36 @@ subroutine traverse(traversal, grid)
     traversal%threads(i_thread)%stats = traversal%threads(i_thread)%stats + thread_stats
     grid%threads%elements(i_thread)%stats = grid%threads%elements(i_thread)%stats + thread_stats
 end subroutine
+
+#if defined(_GT_USE_CHAMELEON)
+subroutine traverse_section_wrapper_chameleon( section_traversal, section)
+    !type(t_thread_traversal), intent(inout)         :: thread_traversal
+    type(t_section_traversal), intent(inout)        :: section_traversal
+    !type(t_grid_thread), intent(inout)              :: thread
+    type(t_grid_section), intent(inout)             :: section
+
+    type(t_section_traversal)                       :: section_traversal_local
+    type(t_thread_traversal)                        :: thread_traversal_local
+    type(t_grid_thread)                             :: thread_local
+    type(t_grid_section)                            :: section_local
+
+    section_traversal_local = section_traversal
+    !thread_local = thread
+    section_local = section
+
+    call create_ringbuffer(thread_traversal_local%elements)
+    call thread_local%create(section%max_dest_stack-section%min_dest_stack)
+ 
+    call traverse_section(thread_traversal_local, section_traversal_local, thread_local, section_local)
+
+    call thread_local%destroy()
+
+    section_traversal = section_traversal_local
+    !thread = thread_local
+    section = section_local
+
+end subroutine
+#endif
 
 subroutine traverse_section_wrapper(thread_traversal, section_traversal, thread, section)
     type(t_thread_traversal), intent(inout)         :: thread_traversal

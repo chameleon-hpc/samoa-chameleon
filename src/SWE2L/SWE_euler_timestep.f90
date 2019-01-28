@@ -53,7 +53,15 @@
 
 #		define _GT_NODE_MPI_TYPE
 
+#ifdef (CHAMELEON
+#               define _GT_USE_CHAMELEON         
+#endif
+
 #		include "SFC_generic_traversal_ringbuffer.f90"
+
+#ifdef (CHAMELEON
+#               undef _GT_USE_CHAMELEON         
+#endif
 
         subroutine create_node_mpi_type(mpi_node_type)
             integer, intent(out)            :: mpi_node_type

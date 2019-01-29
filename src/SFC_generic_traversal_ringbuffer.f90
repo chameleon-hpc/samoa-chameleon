@@ -366,7 +366,18 @@ subroutine traverse(traversal, grid)
     do i_section = i_first_local_section, i_last_local_section
 
         !call traversal%sections(i_section)%stats%start_time(inner_compute_time)
-        call traverse_section_wrapper_chameleon(traversal%sections(i_section), grid%sections%elements_alloc(i_section))
+        call traverse_section_wrapper_chameleon(traversal%sections(i_section),\
+                                               grid%sections%elements_alloc(i_section)%t_global_data,\
+                                               grid%sections%elements_alloc(i_section)%cells,\
+                                               grid%sections%elements_alloc(i_section)%crossed_edges_in,\
+                                               grid%sections%elements_alloc(i_section)%crossed_edges_out,\
+                                               grid%sections%elements_alloc(i_section)%color_edges_in,\
+						     grid%sections%elements_alloc(i_section)%color_edges_out,\
+                                               grid%sections%elements_alloc(i_section)%nodes_in,\
+                                               grid%sections%elements_alloc(i_section)%nodes_out,\
+                                               grid%sections%elements_alloc(i_section)%boundary_edges,\
+                                               grid%sections%elements_alloc(i_section)%boundary_nodes,\
+                                               grid%sections%elements_alloc(i_section)%boundary_type_edges) 
         !call traversal%sections(i_section)%stats%stop_time(inner_compute_time)
 
     end do
@@ -497,11 +508,35 @@ subroutine traverse(traversal, grid)
 end subroutine
 
 #if defined(_GT_USE_CHAMELEON)
-subroutine traverse_section_wrapper_chameleon( section_traversal, section)
+subroutine traverse_section_wrapper_chameleon( section_traversal,&
+                                               global_data,&
+                                               cells,&
+                                               crossed_edges_in,&
+                                               crossed_edges_out,&
+                                               color_edges_in,&
+                                               color_edges_out,&
+                                               nodes_in,&
+                                               nodes_out,&
+                                               boundary_edges,&
+                                               boundary_nodes,&
+                                               boundary_type_edges )
+    use SFC_data_types
+    use Grid_section
     !type(t_thread_traversal), intent(inout)         :: thread_traversal
     type(t_section_traversal), intent(inout)        :: section_traversal
     !type(t_grid_thread), intent(inout)              :: thread
-    type(t_grid_section), intent(inout)             :: section
+    !type(t_grid_section), intent(inout)             :: section
+    type(t_global_data), intent(inout)              :: global_data
+    type(t_cell_stream), intent(inout)              :: cells
+    type(t_crossed_edge_stream), intent(inout)      :: crossed_edges_in
+    type(t_crossed_edge_stream), intent(inout)      :: crossed_edges_out
+    type(t_color_edge_stream), intent(inout)        :: color_edges_in
+    type(t_color_edge_stream), intent(inout)        :: color_edges_out
+    type(t_node_stream), intent(inout)              :: nodes_in
+    type(t_node_stream), intent(inout)              :: nodes_out
+    type(t_boundary_edge_stream), dimension(RED : GREEN), intent(inout) :: boundary_edges
+    type(t_boundary_node_stream), dimension(RED : GREEN), intent(inout) :: boundary_nodes
+    type(t_boundary_edge_stream), dimension(OLD : NEW, RED : GREEN), intent(inout) :: boundary_type_edges			
 
     type(t_section_traversal)                       :: section_traversal_local
     type(t_thread_traversal)                        :: thread_traversal_local
@@ -509,11 +544,22 @@ subroutine traverse_section_wrapper_chameleon( section_traversal, section)
     type(t_grid_section)                            :: section_local
 
     section_traversal_local = section_traversal
+    !section_local = section
     !thread_local = thread
-    section_local = section
+    section_local%t_global_data = global_data
+    section_local%cells = cells
+    section_local%crossed_edges_in = crossed_edges_in
+    section_local%crossed_edges_out = crossed_edges_out
+    section_local%color_edges_in = color_edges_in
+    section_local%color_edges_out = color_edges_out
+    section_local%nodes_in = nodes_in
+    section_local%nodes_out = nodes_out
+    section_local%boundary_edges = boundary_edges
+    section_local%boundary_nodes = boundary_nodes
+    section_local%boundary_type_edges = boundary_type_edges
 
     call create_ringbuffer(thread_traversal_local%elements)
-    call thread_local%create(section%max_dest_stack-section%min_dest_stack)
+    call thread_local%create(section_local%max_dest_stack-section_local%min_dest_stack)
  
     call traverse_section(thread_traversal_local, section_traversal_local, thread_local, section_local)
 
@@ -521,7 +567,18 @@ subroutine traverse_section_wrapper_chameleon( section_traversal, section)
 
     section_traversal = section_traversal_local
     !thread = thread_local
-    section = section_local
+    !section = section_local
+    global_data = section_local%t_global_data
+    !section%cells = section_local%cells
+    !section%crossed_edges_in = section_local%crossed_edges_in
+    !section%crossed_edges_out = section_local%crossed_edges_out
+    !section%color_edges_in = section_local%color_edges_in
+    !section%color_edges_out = section_local%color_edges_out
+    !section%nodes_in = section_local%nodes_in
+    !section%nodes_out = section_local%nodes_out
+    !section%boundary_edges = section_local%boundary_edges
+    !section%boundary_nodes = section_local%boundary_nodes
+    !section%boundary_type_edges = section_local%boundary_type_edges
 
 end subroutine
 #endif

@@ -419,20 +419,22 @@ subroutine traverse(traversal, grid)
         map_entries(12)%size = sizeof(grid%sections%elements_alloc(i_section)%boundary_type_edges)
         map_entries(12)%type = 3
 
-        i_error = chameleon_add_task_manual(traverse_section_wrapper_chameleon, 12, map_entries)
+       ! i_error = chameleon_add_task_manual(traverse_section_wrapper_chameleon, 12, map_entries)
         !call traversal%sections(i_section)%stats%start_time(inner_compute_time)
-!        call traverse_section_wrapper_chameleon(traversal%sections(i_section),\
-!                                               grid%sections%elements_alloc(i_section)%t_global_data,\
-!                                               grid%sections%elements_alloc(i_section)%cells,\
-!                                               grid%sections%elements_alloc(i_section)%crossed_edges_in,\
-!                                               grid%sections%elements_alloc(i_section)%crossed_edges_out,\
-!                                               grid%sections%elements_alloc(i_section)%color_edges_in,\
-!						     grid%sections%elements_alloc(i_section)%color_edges_out,\
-!                                               grid%sections%elements_alloc(i_section)%nodes_in,\
-!                                               grid%sections%elements_alloc(i_section)%nodes_out,\
-!                                               grid%sections%elements_alloc(i_section)%boundary_edges,\
-!                                               grid%sections%elements_alloc(i_section)%boundary_nodes,\
-!                                               grid%sections%elements_alloc(i_section)%boundary_type_edges) 
+        call traverse_section_wrapper_chameleon(traversal%sections(i_section),\
+                                               grid%sections%elements_alloc(i_section),\
+                                               grid%sections%elements_alloc(i_section)%t_global_data,\
+                                               grid%sections%elements_alloc(i_section)%cells%elements_alloc(:),\
+                                               grid%sections%elements_alloc(i_section)%crossed_edges_in%elements_alloc(:),\
+                                               grid%sections%elements_alloc(i_section)%crossed_edges_out%elements_alloc(:),\
+                                               grid%sections%elements_alloc(i_section)%color_edges_in%elements_alloc(:),\
+					       grid%sections%elements_alloc(i_section)%color_edges_out%elements_alloc(:),\
+                                               grid%sections%elements_alloc(i_section)%nodes_in%elements_alloc(:),\
+                                               grid%sections%elements_alloc(i_section)%nodes_out%elements_alloc(:),\
+                                               grid%sections%elements_alloc(i_section)%boundary_edges(RED)%elements_alloc(:),\
+                                               grid%sections%elements_alloc(i_section)%boundary_edges(GREEN)%elements_alloc(:),\
+                                               grid%sections%elements_alloc(i_section)%boundary_nodes(RED)%elements_alloc(:),\
+                                               grid%sections%elements_alloc(i_section)%boundary_nodes(GREEN)%elements_alloc(:))
         !call traversal%sections(i_section)%stats%stop_time(inner_compute_time)
         deallocate(map_entries)
     end do
@@ -555,6 +557,7 @@ end subroutine
 
 #if defined(_GT_USE_CHAMELEON)
 subroutine traverse_section_wrapper_chameleon( section_traversal,&
+                                               section,&
                                                global_data,&
                                                cells,&
                                                crossed_edges_in,&
@@ -563,26 +566,35 @@ subroutine traverse_section_wrapper_chameleon( section_traversal,&
                                                color_edges_out,&
                                                nodes_in,&
                                                nodes_out,&
-                                               boundary_edges,&
-                                               boundary_nodes,&
-                                               boundary_type_edges )
+                                               boundary_edges_red,&
+                                               boundary_edges_green,&
+                                               boundary_nodes_red,&
+                                               boundary_nodes_green )
     use SFC_data_types
     use Grid_section
+    use Cell_stream
+    use Crossed_edge_stream
+    use Color_edge_stream
+    use Node_stream
+
+    use Boundary_edge_stream
+    use Boundary_node_stream
+
     !type(t_thread_traversal), intent(inout)         :: thread_traversal
     type(t_section_traversal), intent(inout)        :: section_traversal
     !type(t_grid_thread), intent(inout)              :: thread
-    !type(t_grid_section), intent(inout)             :: section
+    type(t_grid_section), intent(inout)             :: section
     type(t_global_data), intent(inout)              :: global_data
-    type(t_cell_stream), intent(inout)              :: cells
-    type(t_crossed_edge_stream), intent(inout)      :: crossed_edges_in
-    type(t_crossed_edge_stream), intent(inout)      :: crossed_edges_out
-    type(t_color_edge_stream), intent(inout)        :: color_edges_in
-    type(t_color_edge_stream), intent(inout)        :: color_edges_out
-    type(t_node_stream), intent(inout)              :: nodes_in
-    type(t_node_stream), intent(inout)              :: nodes_out
-    type(t_boundary_edge_stream), dimension(RED : GREEN), intent(inout) :: boundary_edges
-    type(t_boundary_node_stream), dimension(RED : GREEN), intent(inout) :: boundary_nodes
-    type(t_boundary_edge_stream), dimension(OLD : NEW, RED : GREEN), intent(inout) :: boundary_type_edges			
+    type(t_cell_stream_data), target, intent(inout)              :: cells(:)
+    type(t_crossed_edge_stream_data), target, intent(inout)      :: crossed_edges_in(:)
+    type(t_crossed_edge_stream_data), target, intent(inout)      :: crossed_edges_out(:)
+    type(t_color_edge_stream_data), target, intent(inout)        :: color_edges_in(:)
+    type(t_color_edge_stream_data), target, intent(inout)        :: color_edges_out(:)
+    type(t_node_stream_data), target, intent(inout)              :: nodes_in(:)
+    type(t_node_stream_data), target, intent(inout)              :: nodes_out(:)
+    type(t_edge_data), target, intent(inout) :: boundary_edges_red(:), boundary_edges_green(:)
+    type(t_node_data), target, intent(inout) :: boundary_nodes_red(:), boundary_nodes_green(:)
+		
 
     type(t_section_traversal)                       :: section_traversal_local
     type(t_thread_traversal)                        :: thread_traversal_local
@@ -593,16 +605,76 @@ subroutine traverse_section_wrapper_chameleon( section_traversal,&
     !section_local = section
     !thread_local = thread
     section_local%t_global_data = global_data
-    section_local%cells = cells
-    section_local%crossed_edges_in = crossed_edges_in
-    section_local%crossed_edges_out = crossed_edges_out
-    section_local%color_edges_in = color_edges_in
-    section_local%color_edges_out = color_edges_out
-    section_local%nodes_in = nodes_in
-    section_local%nodes_out = nodes_out
-    section_local%boundary_edges = boundary_edges
-    section_local%boundary_nodes = boundary_nodes
-    section_local%boundary_type_edges = boundary_type_edges
+
+    section_local%cells%elements_alloc => section%cells%elements_alloc
+   
+    !section_local%cells%elements => section%cells%elements
+
+    if (section%cells%forward .or. size(section%cells%elements_alloc) < 1) then
+        section_local%cells%elements => section%cells%elements_alloc(size(section%cells%elements_alloc)-global_data%dest_cells+1:size(section%cells%elements_alloc))
+    else
+        section_local%cells%elements => section%cells%elements_alloc(global_data%dest_cells:1:-1)
+    end if
+
+    !call section_local%cells%attach(section%cells%elements_alloc, section%cells%is_forward())
+
+    !write(*,*) (loc(section%cells%elements(1)) < loc(section%cells%elements(size(section%cells%elements)))) .eqv. section%cells%is_forward()
+    !write(*,*) 'is forward', section%cells%is_forward(), (loc(section%cells%elements_alloc(1)) == loc(section%cells%elements(size(section%cells%elements)))),&
+    !                                                     (loc(section%cells%elements_alloc(size(section%cells%elements_alloc))) == loc(section%cells%elements(size(section%cells%elements))),&
+     !                                                    (loc(section%cells%elements(1)) == loc(section%cells%elements_alloc(size(section%cells%elements_alloc)-size(section%cells%elements)+1))))
+   ! write(*,*) size(section%cells%elements_alloc), size(section%cells%elements), section%t_global_data%dest_cells
+    !write(*,*) (loc(section%cells%elements_alloc(1)) == loc(section%cells%elements(1))) .eqv. section%cells%is_forward()
+
+    section_local%cells%forward = section%cells%forward
+  
+
+    section_local%crossed_edges_in%elements_alloc => crossed_edges_in
+    if (section%crossed_edges_in%forward) then
+         section_local%crossed_edges_in%elements => crossed_edges_in
+    else
+         section_local%crossed_edges_in%elements => crossed_edges_in(size(crossed_edges_in):1:-1)
+    end if
+
+    section_local%crossed_edges_out%elements_alloc => crossed_edges_out
+    if (section%crossed_edges_out%forward) then
+         section_local%crossed_edges_out%elements => crossed_edges_out
+    else
+         section_local%crossed_edges_out%elements => crossed_edges_out(size(crossed_edges_out):1:-1)
+    end if
+
+    write(*,*) size(section%color_edges_in%elements_alloc), size(section%color_edges_in%elements)
+
+    section_local%color_edges_in%elements_alloc =>  section%color_edges_in%elements_alloc
+    section_local%color_edges_in%elements =>  section%color_edges_in%elements
+    section_local%color_edges_in%forward = section%color_edges_in%forward
+
+    section_local%color_edges_out%elements_alloc =>  section%color_edges_out%elements_alloc
+    section_local%color_edges_out%elements =>  section%color_edges_out%elements
+    section_local%color_edges_out%forward = section%color_edges_out%forward
+
+    section_local%nodes_in%elements_alloc =>  section%nodes_in%elements_alloc
+    section_local%nodes_in%elements =>  section%nodes_in%elements
+    section_local%nodes_in%forward =  section%nodes_in%forward
+
+    section_local%nodes_out%elements_alloc =>  section%nodes_out%elements_alloc
+    section_local%nodes_out%elements =>  section%nodes_out%elements
+    section_local%nodes_out%forward =  section%nodes_out%forward
+
+    section_local%boundary_edges(RED)%elements_alloc =>  section%boundary_edges(RED)%elements_alloc
+    section_local%boundary_edges(RED)%elements =>  section%boundary_edges(RED)%elements
+    section_local%boundary_edges(RED)%forward =  section%boundary_edges(RED)%forward
+
+    section_local%boundary_edges(GREEN)%elements_alloc =>   section%boundary_edges(GREEN)%elements_alloc
+    section_local%boundary_edges(GREEN)%elements =>   section%boundary_edges(GREEN)%elements
+    section_local%boundary_edges(GREEN)%forward =  section%boundary_edges(GREEN)%forward
+
+    section_local%boundary_nodes(RED)%elements_alloc =>  section%boundary_nodes(RED)%elements_alloc
+    section_local%boundary_nodes(RED)%elements =>  section%boundary_nodes(RED)%elements
+    section_local%boundary_nodes(RED)%forward =  section%boundary_nodes(RED)%forward
+
+    section_local%boundary_nodes(GREEN)%elements_alloc =>  section%boundary_nodes(GREEN)%elements_alloc 
+    section_local%boundary_nodes(GREEN)%elements =>  section%boundary_nodes(GREEN)%elements 
+    section_local%boundary_nodes(GREEN)%forward =  section%boundary_nodes(GREEN)%forward
 
     call create_ringbuffer(thread_traversal_local%elements)
     call thread_local%create(section_local%max_dest_stack-section_local%min_dest_stack)

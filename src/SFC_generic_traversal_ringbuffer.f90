@@ -406,47 +406,49 @@ subroutine traverse(traversal, grid)
         map_entries(3, i_section)%type = 3
 
         map_entries(4, i_section)%valptr = c_loc(grid%sections%elements_alloc(i_section)%cells%get_c_pointer())
-        map_entries(4, i_section)%size = sizeof(grid%sections%elements_alloc(i_section)%cells%get_c_pointer())
+        map_entries(4, i_section)%size = sizeof(grid%sections%elements_alloc(i_section)%cells%elements)
         map_entries(4, i_section)%type = 3
+        
+        !write(*,*)  'size elements', size(grid%sections%elements_alloc(i_section)%cells%elements), 'sizeof', sizeof(grid%sections%elements_alloc(i_section)%cells%elements)
 
         map_entries(5, i_section)%valptr = c_loc(grid%sections%elements_alloc(i_section)%crossed_edges_in%get_c_pointer())
-        map_entries(5, i_section)%size = sizeof(grid%sections%elements_alloc(i_section)%crossed_edges_in%get_c_pointer())
+        map_entries(5, i_section)%size = sizeof(grid%sections%elements_alloc(i_section)%crossed_edges_in%elements)
         map_entries(5, i_section)%type = 3
 
         map_entries(6, i_section)%valptr = c_loc(grid%sections%elements_alloc(i_section)%crossed_edges_out%get_c_pointer())
-        map_entries(6, i_section)%size = sizeof(grid%sections%elements_alloc(i_section)%crossed_edges_out%get_c_pointer())
+        map_entries(6, i_section)%size = sizeof(grid%sections%elements_alloc(i_section)%crossed_edges_out%elements)
         map_entries(6, i_section)%type = 3
 
         map_entries(7, i_section)%valptr = c_loc(grid%sections%elements_alloc(i_section)%color_edges_in%get_c_pointer())
-        map_entries(7, i_section)%size = sizeof(grid%sections%elements_alloc(i_section)%color_edges_in%get_c_pointer())
+        map_entries(7, i_section)%size = sizeof(grid%sections%elements_alloc(i_section)%color_edges_in%elements)
         map_entries(7, i_section)%type = 3
 
         map_entries(8, i_section)%valptr = c_loc(grid%sections%elements_alloc(i_section)%color_edges_out%get_c_pointer())
-        map_entries(8, i_section)%size = sizeof(grid%sections%elements_alloc(i_section)%color_edges_out%get_c_pointer())
+        map_entries(8, i_section)%size = sizeof(grid%sections%elements_alloc(i_section)%color_edges_out%elements)
         map_entries(8, i_section)%type = 3
 
         map_entries(9, i_section)%valptr = c_loc(grid%sections%elements_alloc(i_section)%nodes_in%get_c_pointer())
-        map_entries(9, i_section)%size = sizeof(grid%sections%elements_alloc(i_section)%nodes_in%get_c_pointer())
+        map_entries(9, i_section)%size = sizeof(grid%sections%elements_alloc(i_section)%nodes_in%elements)
         map_entries(9, i_section)%type = 3
 
         map_entries(10, i_section)%valptr = c_loc(grid%sections%elements_alloc(i_section)%nodes_out%get_c_pointer())
-        map_entries(10, i_section)%size = sizeof(grid%sections%elements_alloc(i_section)%nodes_out%get_c_pointer())
+        map_entries(10, i_section)%size = sizeof(grid%sections%elements_alloc(i_section)%nodes_out%elements)
         map_entries(10, i_section)%type = 3
 
         map_entries(11, i_section)%valptr = c_loc(grid%sections%elements_alloc(i_section)%boundary_edges(RED)%get_c_pointer())
-        map_entries(11, i_section)%size = sizeof(grid%sections%elements_alloc(i_section)%boundary_edges(RED)%get_c_pointer())
+        map_entries(11, i_section)%size = sizeof(grid%sections%elements_alloc(i_section)%boundary_edges(RED)%elements)
         map_entries(11, i_section)%type = 3
 
         map_entries(12, i_section)%valptr = c_loc(grid%sections%elements_alloc(i_section)%boundary_edges(GREEN)%get_c_pointer())
-        map_entries(12, i_section)%size = sizeof(grid%sections%elements_alloc(i_section)%boundary_edges(GREEN)%get_c_pointer())
+        map_entries(12, i_section)%size = sizeof(grid%sections%elements_alloc(i_section)%boundary_edges(GREEN)%elements)
         map_entries(12, i_section)%type = 3
 
         map_entries(13, i_section)%valptr = c_loc(grid%sections%elements_alloc(i_section)%boundary_nodes(RED)%get_c_pointer())
-        map_entries(13, i_section)%size = sizeof(grid%sections%elements_alloc(i_section)%boundary_nodes(RED)%get_c_pointer())
+        map_entries(13, i_section)%size = sizeof(grid%sections%elements_alloc(i_section)%boundary_nodes(RED)%elements)
         map_entries(13, i_section)%type = 3
 
         map_entries(14, i_section)%valptr = c_loc(grid%sections%elements_alloc(i_section)%boundary_nodes(GREEN)%get_c_pointer())
-        map_entries(14, i_section)%size = sizeof(grid%sections%elements_alloc(i_section)%boundary_nodes(GREEN)%get_c_pointer())
+        map_entries(14, i_section)%size = sizeof(grid%sections%elements_alloc(i_section)%boundary_nodes(GREEN)%elements)
         map_entries(14, i_section)%type = 3
 
         section_metadata(i_section)%forward = grid%sections%elements_alloc(i_section)%cells%forward
@@ -463,22 +465,22 @@ subroutine traverse(traversal, grid)
         section_metadata(i_section)%size_boundary_nodes_green = size(grid%sections%elements_alloc(i_section)%boundary_nodes(GREEN)%elements)
 
 
-        i_error = chameleon_add_task_manual(traverse_section_wrapper_chameleon, 14, map_entries(:,i_section))
+       i_error = chameleon_add_task_manual(traverse_section_wrapper_chameleon, 14, map_entries(:,i_section))
         !call traversal%sections(i_section)%stats%start_time(inner_compute_time)
-!        call traverse_section_wrapper_chameleon(traversal%sections(i_section),\
-!                                               section_metadata,\
-!                                               grid%sections%elements_alloc(i_section)%t_global_data,\
-!                                               c_loc(grid%sections%elements_alloc(i_section)%cells%get_c_pointer()),\
-!                                               c_loc(grid%sections%elements_alloc(i_section)%crossed_edges_in%get_c_pointer()),\
-!                                               c_loc(grid%sections%elements_alloc(i_section)%crossed_edges_out%get_c_pointer()),\
-!                                               c_loc(grid%sections%elements_alloc(i_section)%color_edges_in%get_c_pointer()),\
-!                                               c_loc(grid%sections%elements_alloc(i_section)%color_edges_in%get_c_pointer()),\
-!                                               c_loc(grid%sections%elements_alloc(i_section)%nodes_in%get_c_pointer()),\
-!                                               c_loc(grid%sections%elements_alloc(i_section)%nodes_out%get_c_pointer()),\
-!                                               c_loc(grid%sections%elements_alloc(i_section)%boundary_edges(RED)%get_c_pointer()),\
-!                                               c_loc(grid%sections%elements_alloc(i_section)%boundary_edges(GREEN)%get_c_pointer()),\
-!                                               c_loc(grid%sections%elements_alloc(i_section)%boundary_nodes(RED)%get_c_pointer()),\
-!                                               c_loc(grid%sections%elements_alloc(i_section)%boundary_nodes(GREEN)%get_c_pointer()))
+        !call traverse_section_wrapper_chameleon(traversal%sections(i_section),\
+        !                                       section_metadata(i_section),\
+        !                                       grid%sections%elements_alloc(i_section)%t_global_data,\
+        !                                       c_loc(grid%sections%elements_alloc(i_section)%cells%get_c_pointer()),\
+        !                                       c_loc(grid%sections%elements_alloc(i_section)%crossed_edges_in%get_c_pointer()),\
+        !                                       c_loc(grid%sections%elements_alloc(i_section)%crossed_edges_out%get_c_pointer()),\
+        !                                       c_loc(grid%sections%elements_alloc(i_section)%color_edges_in%get_c_pointer()),\
+        !                                       c_loc(grid%sections%elements_alloc(i_section)%color_edges_in%get_c_pointer()),\
+        !                                       c_loc(grid%sections%elements_alloc(i_section)%nodes_in%get_c_pointer()),\
+        !                                       c_loc(grid%sections%elements_alloc(i_section)%nodes_out%get_c_pointer()),\
+        !                                       c_loc(grid%sections%elements_alloc(i_section)%boundary_edges(RED)%get_c_pointer()),\
+        !                                       c_loc(grid%sections%elements_alloc(i_section)%boundary_edges(GREEN)%get_c_pointer()),\
+        !                                       c_loc(grid%sections%elements_alloc(i_section)%boundary_nodes(RED)%get_c_pointer()),\
+        !                                       c_loc(grid%sections%elements_alloc(i_section)%boundary_nodes(GREEN)%get_c_pointer()))
 
        !call traversal%sections(i_section)%stats%stop_time(inner_compute_time)
 
@@ -639,7 +641,7 @@ subroutine traverse_section_wrapper_chameleon( section_traversal,&
     type(t_section_traversal), intent(inout)        :: section_traversal
     type(t_section_metadata), intent(inout)         :: section_metadata
     type(t_global_data), intent(inout)              :: global_data
-    type(c_ptr), value, intent(in)                     :: cells, crossed_edges_in, crossed_edges_out, color_edges_in, color_edges_out, nodes_in, nodes_out, boundary_edges_red, boundary_edges_green, boundary_nodes_red, boundary_nodes_green
+    type(c_ptr),value,  intent(in)                     :: cells, crossed_edges_in, crossed_edges_out, color_edges_in, color_edges_out, nodes_in, nodes_out, boundary_edges_red, boundary_edges_green, boundary_nodes_red, boundary_nodes_green
 
 
     type(t_section_traversal)                       :: section_traversal_local

@@ -203,6 +203,7 @@ MODULE Tools_log
             CHAR(27) // "[90m"]
 
         str = sequences(iand(i_color, 7))
+        str = ""
     end function
 
     pure function term_reset() result(str)

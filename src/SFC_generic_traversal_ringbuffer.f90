@@ -388,11 +388,10 @@ subroutine traverse(traversal, grid)
 #if defined _GT_USE_CHAMELEON
     allocate(section_metadata(i_first_local_section:i_last_local_section))
     allocate(map_entries(14,i_first_local_section:i_last_local_section))
-
+    ! write(*,*)  'Executing Packing/Unpacking version'
     do i_section = i_first_local_section, i_last_local_section
-
+        call traversal%sections(i_section)%stats%start_time(packing_time)
         
-    
         map_entries(1, i_section)%valptr = c_loc(traversal%sections(i_section))
         map_entries(1, i_section)%size = sizeof(traversal%sections(i_section))
         map_entries(1, i_section)%type = 3
@@ -463,30 +462,46 @@ subroutine traverse(traversal, grid)
         section_metadata(i_section)%size_boundary_edges_green = size(grid%sections%elements_alloc(i_section)%boundary_edges(GREEN)%elements)
         section_metadata(i_section)%size_boundary_nodes_red = size(grid%sections%elements_alloc(i_section)%boundary_nodes(RED)%elements)
         section_metadata(i_section)%size_boundary_nodes_green = size(grid%sections%elements_alloc(i_section)%boundary_nodes(GREEN)%elements)
+        call traversal%sections(i_section)%stats%stop_time(packing_time)
 
-
-       i_error = chameleon_add_task_manual(traverse_section_wrapper_chameleon, 14, map_entries(:,i_section))
-        !call traversal%sections(i_section)%stats%start_time(inner_compute_time)
-        !call traverse_section_wrapper_chameleon(traversal%sections(i_section),\
-        !                                       section_metadata(i_section),\
-        !                                       grid%sections%elements_alloc(i_section)%t_global_data,\
-        !                                       c_loc(grid%sections%elements_alloc(i_section)%cells%get_c_pointer()),\
-        !                                       c_loc(grid%sections%elements_alloc(i_section)%crossed_edges_in%get_c_pointer()),\
-        !                                       c_loc(grid%sections%elements_alloc(i_section)%crossed_edges_out%get_c_pointer()),\
-        !                                       c_loc(grid%sections%elements_alloc(i_section)%color_edges_in%get_c_pointer()),\
-        !                                       c_loc(grid%sections%elements_alloc(i_section)%color_edges_in%get_c_pointer()),\
-        !                                       c_loc(grid%sections%elements_alloc(i_section)%nodes_in%get_c_pointer()),\
-        !                                       c_loc(grid%sections%elements_alloc(i_section)%nodes_out%get_c_pointer()),\
-        !                                       c_loc(grid%sections%elements_alloc(i_section)%boundary_edges(RED)%get_c_pointer()),\
-        !                                       c_loc(grid%sections%elements_alloc(i_section)%boundary_edges(GREEN)%get_c_pointer()),\
-        !                                       c_loc(grid%sections%elements_alloc(i_section)%boundary_nodes(RED)%get_c_pointer()),\
-        !                                       c_loc(grid%sections%elements_alloc(i_section)%boundary_nodes(GREEN)%get_c_pointer()))
-
-       !call traversal%sections(i_section)%stats%stop_time(inner_compute_time)
-
+#if defined _GT_USE_CHAMELEON_CALL
+    !    write(*,*)  'Executing Chameleon Tasks'
+        i_error = chameleon_add_task_manual(traverse_section_wrapper_chameleon, 14, map_entries(:,i_section))
+#else
+#       if defined(_OPENMP_TASKS)
+        !$omp task default(shared) firstprivate(i_section) mergeable
+#       endif
+        call traversal%sections(i_section)%stats%start_time(inner_compute_time)
+        call traverse_section_wrapper_chameleon(traversal%sections(i_section),\
+                                              section_metadata(i_section),\
+                                              grid%sections%elements_alloc(i_section)%t_global_data,\
+                                              c_loc(grid%sections%elements_alloc(i_section)%cells%get_c_pointer()),\
+                                              c_loc(grid%sections%elements_alloc(i_section)%crossed_edges_in%get_c_pointer()),\
+                                              c_loc(grid%sections%elements_alloc(i_section)%crossed_edges_out%get_c_pointer()),\
+                                              c_loc(grid%sections%elements_alloc(i_section)%color_edges_in%get_c_pointer()),\
+                                              c_loc(grid%sections%elements_alloc(i_section)%color_edges_in%get_c_pointer()),\
+                                              c_loc(grid%sections%elements_alloc(i_section)%nodes_in%get_c_pointer()),\
+                                              c_loc(grid%sections%elements_alloc(i_section)%nodes_out%get_c_pointer()),\
+                                              c_loc(grid%sections%elements_alloc(i_section)%boundary_edges(RED)%get_c_pointer()),\
+                                              c_loc(grid%sections%elements_alloc(i_section)%boundary_edges(GREEN)%get_c_pointer()),\
+                                              c_loc(grid%sections%elements_alloc(i_section)%boundary_nodes(RED)%get_c_pointer()),\
+                                              c_loc(grid%sections%elements_alloc(i_section)%boundary_nodes(GREEN)%get_c_pointer()))
+        call traversal%sections(i_section)%stats%stop_time(inner_compute_time)
+#       if defined(_OPENMP_TASKS)
+        !$omp end task
+#       endif
+#endif
     end do
 
+#if defined _GT_USE_CHAMELEON_CALL
+    call thread_stats%start_time(inner_compute_time)
     i_error = chameleon_distributed_taskwait(0)
+    call thread_stats%stop_time(inner_compute_time)
+#else
+#   if defined(_OPENMP_TASKS)
+        !$omp taskwait
+#   endif
+#endif
     deallocate(map_entries)
     deallocate(section_metadata)
 

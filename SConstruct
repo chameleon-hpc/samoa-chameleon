@@ -254,6 +254,12 @@ if env['asagi']:
 #set compilation flags and preprocessor macros for the Chameleon library
 if env['chameleon']:
   env.Append(F90PATH = os.path.abspath(env['chameleon_dir']+'/include'))
+  env['F90FLAGS'] += ' -DCHAMELEON -DCHAMELEON_CALL'
+  env['LINKFLAGS'] += ' -Wl,--rpath,' + os.path.abspath(env['chameleon_dir']) +'/chameleon'
+  env.AppendUnique(LIBPATH = env['chameleon_dir'] + '/lib')
+  env.Append(LIBS = ['chameleon'])
+else:
+  env.Append(F90PATH = os.path.abspath(env['chameleon_dir']+'/include'))
   env['F90FLAGS'] += ' -DCHAMELEON'
   env['LINKFLAGS'] += ' -Wl,--rpath,' + os.path.abspath(env['chameleon_dir']) +'/chameleon'
   env.AppendUnique(LIBPATH = env['chameleon_dir'] + '/lib')
@@ -490,6 +496,9 @@ if env['exe'] == 'samoa':
     # add descriptors to the executable for any argument that is not default
     program_name += '_' + env['scenario']
 
+    if env['scenario'] == 'swe' or env['scenario'] == 'swe2l':
+      program_name += '_' + env['swe_scenario']
+
     if env['openmp'] != 'tasks':
       program_name += '_' + env['openmp']
 
@@ -498,6 +507,9 @@ if env['exe'] == 'samoa':
 
     if not env['asagi']:
       program_name += '_noasagi'
+
+    if env['chameleon']:
+      program_name += '_chameleon'
 
     if env['flux_solver'] != 'aug_riemann':
       program_name += '_' + env['flux_solver']

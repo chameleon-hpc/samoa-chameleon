@@ -16,11 +16,11 @@ module Tools_statistics
     public :: TRAVERSALS, TRAVERSED_CELLS, TRAVERSED_EDGES, TRAVERSED_NODES, TRAVERSED_MEMORY
 
     enum, bind(c)
-        enumerator :: TRAVERSAL_TIME = 1, PRE_COMPUTE_TIME, INNER_COMPUTE_TIME, POST_COMPUTE_TIME, ASAGI_TIME, SYNC_TIME, BARRIER_TIME, STATS_TYPE_END_TIME_COUNTER
+        enumerator :: TRAVERSAL_TIME = 1, PRE_COMPUTE_TIME, INNER_COMPUTE_TIME, POST_COMPUTE_TIME, ASAGI_TIME, SYNC_TIME, BARRIER_TIME, PACKING_TIME, STATS_TYPE_END_TIME_COUNTER
         enumerator :: ALLOCATION_TIME = STATS_TYPE_END_TIME_COUNTER, UPDATE_DISTANCES_TIME, UPDATE_NEIGHBORS_TIME, INTEGRITY_TIME, LOAD_BALANCING_TIME, STATS_TYPE_END_ADAPTIVE_COUNTER
     end enum
 
-    public :: TRAVERSAL_TIME, PRE_COMPUTE_TIME, INNER_COMPUTE_TIME, POST_COMPUTE_TIME, ASAGI_TIME, SYNC_TIME, BARRIER_TIME
+    public :: TRAVERSAL_TIME, PRE_COMPUTE_TIME, INNER_COMPUTE_TIME, POST_COMPUTE_TIME, ASAGI_TIME, SYNC_TIME, BARRIER_TIME, PACKING_TIME
     public :: ALLOCATION_TIME, UPDATE_DISTANCES_TIME, UPDATE_NEIGHBORS_TIME, INTEGRITY_TIME, LOAD_BALANCING_TIME
 
 	type t_base_statistics
@@ -275,11 +275,11 @@ module Tools_statistics
         class(t_statistics), intent(in)			:: s
 		character (len = 512)					:: str
 
-        write(str, '("#travs: ", I0, " time: ", F0.4, " s (comp: ", F0.4, " s (pre: ", F0.4, " s inner: ", F0.4, " s post: ", F0.4, " s) asagi: ", F0.4, " s sync: ", F0.4, " s barr: ", F0.4, " s)")') &
+        write(str, '("#travs: ", I0, " time: ", F0.4, " s (comp: ", F0.4, " s (pre: ", F0.4, " s inner: ", F0.4, " s post: ", F0.4, " s) asagi: ", F0.4, " s sync: ", F0.4, " s barr: ", F0.4, " s packing: ", F0.4, " s)")') &
             s%get_counter(traversals), s%get_time(traversal_time),  &
             s%get_time(pre_compute_time) + s%get_time(inner_compute_time) + s%get_time(post_compute_time), &
             s%get_time(pre_compute_time), s%get_time(inner_compute_time), s%get_time(post_compute_time), &
-            s%get_time(asagi_time), s%get_time(sync_time), s%get_time(barrier_time)
+            s%get_time(asagi_time), s%get_time(sync_time), s%get_time(barrier_time), s%get_time(packing_time)
 
         if (s%get_time(traversal_time) > 0.0d0) then
             write(str, '(A, " ET: ", F0.4, " M/s  MT: ", F0.4, " GB/s")') trim(str), dble(s%get_counter(traversed_cells)) / (1.0d6 * s%get_time(traversal_time)), &
@@ -431,21 +431,21 @@ module Tools_statistics
 
     pure function t_adaptive_statistics_to_string(s) result(str)
         class(t_adaptive_statistics), intent(in)	:: s
-		character (len = 512)					    :: str
+	character (len = 512)					    :: str
 
-        write(str, '("#travs: ", I0, " time: ", F0.4, " s (comp: ", F0.4, " s (pre: ", F0.4, " s inner: ", F0.4, " s post: ", F0.4, " s) asagi: ", F0.4, " s sync: ", F0.4, " s barr: ", F0.4, " s update distances: ", F0.4, " s update neighbors: ", F0.4, " s) integrity: ", F0.4, " s load balancing: ", F0.4, " s (de)allocation: ", F0.4, " s")') &
-            s%get_counter(traversals), s%get_time(traversal_time), &
-            s%get_time(pre_compute_time) + s%get_time(inner_compute_time) + s%get_time(post_compute_time), &
-            s%get_time(pre_compute_time), s%get_time(inner_compute_time), s%get_time(post_compute_time), &
-            s%get_time(asagi_time), s%get_time(sync_time), s%get_time(barrier_time), &
-            s%get_time(update_distances_time), s%get_time(update_neighbors_time), &
-            s%get_time(integrity_time), s%get_time(load_balancing_time), s%get_time(allocation_time)
+	write(str, '("#travs: ", I0, " time: ", F0.4, " s (comp: ", F0.4, " s (pre: ", F0.4, " s inner: ", F0.4, " s post: ", F0.4, " s) asagi: ", F0.4, " s sync: ", F0.4, " s barr: ", F0.4, " s packing: ", F0.4, " s update distances: ", F0.4, " s update neighbors: ", F0.4, " s) integrity: ", F0.4, " s load balancing: ", F0.4, " s (de)allocation: ", F0.4, " s")') &
+	    s%get_counter(traversals), s%get_time(traversal_time), &
+	    s%get_time(pre_compute_time) + s%get_time(inner_compute_time) + s%get_time(post_compute_time), &
+	    s%get_time(pre_compute_time), s%get_time(inner_compute_time), s%get_time(post_compute_time), &
+	    s%get_time(asagi_time), s%get_time(sync_time), s%get_time(barrier_time), s%get_time(packing_time), &
+	    s%get_time(update_distances_time), s%get_time(update_neighbors_time), &
+	    s%get_time(integrity_time), s%get_time(load_balancing_time), s%get_time(allocation_time)
 
-        if (s%get_time(traversal_time) > 0.0d0) then
-            write(str, '(A, " ET: ", F0.4, " M/s  MT: ", F0.4, " GB/s")') trim(str), dble(s%get_counter(traversed_cells)) / (1.0d6 * s%get_time(traversal_time)), &
-            dble(s%get_counter(traversed_memory)) / (1024.0d0 * 1024.0d0 * 1024.0d0 * s%get_time(traversal_time))
-        else
-            write(str, '(A, " ET: ", F0.4, " M/s  MT: ", F0.4, " GB/s")') trim(str), -1.0d0, -1.0d0
-        end if
-	end function
+	if (s%get_time(traversal_time) > 0.0d0) then
+	    write(str, '(A, " ET: ", F0.4, " M/s  MT: ", F0.4, " GB/s")') trim(str), dble(s%get_counter(traversed_cells)) / (1.0d6 * s%get_time(traversal_time)), &
+	    dble(s%get_counter(traversed_memory)) / (1024.0d0 * 1024.0d0 * 1024.0d0 * s%get_time(traversal_time))
+	else
+	    write(str, '(A, " ET: ", F0.4, " M/s  MT: ", F0.4, " GB/s")') trim(str), -1.0d0, -1.0d0
+	end if
+    end function
 end module

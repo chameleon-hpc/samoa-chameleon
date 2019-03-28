@@ -57,10 +57,17 @@
 #               define _GT_USE_CHAMELEON         
 #endif
 
+#ifdef (CHAMELEON_CALL
+#               define _GT_USE_CHAMELEON_CALL
+#endif
+
 #		include "SFC_generic_traversal_ringbuffer.f90"
 
 #ifdef (CHAMELEON
 #               undef _GT_USE_CHAMELEON         
+#endif
+#ifdef (CHAMELEON_CALL
+#               undef _GT_USE_CHAMELEON_CALL
 #endif
 
         subroutine create_node_mpi_type(mpi_node_type)

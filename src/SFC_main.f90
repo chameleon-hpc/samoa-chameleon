@@ -11,13 +11,13 @@ PROGRAM samoa
         USE chameleon_lib
 #endif
 	implicit none
-#ifdef CHAMELEON
+#ifdef CHAMELEON_CALL
        integer :: ierr
 #endif
 
     !init MPI
     call init_mpi()
-#ifdef CHAMELEON
+#ifdef CHAMELEON_CALL
     ierr = chameleon_init()
     ierr = chameleon_determine_base_addresses(c_null_ptr)
 #endif
@@ -35,7 +35,7 @@ PROGRAM samoa
     !run scenario selector
     call sfc_generic()
 
-#ifdef CHAMELEON
+#ifdef CHAMELEON_CALL
     ierr = chameleon_finalize()
 #endif
     !finalize MPI

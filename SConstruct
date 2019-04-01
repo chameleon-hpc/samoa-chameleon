@@ -107,7 +107,9 @@ vars.AddVariables(
 
   BoolVariable( 'standard', 'check for Fortran 2008 standard compatibility', False),
 
-  BoolVariable( 'chameleon', 'use chameleon library for load balancing', False),
+  EnumVariable( 'chameleon', 'use chameleon library for load balancing', '0',
+                allowed_values=('0', '1', '2')
+              ),
   
   PathVariable( 'chameleon_dir', 'chameleon directory', '.'),
 
@@ -252,13 +254,13 @@ if env['asagi']:
 
 
 #set compilation flags and preprocessor macros for the Chameleon library
-if env['chameleon']:
+if env['chameleon'] == '1':
   env.Append(F90PATH = os.path.abspath(env['chameleon_dir']+'/include'))
   env['F90FLAGS'] += ' -DCHAMELEON -DCHAMELEON_CALL'
   env['LINKFLAGS'] += ' -Wl,--rpath,' + os.path.abspath(env['chameleon_dir']) +'/chameleon'
   env.AppendUnique(LIBPATH = env['chameleon_dir'] + '/lib')
   env.Append(LIBS = ['chameleon'])
-else:
+elif env['chameleon'] == '2':
   env.Append(F90PATH = os.path.abspath(env['chameleon_dir']+'/include'))
   env['F90FLAGS'] += ' -DCHAMELEON'
   env['LINKFLAGS'] += ' -Wl,--rpath,' + os.path.abspath(env['chameleon_dir']) +'/chameleon'
@@ -497,7 +499,8 @@ if env['exe'] == 'samoa':
     program_name += '_' + env['scenario']
 
     if env['scenario'] == 'swe' or env['scenario'] == 'swe2l':
-      program_name += '_' + env['swe_scenario']
+      if not env['asagi']:
+        program_name += '_' + env['swe_scenario']
 
     if env['openmp'] != 'tasks':
       program_name += '_' + env['openmp']
@@ -508,8 +511,10 @@ if env['exe'] == 'samoa':
     if not env['asagi']:
       program_name += '_noasagi'
 
-    if env['chameleon']:
+    if env['chameleon'] == '1':
       program_name += '_chameleon'
+    elif env['chameleon'] == '2':
+      program_name += '_packing'
 
     if env['flux_solver'] != 'aug_riemann':
       program_name += '_' + env['flux_solver']

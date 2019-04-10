@@ -1623,6 +1623,22 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
                 call prefix_sum(grid%sections%elements_alloc%partial_load, grid%sections%elements_alloc%load)
                 call reduce(grid%load, grid%sections%elements_alloc%load, MPI_SUM, .false.)
             !$omp end single copyprivate(rank_load, rank_throughput, imbalance)
+            
+            ! if (rank_MPI == 0) then
+            !     !$omp single
+            !     _log_write(1, '(4X, "LB: ", F0.3)') imbalance
+            !     !open(61,file='data.txt',action='write',position='append')
+            !     !write(61,*) imbalance
+            !     !close(61)
+            !     !$omp end single
+            ! end if
+
+            ! if (grid%i_steps_since_last_LB .ne. 0) then ! exit early if it is not time for LB
+            !     !$omp single
+            !     _log_write(2, '(4X, "LB: It is not time for LB, skipping...")')
+            !     !$omp end single nowait
+            !     return
+            ! end if
 
             !exit early if the imbalance is small enough
 	        if (imbalance .le. cfg%r_lb_threshold) then

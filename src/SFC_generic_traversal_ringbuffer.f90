@@ -279,6 +279,9 @@ subroutine traverse(traversal, grid)
 #ifdef _GT_USE_CHAMELEON
        type(t_section_metadata), dimension(:), allocatable    :: section_metadata
        type(map_entry), dimension(:,:), allocatable :: map_entries
+
+       type(c_ptr) :: anno_ptr
+       integer :: result_val
 #endif 
 
     if (.not. associated(traversal%sections) .or. size(traversal%sections) .ne. grid%sections%get_size()) then
@@ -466,7 +469,13 @@ subroutine traverse(traversal, grid)
 
 #if defined _GT_USE_CHAMELEON_CALL
     !    write(*,*)  'Executing Chameleon Tasks'
-        i_error = chameleon_add_task_manual(traverse_section_wrapper_chameleon, 14, map_entries(:,i_section))
+        anno_ptr    = chameleon_create_annotation_container_fortran()
+        i_error     = chameleon_set_annotation_int_fortran(anno_ptr, grid%sections%elements_alloc(i_section)%cells%get_size())
+        i_error     = chameleon_add_task_manual_fortran_w_annotations(c_funloc(traverse_section_wrapper_chameleon), 14, c_loc(map_entries(:,i_section)), anno_ptr)
+        ! result_val  = chameleon_get_annotation_int_fortran(anno_ptr)
+        ! if (result_val .ne. grid%sections%elements_alloc(i_section)%cells%get_size()) then
+        !     write(*,*)  'Annotation not matching', grid%sections%elements_alloc(i_section)%cells%get_size(), result_val
+        ! end if 
 #else
 #       if defined(_OPENMP_TASKS)
         !$omp task default(shared) firstprivate(i_section) mergeable
@@ -495,7 +504,7 @@ subroutine traverse(traversal, grid)
 
 #if defined _GT_USE_CHAMELEON_CALL
     call thread_stats%start_time(inner_compute_time)
-    i_error = chameleon_distributed_taskwait(0)
+    i_error = chameleon_distributed_taskwait(1)
     call thread_stats%stop_time(inner_compute_time)
 #else
 #   if defined(_OPENMP_TASKS)

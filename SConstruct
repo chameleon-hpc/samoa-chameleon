@@ -75,7 +75,7 @@ vars.AddVariables(
                 allowed_values=('bernstein_nodal','bernstein_l2')
               ),
 
-  EnumVariable( 'data_refinement', 'input data refinement method', 'integrate',
+  EnumVariable( 'data_refinement', 'input data refinement method', 'sample',
                 allowed_values=('integrate', 'sample')
               ),
 
@@ -431,8 +431,8 @@ elif env['target'] == 'release':
   env.SetDefault(assertions = False)
 
   if env['compiler'] == 'intel':
-    env['F90FLAGS'] += ' -fast -fno-alias -align all -inline-level=2 -funroll-loops -unroll'
-    env['LINKFLAGS'] += ' -O3 -ip -ipo'
+    env['F90FLAGS'] += ' -g -O3 -ipo -fno-alias -align all -inline-level=2 -funroll-loops -unroll'
+    env['LINKFLAGS'] += ' -g -O3 -ip -ipo'
   elif  env['compiler'] == 'gnu':
     env['F90FLAGS'] += ' -Ofast -march=native -Wa,-q -malign-double -funroll-loops -fstrict-aliasing -finline-limit=2048'
     env['LINKFLAGS'] += '  -Ofast -march=native -Wa,-q -malign-double -funroll-loops -fstrict-aliasing -finline-limit=2048'

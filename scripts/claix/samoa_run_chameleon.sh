@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# run chameleon version
+unset CHAMELEON_TOOL_LIBRARIES
+
+${CUR_MPI_CMD} \
+${PREF_VAR_EXPORT}${ENVS_FOR_EXPORT} \
+${SAMOA_VTUNE_PREFIX} ${SAMOA_INSPXE_PREFIX}  ${SAMOA_BIN}/samoa_swe${SWE_SCENARIO}${ASAGI_NAME_EXT}_chameleon \
+${SAMOA_PARAMS} &> ${CUR_OUTP_STR}_chameleon_${OMP_NUM_THREADS}_dmax_${CUR_DMAX}_lbfreq_${LB_SETTINGS}${FILE_APPEND}.log

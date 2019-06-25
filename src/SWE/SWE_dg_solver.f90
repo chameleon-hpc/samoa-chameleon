@@ -12,6 +12,14 @@ MODULE SWE_DG_solver
   use Samoa_swe
   use c_bind_riemannsolvers
 
+
+#       if defined(CHAMELEON)
+             use Chameleon_lib
+#            define _GT_USE_CHAMELEON
+#       endif
+#       if defined(CHAMELEON_CALL)
+#            define _GT_USE_CHAMELEON_CALL
+#       endif
   use SWE_DG_Matrices
   use SWE_DG_Predictor
   use SWE_Euler_Timestep

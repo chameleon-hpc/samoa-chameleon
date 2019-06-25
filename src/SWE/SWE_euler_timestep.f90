@@ -18,13 +18,6 @@
 #       if defined(_HLLE_FLUX)
             use SWE_HLLE
 #       endif
-#       if defined(CHAMELEON)
-             use Chameleon_lib
-#            define _GT_USE_CHAMELEON
-#       endif
-#       if defined(CHAMELEON_CALL)
-#            define _GT_USE_CHAMELEON_CALL
-#       endif
 		implicit none
 
         type num_traversal_data

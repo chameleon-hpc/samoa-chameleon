@@ -280,7 +280,7 @@ subroutine traverse(traversal, grid)
        type(t_section_metadata), dimension(:), allocatable    :: section_metadata
        type(map_entry), dimension(:,:), allocatable :: map_entries
 
-       type(c_ptr) :: anno_ptr
+       type(c_ptr) :: task_c_ptr, anno_ptr
        integer :: result_val
 #endif 
 
@@ -469,8 +469,8 @@ subroutine traverse(traversal, grid)
 
 #if defined _GT_USE_CHAMELEON_CALL
     !    write(*,*)  'Executing Chameleon Tasks'
-        i_error = chameleon_add_task_manual(traverse_section_wrapper_chameleon, 14, map_entries(:,i_section))
-        
+        task_c_ptr = chameleon_create_task(traverse_section_wrapper_chameleon, 14, map_entries(:,i_section))
+        i_error = chameleon_add_task_fortran(task_c_ptr)
         ! anno_ptr    = chameleon_create_annotation_container_fortran()
         ! i_error     = chameleon_set_annotation_int_fortran(anno_ptr, grid%sections%elements_alloc(i_section)%cells%get_size())
         ! i_error     = chameleon_add_task_manual_fortran_w_annotations(c_funloc(traverse_section_wrapper_chameleon), 14, c_loc(map_entries(:,i_section)), anno_ptr)

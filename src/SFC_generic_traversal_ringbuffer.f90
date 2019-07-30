@@ -278,7 +278,7 @@ subroutine traverse(traversal, grid)
 
 #ifdef _GT_USE_CHAMELEON
        type(t_section_metadata), dimension(:), allocatable    :: section_metadata
-       type(map_entry), dimension(:,:), allocatable :: map_entries
+       type(map_entry), dimension(:,:), allocatable, target :: map_entries
 
        type(c_ptr) :: anno_ptr, task_c_ptr
        integer :: result_val

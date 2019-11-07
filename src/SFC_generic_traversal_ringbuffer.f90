@@ -482,7 +482,7 @@ subroutine traverse(traversal, grid)
 #       if defined(_OPENMP_TASKS)
         !$omp task default(shared) firstprivate(i_section) mergeable
 #       endif
-        call traversal%sections(i_section)%stats%start_time(inner_compute_time)
+        !call traversal%sections(i_section)%stats%start_time(inner_compute_time)
         call traverse_section_wrapper_chameleon(traversal%sections(i_section),\
                                               section_metadata(i_section),\
                                               grid%sections%elements_alloc(i_section)%t_global_data,\
@@ -497,7 +497,7 @@ subroutine traverse(traversal, grid)
                                               c_loc(grid%sections%elements_alloc(i_section)%boundary_edges(GREEN)%get_c_pointer()),\
                                               c_loc(grid%sections%elements_alloc(i_section)%boundary_nodes(RED)%get_c_pointer()),\
                                               c_loc(grid%sections%elements_alloc(i_section)%boundary_nodes(GREEN)%get_c_pointer()))
-        call traversal%sections(i_section)%stats%stop_time(inner_compute_time)
+        !call traversal%sections(i_section)%stats%stop_time(inner_compute_time)
 #       if defined(_OPENMP_TASKS)
         !$omp end task
 #       endif

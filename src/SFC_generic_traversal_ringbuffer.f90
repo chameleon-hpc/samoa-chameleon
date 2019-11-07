@@ -477,7 +477,7 @@ subroutine traverse(traversal, grid)
         ! result_val  = chameleon_get_annotation_int_fortran(anno_ptr)
         ! if (result_val .ne. grid%sections%elements_alloc(i_section)%cells%get_size()) then
         !     write(*,*)  'Annotation not matching', grid%sections%elements_alloc(i_section)%cells%get_size(), result_val
-        ! end if 
+        ! end if
 #else
 #       if defined(_OPENMP_TASKS)
         !$omp task default(shared) firstprivate(i_section) mergeable
@@ -505,9 +505,7 @@ subroutine traverse(traversal, grid)
     end do
 
 #if defined _GT_USE_CHAMELEON_CALL
-    call thread_stats%start_time(inner_compute_time)
     i_error = chameleon_distributed_taskwait(0)
-    call thread_stats%stop_time(inner_compute_time)
 #else
 #   if defined(_OPENMP_TASKS)
         !$omp taskwait
@@ -631,6 +629,7 @@ subroutine traverse(traversal, grid)
 end subroutine
 
 #if defined(_GT_USE_CHAMELEON)
+
 subroutine traverse_section_wrapper_chameleon( section_traversal,&
                                                section_metadata,&
                                                global_data,&
@@ -684,6 +683,9 @@ subroutine traverse_section_wrapper_chameleon( section_traversal,&
     !section_local = section
     !thread_local = thread
     section_local%t_global_data = global_data
+
+
+    call section_traversal_local%stats%start_time(inner_compute_time)
 
     call c_f_pointer(cells, cells_ptr, [section_metadata%size_cells])
     if(forward) then  
@@ -770,6 +772,8 @@ subroutine traverse_section_wrapper_chameleon( section_traversal,&
     call traverse_section(thread_traversal_local, section_traversal_local, thread_local, section_local)
 
     call thread_local%destroy()
+
+    call section_traversal_local%stats%stop_time(inner_compute_time)
 
     section_traversal = section_traversal_local
     global_data = section_local%t_global_data

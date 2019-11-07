@@ -1,5 +1,5 @@
 scenario='swe'
-swe_dg_order='1'
+swe_dg_order='4'
 #swe_patch_order=''
 #swe_scenario='splashing_pool'
 #swe_scenario='resting_lake'

@@ -169,8 +169,9 @@ contains
     real(kind=GRID_SR)                         :: q_0(_SWE_DG_DOFS,3)
     real(kind=GRID_SR)                         :: q_i(_SWE_DG_DOFS*(_SWE_DG_ORDER+1),3)
     real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1,_SWE_DG_DOFS,3)  :: q_i_st
-    real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1,_SWE_DG_DOFS,3)  :: source_st,source_ref_st
+    real(kind=GRID_SR),Dimension(_SWE_DG_ORDER,_SWE_DG_DOFS,3)  :: source_st,source_ref_st
     real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1,_SWE_DG_DOFS,3)  :: volume_flux
+    real(kind=GRID_SR),Dimension(_SWE_DG_ORDER,_SWE_DG_DOFS,3)  :: volume_flux_red
     real(kind=GRID_SR),Dimension(2,_SWE_DG_ORDER+1,_SWE_DG_DOFS,3):: f,f_ref
     real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1,_SWE_DG_DOFS)    :: H_x_st,H_y_st
     real(kind=GRID_SR),Dimension(_SWE_DG_ORDER,_SWE_DG_DOFS,3)    :: q_temp_st
@@ -239,18 +240,18 @@ contains
          !!------- source terms ------!!
          source_ref_st = 0
          do j=1,_SWE_DG_DOFS
-            source_ref_st(:,j,2) = matmul(t_m, (0.5_GRID_SR * g * q_i_st(:,j,1)**2))
-            source_ref_st(:,j,3) = matmul(t_m, (0.5_GRID_SR * g * q_i_st(:,j,1)**2))
+            source_ref_st(:,j,2) = matmul(t_m_1, (0.5_GRID_SR * g * q_i_st(:,j,1)**2))
+            source_ref_st(:,j,3) = matmul(t_m_1, (0.5_GRID_SR * g * q_i_st(:,j,1)**2))
          end do
          
-         do i=1,_SWE_DG_ORDER+1
+         do i=1,_SWE_DG_ORDER
             source_ref_st(i,:,2) = matmul(s_m_inv, matmul(transpose(s_k_x), source_ref_st(i,:,2)))
             source_ref_st(i,:,3) = matmul(s_m_inv, matmul(transpose(s_k_y), source_ref_st(i,:,3)))
          end do
 
          do j=1,_SWE_DG_DOFS
-            source_ref_st(:,j,2) = source_ref_st(:,j,2) - matmul(t_m,(g * q_i_st(:,j,1) * H_x_st(:,j)))
-            source_ref_st(:,j,3) = source_ref_st(:,j,3) - matmul(t_m,(g * q_i_st(:,j,1) * H_y_st(:,j)))
+            source_ref_st(:,j,2) = source_ref_st(:,j,2) - matmul(t_m_1,(g * q_i_st(:,j,1) * H_x_st(:,j)))
+            source_ref_st(:,j,3) = source_ref_st(:,j,3) - matmul(t_m_1,(g * q_i_st(:,j,1) * H_y_st(:,j)))
          end do
 
          source_st(:,:,1) = 0
@@ -280,34 +281,19 @@ contains
          end do
    
          do j=1,_SWE_DG_DOFS
-            volume_flux(:,j,:) =  matmul(t_m, volume_flux(:,j,:))
+            volume_flux_red(:,j,:) =  matmul(t_m_1, volume_flux(:,j,:))
          end do
 
-         print*,"volume_flux1"
-         do i=1,_SWE_DG_ORDER+1
-            do j=1,_SWE_DG_DOFS
-               print*,volume_flux(i,j,:)*dt/dx
-            end do
-         end do
-
-         do i=1,_SWE_DG_ORDER+1
-            volume_flux(i,:,:) = matmul(s_m_inv,volume_flux(i,:,:))
-         end do
-
-         print*,"volume_flux"
-         do i=1,_SWE_DG_ORDER+1
-            do j=1,_SWE_DG_DOFS
-               print*,volume_flux(i,j,:)*dt/dx
-            end do
+         do i=1,_SWE_DG_ORDER
+            volume_flux_red(i,:,:) = matmul(s_m_inv,volume_flux_red(i,:,:))
          end do
 
          !!----- end flux terms -----!!
          
 
          !---- add flux ----!
-         !LR: get rid of that one colume thats to much
-         do i=2,_SWE_DG_ORDER+1
-            q_temp_st(i-1,:,:) = source_st(i,:,:) - volume_flux(i,:,:)
+         do i=1,_SWE_DG_ORDER
+            q_temp_st(i,:,:) = source_st(i,:,:) - volume_flux_red(i,:,:)
          end do
          
          do i=1,_SWE_DG_DOFS         

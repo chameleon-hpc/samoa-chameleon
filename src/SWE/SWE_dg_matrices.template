@@ -40,6 +40,7 @@ MODULE SWE_dg_matrices
 #include "dg_matrices/s_k_x_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/s_k_y_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/s_m_SWE_DG_ORDER_TAG.incl"
+#include "dg_matrices/t_m_1_SWE_DG_ORDER_TAG.incl"
 
 
 !old only for debugging

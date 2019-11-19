@@ -62,13 +62,10 @@
 
 		!> cell state vector including bathymetry
 		type, extends(t_dof_state) :: t_state
-     real (kind = GRID_SR) :: b						!< bathymetry
+     real (kind = GRID_SR) :: b						!< bathymetry 
 
-#if defined(_SWE_DG_NODAL)
-     real(kind=GRID_SR) ::       b_x
+     real(kind=GRID_SR) ::       b_x !LR: I think its better to compute them in situ
      real(kind=GRID_SR) ::       b_y
-#endif
-                        
             contains
 
             procedure, pass :: add_state => state_add
@@ -104,10 +101,6 @@
 #if defined(_DEBUG)
                         integer :: debug_flag = 0
 #endif                        
-
-#if !defined(_SWE_DG_NODAL)
-                        real(kind=GRID_SR) :: b_x(size(st_gl_node_vals,1)), b_y(size(st_gl_node_vals,1))
-#endif                       
 
                         integer :: troubled = HUGE(1)
 #                       endif
@@ -342,59 +335,24 @@
                  subroutine convert_fv_to_dg_bathymetry(dofs,normals)
                    class(num_cell_data_pers) :: dofs
                    real(kind=GRID_SR) :: b_temp(_SWE_DG_DOFS +1),b_fv(_SWE_PATCH_ORDER_SQUARE)
-#if defined(_SWE_DG_NODAL)                   
+
                    real(kind=GRID_SR) :: b_x_temp(_SWE_DG_DOFS)
                    real(kind=GRID_SR) :: b_y_temp(_SWE_DG_DOFS)
-#else
-                   real(kind=GRID_SR) :: b_x_temp(size(st_der_x_gl_node_vals,1))
-                   real(kind=GRID_SR) :: b_y_temp(size(st_der_y_gl_node_vals,1))
-
-#endif
                    real(kind=GRID_SR),intent(in) :: normals(2,2)
                    real(kind=GRID_SR) :: normals_normed(2,2)
                    integer ::i,j
                    real(kind=GRID_SR) :: epsilon=0.0_GRID_SR
 
-
                    normals_normed=normals/NORM2(normals(1,1:2))
 
                    b_temp(1:_SWE_DG_DOFS)= 2.0q0*matmul(transpose(phi),dofs%b)
-                   
                    b_temp(_SWE_DG_DOFS+1) = sum(dofs%b)
-                   
                    b_temp = b_temp /_REF_TRIANGLE_SIZE_INV
-
-                  
-!                   call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,b_temp)
                    b_temp=matmul(mue_inv,b_temp)                   
 
                    do i=1,_SWE_DG_DOFS
                       dofs%Q_DG(i)%b=b_temp(i)
                    end do
-
-!                   do i=0,_SWE_DG_ORDER
-!                      dofs%Q_DG_P(1+_SWE_DG_DOFS*i:_SWE_DG_DOFS*(i+1))%b=dofs%Q_DG(:)%b
-!                   end do
-#if !defined(_SWE_DG_NODAL)
-
-                   ! b_x_temp=matmul(st_der_x_gl_node_vals,dofs%Q_DG_P(:)%b)
-                   ! b_y_temp=matmul(st_der_y_gl_node_vals,dofs%Q_DG_P(:)%b)
-                   
-                   ! dofs%b_x = normals_normed(1,1) * b_x_temp + normals_normed(1,2) * b_y_temp
-                   ! dofs%b_y = normals_normed(2,1) * b_x_temp + normals_normed(2,2) * b_y_temp
-
-#else
-                   ! b_x_temp=matmul(basis_der_x,b_temp(1:_SWE_DG_DOFS))
-                   ! b_y_temp=matmul(basis_der_y,b_temp(1:_SWE_DG_DOFS))
-
-                   ! dofs%Q_DG(:)%b_x=normals_normed(1,1) * b_x_temp + normals_normed(1,2) * b_y_temp
-                   ! dofs%Q_DG(:)%b_y=normals_normed(2,1) * b_x_temp + normals_normed(2,2) * b_y_temp
-
-                   ! do i=0,_SWE_DG_ORDER
-                   !    dofs%Q_DG_P(1+_SWE_DG_DOFS*i:_SWE_DG_DOFS*(i+1))%b_x=dofs%Q_DG(:)%b_x
-                   !    dofs%Q_DG_P(1+_SWE_DG_DOFS*i:_SWE_DG_DOFS*(i+1))%b_y=dofs%Q_DG(:)%b_y
-                   ! end do
-#endif
                  end subroutine convert_fv_to_dg_bathymetry
 
                  subroutine bathymetry_derivatives(dofs,normals)
@@ -417,11 +375,7 @@
 			class (t_state), intent(in)		:: Q1
 			type (t_state), intent(in)		:: Q2
 			type (t_state)					:: Q_out
-#if !defined(_SWE_DG_NODAL)
-			Q_out = t_state(Q1%h + Q2%h, Q1%p + Q2%p, Q1%b + Q2%b)
-#else
 			Q_out = t_state(Q1%h + Q2%h, Q1%p + Q2%p, Q1%b + Q2%b,Q1%b_x + Q2%b_x,Q1%b_y + Q2%b_y)
-#endif
 		end function
 
 		!adds two update vectors

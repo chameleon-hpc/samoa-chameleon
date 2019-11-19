@@ -1,0 +1,4 @@
+real(kind=GRID_SR), Parameter :: t_k_t_10(_SWE_DG_ORDER,1)=reshape((/&
+ -6.6666666666666667e-01_GRID_SR&
+, 1.6666666666666667e-01_GRID_SR&
+/),(/_SWE_DG_ORDER,1/))

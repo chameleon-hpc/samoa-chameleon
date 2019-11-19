@@ -32,14 +32,27 @@ MODULE SWE_dg_matrices
 !#include "dg_matrices/mue_lu_SWE_DG_ORDER_TAG.incl"
 !#include "dg_matrices/mue_lu_pivot_SWE_DG_ORDER_TAG.incl"
 
-!DG_Solver matrices
+
+!New and refactored
+#include "dg_matrices/t_k_t_10_SWE_DG_ORDER_TAG.incl"
+#include "dg_matrices/t_k_t_11_inv_SWE_DG_ORDER_TAG.incl"
+#include "dg_matrices/s_m_inv_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/s_k_x_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/s_k_y_SWE_DG_ORDER_TAG.incl"
+#include "dg_matrices/s_m_SWE_DG_ORDER_TAG.incl"
+
+
+!old only for debugging
+#include "dg_matrices/s_k_x_o_SWE_DG_ORDER_TAG.incl"
+#include "dg_matrices/s_k_y_o_SWE_DG_ORDER_TAG.incl"
+#include "dg_matrices/s_m_o_SWE_DG_ORDER_TAG.incl"
+
+!DG_Solver matrices
+#include "dg_matrices/t_m_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/b_m_1_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/b_m_2_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/b_m_3_SWE_DG_ORDER_TAG.incl"
 
-#include "dg_matrices/s_m_inv_SWE_DG_ORDER_TAG.incl"
 !#include "dg_matrices/s_m_lu_SWE_DG_ORDER_TAG.incl"
 !#include "dg_matrices/s_m_lu_pivot_SWE_DG_ORDER_TAG.incl"
 
@@ -47,7 +60,6 @@ MODULE SWE_dg_matrices
 #include "dg_matrices/basis_der_y_SWE_DG_ORDER_TAG.incl"
 
 !DG_Predictor matrices
-#include "dg_matrices/s_m_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/st_k_x_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/st_k_y_SWE_DG_ORDER_TAG.incl"
 

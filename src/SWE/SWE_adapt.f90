@@ -116,7 +116,9 @@
           end if
 
           if(element%cell%data_pers%troubled.le.0) then
-
+!             print*,"old"
+!             call dg_predictor_old(element%cell,section%r_dt)
+!             print*,"new"
              call dg_predictor(element%cell,section%r_dt)
 #if defined (_DEBUG)             
              element%cell%data_pers%debug_flag = -1

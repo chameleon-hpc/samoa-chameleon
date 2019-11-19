@@ -22,7 +22,7 @@ vars.AddVariables(
   PathVariable( 'config', 'build configuration file', None, PathVariable.PathIsFile),
 )
 
-env = Environment(variables=vars)
+env = Environment(variables=vars,tools=['f90','default'])
 
 #Set config variables from config file if it exists
 
@@ -45,6 +45,7 @@ vars.AddVariables(
   EnumVariable( 'flux_solver', 'flux solver for FV problems', 'upwind',
                 allowed_values=('upwind', 'lf', 'lfbath', 'llf', 'llfbath', 'fwave', 'aug_riemann', 'hlle')
               ),
+  BoolVariable( 'flux_time_averaging', 'If the flux dofs should be time averaged (reduces size of communication but LTS is not feasable anymore)', True),
 
   ( 'swe_dg_order', 'order of DG method, 0=simple FVM', 0),
 
@@ -71,9 +72,9 @@ vars.AddVariables(
                                 'unlimited')),
 
 
-  EnumVariable( 'swe_dg_basis', 'choice of basis polynomes and projection method', 'bernstein_nodal',
-                allowed_values=('bernstein_nodal','bernstein_l2')
-              ),
+#  EnumVariable( 'swe_dg_basis', 'choice of basis polynomes and projection method', 'bernstein_nodal',
+#                allowed_values=('bernstein_nodal','bernstein_l2')
+#              ),
 
   EnumVariable( 'data_refinement', 'input data refinement method', 'sample',
                 allowed_values=('integrate', 'sample')
@@ -171,6 +172,7 @@ if env['compiler'] == 'intel':
   fc = 'ifort'
   env['F90FLAGS'] = ' -implicitnone -nologo -fpp -allow nofpp-comments -align array64byte'
   env['LINKFLAGS'] += ' -Bdynamic -shared-libgcc -shared-intel'
+  env.Append(Tools = "ifort")
 elif  env['compiler'] == 'gnu':
   fc = 'gfortran'
   env['F90FLAGS'] = '-fimplicit-none -cpp -ffree-line-length-none'
@@ -293,13 +295,18 @@ elif env['flux_solver'] == 'aug_riemann':
   env['F90FLAGS'] += ' -D_AUG_RIEMANN_FLUX'
 elif env['flux_solver'] == 'hlle':
   env['F90FLAGS'] += ' -D_HLLE_FLUX'
+
+
+# not Time averaging
+if not(env['flux_time_averaging']):
+  env['F90FLAGS'] += ' -D_NOT_TIME_AVERAGE_FLUX'
+
   
 # DG options for SWE scenario
 if (int(env['swe_dg_order'])) > 0:
     env.Tool("generateKernels")
     env['F90FLAGS'] += ' -D_SWE_DG'
-    if(env['swe_dg_basis']=='bernstein_nodal'):
-        env['F90FLAGS'] += ' -D_SWE_DG_NODAL'
+    env['F90FLAGS'] += ' -D_SWE_DG_NODAL'
     env['F90FLAGS'] += ' -D_SWE_DG_ORDER=' + env['swe_dg_order']
     env['F90FLAGS'] += ' -D_SWE_DG_DOFS=' + str(int( (int(env['swe_dg_order'])+1)*(int(env['swe_dg_order'])+2)/2))
     if (int(env['swe_patch_order'])) > 1:

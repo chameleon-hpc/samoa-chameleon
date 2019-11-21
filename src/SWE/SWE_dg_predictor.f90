@@ -168,6 +168,7 @@ contains
     real(kind=GRID_SR)                         :: dx
     real(kind=GRID_SR)                         :: q_0(_SWE_DG_DOFS,3)
     real(kind=GRID_SR)                         :: q_i(_SWE_DG_DOFS*(_SWE_DG_ORDER+1),3)
+    
     real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1,_SWE_DG_DOFS,3)  :: q_i_st
     real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1,_SWE_DG_DOFS,3)  :: source_st,source_ref_st
     real(kind=GRID_SR),Dimension(_SWE_DG_ORDER,_SWE_DG_DOFS,3)    :: source_st_red
@@ -187,14 +188,12 @@ contains
     real(kind=GRID_SR),Dimension(2,2)          :: jacobian,jacobian_inv
     real(kind=GRID_SR),Dimension(3)            :: edge_sizes
     real(kind=GRID_SR)                         :: epsilon=1.0_GRID_SR
-    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS) :: b
 
     real(kind=GRID_SR),Dimension(_SWE_DG_ORDER,1) :: t_k_t_11_inv_x_t_k_t_10 
 
     associate(Q_DG        => cell%data_pers%Q_DG,&
               Q_DG_P      => cell%data_pers%Q_DG_P,&
-              Q_DG_UPDATE => cell%data_pers%Q_DG_UPDATE,&
-              Q_DG_UPDATE_2  => cell%data_pers%Q_DG_UPDATE_2)
+              Q_DG_UPDATE => cell%data_pers%Q_DG_UPDATE)
 
 
       ! TODO make this a precompiled matrix
@@ -210,8 +209,6 @@ contains
       call cell%data_pers%get_dofs_dg(q_0)
       
       !!--Set initial conditions for discrete picard iteration--!!
-      b=Q_DG(:)%B
-
       !--span dofs at t=0 over time basis--!
       do i=1,_SWE_DG_ORDER+1
          q_i_st(i,:,:) = q_0
@@ -236,8 +233,8 @@ contains
         
          !!--spatial derivations needed for well-balanced scheme--!!
          do i=1,_SWE_DG_ORDER+1
-            H_x_st(i,:) = matmul(basis_der_x,q_i_st(i,:,1) + b)
-            H_y_st(i,:) = matmul(basis_der_y,q_i_st(i,:,1) + b)
+            H_x_st(i,:) = matmul(basis_der_x,q_i_st(i,:,1) + Q_DG(:)%B)
+            H_y_st(i,:) = matmul(basis_der_y,q_i_st(i,:,1) + Q_DG(:)%B)
          end do
          !!---------------------------!!
 
@@ -352,7 +349,7 @@ contains
       end do
 
       !!--- compute volume update----!!
-      !-- Question: is it better to recompte the flux or store it --!
+      !-- Question: is it better to recompte the flux then to store it --!
       do i=1,_SWE_DG_ORDER+1
          volume_flux(i,:,:) = matmul(s_m_inv, &
                               matmul(s_k_x + s_b_3 - s_b_2 , f(1,i,:,:)) + &
@@ -371,15 +368,10 @@ contains
 
       !!------------------------------!
       volume_flux = volume_flux + source_st
-      Q_DG_UPDATE(:)%h    = reshape(matmul(t_a,volume_flux(:,:,1)),(/_SWE_DG_DOFS/))
-      Q_DG_UPDATE(:)%p(1) = reshape(matmul(t_a,volume_flux(:,:,2)),(/_SWE_DG_DOFS/))
-      Q_DG_UPDATE(:)%p(2) = reshape(matmul(t_a,volume_flux(:,:,3)),(/_SWE_DG_DOFS/))
-
       
-      Q_DG_UPDATE_2(:)%h    = reshape(matmul(t_a,source_st(:,:,1)),(/_SWE_DG_DOFS/))
-      Q_DG_UPDATE_2(:)%p(1) = reshape(matmul(t_a,source_st(:,:,2)),(/_SWE_DG_DOFS/))
-      Q_DG_UPDATE_2(:)%p(2) = reshape(matmul(t_a,source_st(:,:,3)),(/_SWE_DG_DOFS/))
-
+      Q_DG_UPDATE(:,1) = reshape(matmul(t_a,volume_flux(:,:,1)),(/_SWE_DG_DOFS/))
+      Q_DG_UPDATE(:,2) = reshape(matmul(t_a,volume_flux(:,:,2)),(/_SWE_DG_DOFS/))
+      Q_DG_UPDATE(:,3) = reshape(matmul(t_a,volume_flux(:,:,3)),(/_SWE_DG_DOFS/))
 
       call cell%data_pers%set_dofs_pred(q_i)
       

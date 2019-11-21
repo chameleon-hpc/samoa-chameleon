@@ -857,24 +857,21 @@ subroutine dg_solver(element,update1,update2,update3,dt)
   real(kind=GRID_SR), intent(in)                                :: dt
   type(t_update), dimension((_SWE_DG_ORDER+1)**2),intent(in)    :: update1, update2, update3
   
-  real(kind=GRID_SR)                                            :: q(_SWE_DG_DOFS,3),&
-       q_p((_SWE_DG_ORDER+1)*_SWE_DG_DOFS,3),q_temp(_SWE_DG_DOFS,3),&
-       nF1(_SWE_DG_DOFS*(_SWE_DG_ORDER+1),3),&
-       nF2(_SWE_DG_DOFS*(_SWE_DG_ORDER+1),3),&
-       nF3(_SWE_DG_DOFS*(_SWE_DG_ORDER+1),3)
+  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,3)                 :: bnd_flux_l,bnd_flux_m,bnd_flux_r
+  real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1,_SWE_DG_DOFS,3) :: bnd_flux_l_st,bnd_flux_m_st,bnd_flux_r_st
   
-  real(kind=GRID_SR) :: dx
-  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS*(_SWE_DG_ORDER+1),3) :: f1_ref,f1,f2_ref,f2
-  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,3) :: volume_flux1,volume_flux2,bnd_flux_contrib
-  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,3) :: volume_flux
-  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,3) :: source,source_ref
-  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,3) :: bnd_source_contrib,bnd_source_contrib_ref
-  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,3) :: bnd_flux_l,bnd_flux_m,bnd_flux_r
-  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS*(_SWE_DG_ORDER+1)) :: H_x,H_y,H_x_temp,H_y_temp,b
-  
-  integer :: i,j,k,inx_l,inx_m,inx_r
   real(kind=GRID_SR),Dimension(2,2) :: jacobian,jacobian_inv
-  real(kind=GRID_SR),Dimension(3) :: edge_sizes     
+  real(kind=GRID_SR),Dimension(3)   :: edge_sizes
+  real(kind=GRID_SR)                :: dx
+  integer :: i
+
+  real(kind=GRID_SR) :: q(_SWE_DG_DOFS,3)
+  
+  !------ We should get the update already in this format ------!
+  real(kind=GRID_SR)        nF1(_SWE_DG_ORDER+1,_SWE_DG_ORDER+1,3),&
+                            nF2(_SWE_DG_ORDER+1,_SWE_DG_ORDER+1,3),&
+                            nF3(_SWE_DG_ORDER+1,_SWE_DG_ORDER+1,3)
+  !------ We should get the update already in this format ------!
 
   jacobian=ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian_normalized
   jacobian_inv=ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian_inv_normalized
@@ -882,119 +879,51 @@ subroutine dg_solver(element,update1,update2,update3,dt)
   associate(data        => element%cell%data_pers, &
             Q_DG_P      => element%cell%data_pers%Q_DG_P, &
             Q_DG        => element%cell%data_pers%Q_DG, &
-            Q_DG_UPDATE => element%cell%data_pers%Q_DG_UPDATE, &
-            Q_DG_UPDATE_2  => element%cell%data_pers%Q_DG_UPDATE_2)
-    
+            Q_DG_UPDATE => element%cell%data_pers%Q_DG_UPDATE)
+
     call data%get_dofs_dg(q)
-    call data%get_dofs_pred(q_p)
     
     edge_sizes=element%cell%geometry%get_edge_sizes()
     dx=edge_sizes(1)*cfg%scaling
 
-    !---TODO: replace boundary matrices to work without zeros---!
-    nF1=0
-    nF2=0
-    nF3=0
-    do k=0,_SWE_DG_ORDER
-       do i=0,_SWE_DG_ORDER
-          j=i+1+k*(_SWE_DG_ORDER+1)
-          inx_l=i+1+k*_SWE_DG_DOFS
-          inx_m=_SWE_DG_DOFS-(_SWE_DG_ORDER-i)*(_SWE_DG_ORDER-i+1)/2+k*_SWE_DG_DOFS
-          inx_r=_SWE_DG_DOFS-(_SWE_DG_ORDER-i+1)*(_SWE_DG_ORDER-i+2)/2+1+k*_SWE_DG_DOFS
-          
-          nF1(inx_l,1)=update1(j)%h
-          nF1(inx_l,2)=update1(j)%p(1)
-          nF1(inx_l,3)=update1(j)%p(2)
-          
-          NF2(inx_m,1)=update2(j)%h
-          NF2(inx_m,2)=update2(j)%p(1)
-          NF2(inx_m,3)=update2(j)%p(2)
-          
-          NF3(inx_r,1)=update3(j)%h
-          NF3(inx_r,2)=update3(j)%p(1)
-          NF3(inx_r,3)=update3(j)%p(2)
-       end do
+    nF1 = 0
+    nF2 = 0
+    nF3 = 0
+    !------ We should get the update already in this format ------!
+    do i=1,_SWE_DG_ORDER+1
+       nF1(i,:,1)=update1((i-1)*(_SWE_DG_ORDER+1)+1:(i)*(_SWE_DG_ORDER+1)+1)%h
+       nF1(i,:,2)=update1((i-1)*(_SWE_DG_ORDER+1)+1:(i)*(_SWE_DG_ORDER+1)+1)%p(1)
+       nF1(i,:,3)=update1((i-1)*(_SWE_DG_ORDER+1)+1:(i)*(_SWE_DG_ORDER+1)+1)%p(2)
+       
+       NF2(i,:,1)=update2((i-1)*(_SWE_DG_ORDER+1)+1:(i)*(_SWE_DG_ORDER+1)+1)%h
+       NF2(i,:,2)=update2((i-1)*(_SWE_DG_ORDER+1)+1:(i)*(_SWE_DG_ORDER+1)+1)%p(1)
+       NF2(i,:,3)=update2((i-1)*(_SWE_DG_ORDER+1)+1:(i)*(_SWE_DG_ORDER+1)+1)%p(2)
+       
+       NF3(i,:,1)=update3((i-1)*(_SWE_DG_ORDER+1)+1:(i)*(_SWE_DG_ORDER+1)+1)%h
+       NF3(i,:,2)=update3((i-1)*(_SWE_DG_ORDER+1)+1:(i)*(_SWE_DG_ORDER+1)+1)%p(1)
+       NF3(i,:,3)=update3((i-1)*(_SWE_DG_ORDER+1)+1:(i)*(_SWE_DG_ORDER+1)+1)%p(2)
     end do
-    
-    bnd_flux_l=matmul(b_m_1,nF1)
-    bnd_flux_m=matmul(b_m_2,nF2)
-    bnd_flux_r=matmul(b_m_3,nF3)
+    !-------------------------------------------------------------!
 
-    do i=0,_SWE_DG_ORDER
-       b(i*_SWE_DG_DOFS+1:(i+1)*_SWE_DG_DOFS) = Q_DG(:)%b
+    do i=1,_SWE_DG_ORDER+1
+       bnd_flux_l_st(i,:,:) = matmul(s_m_inv,matmul(s_b_1_l,NF1(i,:,:)))
+       bnd_flux_m_st(i,:,:) = matmul(s_m_inv,matmul(s_b_2_m,NF2(i,:,:)))
+       bnd_flux_r_st(i,:,:) = matmul(s_m_inv,matmul(s_b_3_r,NF3(i,:,:)))
     end do
-    
-    H_x=matmul(basis_der_st_x,Q_DG_P(:)%h+B)
-    H_y=matmul(basis_der_st_y,Q_DG_P(:)%h+B)
-    
-    source_ref=0
-    source_ref(:,2)= -matmul(s_m_o , (g*Q_DG_P%H*H_x)) - matmul(s_k_x_o,(0.5_GRID_SR*g*Q_DG_P%H**2))
-    source_ref(:,3)= -matmul(s_m_o , (g*Q_DG_P%H*H_y)) - matmul(s_k_y_o,(0.5_GRID_SR*g*Q_DG_P%H**2))
-    
-    source(:,2)=jacobian(1,1) * source_ref(:,2) + jacobian(1,2) * source_ref(:,3)
-    source(:,3)=jacobian(2,1) * source_ref(:,2) + jacobian(2,2) * source_ref(:,3)
-    
-    bnd_source_contrib_ref=0
-    bnd_source_contrib_ref(:,2)=-matmul(b_m_3,(0.5_GRID_SR*g*Q_DG_P%H**2))+matmul(b_m_2,0.5_GRID_SR*g*Q_DG_P%H**2)/sqrt(2.0_GRID_SR)
-    bnd_source_contrib_ref(:,3)=-matmul(b_m_1,(0.5_GRID_SR*g*Q_DG_P%H**2))+matmul(b_m_2,0.5_GRID_SR*g*Q_DG_P%H**2)/sqrt(2.0_GRID_SR)
-    
-    bnd_source_contrib=0
-    bnd_source_contrib(:,2)= bnd_source_contrib_ref(:,2)*jacobian(1,1)  + bnd_source_contrib_ref(:,3)*jacobian(1,2)
-    bnd_source_contrib(:,3)= bnd_source_contrib_ref(:,2)*jacobian(2,1)  + bnd_source_contrib_ref(:,3)*jacobian(2,2)
-    
-    
-    if(any(q_p(:,1) <= 0))then
-#if defined(_DEBUG)         
-       print*,"Negative water height in dg solver"
-       print*,"PRED"
-       print*,q_p(:,1)
-       print*,"FV"
-       print*,element%cell%data_pers%H(:)
-#endif       
-       stop
-    end if
 
-    volume_flux(:,1) = Q_DG_UPDATE(:)%h
-    volume_flux(:,2) = Q_DG_UPDATE(:)%p(1)
-    volume_flux(:,3) = Q_DG_UPDATE(:)%p(2)
+    bnd_flux_l(:,1) = reshape(matmul(t_a,bnd_flux_l_st(:,:,1)),(/_SWE_DG_DOFS/))
+    bnd_flux_l(:,2) = reshape(matmul(t_a,bnd_flux_l_st(:,:,2)),(/_SWE_DG_DOFS/))
+    bnd_flux_l(:,3) = reshape(matmul(t_a,bnd_flux_l_st(:,:,3)),(/_SWE_DG_DOFS/))
+    bnd_flux_m(:,1) = reshape(matmul(t_a,bnd_flux_m_st(:,:,1)),(/_SWE_DG_DOFS/))
+    bnd_flux_m(:,2) = reshape(matmul(t_a,bnd_flux_m_st(:,:,2)),(/_SWE_DG_DOFS/))
+    bnd_flux_m(:,3) = reshape(matmul(t_a,bnd_flux_m_st(:,:,3)),(/_SWE_DG_DOFS/))
+    bnd_flux_r(:,1) = reshape(matmul(t_a,bnd_flux_r_st(:,:,1)),(/_SWE_DG_DOFS/))
+    bnd_flux_r(:,2) = reshape(matmul(t_a,bnd_flux_r_st(:,:,2)),(/_SWE_DG_DOFS/))
+    bnd_flux_r(:,3) = reshape(matmul(t_a,bnd_flux_r_st(:,:,3)),(/_SWE_DG_DOFS/))
 
-    !------- For testing -------!
-    ! f1_ref=flux_1(q_p,_SWE_DG_DOFS*(_SWE_DG_ORDER+1))
-    ! f2_ref=flux_2(q_p,_SWE_DG_DOFS*(_SWE_DG_ORDER+1))
-    
-    ! f1=(jacobian_inv(1,1)*f1_ref+jacobian_inv(1,2)*f2_ref)
-    ! f2=(jacobian_inv(2,1)*f1_ref+jacobian_inv(2,2)*f2_ref)
-    
-    ! volume_flux1=matmul(s_k_x_o,f1)
-    ! volume_flux2=matmul(s_k_y_o,f2)
-    
-    ! bnd_flux_contrib=-matmul(b_m_1,f2)-matmul(b_m_3,f1)+matmul(b_m_2,f1+f2)/sqrt(2.0_GRID_SR)
-    print*,"update source"
-    print*,Q_DG_UPDATE_2(:)%h   - matmul(s_m_inv,source(:,1))
-    print*,Q_DG_UPDATE_2(:)%p(1)- matmul(s_m_inv,source(:,2))
-    print*,Q_DG_UPDATE_2(:)%p(2)- matmul(s_m_inv,source(:,3))
-    print*,"source"
-    print*,matmul(s_m_inv,bnd_source_contrib(:,1))
-    print*,matmul(s_m_inv,bnd_source_contrib(:,2))
-    print*,matmul(s_m_inv,bnd_source_contrib(:,3))
-    
-    !---------------------------!
-
-
-    q_temp = ( bnd_flux_l &
-         + bnd_flux_m &
-         + bnd_flux_r &
-         - bnd_source_contrib &
-         )* dt/dx
-
-
-    q_temp(:,1)=matmul(s_m_inv,q_temp(:,1))
-    q_temp(:,2)=matmul(s_m_inv,q_temp(:,2))
-    q_temp(:,3)=matmul(s_m_inv,q_temp(:,3))
-
-    q_temp = q_temp - volume_flux * dt/dx
-
-    q=q-q_temp
+    !!----update dofs----!!
+    q=q-((bnd_flux_l + bnd_flux_m + bnd_flux_r) - Q_DG_UPDATE) * dt/dx
+    !!-------------------!!
 
     call data%set_dofs_dg(q)
     

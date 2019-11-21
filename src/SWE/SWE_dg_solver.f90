@@ -866,6 +866,7 @@ subroutine dg_solver(element,update1,update2,update3,dt)
   real(kind=GRID_SR) :: dx
   real(kind=GRID_SR),Dimension(_SWE_DG_DOFS*(_SWE_DG_ORDER+1),3) :: f1_ref,f1,f2_ref,f2
   real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,3) :: volume_flux1,volume_flux2,bnd_flux_contrib
+  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,3) :: volume_flux
   real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,3) :: source,source_ref
   real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,3) :: bnd_source_contrib,bnd_source_contrib_ref
   real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,3) :: bnd_flux_l,bnd_flux_m,bnd_flux_r
@@ -878,7 +879,11 @@ subroutine dg_solver(element,update1,update2,update3,dt)
   jacobian=ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian_normalized
   jacobian_inv=ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian_inv_normalized
 
-  associate(data => element%cell%data_pers, Q_DG_P => element%cell%data_pers%Q_DG_P,  Q_DG => element%cell%data_pers%Q_DG)
+  associate(data        => element%cell%data_pers, &
+            Q_DG_P      => element%cell%data_pers%Q_DG_P, &
+            Q_DG        => element%cell%data_pers%Q_DG, &
+            Q_DG_UPDATE => element%cell%data_pers%Q_DG_UPDATE, &
+            Q_DG_UPDATE_2  => element%cell%data_pers%Q_DG_UPDATE_2)
     
     call data%get_dofs_dg(q)
     call data%get_dofs_pred(q_p)
@@ -916,21 +921,16 @@ subroutine dg_solver(element,update1,update2,update3,dt)
     bnd_flux_r=matmul(b_m_3,nF3)
 
     do i=0,_SWE_DG_ORDER
-       !!!!!!!print,i*_SWE_DG_DOFS+1
-       !!!!!!!print,(i+1)*_SWE_DG_DOFS
-       !!!!!!!print,size(b)
-       !!!!!!!print,size(Q_DG(:)%b)
        b(i*_SWE_DG_DOFS+1:(i+1)*_SWE_DG_DOFS) = Q_DG(:)%b
     end do
-
+    
     H_x=matmul(basis_der_st_x,Q_DG_P(:)%h+B)
     H_y=matmul(basis_der_st_y,Q_DG_P(:)%h+B)
     
     source_ref=0
-    source_ref(:,2)=-matmul(s_m_o,(g*Q_DG_P%H*H_x))-matmul(s_k_x_o,(0.5_GRID_SR*g*Q_DG_P%H**2))
-    source_ref(:,3)=-matmul(s_m_o,(g*Q_DG_P%H*H_y))-matmul(s_k_y_o,(0.5_GRID_SR*g*Q_DG_P%H**2))
+    source_ref(:,2)= -matmul(s_m_o , (g*Q_DG_P%H*H_x)) - matmul(s_k_x_o,(0.5_GRID_SR*g*Q_DG_P%H**2))
+    source_ref(:,3)= -matmul(s_m_o , (g*Q_DG_P%H*H_y)) - matmul(s_k_y_o,(0.5_GRID_SR*g*Q_DG_P%H**2))
     
-    source=0
     source(:,2)=jacobian(1,1) * source_ref(:,2) + jacobian(1,2) * source_ref(:,3)
     source(:,3)=jacobian(2,1) * source_ref(:,2) + jacobian(2,2) * source_ref(:,3)
     
@@ -940,7 +940,8 @@ subroutine dg_solver(element,update1,update2,update3,dt)
     
     bnd_source_contrib=0
     bnd_source_contrib(:,2)= bnd_source_contrib_ref(:,2)*jacobian(1,1)  + bnd_source_contrib_ref(:,3)*jacobian(1,2)
-    bnd_source_contrib(:,3)= bnd_source_contrib_ref(:,2)*jacobian(2,1)  + bnd_source_contrib_ref(:,3)*jacobian(2,2)  
+    bnd_source_contrib(:,3)= bnd_source_contrib_ref(:,2)*jacobian(2,1)  + bnd_source_contrib_ref(:,3)*jacobian(2,2)
+    
     
     if(any(q_p(:,1) <= 0))then
 #if defined(_DEBUG)         
@@ -952,31 +953,46 @@ subroutine dg_solver(element,update1,update2,update3,dt)
 #endif       
        stop
     end if
+
+    volume_flux(:,1) = Q_DG_UPDATE(:)%h
+    volume_flux(:,2) = Q_DG_UPDATE(:)%p(1)
+    volume_flux(:,3) = Q_DG_UPDATE(:)%p(2)
+
+    !------- For testing -------!
+    ! f1_ref=flux_1(q_p,_SWE_DG_DOFS*(_SWE_DG_ORDER+1))
+    ! f2_ref=flux_2(q_p,_SWE_DG_DOFS*(_SWE_DG_ORDER+1))
     
-    f1_ref=flux_1(q_p,_SWE_DG_DOFS*(_SWE_DG_ORDER+1))
-    f2_ref=flux_2(q_p,_SWE_DG_DOFS*(_SWE_DG_ORDER+1))
+    ! f1=(jacobian_inv(1,1)*f1_ref+jacobian_inv(1,2)*f2_ref)
+    ! f2=(jacobian_inv(2,1)*f1_ref+jacobian_inv(2,2)*f2_ref)
     
-    f1=(jacobian_inv(1,1)*f1_ref+jacobian_inv(1,2)*f2_ref)
-    f2=(jacobian_inv(2,1)*f1_ref+jacobian_inv(2,2)*f2_ref)
+    ! volume_flux1=matmul(s_k_x_o,f1)
+    ! volume_flux2=matmul(s_k_y_o,f2)
     
-    volume_flux1=matmul(s_k_x_o,f1)
-    volume_flux2=matmul(s_k_y_o,f2)
+    ! bnd_flux_contrib=-matmul(b_m_1,f2)-matmul(b_m_3,f1)+matmul(b_m_2,f1+f2)/sqrt(2.0_GRID_SR)
+    print*,"update source"
+    print*,Q_DG_UPDATE_2(:)%h   - matmul(s_m_inv,source(:,1))
+    print*,Q_DG_UPDATE_2(:)%p(1)- matmul(s_m_inv,source(:,2))
+    print*,Q_DG_UPDATE_2(:)%p(2)- matmul(s_m_inv,source(:,3))
+    print*,"source"
+    print*,matmul(s_m_inv,bnd_source_contrib(:,1))
+    print*,matmul(s_m_inv,bnd_source_contrib(:,2))
+    print*,matmul(s_m_inv,bnd_source_contrib(:,3))
     
-    bnd_flux_contrib=-matmul(b_m_1,f2)-matmul(b_m_3,f1)+matmul(b_m_2,f1+f2)/sqrt(2.0_GRID_SR)
-    
+    !---------------------------!
+
+
     q_temp = ( bnd_flux_l &
          + bnd_flux_m &
          + bnd_flux_r &
-         - volume_flux1 &
-         - volume_flux2 &
-         - source & 
          - bnd_source_contrib &
-         + bnd_flux_contrib &
          )* dt/dx
+
 
     q_temp(:,1)=matmul(s_m_inv,q_temp(:,1))
     q_temp(:,2)=matmul(s_m_inv,q_temp(:,2))
-    q_temp(:,3)=matmul(s_m_inv,q_temp(:,3))    
+    q_temp(:,3)=matmul(s_m_inv,q_temp(:,3))
+
+    q_temp = q_temp - volume_flux * dt/dx
 
     q=q-q_temp
 

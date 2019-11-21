@@ -169,12 +169,18 @@ contains
     real(kind=GRID_SR)                         :: q_0(_SWE_DG_DOFS,3)
     real(kind=GRID_SR)                         :: q_i(_SWE_DG_DOFS*(_SWE_DG_ORDER+1),3)
     real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1,_SWE_DG_DOFS,3)  :: q_i_st
-    real(kind=GRID_SR),Dimension(_SWE_DG_ORDER,_SWE_DG_DOFS,3)  :: source_st,source_ref_st
+    real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1,_SWE_DG_DOFS,3)  :: source_st,source_ref_st
+    real(kind=GRID_SR),Dimension(_SWE_DG_ORDER,_SWE_DG_DOFS,3)    :: source_st_red
     real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1,_SWE_DG_DOFS,3)  :: volume_flux
-    real(kind=GRID_SR),Dimension(_SWE_DG_ORDER,_SWE_DG_DOFS,3)  :: volume_flux_red
-    real(kind=GRID_SR),Dimension(2,_SWE_DG_ORDER+1,_SWE_DG_DOFS,3):: f,f_ref
-    real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1,_SWE_DG_DOFS)    :: H_x_st,H_y_st
-    real(kind=GRID_SR),Dimension(_SWE_DG_ORDER,_SWE_DG_DOFS,3)    :: q_temp_st
+    real(kind=GRID_SR),Dimension(_SWE_DG_ORDER,_SWE_DG_DOFS,3)    :: volume_flux_red
+    
+    real(kind=GRID_SR),Dimension(2,_SWE_DG_ORDER+1,_SWE_DG_DOFS,3) :: f,f_ref
+
+    real(kind=GRID_SR),Dimension(2, _SWE_DG_ORDER+1, _SWE_DG_DOFS,3) :: s_ref
+    real(kind=GRID_SR),Dimension(2, _SWE_DG_ORDER+1, _SWE_DG_DOFS,3) :: s
+    
+    real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1,_SWE_DG_DOFS) :: H_x_st,H_y_st
+    real(kind=GRID_SR),Dimension(_SWE_DG_ORDER,_SWE_DG_DOFS,3) :: q_temp_st
     
     !--local variables--!
     integer                                    :: iteration,i,j,offset
@@ -185,7 +191,11 @@ contains
 
     real(kind=GRID_SR),Dimension(_SWE_DG_ORDER,1) :: t_k_t_11_inv_x_t_k_t_10 
 
-    associate(Q_DG =>cell%data_pers%Q_DG ,Q_DG_P =>cell%data_pers%Q_DG_P)
+    associate(Q_DG        => cell%data_pers%Q_DG,&
+              Q_DG_P      => cell%data_pers%Q_DG_P,&
+              Q_DG_UPDATE => cell%data_pers%Q_DG_UPDATE,&
+              Q_DG_UPDATE_2  => cell%data_pers%Q_DG_UPDATE_2)
+
 
       ! TODO make this a precompiled matrix
       t_k_t_11_inv_x_t_k_t_10=matmul(t_k_t_11_inv,t_k_t_10)
@@ -199,23 +209,17 @@ contains
       
       call cell%data_pers%get_dofs_dg(q_0)
       
-      !--Set initial conditions for discrete picard iteration--!
+      !!--Set initial conditions for discrete picard iteration--!!
       b=Q_DG(:)%B
 
-      !span over time basis
+      !--span dofs at t=0 over time basis--!
       do i=1,_SWE_DG_ORDER+1
          q_i_st(i,:,:) = q_0
-      end do
-
-      print*,"q_i"
-      do i=1,(_SWE_DG_ORDER)
-         do j=1,_SWE_DG_DOFS
-            print*,q_i_st(i,j,:)
-         end do
       end do
       
       iteration=0
       epsilon=1.0_GRID_SR
+      !!---------------------------!!
       do while(epsilon > 1.0e-14_GRID_SR)
          iteration=iteration+1
          
@@ -237,26 +241,32 @@ contains
          end do
          !!---------------------------!!
 
+         s_ref = 0
+         do i=1,_SWE_DG_ORDER+1
+            s_ref(1,i,:,2) = ( g * q_i_st(i,:,1)    * H_x_st(i,:) )
+            s_ref(1,i,:,3) = ( g * q_i_st(i,:,1)    * H_y_st(i,:) )
+            s_ref(2,i,:,2) = ( g * q_i_st(i,:,1)**2 * 0.5_GRID_SR )
+            s_ref(2,i,:,3) = ( g * q_i_st(i,:,1)**2 * 0.5_GRID_SR )
+         end do
+            
          !!------- source terms ------!!
          source_ref_st = 0
-         do j=1,_SWE_DG_DOFS
-            source_ref_st(:,j,2) = matmul(t_m_1, (0.5_GRID_SR * g * q_i_st(:,j,1)**2))
-            source_ref_st(:,j,3) = matmul(t_m_1, (0.5_GRID_SR * g * q_i_st(:,j,1)**2))
+         do i=1,_SWE_DG_ORDER + 1
+            source_ref_st(i,:,2) = &
+                 matmul(s_m_inv, matmul(transpose(s_k_x), s_ref(2,i,:,2)))-s_ref(1,i,:,2)
+            source_ref_st(i,:,3) = &
+                 matmul(s_m_inv, matmul(transpose(s_k_y), s_ref(2,i,:,3)))-s_ref(1,i,:,3)
          end do
+
+         source_st = 0
+         source_st(:,:,2) = source_ref_st(:,:,2) * jacobian(1,1) + source_ref_st(:,:,3) * jacobian(1,2)
+         source_st(:,:,3) = source_ref_st(:,:,2) * jacobian(2,1) + source_ref_st(:,:,3) * jacobian(2,2)
          
-         do i=1,_SWE_DG_ORDER
-            source_ref_st(i,:,2) = matmul(s_m_inv, matmul(transpose(s_k_x), source_ref_st(i,:,2)))
-            source_ref_st(i,:,3) = matmul(s_m_inv, matmul(transpose(s_k_y), source_ref_st(i,:,3)))
-         end do
-
+         source_st_red = 0
          do j=1,_SWE_DG_DOFS
-            source_ref_st(:,j,2) = source_ref_st(:,j,2) - matmul(t_m_1,(g * q_i_st(:,j,1) * H_x_st(:,j)))
-            source_ref_st(:,j,3) = source_ref_st(:,j,3) - matmul(t_m_1,(g * q_i_st(:,j,1) * H_y_st(:,j)))
+            source_st_red(:,j,2) = matmul(t_m_1, source_st(:,j,2))
+            source_st_red(:,j,3) = matmul(t_m_1, source_st(:,j,3))
          end do
-
-         source_st(:,:,1) = 0
-         source_st(:,:,2) = jacobian(1,1) * source_ref_st(:,:,2) + jacobian(1,2) * source_ref_st(:,:,3)
-         source_st(:,:,3) = jacobian(2,1) * source_ref_st(:,:,2) + jacobian(2,2) * source_ref_st(:,:,3)
          !!---- end source terms ----!!
          
          !!--------flux terms--------!!
@@ -274,12 +284,11 @@ contains
          volume_flux = 0
 
          !---evaluate spatial derivative---!
-
          do i=1,_SWE_DG_ORDER+1
-            volume_flux(i,:,:) = matmul(transpose(s_k_x),f(1,i,:,:)) &
-                               + matmul(transpose(s_k_y),f(2,i,:,:))
+            volume_flux(i,:,:) =matmul(transpose(s_k_x),f(1,i,:,:)) +&
+                                matmul(transpose(s_k_y),f(2,i,:,:))
          end do
-   
+
          do j=1,_SWE_DG_DOFS
             volume_flux_red(:,j,:) =  matmul(t_m_1, volume_flux(:,j,:))
          end do
@@ -287,13 +296,11 @@ contains
          do i=1,_SWE_DG_ORDER
             volume_flux_red(i,:,:) = matmul(s_m_inv,volume_flux_red(i,:,:))
          end do
-
          !!----- end flux terms -----!!
          
-
          !---- add flux ----!
          do i=1,_SWE_DG_ORDER
-            q_temp_st(i,:,:) = source_st(i,:,:) - volume_flux_red(i,:,:)
+            q_temp_st(i,:,:) = source_st_red(i,:,:) - volume_flux_red(i,:,:)
          end do
          
          do i=1,_SWE_DG_DOFS         
@@ -323,24 +330,19 @@ contains
          end do
          !--------------------------!
 
-         !-----Guard for diverging Picard Loop-------!
-         if(iteration > 200) then                           
-            print*,"predictor not converging"
-            cell%data_pers%troubled=4
-            exit
-         end if
-
          !--------------Update predictor-------------!
          do i=2,_SWE_DG_ORDER+1
             q_i_st(i,:,:) = q_temp_st(i-1,:,:)
          end do
          !-------------------------------------------!
-         print*,"q_i"
-         do i=1,(_SWE_DG_ORDER)
-            do j=1,_SWE_DG_DOFS
-               print*,q_i_st(i,j,:)
-            end do
-         end do
+
+         !------Guard for diverging Picard Loop------!
+         if(iteration > 200) then                           
+            print*,"predictor not converging"
+            cell%data_pers%troubled=4
+            exit
+         end if
+         !-------------------------------------------!
          
       end do
 
@@ -348,7 +350,37 @@ contains
          offset   = _SWE_DG_DOFS * i
          q_i(offset+1:offset+_SWE_DG_DOFS,:) = q_i_st(i+1,:,:)
       end do
+
+      !!--- compute volume update----!!
+      !-- Question: is it better to recompte the flux or store it --!
+      do i=1,_SWE_DG_ORDER+1
+         volume_flux(i,:,:) = matmul(s_m_inv, &
+                              matmul(s_k_x + s_b_3 - s_b_2 , f(1,i,:,:)) + &
+                              matmul(s_k_y + s_b_1 - s_b_2 , f(2,i,:,:)))
+      end do
       
+      do i=1,_SWE_DG_ORDER+1
+         source_ref_st(i,:,2) = matmul(s_m_inv, &
+              -matmul(s_m, s_ref(1,i,:,2))  - matmul(s_k_x + s_b_3 - s_b_2, s_ref(2,i,:,2)))
+         source_ref_st(i,:,3) = matmul(s_m_inv, &
+              -matmul(s_m, s_ref(1,i,:,3))  - matmul(s_k_y + s_b_1 - s_b_2, s_ref(2,i,:,3)))
+      end do
+
+      source_st(:,:,2) = source_ref_st(:,:,2) * jacobian(1,1) + source_ref_st(:,:,3) * jacobian(1,2)
+      source_st(:,:,3) = source_ref_st(:,:,2) * jacobian(2,1) + source_ref_st(:,:,3) * jacobian(2,2)
+
+      !!------------------------------!
+      volume_flux = volume_flux + source_st
+      Q_DG_UPDATE(:)%h    = reshape(matmul(t_a,volume_flux(:,:,1)),(/_SWE_DG_DOFS/))
+      Q_DG_UPDATE(:)%p(1) = reshape(matmul(t_a,volume_flux(:,:,2)),(/_SWE_DG_DOFS/))
+      Q_DG_UPDATE(:)%p(2) = reshape(matmul(t_a,volume_flux(:,:,3)),(/_SWE_DG_DOFS/))
+
+      
+      Q_DG_UPDATE_2(:)%h    = reshape(matmul(t_a,source_st(:,:,1)),(/_SWE_DG_DOFS/))
+      Q_DG_UPDATE_2(:)%p(1) = reshape(matmul(t_a,source_st(:,:,2)),(/_SWE_DG_DOFS/))
+      Q_DG_UPDATE_2(:)%p(2) = reshape(matmul(t_a,source_st(:,:,3)),(/_SWE_DG_DOFS/))
+
+
       call cell%data_pers%set_dofs_pred(q_i)
       
     end associate

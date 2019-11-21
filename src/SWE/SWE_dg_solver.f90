@@ -226,29 +226,18 @@ end do
 
 end subroutine skeleton_array_op_dg
 
-subroutine skeleton_scalar_op_dg(traversal, grid, edge, rep1, rep2, update1, update2)
-type(t_swe_dg_timestep_traversal), intent(in)		:: traversal
-type(t_grid_section), intent(in)			:: grid
-type(t_edge_data), intent(in)				:: edge
-type(num_cell_rep), intent(in)				:: rep1, rep2
-type(num_cell_update), intent(out)			:: update1, update2
-type(t_update),dimension((_SWE_DG_ORDER+1)**2)         :: flux_temp
-type(t_state),dimension((_SWE_DG_ORDER+1)**2)          :: rep_temp
-integer                                                 :: i,j, edge_type
+subroutine general_dg_riemannsolver(edge,rep1,rep2,update1,update2)
+  type(t_edge_data), intent(in)	                          :: edge
+  type(num_cell_rep), intent(in)                          :: rep1   , rep2
+  type(num_cell_update), intent(out)                      :: update1, update2
+  real(kind=GRID_SR),dimension((_SWE_DG_ORDER+1)**2,4)    :: QL ,QR
+  real(kind=GRID_SR),dimension((_SWE_DG_ORDER+1)**2,3)    :: FLn,FRn
+  real(kind=GRID_SR),dimension(2,(_SWE_DG_ORDER+1)**2,3)  :: FL ,FR
+  type(t_update), dimension((_SWE_DG_ORDER+1)**2)         :: flux_temp
+  real(kind = GRID_SR)                   	          :: normal(2)
+  integer                                                 :: i,j
 
 
-! !omp single
-
-!!!!!!!print,"Skeleton: ",OMP_GET_THREAD_NUM()
-
-update1%Q_DG          =rep2%Q_DG
-update2%Q_DG          =rep1%Q_DG
-
-update1%troubled      =rep2%troubled
-update2%troubled      =rep1%troubled
-
-if(rep1%troubled.le.0 .and. rep2%troubled.le.0) then
-   
    !        ______
    ! |6 \   \3 2 1|
    ! |4 5 \   \5 4|
@@ -258,59 +247,49 @@ if(rep1%troubled.le.0 .and. rep2%troubled.le.0) then
    if(edge%transform_data%index.eq.2) then
       do i=0,_SWE_DG_ORDER
          do j=1,_SWE_DG_ORDER+1
-            rep_temp(i*(_SWE_DG_ORDER+1)+j) = rep2%Q_DG_P((1+i)*(_SWE_DG_ORDER+1)-j+1)
+            QR(i*(_SWE_DG_ORDER+1)+j,1) = rep2%Q_DG_P((1+i)*(_SWE_DG_ORDER+1)-j+1)%h
+            QR(i*(_SWE_DG_ORDER+1)+j,2) = rep2%Q_DG_P((1+i)*(_SWE_DG_ORDER+1)-j+1)%p(1)
+            QR(i*(_SWE_DG_ORDER+1)+j,3) = rep2%Q_DG_P((1+i)*(_SWE_DG_ORDER+1)-j+1)%p(2)
+            QR(i*(_SWE_DG_ORDER+1)+j,4) = rep2%Q_DG_P((1+i)*(_SWE_DG_ORDER+1)-j+1)%b
          end do
       end do
    else
-      rep_temp=rep2%Q_DG_P
+      QR(:,1) = rep2%Q_DG_P(:)%h
+      QR(:,2) = rep2%Q_DG_P(:)%p(1)
+      QR(:,3) = rep2%Q_DG_P(:)%p(2)
+      QR(:,4) = rep2%Q_DG_P(:)%b
    end if
 
-   ! print*,rep1%troubled
-   ! print*,rep1%Q_DG_P%h
-   ! print*,rep1%Q_DG_P%p(1)
-   ! print*,rep1%Q_DG_P%p(2)
-   ! print*,rep1%Q_DG_P%b
-   ! print*,rep1%Q_DG
-   ! print*,rep1%H
-   ! print*
-   ! print*,rep2%troubled   
-   ! print*,rep_temp%h
-   ! print*,rep_temp%p(1)
-   ! print*,rep_temp%p(2)
-   ! print*,rep_temp%b
-   ! print*,rep2%Q_DG
-   ! print*,rep2%H
-   ! print*
+   QL(:,1) = rep1%Q_DG_P%h
+   QL(:,2) = rep1%Q_DG_P%p(1)
+   QL(:,3) = rep1%Q_DG_P%p(2)
+   QL(:,4) = rep1%Q_DG_P%b
 
-   !print,rep2%Q_DG_P%h
-   !print,rep2%Q_DG_P%p(1)
-   !print,rep2%Q_DG_P%p(2)
-   !print,rep2%Q_DG_P%b         
-   !print
+   normal = edge%transform_data%normal/NORM2(edge%transform_data%normal)
 
-   !print,rep2%Q_DG%h
-   !print,rep2%Q_DG%p(1)
-   !print,rep2%Q_DG%p(2)
-   !print,rep2%Q_DG%b         
-   !print
+   !---- TODO: move this to the predictor ----!
+   FL = flux(QL,(_SWE_DG_ORDER+1)**2)   
+   FLn(:,1) = reshape(matmul(reshape(normal,(/ 1 , 2 /)), FL(:,:,1)),(/ (_SWE_DG_ORDER+1)**2/))
+   FLn(:,2) = reshape(matmul(reshape(normal,(/ 1 , 2 /)), FL(:,:,2)),(/ (_SWE_DG_ORDER+1)**2/))
+   FLn(:,3) = reshape(matmul(reshape(normal,(/ 1 , 2 /)), FL(:,:,3)),(/ (_SWE_DG_ORDER+1)**2/))
 
-
+   FR = flux(QR,(_SWE_DG_ORDER+1)**2) 
+   FRn(:,1) = reshape(matmul(reshape(normal,(/ 1 , 2 /)), FR(:,:,1)),(/ (_SWE_DG_ORDER+1)**2/))
+   FRn(:,2) = reshape(matmul(reshape(normal,(/ 1 , 2 /)), FR(:,:,2)),(/ (_SWE_DG_ORDER+1)**2/))
+   FRn(:,3) = reshape(matmul(reshape(normal,(/ 1 , 2 /)), FR(:,:,3)),(/ (_SWE_DG_ORDER+1)**2/))
+   !-------------------------------------------!   
    
-   call compute_flux_pred(edge%transform_data%normal,rep1%Q_DG_P,rep_temp,update1%flux,update2%flux)
+   call compute_flux_pred(normal,QL,QR,FLn,FRn)
 
-   ! if(edge%transform_data%is_hypothenuse) then
-   !       do i=0,_SWE_DG_ORDER
-   !          do j=1,_SWE_DG_ORDER+1
-   !             flux_temp(i*(_SWE_DG_ORDER+1)+j) = update1%flux((1+i)*(_SWE_DG_ORDER+1)-j+1)
-   !          end do
-   !       end do
-   !       update1%flux=flux_temp
-   ! end if
+   update1%flux%h    = FLn(:,1)
+   update1%flux%p(1) = FLn(:,2)
+   update1%flux%p(2) = FLn(:,3)
 
-   !      if(rep2%inverted) then
-   
+   update2%flux%h    = FRn(:,1)
+   update2%flux%p(1) = FRn(:,2)
+   update2%flux%p(2) = FRn(:,3)   
+
    !---- Result for hypothenuse needs to be permuted back----!
-
    if(edge%transform_data%index.eq.2) then
       do i=0,_SWE_DG_ORDER
          do j=1,_SWE_DG_ORDER+1
@@ -319,7 +298,26 @@ if(rep1%troubled.le.0 .and. rep2%troubled.le.0) then
       end do
       update2%flux=flux_temp
    end if
+end subroutine
 
+subroutine skeleton_scalar_op_dg(traversal, grid, edge, rep1, rep2, update1, update2)
+type(t_swe_dg_timestep_traversal), intent(in)		:: traversal
+type(t_grid_section), intent(in)			:: grid
+type(t_edge_data), intent(in)				:: edge
+type(num_cell_rep), intent(in)				:: rep1, rep2
+type(num_cell_update), intent(out)			:: update1, update2
+integer                                                 :: i,j, edge_type
+real(kind = GRID_SR)	          :: normal(2)
+
+
+update1%Q_DG          =rep2%Q_DG
+update2%Q_DG          =rep1%Q_DG
+
+update1%troubled      =rep2%troubled
+update2%troubled      =rep1%troubled
+
+if(rep1%troubled.le.0 .and. rep2%troubled.le.0) then
+   call general_dg_riemannsolver(edge,rep1,rep2,update1,update2)
 else
 
    update2%H=rep1%H
@@ -377,38 +375,20 @@ type(t_swe_dg_timestep_traversal), intent(in)       :: traversal
 type(t_grid_section), intent(in)		    :: grid
 type(t_edge_data), intent(in)		            :: edge
 type(num_cell_rep), intent(in)		            :: rep
+type(num_cell_rep)        		            :: rep_bnd
 type(num_cell_update), intent(out)		    :: update
-type(num_cell_update)	                	    :: temp_update
-real(kind=GRID_SR)                                  :: normal_normed(2)
+type(num_cell_update)	                	    :: update_bnd
+real(kind=GRID_SR)                                  :: normal(2)
 real(kind=GRID_SR)                                  :: length_flux
 integer                                             :: i
-type(t_state),Dimension((_SWE_DG_ORDER+1)**2)       :: temp_Q_DG_P
 
-
-normal_normed=(edge%transform_data%normal)/NORM2(edge%transform_data%normal)
-
+normal=(edge%transform_data%normal)/NORM2(edge%transform_data%normal)
 update%troubled=rep%troubled
-
-
-!!print
-!!print,rep%troubled
 
 if(rep%troubled.le.0) then
 
-!!print,rep%Q_DG_P%h
-!!print,rep%Q_DG_P%p(1)
-!!print,rep%Q_DG_P%p(2)
-!!print,rep%Q_DG_P%b         
-!!print
-!!print,rep%Q_DG%h
-!!print,rep%Q_DG%p(1)
-!!print,rep%Q_DG%p(2)
-!!print,rep%Q_DG%b         
-!!print
-
-   
-   temp_Q_DG_P(:)%h = rep%Q_DG_P(:)%h
-   temp_Q_DG_P(:)%b = rep%Q_DG_P(:)%b
+   rep_bnd%Q_DG_P(:)%h = rep%Q_DG_P(:)%h
+   rep_bnd%Q_DG_P(:)%b = rep%Q_DG_P(:)%b
    
    update%troubled=rep%troubled
    
@@ -416,10 +396,10 @@ if(rep%troubled.le.0) then
    !---TODO: Scons variable or config for boundary---!
    do i=1,(_SWE_DG_ORDER+1)**2
       !                          reflecting boundary
-      length_flux = dot_product(rep%Q_DG_P(i)%p, normal_normed)
+      length_flux = dot_product(rep%Q_DG_P(i)%p, normal)
       
-      temp_Q_DG_P(i)%p(1) = rep%Q_DG_P(i)%p(1)-2.0_GRID_SR*length_flux*normal_normed(1)
-      temp_Q_DG_P(i)%p(2) = rep%Q_DG_P(i)%p(2)-2.0_GRID_SR*length_flux*normal_normed(2)
+      rep_bnd%Q_DG_P(i)%p(1) = rep%Q_DG_P(i)%p(1)-2.0_GRID_SR*length_flux*normal(1)
+      rep_bnd%Q_DG_P(i)%p(2) = rep%Q_DG_P(i)%p(2)-2.0_GRID_SR*length_flux*normal(2)
       
       !simple outflowing boundary
       !temp_Q_DG_P(i)%p(1) =  rep%Q_DG_P(i)%p(1)
@@ -431,7 +411,7 @@ if(rep%troubled.le.0) then
       !                          update%Q_DG_P(i)%p(2) =  0
    end do
    
-   call compute_flux_pred(normal_normed,rep%Q_DG_P,temp_Q_DG_P,update%flux,temp_update%flux)
+   call general_dg_riemannsolver(edge,rep,rep_bnd,update,update_bnd)   
 
 else
 
@@ -446,14 +426,12 @@ end if
 update%Q_DG(:)%h = rep%Q_DG(:)%h
 update%Q_DG(:)%b = rep%Q_DG(:)%b
 
-
 !---DG velocities---!
 do i=1,(_SWE_DG_DOFS)
-   
-   length_flux = dot_product(rep%Q_DG(i)%p, normal_normed)
+   length_flux = dot_product(rep%Q_DG(i)%p, normal)
    ! reflecting
-   update%Q_DG(i)%p(1) = rep%Q_DG(i)%p(1)-2.0_GRID_SR*length_flux*normal_normed(1)
-   update%Q_DG(i)%p(2) = rep%Q_DG(i)%p(2)-2.0_GRID_SR*length_flux*normal_normed(2)
+   update%Q_DG(i)%p(1) = rep%Q_DG(i)%p(1)-2.0_GRID_SR*length_flux*normal(1)
+   update%Q_DG(i)%p(2) = rep%Q_DG(i)%p(2)-2.0_GRID_SR*length_flux*normal(2)
    !outflow
    !update%Q_DG(i)%p(1) = rep%Q_DG(i)%p(1)
    !update%Q_DG(i)%p(2) = rep%Q_DG(i)%p(2)
@@ -660,197 +638,112 @@ end associate
 end subroutine cell_update_op_dg
 
 
-subroutine compute_flux_pred(normal,QL, QR,flux_l,flux_r)
 
-type(t_state),Dimension((_SWE_DG_ORDER+1)**2), intent(in)   :: QL
-type(t_state),Dimension((_SWE_DG_ORDER+1)**2), intent(in)   :: QR
-type(t_update),Dimension((_SWE_DG_ORDER+1)**2), intent(out) :: flux_l,flux_r
+! subroutine compute_flux_pred(normal,QL, QR, FLn, FRn)
+!  real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2,4), intent(inout) :: QL
+!  real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2,4), intent(inout) :: QR
+!  real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2,3), intent(inout) :: FLn
+!  real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2,3), intent(inout) :: FRn
+!  real(kind = GRID_SR)		  :: transform_matrix(2, 2)
+!  real(kind = GRID_SR), intent(in) :: normal(2)
+!  real(kind = GRID_SR)             :: pL(2), pR(2)
+!  real(kind = GRID_SR)             :: max_wave_speed
+!  integer                          :: i
 
-#if !defined(_SWE_DG_NODAL)
-! type(t_update),Dimension(size(bnd_gl_node_vals,1)):: flux_l2
-! type(t_update),Dimension(size(bnd_gl_node_vals,1)):: flux_r_l2
-! type(t_state),Dimension(size(bnd_gl_node_vals,1)) :: QL_l2
-! type(t_state),Dimension(size(bnd_gl_node_vals,1)) :: QR_l2
-#endif
+!  transform_matrix(1, :) = normal
+!  transform_matrix(2, :) = [-normal(2), normal(1)]
+ 
+!  FLn = 0
+!  FRn = 0
 
-real(kind=GRID_SR),Dimension(1,3) :: f1r_s,f1l_s,f2r_s,f2l_s,f,ql_v,qr_v
+!  do i=1,(_SWE_DG_ORDER+1)**2
+!     pL = matmul(transform_matrix, QL(i,2:3))
+!     pR = matmul(transform_matrix, QR(i,2:3))
+    
+! #if defined(_FWAVE_FLUX)
+!     call c_bind_geoclaw_solver(GEOCLAW_FWAVE, 1, 3,&
+!          QL(i,1), QR(i,1), &
+!          pL(1)  , pR(1)  , &
+!          pL(2)  , pR(2)  , &
+!          QL(i,4), QR(i,4), &
+!          real(cfg%dry_tolerance, GRID_SR), g,&
+!          FLn(i,:), FRn(i,:), max_wave_speed)
+! #elif defined(_AUG_RIEMANN_FLUX)
+!     call c_bind_geoclaw_solver(GEOCLAW_AUG_RIEMANN, 1, 3,&
+!          QL(i,1), QR(i,1), &
+!          pL(1)  , pR(1)  , &
+!          pL(2)  , pR(2)  , &
+!          QL(i,4), QR(i,4), &
+!          real(cfg%dry_tolerance, GRID_SR), g,&
+!          FLn(i,:), FRn(i,:), max_wave_speed)
+! #elif defined(_HLLE_FLUX)
+!     call compute_updates_hlle_single(&
+!          QL(i,1), QR(i,1), &
+!          pL(1)  , pR(1)  , &
+!          pL(2)  , pR(2)  , &
+!          QL(i,4), QR(i,4), &
+!          FLn(i,:), FRn(i,:), max_wave_speed)
+! #endif
+!     FLn(i,2:3) = matmul(FLn(i,2:3), transform_matrix)
+!     FRn(i,2:3) = matmul(FRn(i,2:3), transform_matrix)
+!  end do
+ 
+! end subroutine compute_flux_pred
+
+subroutine compute_flux_pred(normal,QL, QR, FLn, FRn)
+
+real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2,4), intent(in)    :: QL
+real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2,4), intent(in)    :: QR
+real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2,3), intent(inout) :: FLn
+real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2,3), intent(inout) :: FRn
+
+real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2)                  :: VelL
+real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2)                  :: VelR
+real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2)                  :: hRoe,bm
+real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2)                  :: Deta
+real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2)                  :: Djump
+real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2,3)                :: Fn_avg
+real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2,3)                :: Q_rus
+
 real(kind = GRID_SR), intent(in)  :: normal(2)
-real(kind = GRID_SR)	      :: normal_normed(2)
-real(kind = GRID_SR)	      :: epsilon
 
-integer ::i
+real(kind = GRID_SR)	          :: epsilon
+real(kind=GRID_SR)	          :: vL, vR, alpha
+integer                           :: i
 
-!#if defined(_LLF_FLUX_DG)
-real(kind=GRID_SR)								:: vL, vR, alpha
-!real(kind=GRID_SR) :: max_wave_speedR
 
-!#endif
 
-normal_normed=normal/NORM2(normal)
+Fn_avg = 0.5_GRID_SR*(FRn-FLn)
 
-flux_l%h=0
-flux_l%p(1)=0
-flux_l%p(2)=0
-flux_r%h=0
-flux_r%p(1)=0
-flux_r%p(2)=0
+VelL(:) = QL(:,2)/QL(:,1) * normal(1) +  QL(:,3)/QL(:,1) * normal(2)
+VelR(:) = QR(:,2)/QR(:,1) * normal(1) +  QR(:,3)/QR(:,1) * normal(2)
 
-#if !defined(_SWE_DG_NODAL)
-! QL_l2(:)%h=matmul(bnd_gl_node_vals,QL%h)
-! QL_l2(:)%p(1)=matmul(bnd_gl_node_vals,QL%p(1))
-! QL_l2(:)%p(2)=matmul(bnd_gl_node_vals,QL%p(2))
-! QL_l2(:)%b=matmul(bnd_gl_node_vals,QL%b)
+alpha=max(maxval(abs(VelL) + sqrt(g * QL(:,1))),&
+     maxval(abs(VelR) + sqrt(g * QR(:,1))))
 
-! QR_l2(:)%h=matmul(bnd_gl_node_vals,QR%h)
-! QR_l2(:)%p(1)=matmul(bnd_gl_node_vals,QR%p(1))
-! QR_l2(:)%p(2)=matmul(bnd_gl_node_vals,QR%p(2))
-! QR_l2(:)%b=matmul(bnd_gl_node_vals,QR%b)
-#endif
+hRoe  = 0.5_GRID_SR * (QR(:,1) + QL(:,1))
+bm    = max(QR(:,4),QL(:,4))
+Deta  = max(QR(:,1) + QR(:,4) - bm, 0.0) - max(QL(:,1) + QL(:,4) - bm, 0.0)
+Djump = 0.5_GRID_SR * g * hRoe * Deta
 
-!#if defined(_LLF_FLUX_DG)
-!#if defined(_SWE_DG_NODAL)
-alpha=0
+Q_rus(:,  1) = 0.5_GRID_SR * alpha * Deta
+Q_rus(:,2:3) = 0.5_GRID_SR * alpha * (QR(:,2:3) - QL(:,2:3))
 
-do i=1,_SWE_DG_ORDER+1
+FLn =  Fn_avg - Q_rus
+FRn =  Fn_avg + Q_rus
 
- if(.not.(QL(i)%h < cfg%dry_tolerance) ) then 
-    vL = DOT_PRODUCT(normal_normed, QL(i)%p/QL(i)%h)
-    flux_l(i)%max_wave_speed = sqrt(g * (QL(i)%h)) + abs(vL)
- else
-    flux_l(i)%max_wave_speed = 0
- end if
+!Djump = 0.0_GRID_SR
 
- if(.not.(QR(i)%h < cfg%dry_tolerance) ) then 
-    vR = DOT_PRODUCT(normal_normed, QR(i)%p/QR(i)%h)
-    flux_r%max_wave_speed = sqrt(g * (QR(i)%h)) + abs(vR)
- else
-    flux_r%max_wave_speed = 0
- end if
+FLn(:,1) = FLn(:,1) 
+FLn(:,2) = FLn(:,2) + Djump * normal(1)
+FLn(:,3) = FLn(:,3) + Djump * normal(2)
 
- alpha = max(alpha,flux_l(i)%max_wave_speed, flux_r(i)%max_wave_speed)
+FRn(:,1) = FRn(:,1) 
+FRn(:,2) = FRn(:,2) - Djump * normal(1)
+FRn(:,3) = FRn(:,3) - Djump * normal(2)
 
-end do
-
-do i=1,(_SWE_DG_ORDER+1)**2
- ql_v(1,1)= QL(i)%h
- ql_v(1,2:3)= QL(i)%p
-
- qr_v(1,1)= QR(i)%h
- qr_v(1,2:3)= QR(i)%p
- 
-! !!!!!!print
-! !!!!!!print,qr_v
-! !!!!!!print,ql_v
-
- f1r_s=flux_1(qr_v,1)
- f2r_s=flux_2(qr_v,1)
- f1l_s=flux_1(ql_v,1)
- f2l_s=flux_2(ql_v,1)
- 
- ! !!!!!!print,f1r_s
- ! !!!!!!print,f2r_s
- ! !!!!!!print,f1l_s
- ! !!!!!!print,f2l_s
-
- f=0.5_GRID_SR*((f1r_s-f1l_s) * normal_normed(1) + (f2r_s-f2l_s) *normal_normed(2)+alpha*(ql_v-qr_v))
- flux_l(i)%h=f(1,1)
- flux_l(i)%p=f(1,2:3)
- flux_r(i)%h=-f(1,1)
- flux_r(i)%p=-f(1,2:3)
-
- ! end if
-end do
-!#end if
-
-!!Dont compile whole region
-#if false
-!#else
-! alpha=0
-
-! do i=1,size(bnd_gl_node_vals,1)
-
-!  if(.not.(QL_L2(i)%h < cfg%dry_tolerance) ) then 
-!     vL = DOT_PRODUCT(normal_normed, QL_L2(i)%p/QL_L2(i)%h)
-!     flux_L2(i)%max_wave_speed = sqrt(g * (QL_L2(i)%h)) + abs(vL)
-!  else
-!     flux_L2(i)%max_wave_speed = 0
-!  end if
-
-!  if(.not.(QR_L2(i)%h < cfg%dry_tolerance) ) then 
-!     vR = DOT_PRODUCT(normal_normed, QR_L2(i)%p/QR_L2(i)%h)
-!     max_wave_speedR = sqrt(g * (QR_L2(i)%h)) + abs(vR)
-!  else
-!     max_wave_speedR = 0
-!  end if
-
-!  alpha = max(alpha,flux_L2(i)%max_wave_speed, max_wave_speedR)
-
-! end do
-
-! do i=1,size(bnd_gl_node_vals,1)
-!  ql_v(1,1)= QL_L2(i)%h
-!  ql_v(1,2:3)= QL_L2(i)%p
-
-!  qr_v(1,1)= QR_L2(i)%h
-!  qr_v(1,2:3)= QR_L2(i)%p
-
-!  f1r_s=f1(qr_v,1)
-!  f2r_s=f2(qr_v,1)
-!  f1l_s=f1(ql_v,1)
-!  f2l_s=f2(ql_v,1)
-
-!  f=0.5_GRID_SR*((f1r_s-f1l_s) * normal_normed(1) + (f2r_s-f2l_s) *normal_normed(2)+alpha*(ql_v-qr_v))
-!  flux_l2(i)%h=f(1,1)
-!  flux_l2(i)%p=f(1,2:3)
-
-!  ! end if
-! end do
-!#endif
-!!FLUXES
-#elif                 (defined(_FWAVE_FLUX)|defined(_AUG_RIEMANN_FLUX)|defined(_HLLE_FLUX))
-!!_SWE_DG_NODAL
-#if defined(_SWE_DG_NODAL)
-
-flux_l%h=0
-flux_l%p(1)=0
-flux_l%p(2)=0
-flux_r%h=0
-flux_r%p(1)=0
-flux_r%p(2)=0
-
-do i=1,(_SWE_DG_ORDER+1)**2
-   !!!!!!!!!print,"in"   
-   !!!!!!!!!print,QL(i)%h
-   !!!!!!!!!print,QL(i)%p(1)
-   !!!!!!!!!print,QL(i)%p(2)
-   !!!!!!!!!print,QR(i)%h
-   !!!!!!!!!print,QR(i)%p(1)
-   !!!!!!!!!print,QR(i)%p(2)
-   
-   
-   call compute_geoclaw_flux_pred(normal_normed, QL(i), QR(i), flux_l(i), flux_r(i))
-   !!!!!!!!!print,"out"
-   !!!!!!!!!print,flux_l(i)%h
-   !!!!!!!!!print,flux_r(i)%h
-
-end do
-
-#else
-! do i=1,size(bnd_gl_node_vals,1)
-!  call compute_geoclaw_flux_pred(normal_normed, QL_l2(i), QR_l2(i), flux_l2(i), flux_r_l2(i))
-! end do
-!!_SWE_DG_NODAL
-#endif
-
-!#endif
-
-#if !defined(_SWE_DG_NODAL)
-! flux%h=matmul(bnd_gl_weights,flux_l2%h)
-! flux%p(1)=matmul(bnd_gl_weights,flux_l2%p(1))
-! flux%p(2)=matmul(bnd_gl_weights,flux_l2%p(2))
-#endif
-#endif
 end subroutine compute_flux_pred
+
 
 subroutine dg_solver(element,update1,update2,update3,dt)
   type(t_element_base), intent(in)				:: element

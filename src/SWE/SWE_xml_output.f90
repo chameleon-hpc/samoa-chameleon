@@ -12,7 +12,6 @@
 		use SFC_edge_traversal
 
 		use Samoa_swe
-		use SWE_euler_timestep
 
 #       if defined(_SWE_PATCH)
             use SWE_PATCH

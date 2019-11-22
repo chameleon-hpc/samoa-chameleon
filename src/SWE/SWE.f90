@@ -17,7 +17,6 @@
 		use SWE_output
 		use SWE_xml_output
                 use SWE_xml_point_output
-		use SWE_ascii_output
 		use SWE_point_output
 		use SWE_euler_timestep
 #       if defined(_SWE_PATCH)
@@ -48,7 +47,6 @@
      type(t_swe_output_traversal)            :: output
      type(t_swe_xml_point_output_traversal)        :: xml_point_output
      type(t_swe_xml_output_traversal)        :: xml_output
-     type(t_swe_ascii_output_traversal)      :: ascii_output
      type(t_swe_point_output_traversal)	    :: point_output
      
      type(t_swe_euler_timestep_traversal)    :: euler
@@ -108,7 +106,6 @@ contains
             call swe%output%create()
             call swe%xml_output%create()
             call swe%xml_point_output%create()
-            call swe%ascii_output%create()
             call swe%euler%create()
             call swe%adaption%create()
 #if defined(_SWE_DG)
@@ -213,7 +210,6 @@ contains
             call swe%output%destroy()
             call swe%xml_output%destroy()
             call swe%xml_point_output%destroy()
-            call swe%ascii_output%destroy()
             call swe%point_output%destroy()
             call swe%euler%destroy()
             call swe%adaption%destroy()
@@ -281,9 +277,6 @@ contains
                
                !output grids during initial phase if and only if t_out is 0
                if (cfg%r_output_time_step == 0.0_GRID_SR) then
-                  if (cfg%l_ascii_output) then
-                     call swe%ascii_output%traverse(grid)
-                  end if
                   
                   if (cfg%l_pointoutput) then
                      call swe%point_output%traverse(grid)
@@ -323,9 +316,6 @@ contains
 
 			!output initial grid
 			if (cfg%i_output_time_steps > 0 .or. cfg%r_output_time_step >= 0.0_GRID_SR) then
-                if (cfg%l_ascii_output) then
-                    call swe%ascii_output%traverse(grid)
-                end if
 
                 if(cfg%l_gridoutput) then
                     call swe%xml_output%traverse(grid)
@@ -424,9 +414,6 @@ contains
                     if ((cfg%i_output_time_steps > 0 .and. mod(i_time_step, cfg%i_output_time_steps) == 0) .or. &
                         (cfg%r_output_time_step >= 0.0_GRID_SR .and. grid%r_time >= r_time_next_output)) then
 
-                        if (cfg%l_ascii_output) then
-                            call swe%ascii_output%traverse(grid)
-                        end if
 
                         if(cfg%l_gridoutput) then
                             call swe%xml_output%traverse(grid)
@@ -456,9 +443,6 @@ contains
                    if ((cfg%r_max_time >= 0.0 .and. grid%r_time >= cfg%r_max_time) .or. (cfg%i_max_time_steps >= 0 .and. i_time_step >= cfg%i_max_time_steps))  then
                       !print final solution only if not written directly before
                       if (abs((r_time_next_output - cfg%r_output_time_step) - grid%r_time) >= 10e-6) then
-                        if (cfg%l_ascii_output) then
-                                call swe%ascii_output%traverse(grid)
-                            end if
 
                             if(cfg%l_gridoutput) then
                                 call swe%xml_output%traverse(grid)
@@ -477,9 +461,6 @@ contains
 
                    ! if ((cfg%r_max_time >= 0.0 .and. grid%r_time >= cfg%r_max_time) .or. (cfg%i_max_time_steps >= 0 .and. i_time_step >= cfg%i_max_time_steps)) then
                    !    !print final solution
-                   !    if (cfg%l_ascii_output) then
-                   !          call swe%ascii_output%traverse(grid)
-                   !      end if
 
                    !      if(cfg%l_gridoutput) then
                    !          call swe%xml_output%traverse(grid)
@@ -533,9 +514,6 @@ contains
                    if ((cfg%i_output_time_steps > 0 .and. mod(i_time_step, cfg%i_output_time_steps) == 0) .or. &
                         (cfg%r_output_time_step >= 0.0_GRID_SR .and. grid%r_time >= r_time_next_output)) then
                       
-                      if (cfg%l_ascii_output) then
-                         call swe%ascii_output%traverse(grid)
-                      end if
                       
                       if (cfg%l_pointoutput) then
                          call swe%point_output%traverse(grid)

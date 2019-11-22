@@ -10,9 +10,8 @@
 		use LIB_VTK_IO
 
 		use SFC_edge_traversal
-
+                use SWE_dg_solver
 		use Samoa_swe
-		use SWE_euler_timestep
 
 		implicit none
 
@@ -55,7 +54,7 @@
 
 #		define _GT_ELEMENT_OP						element_op
 
-#		define _GT_CELL_TO_EDGE_OP				    cell_to_edge_op
+#		define _GT_CELL_TO_EDGE_OP				    cell_to_edge_op_dg
 
 #		include "SFC_generic_traversal_ringbuffer.f90"
 

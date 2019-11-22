@@ -12,7 +12,7 @@
 		use SFC_edge_traversal
 
 		use Samoa_swe
-		use SWE_euler_timestep
+		use SWE_dg_solver
 #       if defined (_SWE_PATCH)
             use SWE_patch
 #       endif
@@ -66,7 +66,7 @@
 
 #		define _GT_ELEMENT_OP				element_op
 
-#		define _GT_CELL_TO_EDGE_OP			cell_to_edge_op
+#		define _GT_CELL_TO_EDGE_OP			cell_to_edge_op_dg
 
 #		include "SFC_generic_traversal_ringbuffer.f90"
 

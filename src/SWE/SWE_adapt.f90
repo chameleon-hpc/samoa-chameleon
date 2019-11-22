@@ -13,7 +13,6 @@
     use Samoa_swe
     use Tools_noise
     use SWE_initialize_bathymetry
-    use SWE_euler_timestep
 #if defined (_SWE_PATCH)
     use SWE_PATCH
 #endif
@@ -116,9 +115,6 @@
           end if
 
           if(element%cell%data_pers%troubled.le.0) then
-!             print*,"old"
-!             call dg_predictor_old(element%cell,section%r_dt)
-!             print*,"new"
              call dg_predictor(element%cell,section%r_dt)
 #if defined (_DEBUG)             
              element%cell%data_pers%debug_flag = -1
@@ -228,7 +224,8 @@
 
           dest_element%cell%data_pers%Q_DG = src_element%cell%data_pers%Q_DG
           dest_element%cell%data_pers%Q_DG_P = src_element%cell%data_pers%Q_DG_P
-
+          dest_element%cell%data_pers%Q_DG_UPDATE = src_element%cell%data_pers%Q_DG_UPDATE
+          
           dest_element%cell%data_pers%troubled=src_element%cell%data_pers%troubled
 
 !          if(dest_element%cell%data_pers%troubled .le. -1 )then

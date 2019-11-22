@@ -10,7 +10,6 @@
 MODULE SWE_Initialize_Bathymetry
   use iso_c_binding
   use SFC_edge_traversal
-  use SWE_euler_timestep
 
   use Samoa_swe
 
@@ -363,7 +362,6 @@ MODULE SWE_Initialize_Dofs
 
   use iso_c_binding
   use SFC_edge_traversal
-  use SWE_euler_timestep
   use SWE_Initialize_Bathymetry
   use Samoa_swe
 #       if defined(_SWE_PATCH)

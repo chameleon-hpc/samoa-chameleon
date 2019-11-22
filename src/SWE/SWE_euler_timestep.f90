@@ -518,7 +518,7 @@
                                 upd_hR(j) = update_b%h
                                 upd_huR(j) = update_b%p(1)
                                 upd_hvR(j) = update_b%p(2)
-                                maxWaveSpeed = max(maxWaveSpeed, update_a%max_wave_speed)
+!                                maxWaveSpeed = max(maxWaveSpeed, update_a%max_wave_speed)
                             end do
 #                       endif
 
@@ -676,7 +676,7 @@
                        r_dt_new = min(r_dt_new, volume / (edge_lengths(2) * maxval(fluxes%max_wave_speed)))
                 endif
 #           else
-            r_dt_new = min(r_dt_new, volume / (edge_lengths(2) * maxval(fluxes%max_wave_speed)))
+!            r_dt_new = min(r_dt_new, volume / (edge_lengths(2) * maxval(fluxes%max_wave_speed)))
 #           endif   
 
             do i = 1, _SWE_CELL_SIZE
@@ -807,11 +807,11 @@
 
 			fluxL%h = net_updatesL(1)
 			fluxL%p = matmul(net_updatesL(2:3), transform_matrix)
-			fluxL%max_wave_speed = max_wave_speed
+!			fluxL%max_wave_speed = max_wave_speed
 
 			fluxR%h = net_updatesR(1)
 			fluxR%p = matmul(net_updatesR(2:3), transform_matrix)
-			fluxR%max_wave_speed = max_wave_speed
+!			fluxR%max_wave_speed = max_wave_speed
 		end subroutine
 
         pure subroutine node_write_op(local_node, neighbor_node)

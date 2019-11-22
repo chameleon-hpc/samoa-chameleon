@@ -61,11 +61,8 @@
 		end type
 
 		!> cell state vector including bathymetry
-		type, extends(t_dof_state) :: t_state
+  type, extends(t_dof_state) :: t_state
      real (kind = GRID_SR) :: b						!< bathymetry 
-
-     real(kind=GRID_SR) ::       b_x !LR: I think its better to compute them in situ
-     real(kind=GRID_SR) ::       b_y
             contains
 
             procedure, pass :: add_state => state_add
@@ -74,9 +71,7 @@
 
 		!> update vector
          type, extends(t_dof_state) :: t_update
-            real (kind = GRID_SR)													:: max_wave_speed			!< maximum wave speed required to compute the CFL condition
           contains
-
             procedure, pass :: add_update => update_add
             generic :: operator(+) => add_update
          end type t_update
@@ -96,8 +91,9 @@
 
 #		if defined(_SWE_PATCH)
 #                       if defined(_SWE_DG)
-                        type(t_state), DIMENSION(_SWE_DG_DOFS)                     :: Q_DG
-                        type(t_dof_state), DIMENSION(_SWE_DG_DOFS*(_SWE_DG_ORDER+1))   :: Q_DG_P
+                        type(t_state), DIMENSION(_SWE_DG_DOFS)                      :: Q_DG
+                        type(t_dof_state), DIMENSION(_SWE_DG_DOFS*(_SWE_DG_ORDER+1)):: Q_DG_P
+                        real(kind=GRID_SR), DIMENSION(_SWE_DG_DOFS,3)                :: Q_DG_UPDATE
 #if defined(_DEBUG)
                         integer :: debug_flag = 0
 #endif                        
@@ -159,14 +155,12 @@
 		!> Cell update, this would typically be a flux function
 		type num_cell_update
 #if defined (_SWE_DG)
-                        real (kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER)							:: H, HU, HV, B !< values of ghost cells
-!                      type(t_state), DIMENSION((_SWE_DG_ORDER+1)*(_SWE_DG_ORDER+1))   :: Q_DG_P
-                        type(t_update), DIMENSION((_SWE_DG_ORDER+1)*(_SWE_DG_ORDER+1))   :: flux
+    real (kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER) :: H, HU, HV, B !< values of ghost cells
+    type(t_update), DIMENSION((_SWE_DG_ORDER+1)*(_SWE_DG_ORDER+1))   :: flux
 
-                        !dofs at t_n
-                        type(t_state), DIMENSION(_SWE_DG_DOFS)   :: Q_DG
-
-                        integer :: troubled
+    !dofs at t_n
+    type(t_state), DIMENSION(_SWE_DG_DOFS)   :: Q_DG
+    integer :: troubled
 #else
 
 #if defined (_SWE_PATCH)
@@ -224,6 +218,7 @@
                    real(kind=GRID_SR) :: q(_SWE_PATCH_ORDER*_SWE_PATCH_ORDER,3),q_temp(_SWE_DG_DOFS+1,3)
                    real(kind=GRID_SR) :: h_temp(_SWE_DG_DOFS +1), hu_temp(_SWE_DG_DOFS +1), hv_temp(_SWE_DG_DOFS +1)
                    real(kind=GRID_SR) :: q_dg(_SWE_DG_DOFS,3)
+                   
                    real(kind=GRID_SR) :: epsilon=0.0_GRID_SR
                    integer :: i,j
 
@@ -364,9 +359,6 @@
                    b_x_temp=matmul(basis_der_x,dofs%Q_DG(:)%B)
                    b_y_temp=matmul(basis_der_y,dofs%Q_DG(:)%B)
 
-                   dofs%Q_DG(:)%b_x=normals(1,1) * b_x_temp + normals(1,2) * b_y_temp
-                   dofs%Q_DG(:)%b_y=normals(2,1) * b_x_temp + normals(2,2) * b_y_temp
-
                  end subroutine bathymetry_derivatives
 #endif                   
 
@@ -375,7 +367,7 @@
 			class (t_state), intent(in)		:: Q1
 			type (t_state), intent(in)		:: Q2
 			type (t_state)					:: Q_out
-			Q_out = t_state(Q1%h + Q2%h, Q1%p + Q2%p, Q1%b + Q2%b,Q1%b_x + Q2%b_x,Q1%b_y + Q2%b_y)
+			Q_out = t_state(Q1%h + Q2%h, Q1%p + Q2%p, Q1%b + Q2%b)
 		end function
 
 		!adds two update vectors
@@ -384,8 +376,8 @@
 			type (t_update), intent(in)		    :: f2
 			type (t_update)					    :: f_out
 
-			f_out = t_update(f1%h + f2%h, f1%p + f2%p, max_wave_speed = max(f1%max_wave_speed, f2%max_wave_speed))
-		end function
+			f_out = t_update(f1%h + f2%h, f1%p + f2%p)
+                end function update_add
 
 		!adds two dof state vectors
 		elemental function dof_state_add(Q1, Q2)	result(Q_out)

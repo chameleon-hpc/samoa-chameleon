@@ -8,7 +8,6 @@
 #if defined(_SWE)
 	MODULE SWE_Displace
 		use SFC_edge_traversal
-		use SWE_euler_timestep
 		use SWE_initialize_bathymetry
 #       if defined(_SWE_PATCH)
             use SWE_PATCH

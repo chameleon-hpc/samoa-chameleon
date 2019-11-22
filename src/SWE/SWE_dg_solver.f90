@@ -8,7 +8,7 @@
 
 MODULE SWE_DG_solver
   use SFC_edge_traversal
-
+  use SWE_euler_timestep
   use Samoa_swe
   use c_bind_riemannsolvers
 
@@ -22,7 +22,6 @@ MODULE SWE_DG_solver
 #       endif
   use SWE_DG_Matrices
   use SWE_DG_Predictor
-  use SWE_Euler_Timestep
   use SWE_initialize_bathymetry
   use SWE_PATCH
 #               if defined(_HLLE_FLUX)
@@ -268,27 +267,20 @@ subroutine general_dg_riemannsolver(edge,rep1,rep2,update1,update2)
    normal = edge%transform_data%normal/NORM2(edge%transform_data%normal)
 
    !---- TODO: move this to the predictor ----!
-   FL = flux(QL,(_SWE_DG_ORDER+1)**2)   
-   FLn(:,1) = reshape(matmul(reshape(normal,(/ 1 , 2 /)), FL(:,:,1)),(/ (_SWE_DG_ORDER+1)**2/))
-   FLn(:,2) = reshape(matmul(reshape(normal,(/ 1 , 2 /)), FL(:,:,2)),(/ (_SWE_DG_ORDER+1)**2/))
-   FLn(:,3) = reshape(matmul(reshape(normal,(/ 1 , 2 /)), FL(:,:,3)),(/ (_SWE_DG_ORDER+1)**2/))
-
+   FL = flux(QL,(_SWE_DG_ORDER+1)**2)
    FR = flux(QR,(_SWE_DG_ORDER+1)**2) 
-   FRn(:,1) = reshape(matmul(reshape(normal,(/ 1 , 2 /)), FR(:,:,1)),(/ (_SWE_DG_ORDER+1)**2/))
-   FRn(:,2) = reshape(matmul(reshape(normal,(/ 1 , 2 /)), FR(:,:,2)),(/ (_SWE_DG_ORDER+1)**2/))
-   FRn(:,3) = reshape(matmul(reshape(normal,(/ 1 , 2 /)), FR(:,:,3)),(/ (_SWE_DG_ORDER+1)**2/))
+  
+   update1%flux(:)%h   =reshape(matmul(reshape(normal,(/1,2/)), FL(:,:,1)),(/(_SWE_DG_ORDER+1)**2/))
+   update1%flux(:)%p(1)=reshape(matmul(reshape(normal,(/1,2/)), FL(:,:,2)),(/(_SWE_DG_ORDER+1)**2/))
+   update1%flux(:)%p(2)=reshape(matmul(reshape(normal,(/1,2/)), FL(:,:,3)),(/(_SWE_DG_ORDER+1)**2/))
+               
+   update2%flux(:)%h   =reshape(matmul(reshape(normal,(/1,2/)), FR(:,:,1)),(/(_SWE_DG_ORDER+1)**2/))
+   update2%flux(:)%p(1)=reshape(matmul(reshape(normal,(/1,2/)), FR(:,:,2)),(/(_SWE_DG_ORDER+1)**2/))
+   update2%flux(:)%p(2)=reshape(matmul(reshape(normal,(/1,2/)), FR(:,:,3)),(/(_SWE_DG_ORDER+1)**2/))
    !-------------------------------------------!   
    
-   call compute_flux_pred(normal,QL,QR,FLn,FRn)
-
-   update1%flux%h    = FLn(:,1)
-   update1%flux%p(1) = FLn(:,2)
-   update1%flux%p(2) = FLn(:,3)
-
-   update2%flux%h    = FRn(:,1)
-   update2%flux%p(1) = FRn(:,2)
-   update2%flux%p(2) = FRn(:,3)   
-
+   call compute_flux_pred(normal,QL,QR,update1%flux,update2%flux)
+   
    !---- Result for hypothenuse needs to be permuted back----!
    if(edge%transform_data%index.eq.2) then
       do i=0,_SWE_DG_ORDER
@@ -638,7 +630,6 @@ end associate
 end subroutine cell_update_op_dg
 
 
-
 ! subroutine compute_flux_pred(normal,QL, QR, FLn, FRn)
 !  real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2,4), intent(inout) :: QL
 !  real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2,4), intent(inout) :: QR
@@ -694,8 +685,8 @@ subroutine compute_flux_pred(normal,QL, QR, FLn, FRn)
 
 real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2,4), intent(in)    :: QL
 real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2,4), intent(in)    :: QR
-real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2,3), intent(inout) :: FLn
-real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2,3), intent(inout) :: FRn
+type(t_update)    ,Dimension((_SWE_DG_ORDER+1)**2), intent(inout) :: FLn
+type(t_update)    ,Dimension((_SWE_DG_ORDER+1)**2), intent(inout) :: FRn
 
 real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2)                  :: VelL
 real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2)                  :: VelR
@@ -711,9 +702,9 @@ real(kind = GRID_SR)	          :: epsilon
 real(kind=GRID_SR)	          :: vL, vR, alpha
 integer                           :: i
 
-
-
-Fn_avg = 0.5_GRID_SR*(FRn-FLn)
+Fn_avg(:,1) = 0.5_GRID_SR*(FRn%h   -FLn%h   )
+Fn_avg(:,2) = 0.5_GRID_SR*(FRn%p(1)-FLn%p(1))
+Fn_avg(:,3) = 0.5_GRID_SR*(FRn%p(2)-FLn%p(2))
 
 VelL(:) = QL(:,2)/QL(:,1) * normal(1) +  QL(:,3)/QL(:,1) * normal(2)
 VelR(:) = QR(:,2)/QR(:,1) * normal(1) +  QR(:,3)/QR(:,1) * normal(2)
@@ -729,26 +720,28 @@ Djump = 0.5_GRID_SR * g * hRoe * Deta
 Q_rus(:,  1) = 0.5_GRID_SR * alpha * Deta
 Q_rus(:,2:3) = 0.5_GRID_SR * alpha * (QR(:,2:3) - QL(:,2:3))
 
-FLn =  Fn_avg - Q_rus
-FRn =  Fn_avg + Q_rus
+FLn%h    =  Fn_avg(:,1) - Q_rus(:,1)
+FLn%p(1) =  Fn_avg(:,2) - Q_rus(:,2)
+FLn%p(2) =  Fn_avg(:,3) - Q_rus(:,3)
 
-!Djump = 0.0_GRID_SR
+FRn%h    =  Fn_avg(:,1) + Q_rus(:,1)
+FRn%p(1) =  Fn_avg(:,2) + Q_rus(:,2)
+FRn%p(2) =  Fn_avg(:,3) + Q_rus(:,3)
 
-FLn(:,1) = FLn(:,1) 
-FLn(:,2) = FLn(:,2) + Djump * normal(1)
-FLn(:,3) = FLn(:,3) + Djump * normal(2)
+FLn(:)%h    = FLn(:)%h 
+FLn(:)%p(1) = FLn(:)%p(1) + Djump * normal(1)
+FLn(:)%p(2) = FLn(:)%p(2) + Djump * normal(2)
 
-FRn(:,1) = FRn(:,1) 
-FRn(:,2) = FRn(:,2) - Djump * normal(1)
-FRn(:,3) = FRn(:,3) - Djump * normal(2)
-
+FRn(:)%h    = FRn(:)%h    
+FRn(:)%p(1) = FRn(:)%p(1) - Djump * normal(1)
+FRn(:)%p(2) = FRn(:)%p(2) - Djump * normal(2)
 end subroutine compute_flux_pred
 
 
 subroutine dg_solver(element,update1,update2,update3,dt)
   type(t_element_base), intent(in)				:: element
   real(kind=GRID_SR), intent(in)                                :: dt
-  type(t_update), dimension((_SWE_DG_ORDER+1)**2),intent(in)    :: update1, update2, update3
+  type(t_update), dimension((_SWE_DG_ORDER+1)**2),intent(in)  :: update1, update2, update3
   
   real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,3)                 :: bnd_flux_l,bnd_flux_m,bnd_flux_r
   real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1,_SWE_DG_DOFS,3) :: bnd_flux_l_st,bnd_flux_m_st,bnd_flux_r_st
@@ -787,11 +780,9 @@ subroutine dg_solver(element,update1,update2,update3,dt)
        nF1(i,:,1)=update1((i-1)*(_SWE_DG_ORDER+1)+1:(i)*(_SWE_DG_ORDER+1)+1)%h
        nF1(i,:,2)=update1((i-1)*(_SWE_DG_ORDER+1)+1:(i)*(_SWE_DG_ORDER+1)+1)%p(1)
        nF1(i,:,3)=update1((i-1)*(_SWE_DG_ORDER+1)+1:(i)*(_SWE_DG_ORDER+1)+1)%p(2)
-       
        NF2(i,:,1)=update2((i-1)*(_SWE_DG_ORDER+1)+1:(i)*(_SWE_DG_ORDER+1)+1)%h
        NF2(i,:,2)=update2((i-1)*(_SWE_DG_ORDER+1)+1:(i)*(_SWE_DG_ORDER+1)+1)%p(1)
        NF2(i,:,3)=update2((i-1)*(_SWE_DG_ORDER+1)+1:(i)*(_SWE_DG_ORDER+1)+1)%p(2)
-       
        NF3(i,:,1)=update3((i-1)*(_SWE_DG_ORDER+1)+1:(i)*(_SWE_DG_ORDER+1)+1)%h
        NF3(i,:,2)=update3((i-1)*(_SWE_DG_ORDER+1)+1:(i)*(_SWE_DG_ORDER+1)+1)%p(1)
        NF3(i,:,3)=update3((i-1)*(_SWE_DG_ORDER+1)+1:(i)*(_SWE_DG_ORDER+1)+1)%p(2)
@@ -823,44 +814,6 @@ subroutine dg_solver(element,update1,update2,update3,dt)
   end associate
   
 end subroutine dg_solver
-
-subroutine compute_geoclaw_flux_pred(normal, QL, QR, fluxL, fluxR)
-type(t_state), intent(in)           :: QL, QR
-type(t_update), intent(out)         :: fluxL, fluxR
-real(kind = GRID_SR), intent(in)    :: normal(2)
-real(kind = GRID_SR)		      :: transform_matrix(2, 2)
-real(kind = GRID_SR)		      :: net_updatesL(3), net_updatesR(3), max_wave_speed
-real(kind = GRID_SR)                :: pL(2), pR(2), hL, hR, bL, bR
-
-transform_matrix(1, :) = normal
-transform_matrix(2, :) = [-normal(2), normal(1)]
-
-pL = matmul(transform_matrix, QL%p)
-pR = matmul(transform_matrix, QR%p)
-
-hL = QL%h
-hR = QR%h
-
-bL = QL%b
-bR = QR%b
-
-#           if defined(_FWAVE_FLUX)
-call c_bind_geoclaw_solver(GEOCLAW_FWAVE, 1, 3, hL, hR, pL(1), pR(1), pL(2), pR(2), bL, bR, real(cfg%dry_tolerance, GRID_SR), g, net_updatesL, net_updatesR, max_wave_speed)
-#           elif defined(_AUG_RIEMANN_FLUX)
-call c_bind_geoclaw_solver(GEOCLAW_AUG_RIEMANN, 1, 3, hL, hR, pL(1), pR(1), pL(2), pR(2), bL, bR, real(cfg%dry_tolerance, GRID_SR), g, net_updatesL, net_updatesR, max_wave_speed)
-#           elif defined(_HLLE_FLUX)
-call compute_updates_hlle_single(hL, hR, pL(1), pR(1), pL(2), pR(2), bL, bR, net_updatesL, net_updatesR, max_wave_speed)
-#           endif
-
-fluxL%h = net_updatesL(1)
-fluxL%p = matmul(net_updatesL(2:3), transform_matrix)
-fluxL%max_wave_speed = max_wave_speed
-
-fluxR%h = net_updatesR(1)
-fluxR%p = matmul(net_updatesR(2:3), transform_matrix)
-fluxR%max_wave_speed = max_wave_speed
-end subroutine compute_geoclaw_flux_pred
-
 
 subroutine get_fv_update(update,leg)
   type(num_cell_update), intent(inout) :: update
@@ -1122,7 +1075,7 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                     upd_hR(j) = update_b%h
                     upd_huR(j) = update_b%p(1)
                     upd_hvR(j) = update_b%p(2)
-                    maxWaveSpeed = max(maxWaveSpeed, update_a%max_wave_speed)
+!                    maxWaveSpeed = max(maxWaveSpeed, update_a%max_wave_speed)
                  end do
 #                       endif
                   ! compute dQ

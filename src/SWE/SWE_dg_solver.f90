@@ -130,82 +130,89 @@ MODULE SWE_DG_solver
       end do
 
     end associate
-
     if(element%cell%data_pers%troubled.le.0) then
-       do k=0,_SWE_DG_ORDER
-          do i=0,_SWE_DG_ORDER
-             indx_mir=i+1+k*(_SWE_DG_ORDER+1)
-             select case (edge_type)
-             case(-1 ,1) !right
-                indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i+1)*(_SWE_DG_ORDER-i+2)/2 +1+k*_SWE_DG_DOFS
-                rep%Q_DG_P(indx_mir)%h = element%cell%data_pers%Q_DG_P(indx)%h
-                rep%Q_DG_P(indx_mir)%p = element%cell%data_pers%Q_DG_P(indx)%p
-                rep%Q_DG_P(indx_mir)%b = element%cell%data_pers%Q_DG(indx-k*_SWE_DG_DOFS)%b
-             case(-2,2) !mid
-                indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i)*(_SWE_DG_ORDER-i+1)/2 + k*_SWE_DG_DOFS
-                rep%Q_DG_P(indx_mir)%h = element%cell%data_pers%Q_DG_P(indx)%h
-                rep%Q_DG_P(indx_mir)%p = element%cell%data_pers%Q_DG_P(indx)%p
-                rep%Q_DG_P(indx_mir)%b = element%cell%data_pers%Q_DG(indx-k*_SWE_DG_DOFS)%b
-             case(-3 ,3) !left
-                indx=1+i+k*_SWE_DG_DOFS
-                rep%Q_DG_P(indx_mir)%h = element%cell%data_pers%Q_DG_P(indx)%h
-                rep%Q_DG_P(indx_mir)%p = element%cell%data_pers%Q_DG_P(indx)%p
-                rep%Q_DG_P(indx_mir)%b = element%cell%data_pers%Q_DG(indx-k*_SWE_DG_DOFS)%b
-             case default
-!!!!!!!print,"ERROR: In cell_to_edge_op edge type not known: ",edge_type
-                stop
-
-             end select
-          end do
-       end do
-    else
-
-       !print*,"cte"
-       !print*,edge_type
-       !print*,element%cell%data_pers%H
-       !print*,element%cell%data_pers%HU
-       !print*,element%cell%data_pers%HV
-       !print*,element%cell%data_pers%B
-       
-       
-  !----FV updates need to be in reverse order----!
+    !---- Project time averaged predictor and fluxes ----!
+    do i=0,_SWE_DG_ORDER
        select case (edge_type)
-       case (-3,3) !cells with id i*i+1 (left leg)
-          do i=0, _SWE_PATCH_ORDER - 1
-             j=_SWE_PATCH_ORDER-1-i
-             rep%H(i+1) = element%cell%data_pers%H(j*j + 1)
-             rep%HU(i+1)= element%cell%data_pers%HU(j*j + 1)
-             rep%HV(i+1)= element%cell%data_pers%HV(j*j + 1)
-             rep%B(i+1) = element%cell%data_pers%B(j*j + 1) 
-          end do
-       case (-2,2) ! hypotenuse
-          do i=1, _SWE_PATCH_ORDER
-             j=_SWE_PATCH_ORDER+1-i
-             rep%H(i) = element%cell%data_pers%H ((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
-             rep%HU(i)= element%cell%data_pers%HU((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
-             rep%HV(i)= element%cell%data_pers%HV((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
-             rep%B(i) = element%cell%data_pers%B ((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
-          end do
-       case (-1,1) !cells with id i*i (right leg)
-          do i=1, _SWE_PATCH_ORDER
-             !        j=_SWE_PATCH_ORDER+1-i
-             rep%H(i)  = element%cell%data_pers%H(i*i)
-             rep%HU(i) = element%cell%data_pers%HU(i*i)
-             rep%HV(i) = element%cell%data_pers%HV(i*i)
-             rep%B(i)  = element%cell%data_pers%B(i*i)
-          end do
+       case(-1 ,1) !right
+          indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i+1)*(_SWE_DG_ORDER-i+2)/2 +1
+       case(-2,2) !mid
+          indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i)*(_SWE_DG_ORDER-i+1)/2
+       case(-3 ,3) !left
+          indx=1+i
+       case default
+          stop
        end select
-    end if
+       rep%Q(i+1)%h                        = element%cell%data_pers%QP(indx,1)
+       rep%Q(i+1)%p(1)                     = element%cell%data_pers%QP(indx,2)
+       rep%Q(i+1)%p(2)                     = element%cell%data_pers%QP(indx,3)
+       rep%Q(i+1)%b                        = element%cell%data_pers%QP(indx,4)
+       
+       rep%Q((_SWE_DG_ORDER+1)+i+1)%h      = element%cell%data_pers%FP(1,indx,1)
+       rep%Q((_SWE_DG_ORDER+1)+i+1)%p(1)   = element%cell%data_pers%FP(1,indx,2)
+       rep%Q((_SWE_DG_ORDER+1)+i+1)%p(2)   = element%cell%data_pers%FP(1,indx,3)
+       rep%Q((_SWE_DG_ORDER+1)+i+1)%b      = 0.0_GRID_SR
+       
+       rep%Q(2*(_SWE_DG_ORDER+1)+i+1)%h    = element%cell%data_pers%FP(2,indx,1)
+       rep%Q(2*(_SWE_DG_ORDER+1)+i+1)%p(1) = element%cell%data_pers%FP(2,indx,2)
+       rep%Q(2*(_SWE_DG_ORDER+1)+i+1)%p(2) = element%cell%data_pers%FP(2,indx,3)
+       rep%Q(2*(_SWE_DG_ORDER+1)+i+1)%b    = 0.0_GRID_SR
+    end do
+    !-----------------------------------------------------!
     
-    !print*,"rep"
-    !print*,rep%H 
-    !print*,rep%HU
-    !print*,rep%HV
-    !print*,rep%B
-    
-
-    
-    
+    !------------------Project FV dofs------------------!
+    select case (edge_type)
+    case (-3,3) !cells with id i*i+1 (left leg)
+       rep%H  = matmul(phi_l,element%cell%data_pers%Q_DG%h) 
+       rep%HU = matmul(phi_l,element%cell%data_pers%Q_DG%p(1))
+       rep%HV = matmul(phi_l,element%cell%data_pers%Q_DG%p(2)) 
+       rep%B  = matmul(phi_l,element%cell%data_pers%Q_DG%b)
+    case (-2,2) ! hypotenuse
+       rep%H  = matmul(phi_m,element%cell%data_pers%Q_DG%h)
+       rep%HU = matmul(phi_m,element%cell%data_pers%Q_DG%p(1))
+       rep%HV = matmul(phi_m,element%cell%data_pers%Q_DG%p(2))
+       rep%B  = matmul(phi_m,element%cell%data_pers%Q_DG%b)
+    case (-1,1) !cells with id i*i (right leg)
+       rep%H  = matmul(phi_r,element%cell%data_pers%Q_DG%h)
+       rep%HU = matmul(phi_r,element%cell%data_pers%Q_DG%p(1))
+       rep%HV = matmul(phi_r,element%cell%data_pers%Q_DG%p(2))
+       rep%B  = matmul(phi_r,element%cell%data_pers%Q_DG%b)
+    end select
+    !---scale by element size---!
+    rep%H = (rep%H + rep%B) * _REF_TRIANGLE_SIZE_INV
+    rep%HU = rep%HU * _REF_TRIANGLE_SIZE_INV
+    rep%HV = rep%HV * _REF_TRIANGLE_SIZE_INV
+    rep%B  = rep%B  * _REF_TRIANGLE_SIZE_INV
+    !-----------------------------------------------------!
+ else
+    select case (edge_type)
+    case (-3,3) !cells with id i*i+1 (left leg)
+       do i=0, _SWE_PATCH_ORDER - 1
+          j=_SWE_PATCH_ORDER-1-i
+          rep%H(i+1) = element%cell%data_pers%H(j*j + 1)
+          rep%HU(i+1)= element%cell%data_pers%HU(j*j + 1)
+          rep%HV(i+1)= element%cell%data_pers%HV(j*j + 1)
+          rep%B(i+1) = element%cell%data_pers%B(j*j + 1)
+       end do
+    case (-2,2) ! hypotenuse
+       do i=1, _SWE_PATCH_ORDER
+          j=_SWE_PATCH_ORDER+1-i
+          rep%H(i) = element%cell%data_pers%H ((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
+          rep%HU(i)= element%cell%data_pers%HU((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
+          rep%HV(i)= element%cell%data_pers%HV((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
+          rep%B(i) = element%cell%data_pers%B ((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
+       end do
+    case (-1,1) !cells with id i*i (right leg)
+       do i=1, _SWE_PATCH_ORDER
+          !        j=_SWE_PATCH_ORDER+1-i
+          rep%H(i)  = element%cell%data_pers%H(i*i)
+          rep%HU(i) = element%cell%data_pers%HU(i*i)
+          rep%HV(i) = element%cell%data_pers%HV(i*i)
+          rep%B(i)  = element%cell%data_pers%B(i*i)
+       end do
+    end select
+ end if
+ 
     rep%Q_DG = element%cell%data_pers%Q_DG
     rep%troubled=element%cell%data_pers%troubled
     
@@ -229,67 +236,93 @@ subroutine general_dg_riemannsolver(edge,rep1,rep2,update1,update2)
   type(t_edge_data), intent(in)	                          :: edge
   type(num_cell_rep), intent(in)                          :: rep1   , rep2
   type(num_cell_update), intent(out)                      :: update1, update2
-  real(kind=GRID_SR),dimension((_SWE_DG_ORDER+1)**2,4)    :: QL ,QR
-  real(kind=GRID_SR),dimension((_SWE_DG_ORDER+1)**2,3)    :: FLn,FRn
-  real(kind=GRID_SR),dimension(2,(_SWE_DG_ORDER+1)**2,3)  :: FL ,FR
+  real(kind=GRID_SR),dimension((_SWE_DG_ORDER+1)**2,4)    :: QLp ,QRp
+  real(kind=GRID_SR),dimension(_SWE_DG_ORDER+1,4)    :: QL_s ,QR_s
+  real(kind=GRID_SR),dimension((_SWE_DG_ORDER+1),4)       :: QL ,QR
+  real(kind=GRID_SR),dimension((_SWE_DG_ORDER+1),3)    :: FLn_s,FRn_s
+  real(kind=GRID_SR),dimension(2,(_SWE_DG_ORDER+1)**2,3)    :: FLg,FRg
+  real(kind=GRID_SR),dimension((_SWE_DG_ORDER+1)**2,3)    :: FLng,FRng
+  real(kind=GRID_SR),dimension((_SWE_DG_ORDER+1),3)    :: FLn,FRn
+  real(kind=GRID_SR),dimension((_SWE_DG_ORDER+1),3)    :: FRn_temp
+  real(kind=GRID_SR),dimension(2,(_SWE_DG_ORDER+1),3)  :: FL ,FR
+  
+  real(kind=GRID_SR)        nF1(_SWE_DG_ORDER+1,_SWE_DG_ORDER+1,4), nF2(_SWE_DG_ORDER+1,_SWE_DG_ORDER+1,4)
+  real(kind=GRID_SR)        nF3(_SWE_DG_ORDER+1,_SWE_DG_ORDER+1,3), nF4(_SWE_DG_ORDER+1,_SWE_DG_ORDER+1,3)
+
   type(t_update), dimension((_SWE_DG_ORDER+1)**2)         :: flux_temp
   real(kind = GRID_SR)                   	          :: normal(2)
   integer                                                 :: i,j
 
-
+  normal = edge%transform_data%normal/NORM2(edge%transform_data%normal)
    !        ______
    ! |6 \   \3 2 1|
    ! |4 5 \   \5 4|
    ! |1_2_3\   \ 6|
    
-   !---- Dofs for hypothenuse need to be permuted ----!
-   if(edge%transform_data%index.eq.2) then
-      do i=0,_SWE_DG_ORDER
-         do j=1,_SWE_DG_ORDER+1
-            QR(i*(_SWE_DG_ORDER+1)+j,1) = rep2%Q_DG_P((1+i)*(_SWE_DG_ORDER+1)-j+1)%h
-            QR(i*(_SWE_DG_ORDER+1)+j,2) = rep2%Q_DG_P((1+i)*(_SWE_DG_ORDER+1)-j+1)%p(1)
-            QR(i*(_SWE_DG_ORDER+1)+j,3) = rep2%Q_DG_P((1+i)*(_SWE_DG_ORDER+1)-j+1)%p(2)
-            QR(i*(_SWE_DG_ORDER+1)+j,4) = rep2%Q_DG_P((1+i)*(_SWE_DG_ORDER+1)-j+1)%b
-         end do
-      end do
-   else
-      QR(:,1) = rep2%Q_DG_P(:)%h
-      QR(:,2) = rep2%Q_DG_P(:)%p(1)
-      QR(:,3) = rep2%Q_DG_P(:)%p(2)
-      QR(:,4) = rep2%Q_DG_P(:)%b
-   end if
+  QL(:,1) = rep1%Q(1:(_SWE_DG_ORDER+1))%h   
+  QL(:,2) = rep1%Q(1:(_SWE_DG_ORDER+1))%p(1)
+  QL(:,3) = rep1%Q(1:(_SWE_DG_ORDER+1))%p(2)
+  QL(:,4) = rep1%Q(1:(_SWE_DG_ORDER+1))%b
 
-   QL(:,1) = rep1%Q_DG_P%h
-   QL(:,2) = rep1%Q_DG_P%p(1)
-   QL(:,3) = rep1%Q_DG_P%p(2)
-   QL(:,4) = rep1%Q_DG_P%b
+  FL(1,:,1) = rep1%Q((_SWE_DG_ORDER+1)+1:(_SWE_DG_ORDER+1)*2)%h   
+  FL(1,:,2) = rep1%Q((_SWE_DG_ORDER+1)+1:(_SWE_DG_ORDER+1)*2)%p(1)
+  FL(1,:,3) = rep1%Q((_SWE_DG_ORDER+1)+1:(_SWE_DG_ORDER+1)*2)%p(2)
 
-   normal = edge%transform_data%normal/NORM2(edge%transform_data%normal)
-
-   !---- TODO: move this to the predictor ----!
-   FL = flux(QL,(_SWE_DG_ORDER+1)**2)
-   FR = flux(QR,(_SWE_DG_ORDER+1)**2) 
+  FL(2,:,1) = rep1%Q(2*(_SWE_DG_ORDER+1)+1:(_SWE_DG_ORDER+1)*3)%h   
+  FL(2,:,2) = rep1%Q(2*(_SWE_DG_ORDER+1)+1:(_SWE_DG_ORDER+1)*3)%p(1)
+  FL(2,:,3) = rep1%Q(2*(_SWE_DG_ORDER+1)+1:(_SWE_DG_ORDER+1)*3)%p(2)
   
-   update1%flux(:)%h   =reshape(matmul(reshape(normal,(/1,2/)), FL(:,:,1)),(/(_SWE_DG_ORDER+1)**2/))
-   update1%flux(:)%p(1)=reshape(matmul(reshape(normal,(/1,2/)), FL(:,:,2)),(/(_SWE_DG_ORDER+1)**2/))
-   update1%flux(:)%p(2)=reshape(matmul(reshape(normal,(/1,2/)), FL(:,:,3)),(/(_SWE_DG_ORDER+1)**2/))
-               
-   update2%flux(:)%h   =reshape(matmul(reshape(normal,(/1,2/)), FR(:,:,1)),(/(_SWE_DG_ORDER+1)**2/))
-   update2%flux(:)%p(1)=reshape(matmul(reshape(normal,(/1,2/)), FR(:,:,2)),(/(_SWE_DG_ORDER+1)**2/))
-   update2%flux(:)%p(2)=reshape(matmul(reshape(normal,(/1,2/)), FR(:,:,3)),(/(_SWE_DG_ORDER+1)**2/))
-   !-------------------------------------------!   
-   
-   call compute_flux_pred(normal,QL,QR,update1%flux,update2%flux)
-   
+  !---- Dofs for hypothenuse need to be permuted ----!
+  if(edge%transform_data%index.eq.2) then
+     do j=0,_SWE_DG_ORDER
+        QR(j+1,1) = rep2%Q((_SWE_DG_ORDER+1)-j)%h   
+        QR(j+1,2) = rep2%Q((_SWE_DG_ORDER+1)-j)%p(1)
+        QR(j+1,3) = rep2%Q((_SWE_DG_ORDER+1)-j)%p(2)
+        QR(j+1,4) = rep2%Q((_SWE_DG_ORDER+1)-j)%b
+        
+        FR(1,j+1,1) = rep2%Q((_SWE_DG_ORDER+1)*2-j)%h   
+        FR(1,j+1,2) = rep2%Q((_SWE_DG_ORDER+1)*2-j)%p(1)
+        FR(1,j+1,3) = rep2%Q((_SWE_DG_ORDER+1)*2-j)%p(2)
+        
+        FR(2,j+1,1) = rep2%Q((_SWE_DG_ORDER+1)*3-j)%h   
+        FR(2,j+1,2) = rep2%Q((_SWE_DG_ORDER+1)*3-j)%p(1)
+        FR(2,j+1,3) = rep2%Q((_SWE_DG_ORDER+1)*3-j)%p(2)
+     end do
+  else
+     QR(:,1) = rep2%Q(1:(_SWE_DG_ORDER+1))%h   
+     QR(:,2) = rep2%Q(1:(_SWE_DG_ORDER+1))%p(1)
+     QR(:,3) = rep2%Q(1:(_SWE_DG_ORDER+1))%p(2)
+     QR(:,4) = rep2%Q(1:(_SWE_DG_ORDER+1))%b
+     
+     FR(1,:,1) = rep2%Q((_SWE_DG_ORDER+1)+1:(_SWE_DG_ORDER+1)*2)%h   
+     FR(1,:,2) = rep2%Q((_SWE_DG_ORDER+1)+1:(_SWE_DG_ORDER+1)*2)%p(1)
+     FR(1,:,3) = rep2%Q((_SWE_DG_ORDER+1)+1:(_SWE_DG_ORDER+1)*2)%p(2)
+     
+     FR(2,:,1) = rep2%Q(2*(_SWE_DG_ORDER+1)+1:(_SWE_DG_ORDER+1)*3)%h   
+     FR(2,:,2) = rep2%Q(2*(_SWE_DG_ORDER+1)+1:(_SWE_DG_ORDER+1)*3)%p(1)
+     FR(2,:,3) = rep2%Q(2*(_SWE_DG_ORDER+1)+1:(_SWE_DG_ORDER+1)*3)%p(2)
+  end if
+
+  FLn = FL(1,:,:) * normal(1) + FL(2,:,:) * normal(2)
+  FRn = FR(1,:,:) * normal(1) + FR(2,:,:) * normal(2)
+  
+  call compute_flux_pred(normal,QL,QR,FLn,FRn)
+
    !---- Result for hypothenuse needs to be permuted back----!
    if(edge%transform_data%index.eq.2) then
-      do i=0,_SWE_DG_ORDER
          do j=1,_SWE_DG_ORDER+1
-            flux_temp(i*(_SWE_DG_ORDER+1)+j) = update2%flux((1+i)*(_SWE_DG_ORDER+1)-j+1)
+            FRn_temp(j,:) = FRn((_SWE_DG_ORDER+1)-j+1,:)
          end do
-      end do
-      update2%flux=flux_temp
+   else
+      FRn_temp = FRn
    end if
+
+   update1%flux%h    = FLn(:,1)
+   update1%flux%p(1) = FLn(:,2)
+   update1%flux%p(2) = FLn(:,3)
+   update2%flux%h    = FRn_temp(:,1)
+   update2%flux%p(1) = FRn_temp(:,2)
+   update2%flux%p(2) = FRn_temp(:,3)
 end subroutine
 
 subroutine skeleton_scalar_op_dg(traversal, grid, edge, rep1, rep2, update1, update2)
@@ -310,44 +343,17 @@ update2%troubled      =rep1%troubled
 
 if(rep1%troubled.le.0 .and. rep2%troubled.le.0) then
    call general_dg_riemannsolver(edge,rep1,rep2,update1,update2)
-else
-
-   update2%H=rep1%H
-   update2%HU=rep1%HU
-   update2%HV=rep1%HV
-   update2%B=rep1%B
-   
-   update1%H=rep2%H
-   update1%HU=rep2%HU
-   update1%HV=rep2%HV
-   update1%B=rep2%B
-
-   if(rep1%troubled.le.0) then
-      ! do nothing conversion is performed in cell_update_op
-   else
-      update2%H=rep1%H
-      update2%HU=rep1%HU
-      update2%HV=rep1%HV
-      update2%B=rep1%B
-   end if
-   
-   if(rep2%troubled.le.0) then
-      ! do nothing conversion is performed in cell_update_op
-   else
-      update1%H=rep2%H
-      update1%HU=rep2%HU
-      update1%HV=rep2%HV
-      update1%B=rep2%B
-   end if
-   
 end if
 
-! !omp end single
+update2%H  = rep1%H
+update2%HU = rep1%HU
+update2%HV = rep1%HV
+update2%B  = rep1%B
 
-!!!!!!!print,update1%Q_DG%h
-!!!!!!!print,update2%Q_DG%h
-
-
+update1%H  = rep2%H
+update1%HU = rep2%HU
+update1%HV = rep2%HV
+update1%B  = rep2%B
 end subroutine skeleton_scalar_op_dg
 
 subroutine bnd_skeleton_array_op_dg(traversal, grid, edges, rep, update)
@@ -378,46 +384,41 @@ normal=(edge%transform_data%normal)/NORM2(edge%transform_data%normal)
 update%troubled=rep%troubled
 
 if(rep%troubled.le.0) then
+   update_bnd = update
+   
+   rep_bnd%Q(:)%h = rep%Q(:)%h
+   rep_bnd%Q(:)%b = rep%Q(:)%b
 
-   rep_bnd%Q_DG_P(:)%h = rep%Q_DG_P(:)%h
-   rep_bnd%Q_DG_P(:)%b = rep%Q_DG_P(:)%b
-   
-   update%troubled=rep%troubled
-   
-   !---Predictor velocities---!
-   !---TODO: Scons variable or config for boundary---!
-   do i=1,(_SWE_DG_ORDER+1)**2
-      !                          reflecting boundary
-      length_flux = dot_product(rep%Q_DG_P(i)%p, normal)
-      
-      rep_bnd%Q_DG_P(i)%p(1) = rep%Q_DG_P(i)%p(1)-2.0_GRID_SR*length_flux*normal(1)
-      rep_bnd%Q_DG_P(i)%p(2) = rep%Q_DG_P(i)%p(2)-2.0_GRID_SR*length_flux*normal(2)
-      
-      !simple outflowing boundary
-      !temp_Q_DG_P(i)%p(1) =  rep%Q_DG_P(i)%p(1)
-      !temp_Q_DG_P(i)%p(2) =  rep%Q_DG_P(i)%p(2)
-      !                            end if
-      
-      !zero vel bnd
-      !                          update%Q_DG_P(i)%p(1) =  0
-      !                          update%Q_DG_P(i)%p(2) =  0
+   do i=1,(_SWE_DG_ORDER+1)
+      length_flux = dot_product(rep%Q(i)%p, normal)
+      rep_bnd%Q(i)%p(1) = rep%Q(i)%p(1)-2.0_GRID_SR*length_flux*normal(1)
+      rep_bnd%Q(i)%p(2) = rep%Q(i)%p(2)-2.0_GRID_SR*length_flux*normal(2)
+   end do
+   normal = abs(normal)
+   do i=1+(_SWE_DG_ORDER+1)  ,2*(_SWE_DG_ORDER+1)
+      rep_bnd%Q(i)%h    = rep%Q(i)%h    - 2.0_GRID_SR * rep%Q(i-(_SWE_DG_ORDER+1))%p(1) * normal(1)
+      rep_bnd%Q(i)%p(1) = rep%Q(i)%p(1) - 2.0_GRID_SR * rep%Q(i)%p(1) * normal(2)
+      rep_bnd%Q(i)%p(2) = rep%Q(i)%p(2) - 2.0_GRID_SR * rep%Q(i)%p(2) * normal(1)
+   end do
+
+   do i=1+(_SWE_DG_ORDER+1)*2,3*(_SWE_DG_ORDER+1)
+      rep_bnd%Q(i)%h    = rep%Q(i)%h    - 2.0_GRID_SR * rep%Q(i-(_SWE_DG_ORDER+1)*2)%p(2) * normal(2)
+      rep_bnd%Q(i)%p(1) = rep%Q(i)%p(1) - 2.0_GRID_SR * rep%Q(i)%p(1) * normal(2)
+      rep_bnd%Q(i)%p(2) = rep%Q(i)%p(2) - 2.0_GRID_SR * rep%Q(i)%p(2) * normal(1)
    end do
    
    call general_dg_riemannsolver(edge,rep,rep_bnd,update,update_bnd)   
-
-else
-
-   
-   update%H=rep%H
-   update%HU=rep%HU
-   update%HV=rep%HV
-   update%B=rep%B
-   
 end if
+   
+update%H=rep%H
+update%HU=rep%HU
+update%HV=rep%HV
+update%B=rep%B
 
 update%Q_DG(:)%h = rep%Q_DG(:)%h
 update%Q_DG(:)%b = rep%Q_DG(:)%b
 
+normal=(edge%transform_data%normal)/NORM2(edge%transform_data%normal)
 !---DG velocities---!
 do i=1,(_SWE_DG_DOFS)
    length_flux = dot_product(rep%Q_DG(i)%p, normal)
@@ -491,11 +492,11 @@ if(data%troubled.le.0) then
    data_min_val(2)=minval(HU_old)
    data_min_val(3)=minval(HV_old)
 
-   max_neighbour(1)=max(maxval(update1%Q_DG(:)%H),maxval(update2%Q_DG(:)%H),maxval(update3%Q_DG(:)%H),data_max_val(1))
+   max_neighbour(1)=max(maxval(update1%Q_DG(:)%H)   ,maxval(update2%Q_DG(:)%H)   ,maxval(update3%Q_DG(:)%H)   ,data_max_val(1))
    max_neighbour(2)=max(maxval(update1%Q_DG(:)%p(1)),maxval(update2%Q_DG(:)%p(1)),maxval(update3%Q_DG(:)%p(1)),data_max_val(1))
    max_neighbour(3)=max(maxval(update1%Q_DG(:)%p(2)),maxval(update2%Q_DG(:)%p(2)),maxval(update3%Q_DG(:)%p(2)),data_max_val(1))
 
-   min_neighbour(1)=min(minval(update1%Q_DG(:)%H),minval(update2%Q_DG(:)%H),minval(update3%Q_DG(:)%H),data_min_val(1))
+   min_neighbour(1)=min(minval(update1%Q_DG(:)%H)   ,minval(update2%Q_DG(:)%H)   ,minval(update3%Q_DG(:)%H)   ,data_min_val(1))
    min_neighbour(2)=min(minval(update1%Q_DG(:)%p(1)),minval(update2%Q_DG(:)%p(1)),minval(update3%Q_DG(:)%p(1)),data_min_val(1))
    min_neighbour(3)=min(minval(update1%Q_DG(:)%p(2)),minval(update2%Q_DG(:)%p(2)),minval(update3%Q_DG(:)%p(2)),data_min_val(1))
 
@@ -505,7 +506,7 @@ if(data%troubled.le.0) then
 
    delta=delta*1.0e-3_GRID_SR
    
-   
+
    call dg_solver(element,update1%flux,update2%flux,update3%flux,section%r_dt)
 
 
@@ -525,10 +526,10 @@ if(data%troubled.le.0) then
 
    if(troubled.or.drying) then
       !--if troubled or drying perform rollback--!
-      data%Q_DG%H=H_old
-      data%Q_DG%p(1)=HU_old
-      data%Q_DG%p(2)=HV_old
-      data%Q_DG%B=B_old
+      data%Q_DG%H   = H_old
+      data%Q_DG%p(1)= HU_old
+      data%Q_DG%p(2)= HV_old
+      data%Q_DG%B   = B_old
       data%troubled=merge(1,3,drying)
 
       call apply_phi(data%Q_DG(:)%h+data%Q_DG(:)%b,data%h)
@@ -551,7 +552,6 @@ if(data%troubled.le.0) then
       edge_sizes=element%cell%geometry%get_edge_sizes()
 
       !refine      
-      
       !consider wave
       refine = (dQ_norm/section%r_dt  * edge_sizes(1) * edge_sizes(1)) > refinement_threshold *get_edge_size(cfg%i_max_depth)**2
       
@@ -609,19 +609,6 @@ end if
 !if cell is troubled, compute fv solution and mark all edges as troubled
 
 if(data%troubled.ge.1) then
-
-   if(update1%troubled.le.0) then
-      call get_fv_update(update1,1)
-   end if
-   
-   if(update2%troubled.le.0) then
-      call get_fv_update(update2,2)
-   end if
-   
-   if(update3%troubled.le.0) then
-      call get_fv_update(update3,3)
-   end if
-
    !-----Call FV patch solver----!
    call fv_patch_solver(traversal, section, element, update1, update2, update3)
 end if
@@ -630,71 +617,19 @@ end associate
 end subroutine cell_update_op_dg
 
 
-! subroutine compute_flux_pred(normal,QL, QR, FLn, FRn)
-!  real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2,4), intent(inout) :: QL
-!  real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2,4), intent(inout) :: QR
-!  real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2,3), intent(inout) :: FLn
-!  real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2,3), intent(inout) :: FRn
-!  real(kind = GRID_SR)		  :: transform_matrix(2, 2)
-!  real(kind = GRID_SR), intent(in) :: normal(2)
-!  real(kind = GRID_SR)             :: pL(2), pR(2)
-!  real(kind = GRID_SR)             :: max_wave_speed
-!  integer                          :: i
-
-!  transform_matrix(1, :) = normal
-!  transform_matrix(2, :) = [-normal(2), normal(1)]
- 
-!  FLn = 0
-!  FRn = 0
-
-!  do i=1,(_SWE_DG_ORDER+1)**2
-!     pL = matmul(transform_matrix, QL(i,2:3))
-!     pR = matmul(transform_matrix, QR(i,2:3))
-    
-! #if defined(_FWAVE_FLUX)
-!     call c_bind_geoclaw_solver(GEOCLAW_FWAVE, 1, 3,&
-!          QL(i,1), QR(i,1), &
-!          pL(1)  , pR(1)  , &
-!          pL(2)  , pR(2)  , &
-!          QL(i,4), QR(i,4), &
-!          real(cfg%dry_tolerance, GRID_SR), g,&
-!          FLn(i,:), FRn(i,:), max_wave_speed)
-! #elif defined(_AUG_RIEMANN_FLUX)
-!     call c_bind_geoclaw_solver(GEOCLAW_AUG_RIEMANN, 1, 3,&
-!          QL(i,1), QR(i,1), &
-!          pL(1)  , pR(1)  , &
-!          pL(2)  , pR(2)  , &
-!          QL(i,4), QR(i,4), &
-!          real(cfg%dry_tolerance, GRID_SR), g,&
-!          FLn(i,:), FRn(i,:), max_wave_speed)
-! #elif defined(_HLLE_FLUX)
-!     call compute_updates_hlle_single(&
-!          QL(i,1), QR(i,1), &
-!          pL(1)  , pR(1)  , &
-!          pL(2)  , pR(2)  , &
-!          QL(i,4), QR(i,4), &
-!          FLn(i,:), FRn(i,:), max_wave_speed)
-! #endif
-!     FLn(i,2:3) = matmul(FLn(i,2:3), transform_matrix)
-!     FRn(i,2:3) = matmul(FRn(i,2:3), transform_matrix)
-!  end do
- 
-! end subroutine compute_flux_pred
-
 subroutine compute_flux_pred(normal,QL, QR, FLn, FRn)
 
-real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2,4), intent(in)    :: QL
-real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2,4), intent(in)    :: QR
-type(t_update)    ,Dimension((_SWE_DG_ORDER+1)**2), intent(inout) :: FLn
-type(t_update)    ,Dimension((_SWE_DG_ORDER+1)**2), intent(inout) :: FRn
-
-real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2)                  :: VelL
-real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2)                  :: VelR
-real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2)                  :: hRoe,bm
-real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2)                  :: Deta
-real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2)                  :: Djump
-real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2,3)                :: Fn_avg
-real(kind=GRID_SR),Dimension((_SWE_DG_ORDER+1)**2,3)                :: Q_rus
+real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1,4), intent(in)    :: QL
+real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1,4), intent(in)    :: QR
+real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1,3), intent(inout) :: FLn
+real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1,3), intent(inout) :: FRn
+real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1)                  :: VelL
+real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1)                  :: VelR
+real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1)                  :: hRoe,bm
+real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1)                  :: Deta
+real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1)                  :: Djump
+real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1,3)                :: Fn_avg
+real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1,3)                :: Q_rus
 
 real(kind = GRID_SR), intent(in)  :: normal(2)
 
@@ -702,9 +637,7 @@ real(kind = GRID_SR)	          :: epsilon
 real(kind=GRID_SR)	          :: vL, vR, alpha
 integer                           :: i
 
-Fn_avg(:,1) = 0.5_GRID_SR*(FRn%h   -FLn%h   )
-Fn_avg(:,2) = 0.5_GRID_SR*(FRn%p(1)-FLn%p(1))
-Fn_avg(:,3) = 0.5_GRID_SR*(FRn%p(2)-FLn%p(2))
+Fn_avg = 0.5_GRID_SR * ( FRn - FLn )
 
 VelL(:) = QL(:,2)/QL(:,1) * normal(1) +  QL(:,3)/QL(:,1) * normal(2)
 VelR(:) = QR(:,2)/QR(:,1) * normal(1) +  QR(:,3)/QR(:,1) * normal(2)
@@ -720,28 +653,23 @@ Djump = 0.5_GRID_SR * g * hRoe * Deta
 Q_rus(:,  1) = 0.5_GRID_SR * alpha * Deta
 Q_rus(:,2:3) = 0.5_GRID_SR * alpha * (QR(:,2:3) - QL(:,2:3))
 
-FLn%h    =  Fn_avg(:,1) - Q_rus(:,1)
-FLn%p(1) =  Fn_avg(:,2) - Q_rus(:,2)
-FLn%p(2) =  Fn_avg(:,3) - Q_rus(:,3)
+FLn    =  Fn_avg - Q_rus
+FRn    =  Fn_avg + Q_rus
 
-FRn%h    =  Fn_avg(:,1) + Q_rus(:,1)
-FRn%p(1) =  Fn_avg(:,2) + Q_rus(:,2)
-FRn%p(2) =  Fn_avg(:,3) + Q_rus(:,3)
+FLn(:,1) = FLn(:,1) 
+FLn(:,2) = FLn(:,2) + Djump * normal(1)
+FLn(:,3) = FLn(:,3) + Djump * normal(2)
 
-FLn(:)%h    = FLn(:)%h 
-FLn(:)%p(1) = FLn(:)%p(1) + Djump * normal(1)
-FLn(:)%p(2) = FLn(:)%p(2) + Djump * normal(2)
-
-FRn(:)%h    = FRn(:)%h    
-FRn(:)%p(1) = FRn(:)%p(1) - Djump * normal(1)
-FRn(:)%p(2) = FRn(:)%p(2) - Djump * normal(2)
+FRn(:,1) = FRn(:,1)    
+FRn(:,2) = FRn(:,2) - Djump * normal(1)
+FRn(:,3) = FRn(:,3) - Djump * normal(2)
 end subroutine compute_flux_pred
-
 
 subroutine dg_solver(element,update1,update2,update3,dt)
   type(t_element_base), intent(in)				:: element
   real(kind=GRID_SR), intent(in)                                :: dt
-  type(t_update), dimension((_SWE_DG_ORDER+1)**2),intent(in)  :: update1, update2, update3
+  !type(t_update), dimension((_SWE_DG_ORDER+1)**2),intent(in)  :: update1, update2, update3
+  type(t_update), dimension(_SWE_DG_ORDER+1),intent(in)  :: update1, update2, update3
   
   real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,3)                 :: bnd_flux_l,bnd_flux_m,bnd_flux_r
   real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1,_SWE_DG_DOFS,3) :: bnd_flux_l_st,bnd_flux_m_st,bnd_flux_r_st
@@ -750,20 +678,9 @@ subroutine dg_solver(element,update1,update2,update3,dt)
   real(kind=GRID_SR),Dimension(3)   :: edge_sizes
   real(kind=GRID_SR)                :: dx
   integer :: i
-
   real(kind=GRID_SR) :: q(_SWE_DG_DOFS,3)
-  
-  !------ We should get the update already in this format ------!
-  real(kind=GRID_SR)        nF1(_SWE_DG_ORDER+1,_SWE_DG_ORDER+1,3),&
-                            nF2(_SWE_DG_ORDER+1,_SWE_DG_ORDER+1,3),&
-                            nF3(_SWE_DG_ORDER+1,_SWE_DG_ORDER+1,3)
-  !------ We should get the update already in this format ------!
-
-  jacobian=ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian_normalized
-  jacobian_inv=ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian_inv_normalized
 
   associate(data        => element%cell%data_pers, &
-            Q_DG_P      => element%cell%data_pers%Q_DG_P, &
             Q_DG        => element%cell%data_pers%Q_DG, &
             Q_DG_UPDATE => element%cell%data_pers%Q_DG_UPDATE)
 
@@ -771,40 +688,18 @@ subroutine dg_solver(element,update1,update2,update3,dt)
     
     edge_sizes=element%cell%geometry%get_edge_sizes()
     dx=edge_sizes(1)*cfg%scaling
-
-    nF1 = 0
-    nF2 = 0
-    nF3 = 0
-    !------ We should get the update already in this format ------!
-    do i=1,_SWE_DG_ORDER+1
-       nF1(i,:,1)=update1((i-1)*(_SWE_DG_ORDER+1)+1:(i)*(_SWE_DG_ORDER+1)+1)%h
-       nF1(i,:,2)=update1((i-1)*(_SWE_DG_ORDER+1)+1:(i)*(_SWE_DG_ORDER+1)+1)%p(1)
-       nF1(i,:,3)=update1((i-1)*(_SWE_DG_ORDER+1)+1:(i)*(_SWE_DG_ORDER+1)+1)%p(2)
-       NF2(i,:,1)=update2((i-1)*(_SWE_DG_ORDER+1)+1:(i)*(_SWE_DG_ORDER+1)+1)%h
-       NF2(i,:,2)=update2((i-1)*(_SWE_DG_ORDER+1)+1:(i)*(_SWE_DG_ORDER+1)+1)%p(1)
-       NF2(i,:,3)=update2((i-1)*(_SWE_DG_ORDER+1)+1:(i)*(_SWE_DG_ORDER+1)+1)%p(2)
-       NF3(i,:,1)=update3((i-1)*(_SWE_DG_ORDER+1)+1:(i)*(_SWE_DG_ORDER+1)+1)%h
-       NF3(i,:,2)=update3((i-1)*(_SWE_DG_ORDER+1)+1:(i)*(_SWE_DG_ORDER+1)+1)%p(1)
-       NF3(i,:,3)=update3((i-1)*(_SWE_DG_ORDER+1)+1:(i)*(_SWE_DG_ORDER+1)+1)%p(2)
-    end do
-    !-------------------------------------------------------------!
-
-    do i=1,_SWE_DG_ORDER+1
-       bnd_flux_l_st(i,:,:) = matmul(s_m_inv,matmul(s_b_1_l,NF1(i,:,:)))
-       bnd_flux_m_st(i,:,:) = matmul(s_m_inv,matmul(s_b_2_m,NF2(i,:,:)))
-       bnd_flux_r_st(i,:,:) = matmul(s_m_inv,matmul(s_b_3_r,NF3(i,:,:)))
-    end do
-
-    bnd_flux_l(:,1) = reshape(matmul(t_a,bnd_flux_l_st(:,:,1)),(/_SWE_DG_DOFS/))
-    bnd_flux_l(:,2) = reshape(matmul(t_a,bnd_flux_l_st(:,:,2)),(/_SWE_DG_DOFS/))
-    bnd_flux_l(:,3) = reshape(matmul(t_a,bnd_flux_l_st(:,:,3)),(/_SWE_DG_DOFS/))
-    bnd_flux_m(:,1) = reshape(matmul(t_a,bnd_flux_m_st(:,:,1)),(/_SWE_DG_DOFS/))
-    bnd_flux_m(:,2) = reshape(matmul(t_a,bnd_flux_m_st(:,:,2)),(/_SWE_DG_DOFS/))
-    bnd_flux_m(:,3) = reshape(matmul(t_a,bnd_flux_m_st(:,:,3)),(/_SWE_DG_DOFS/))
-    bnd_flux_r(:,1) = reshape(matmul(t_a,bnd_flux_r_st(:,:,1)),(/_SWE_DG_DOFS/))
-    bnd_flux_r(:,2) = reshape(matmul(t_a,bnd_flux_r_st(:,:,2)),(/_SWE_DG_DOFS/))
-    bnd_flux_r(:,3) = reshape(matmul(t_a,bnd_flux_r_st(:,:,3)),(/_SWE_DG_DOFS/))
-
+    
+    !---------compute boundary integrals------------------!
+    bnd_flux_l(:,1) = matmul(s_m_inv,matmul(s_b_1_l,update1(:)%h   ))
+    bnd_flux_l(:,2) = matmul(s_m_inv,matmul(s_b_1_l,update1(:)%p(1)))
+    bnd_flux_l(:,3) = matmul(s_m_inv,matmul(s_b_1_l,update1(:)%p(2)))
+    bnd_flux_m(:,1) = matmul(s_m_inv,matmul(s_b_2_m,update2(:)%h   ))
+    bnd_flux_m(:,2) = matmul(s_m_inv,matmul(s_b_2_m,update2(:)%p(1)))
+    bnd_flux_m(:,3) = matmul(s_m_inv,matmul(s_b_2_m,update2(:)%p(2)))
+    bnd_flux_r(:,1) = matmul(s_m_inv,matmul(s_b_3_r,update3(:)%h   ))
+    bnd_flux_r(:,2) = matmul(s_m_inv,matmul(s_b_3_r,update3(:)%p(1)))
+    bnd_flux_r(:,3) = matmul(s_m_inv,matmul(s_b_3_r,update3(:)%p(2)))
+    !-----------------------------------------------------!
     !!----update dofs----!!
     q=q-((bnd_flux_l + bnd_flux_m + bnd_flux_r) - Q_DG_UPDATE) * dt/dx
     !!-------------------!!
@@ -820,13 +715,14 @@ subroutine get_fv_update(update,leg)
   integer,intent(in) :: leg
   real(kind=GRID_SR),Dimension(_SWE_PATCH_ORDER_SQUARE) :: H, HU, HV ,B
   integer :: i,j
-
+  
   call apply_phi(update%Q_DG(:)%h,H)
   call apply_phi(update%Q_DG(:)%p(1),HU)
   call apply_phi(update%Q_DG(:)%p(2),HV)
   call apply_phi(update%Q_DG(:)%b,B)
+
   H=H+B
-  
+
   !----FV updates need to be in reverse order----!
   select case (leg)
   case (3) !cells with id i*i+1 (left leg)
@@ -837,7 +733,7 @@ subroutine get_fv_update(update,leg)
         update%HV(i+1)= HV(j*j + 1)
         update%B(i+1) = B(j*j + 1)
      end do
-  case (2) ! hypotenuse
+  case (2) ! hypothenuse
      do i=1, _SWE_PATCH_ORDER
         j=_SWE_PATCH_ORDER+1-i
         update%H(i) = H ((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
@@ -847,24 +743,12 @@ subroutine get_fv_update(update,leg)
      end do
   case (1) !cells with id i*i (right leg)
      do i=1, _SWE_PATCH_ORDER
-!        j=_SWE_PATCH_ORDER+1-i
         update%H(i)  = H(i*i)
         update%HU(i) = HU(i*i)
         update%HV(i) = HV(i*i)
         update%B(i)  = B(i*i)
      end do
   end select
-
-
-!   where (update%H < update%B )
-! #if defined(_ASAGI)
-!      update%H = 0.0_GRID_SR
-! #else     
-!      update%H = update%B + cfg%dry_tolerance
-! #endif     
-!      update%HU = 0.0_GRID_SR
-!      update%HV = 0.0_GRID_SR
-!   end where
 
 end subroutine get_fv_update
 
@@ -1061,14 +945,6 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                     edges_b(j)%b = bR(j)
                     call compute_geoclaw_flux(normals(:,geom%edges_orientation(ind)), edges_a(j), edges_b(j), update_a, update_b)
 
-                    !print*,"updates"
-                    !print*,upd_hL(j) 
-                    !print*,upd_huL(j)
-                    !print*,upd_hvL(j)
-                    !print*,upd_hR(j) 
-                    !print*,upd_huR(j)                                
-                    !print*,upd_hvR(j)
-                    
                     upd_hL(j) = update_a%h
                     upd_huL(j) = update_a%p(1)
                     upd_hvL(j) = update_a%p(2)
@@ -1104,28 +980,10 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                element%cell%geometry%refinement = 0
                dQ_max_norm = maxval(abs(dQ_H))
 
-               ! where (data%H < data%B + cfg%dry_tolerance .and. dQ_H * (-dt_div_volume) > 0.0_GRID_SR)
-               !    data%H  = data%B + cfg%dry_tolerance
-               !    data%HU = 0.0_GRID_SR
-               !    data%HV = 0.0_GRID_SR
-               ! end where
-               
-               ! ! update unknowns
-               ! data%H = data%H + dQ_H * (-dt_div_volume)
-               ! data%HU = data%HU + dQ_HU * (-dt_div_volume)
-               ! data%HV = data%HV + dQ_HV * (-dt_div_volume)
-               
                ! ! if the water level falls below the dry tolerance, set water surface to 0 and velocity to 0
-               dQ_H = dQ_H * (-dt_div_volume)
+               dQ_H  = dQ_H * (-dt_div_volume)
                dQ_HU = dQ_HU * (-dt_div_volume)
                dQ_HV = dQ_HV * (-dt_div_volume)
-
-               ! if the water level falls below the dry tolerance, set water level to 0 and velocity to 0
-               ! where (data%H < data%B + cfg%dry_tolerance)
-               !    data%H = data%B
-               !    data%HU = 0.0_GRID_SR
-               !    data%HV = 0.0_GRID_SR
-               ! end where
 
                ! if land is flooded, init water height to dry tolerance and
                ! velocity to zero
@@ -1139,36 +997,6 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                   data%HV = 0.0_GRID_SR
                end where
 
-
-               ! if(any(abs(dQ_H).ge.50.0_GRID_SR))then
-               !    print*,update1%H
-               !    print*,update1%HU
-               !    print*,update1%HV
-               !    print*,update1%B
-               !    print*
-               !    print*,update2%H
-               !    print*,update2%HU
-               !    print*,update2%HV
-               !    print*,update2%B
-               !    print*                  
-               !    print*,update3%H
-               !    print*,update3%HU
-               !    print*,update3%HV
-               !    print*,update3%B
-               !    print*
-               !    print*,data%H
-               !    print*,data%HU
-               !    print*,data%HV
-               !    print*,data%B
-               !    print*
-               !    print*,dQ_h
-               !    print*,dQ_hu
-               !    print*,dQ_hv                                    
-                  
-               !    stop
-
-               ! end if
-               
                data%H  = data%H + dQ_H
                data%HU = data%HU + dQ_HU
                data%HV = data%HV + dQ_HV
@@ -1194,45 +1022,14 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                call apply_mue(data%h          ,data%Q_DG%h)
                call apply_mue(data%hu         ,data%Q_DG%p(1))
                call apply_mue(data%hv         ,data%Q_DG%p(2))
-               ! print*,"patch"
-               ! print*,"FV_h"
-               ! print*,data%h
-               ! print*,"FV_b"    
-               ! print*,data%b               
 
-               !               call data%convert_fv_to_dg_bathymetry(ref_plotter_data(element%cell%geometry%i_plotter_type)%jacobian)
                data%Q_DG%b=get_bathymetry_at_dg_patch(section, element, section%r_time)
                call bathymetry_derivatives(element%cell%data_pers,ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian)
                
                data%Q_DG%h=data%Q_DG%h-data%Q_DG%b
-!               print*,"DG_h"                   
-!               print*,data%Q_DG%h
-!               print*,"DG_b"    
-!               print*,data%Q_DG%b               
-
                if(all(data%H - data%B > cfg%coast_height)) then
                   if(all(data%Q_DG%H > cfg%coast_height)) then
                      data%troubled = 5+data%troubled
-
-                     ! !print*,data%h-data%b
-                     ! !print*,data%hu      
-                     ! !print*,data%hv      
-                     ! !print*,data%b
-                     ! !print*
-                     ! !print*,data%Q_DG%h-data%Q_DG%b
-                     ! !print*,data%Q_DG%hu      
-                     ! !print*,data%Q_DG%hv      
-                     ! !print*,data%Q_DG%b
-                     ! !print*
-                     ! call apply_phi(data%Q_DG(:)%h+data%Q_DG(:)%b,data%H)
-                     ! call apply_phi(data%Q_DG(:)%p(1),data%HU)
-                     ! call apply_phi(data%Q_DG(:)%p(2),data%HV)
-                     ! call apply_phi(data%Q_DG(:)%b,data%B)
-                     ! !print*,data%h-data%b
-                     ! !print*,data%hu      
-                     ! !print*,data%hv      
-                     ! !print*,data%b
-                     ! !print*
                      
                   else
                      data%troubled = 1
@@ -1241,8 +1038,6 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                   data%troubled = 1
                end if
 
-!               refine = (dQ_max_norm/section%r_dt  * edge_lengths(1) * edge_lengths(1) > refinement_threshold *get_edge_size(cfg%i_max_depth)**2)
-!               coarsen =(dQ_max_norm/section%r_dt  * edge_lengths(1) * edge_lengths(1) < refinement_threshold * get_edge_size(cfg%i_max_depth)**2/8.0_GRID_SR)
                coarsen = all(data%H - data%B < cfg%dry_tolerance)
                refine  = .not.all(data%H - data%B < cfg%dry_tolerance)
 

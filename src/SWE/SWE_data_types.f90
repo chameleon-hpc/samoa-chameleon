@@ -9,7 +9,6 @@
 	MODULE SWE_data_types
 #if defined(_SWE_DG)
    use SWE_DG_matrices
-#define _REF_TRIANGLE_SIZE_INV  (2.0q0 * real(_SWE_PATCH_ORDER_SQUARE,kind=kind(1.0q0)))
    
 		implicit none
 # else
@@ -88,11 +87,13 @@
 
 		!> persistent scenario data on a cell
 		type num_cell_data_pers
+     real(kind=GRID_SR), DIMENSION(2,_SWE_DG_DOFS,3)   :: FP
+     real(kind=GRID_SR), DIMENSION(  _SWE_DG_DOFS,4)   :: QP
+
 
 #		if defined(_SWE_PATCH)
 #                       if defined(_SWE_DG)
                         type(t_state), DIMENSION(_SWE_DG_DOFS)                      :: Q_DG
-                        type(t_dof_state), DIMENSION(_SWE_DG_DOFS*(_SWE_DG_ORDER+1)):: Q_DG_P
                         real(kind=GRID_SR), DIMENSION(_SWE_DG_DOFS,3)                :: Q_DG_UPDATE
 #if defined(_DEBUG)
                         integer :: debug_flag = 0
@@ -115,9 +116,7 @@
                           procedure :: convert_fv_to_dg_bathymetry => convert_fv_to_dg_bathymetry
 
                           procedure :: get_dofs_dg => get_dofs_dg
-                          procedure :: get_dofs_pred => get_dofs_pred
                           procedure :: set_dofs_dg => set_dofs_dg
-                          procedure :: set_dofs_pred => set_dofs_pred
 
                           ! procedure :: vec_to_dofs_dg => vec_to_dofs_dg
                           ! procedure :: vec_to_dofs_dg_p => vec_to_dofs_dg_p
@@ -129,13 +128,12 @@
 
 		!> Cell representation on an edge, this would typically be everything required from a cell to compute the flux function on an edge
 		type num_cell_rep
-
+     type(t_state), DIMENSION((_SWE_DG_ORDER+1)*3)				:: Q !TODO: remove this and others Qs --> must handle conflicts with t_gv_Q methods afterwards...
 #if defined(_SWE_PATCH)
-     type(t_state), DIMENSION(_SWE_EDGE_SIZE)				:: Q !TODO: remove this and others Qs --> must handle conflicts with t_gv_Q methods afterwards...
+
      real (kind = GRID_SR), dimension (_SWE_PATCH_ORDER)		:: H, HU, HV, B !< edge stores ghost cells for communication of ghost cells
 
 #if defined(_SWE_DG)
-   type(t_state), DIMENSION((_SWE_DG_ORDER+1)*(_SWE_DG_ORDER+1))   :: Q_DG_P
    type(t_state), DIMENSION(_SWE_DG_DOFS)   :: Q_DG
 #if defined(_DEBUG)   
    integer   :: debug_flag = 0.0_GRID_SR
@@ -156,7 +154,8 @@
 		type num_cell_update
 #if defined (_SWE_DG)
     real (kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER) :: H, HU, HV, B !< values of ghost cells
-    type(t_update), DIMENSION((_SWE_DG_ORDER+1)*(_SWE_DG_ORDER+1))   :: flux
+    !    type(t_update), DIMENSION((_SWE_DG_ORDER+1)**2)   :: flux
+    type(t_update), DIMENSION(_SWE_DG_ORDER+1)   :: flux
 
     !dofs at t_n
     type(t_state), DIMENSION(_SWE_DG_DOFS)   :: Q_DG
@@ -416,15 +415,6 @@
                   q(:,3)= f%Q_DG(:)%p(2)
                 end subroutine get_dofs_dg
 
-                subroutine get_dofs_pred(f,q)
-                  class (num_cell_data_pers), intent(in)		:: f
-                  real (kind = GRID_SR),intent(out)               :: q (size(f%Q_DG_P,1),3)
-                  q(:,1)= f%Q_DG_P(:)%h
-                  q(:,2)= f%Q_DG_P(:)%p(1)
-                  q(:,3)= f%Q_DG_P(:)%p(2)
-                end subroutine get_dofs_pred
-
-
 		subroutine set_dofs_dg(f,q)
                   class (num_cell_data_pers),intent(inout) 	:: f
                   real (kind = GRID_SR) 		        :: q(size(f%q_dg,1),3)
@@ -432,14 +422,6 @@
                   f%Q_DG(:)%p(1) =q(:,2)
                   f%Q_DG(:)%p(2) =q(:,3)
                 end subroutine set_dofs_dg
-
-		subroutine set_dofs_pred(f,q)
-                  class (num_cell_data_pers),intent(inout)      :: f
-                  real (kind = GRID_SR) 		        :: q(size(f%q_dg_p,1),3)
-                  f%Q_DG_P(:)%H    = q(:,1)
-                  f%Q_DG_P(:)%p(1) = q(:,2)
-                  f%Q_DG_P(:)%p(2) = q(:,3)
-                end subroutine set_dofs_pred
 #endif
 	END MODULE SWE_data_types
 #endif

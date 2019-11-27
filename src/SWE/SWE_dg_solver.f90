@@ -338,7 +338,7 @@ real(kind = GRID_SR)	          :: normal(2)
 update1%troubled      =rep2%troubled
 update2%troubled      =rep1%troubled
 
-if(rep1%troubled.le.0 .and. rep2%troubled.le.0) then
+if(isDG(rep1%troubled) .and. isDG(rep2%troubled)) then
    call general_dg_riemannsolver(edge,rep1,rep2,update1,update2)
 end if
 
@@ -356,7 +356,6 @@ update1%minObservables = rep2%minObservables
 update1%maxObservables = rep2%maxObservables
 update2%minObservables = rep1%minObservables
 update2%maxObservables = rep1%maxObservables
-
 end subroutine skeleton_scalar_op_dg
 
 subroutine bnd_skeleton_array_op_dg(traversal, grid, edges, rep, update)
@@ -388,7 +387,7 @@ update%troubled=rep%troubled
 update%minObservables = rep%minObservables
 update%maxObservables = rep%maxObservables
 
-if(rep%troubled.le.0) then
+if(isDG(rep%troubled)) then
    update_bnd = update
    
    rep_bnd%Q(:)%h = rep%Q(:)%h
@@ -420,24 +419,10 @@ update%HU=rep%HU
 update%HV=rep%HV
 update%B=rep%B
 
-! update%Q_DG(:)%h = rep%Q_DG(:)%h
-! update%Q_DG(:)%b = rep%Q_DG(:)%b
-
 normal=(edge%transform_data%normal)/NORM2(edge%transform_data%normal)
-!---DG velocities---!
-!do i=1,(_SWE_DG_DOFS)
-   !length_flux = dot_product(rep%Q_DG(i)%p, normal)
-   ! reflecting
-   ! update%Q_DG(i)%p(1) = rep%Q_DG(i)%p(1)-2.0_GRID_SR*length_flux*normal(1)
-   ! update%Q_DG(i)%p(2) = rep%Q_DG(i)%p(2)-2.0_GRID_SR*length_flux*normal(2)
-   !outflow
-   !update%Q_DG(i)%p(1) = rep%Q_DG(i)%p(1)
-   !update%Q_DG(i)%p(2) = rep%Q_DG(i)%p(2)
-!end do
-
 end subroutine bnd_skeleton_scalar_op_dg
 
-!cup_time
+
 subroutine cell_update_op_dg(traversal, section, element, update1, update2, update3)
 type(t_swe_dg_timestep_traversal), intent(inout)		:: traversal
 type(t_grid_section), intent(inout)			:: section
@@ -714,23 +699,6 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
             logical :: drying,troubled,coarsen,refine
             real (kind=GRID_SR) :: refinement_threshold = 0.50_GRID_SR
 
-            !print*,"updates"
-            !print*,element%cell%geometry%i_plotter_type
-            !print*,update1%H
-            !print*,update1%HU
-            !print*,update1%HV
-            !print*,update1%B
-            !print*
-            !print*,update2%H
-            !print*,update2%HU
-            !print*,update2%HV
-            !print*,update2%B
-            !print*                 
-            !print*,update3%H
-            !print*,update3%HU
-            !print*,update3%HV
-            !print*,update3%B
-            !print*                 
 
 #endif
 
@@ -752,14 +720,8 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                normals(:,1) = - element%edges(3)%ptr%transform_data%normal
                normals(:,3) = element%edges(1)%ptr%transform_data%normal
             end if
-#               endif
+#endif
 
-
-            ! if (element%cell%geometry%i_plotter_type > 0) then ! if orientation = forward, reverse updates
-            !    tmp=update1
-            !    update1=update3
-            !    update3=tmp
-            ! end if
 
             ! init some variables
             dQ_H = 0.0_GRID_SR
@@ -939,7 +901,9 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
 #if defined (_ASAGI)                  
                   data%H = min(0.0_GRID_SR,data%B)
 #else
-                  data%H = data%B + cfg%dry_tolerance
+!                  data%H = data%B + cfg%dry_tolerance
+                  data%H = data%B
+
 #endif                  
                   data%HU = 0.0_GRID_SR
                   data%HV = 0.0_GRID_SR
@@ -957,12 +921,6 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                call apply_mue(data%b ,data%Q_DG%b)
                data%Q_DG%h=data%Q_DG%h-data%Q_DG%b
                
-               if(.not.isWetDryInterface(data%H - data%B).and..not.isWetDryInterface(data%Q_DG%H))then
-                  data%troubled = 5+data%troubled
-               else
-                  data%troubled = WET_DRY_INTERFACE
-               end if
-
                coarsen = all(data%H - data%B < cfg%dry_tolerance)
                refine  = .not.all(data%H - data%B < cfg%dry_tolerance)
 

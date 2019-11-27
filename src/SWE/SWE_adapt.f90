@@ -107,19 +107,9 @@
           type(num_cell_update), intent(inout)						:: update1, update2, update3
           integer :: i
 
-          if(element%cell%data_pers%troubled .ge.6) then
-             element%cell%data_pers%troubled = -(element%cell%data_pers%troubled-5)
-          end if
-
-          if(isWetDryInterface(element%cell%data_pers%Q_DG%H))then
-             element%cell%data_pers%troubled = WET_DRY_INTERFACE
-          end if
-
-          if(isDry(element%cell%data_pers%Q_DG%H)) then
-             element%cell%data_pers%troubled = DRY
-          end if
-          
-          if(element%cell%data_pers%troubled.le.0) then
+          call updateCellStatus(element%cell%data_pers)
+         
+          if(isDG(element%cell%data_pers%troubled)) then
              call dg_predictor(element%cell,section%r_dt)
 #if defined (_DEBUG)             
              element%cell%data_pers%debug_flag = -1

@@ -190,19 +190,18 @@ contains
          !-------------------------------------------!
 
          !------Guard for diverging Picard Loop------!
-         if(iteration > 200) then                           
-            print*,"predictor not converging"
+         if(iteration > cfg%max_picard_iterations) then                           
+            !print*,"predictor not converging"
             !------ if predictor diverges continue with fv cell ------!
             call apply_phi(Q_DG(:)%h+Q_DG(:)%b     ,cell%data_pers%H)
             call apply_phi(Q_DG(:)%p(1)            ,cell%data_pers%HU)
             call apply_phi(Q_DG(:)%p(2)            ,cell%data_pers%HV)
             call apply_phi(Q_DG(:)%b               ,cell%data_pers%B)
-            cell%data_pers%troubled=TROUBLED
+            cell%data_pers%troubled=PREDICTOR_DIVERGED
             !---------------------------------------------------------!
             exit
          end if
          !-------------------------------------------!
-         
       end do
 
       do i=0,_SWE_DG_ORDER
@@ -237,7 +236,7 @@ contains
       
       !!---- set values for riemannsolve ----!!
       do i = 1,_SWE_DG_DOFS
-         QP(  i,1:3) = reshape( matmul(t_a,q_i_st(:,i,:)),(/ 3 /))
+         QP(  i,1:3) = reshape( matmul(t_a,q_i_st(:,i,:)) ,(/ 3 /))
          FP(1,i, : ) = reshape( matmul(t_a,f_ref(1,:,i,:)),(/ 3 /))
          FP(2,i, : ) = reshape( matmul(t_a,f_ref(2,:,i,:)),(/ 3 /))
       end do

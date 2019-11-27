@@ -75,8 +75,8 @@ MODULE SWE_Initialize_Bathymetry
   end subroutine post_traversal_grid_op
 
   subroutine pre_traversal_op(traversal, section)
-    type(t_swe_init_b_traversal), intent(inout)				    :: traversal
-    type(t_grid_section), intent(inout)							:: section
+    type(t_swe_init_b_traversal), intent(inout)  :: traversal
+    type(t_grid_section), intent(inout)		 :: section
     
     section%r_dt_new = huge(1.0_GRID_SR)
   end subroutine pre_traversal_op
@@ -89,9 +89,7 @@ MODULE SWE_Initialize_Bathymetry
     type(t_swe_init_b_traversal), intent(inout)               :: traversal
     type(t_grid_section), intent(inout)                       :: section
     type(t_element_base), intent(inout)                       :: element
-!    integer                                                   :: i
     type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE)	      :: Q
-!    real(kind=grid_sr), dimension(_SWE_PATCH_ORDER_SQUARE,3)  :: Q_temp
 
     call alpha_volume_op(traversal, section, element, Q)
 
@@ -115,12 +113,6 @@ MODULE SWE_Initialize_Bathymetry
     type(t_grid_section), intent(inout)				    :: section
     type(t_element_base), intent(inout)				    :: element
     type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE), intent(out)  :: Q
-
-!    real (kind = GRID_SR), dimension(2)				    :: pos
-!    integer (kind = GRID_SI)					    :: i
-!    real (kind = GRID_SR), parameter  :: r_test_points(2, 3) = &
-!         reshape([1.0, 0.0, 0.0, 0.0, 0.0, 1.0], [2, 3])
-!    real (kind = GRID_SR)             :: centroid_square(2), centroid_triangle(2)
 
     Q%b = get_bathymetry_at_patch(section, element, section%r_time)
   end subroutine alpha_volume_op
@@ -349,7 +341,6 @@ MODULE SWE_Initialize_Dofs
 #		define _GT_PRE_TRAVERSAL_GRID_OP		pre_traversal_grid_op
 #		define _GT_POST_TRAVERSAL_GRID_OP		post_traversal_grid_op
 #		define _GT_ELEMENT_OP					element_op
-  !#		define _GT_CELL_TO_EDGE_OP				cell_to_edge_op
 
 #		include "SFC_generic_traversal_ringbuffer.f90"
 
@@ -408,19 +399,14 @@ MODULE SWE_Initialize_Dofs
   !******************
 
   subroutine element_op(traversal, section, element)
-    type(t_swe_init_dofs_traversal), intent(inout)				    :: traversal
-    type(t_grid_section), intent(inout)							:: section
-    type(t_element_base), intent(inout)					        :: element
-#if defined(_SWE_PATCH)
+    type(t_swe_init_dofs_traversal), intent(inout)    :: traversal
+    type(t_grid_section), intent(inout)               :: section
+    type(t_element_base), intent(inout)               :: element
     type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE)   :: Q
-#if defined(_SWE_DG)
     integer :: i,j,count
     real (kind = GRID_SR)   :: x(2)
     type(t_dof_state) :: QS
     type(t_state), dimension(_SWE_DG_DOFS)   :: Q_DG
-#endif
-
-    !    call element%cell%data_pers%convert_dg_to_fv_bathymetry()
 
     if(element%cell%data_pers%troubled .ge.1)then
        element%cell%data_pers%Q_DG%B = get_bathymetry_at_dg_patch(section, element, section%r_time)
@@ -439,39 +425,40 @@ MODULE SWE_Initialize_Dofs
     element%cell%data_pers%Q_DG%p(1) = Q_DG(:)%p(1)
     element%cell%data_pers%Q_DG%p(2) = Q_DG(:)%p(2)
 
+
+    !------------- set initial state -------------------!
     element%cell%data_pers%troubled = DG    
-    !--First test for drying cells--!
     if(isWetDryInterface(element%cell%data_pers%Q_DG%H))then
-       element%cell%data_pers%B = get_bathymetry_at_patch(section, element, section%r_time)
        element%cell%data_pers%troubled = WET_DRY_INTERFACE
     end if
 
     if(isDry(element%cell%data_pers%Q_DG%H)) then
-       element%cell%data_pers%B = get_bathymetry_at_patch(section, element, section%r_time)
        element%cell%data_pers%troubled = DRY
     end if
 
-    if(element%cell%data_pers%troubled .ge.1)then
+    if(any(abs(element%cell%data_pers%Q_DG%B) < cfg%coast_height)) then
+       element%cell%data_pers%troubled = COAST
+    end if
+
+    !----------------------------------------------------!
+
+    !----------- set initial dofs for FV cells ----------!
+    if(isFV(element%cell%data_pers%troubled))then
+       if(isCoast(element%cell%data_pers%troubled)) then
+          element%cell%data_pers%B = get_bathymetry_at_patch(section, element, section%r_time)
+       else
+          call apply_phi(element%cell%data_pers%Q_DG%B,element%cell%data_pers%B)
+       end if
        call alpha_volume_op(traversal, section, element, Q)
        element%cell%data_pers%H    = Q(:)%h
        element%cell%data_pers%HU   = Q(:)%p(1)
        element%cell%data_pers%HV   = Q(:)%p(2)
+
     end if
-
-#           else
-    type(t_state), dimension(_SWE_CELL_SIZE)            :: Q
-
-    call gv_Q%read(element, Q)
-
-    call alpha_volume_op(traversal, section, element, Q)
-
-    call gv_Q%write(element, Q)
-#           endif
+    
   end subroutine element_op
 
 
-
-  !*******************************
   !Volume and DoF operators
   !*******************************
 

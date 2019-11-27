@@ -20,11 +20,11 @@ MODULE SWE_DG_Limiter
                    NEIGHBOUR_TROUBLED = 2 ,&
                    TROUBLED           = 3 ,&
                    COAST              = 4 ,&
-                   DRY                = 5 
+                   DRY                = 5 ,&
+                   PREDICTOR_DIVERGED = 6
   end enum
 
 contains
-
 
   function isDG(troubled)
     integer :: troubled
@@ -38,21 +38,30 @@ contains
     isFV = troubled.ge.1
   end function isFV
 
-  function updateCellStatus(Q)
-    type(num_cell_data_pers),intent(in) :: data
+  function isCoast(troubled)
+    integer :: troubled
+    logical :: isCoast
+    isCoast = troubled.eq.COAST
+  end function isCoast
 
+  subroutine updateCellStatus(data)
+    type(num_cell_data_pers),intent(inout) :: data
 
-  end function updateCellStatus
-
-  function isWetDryInterface(H)
-    real(kind=GRID_SR),intent(in) :: H(:)
-    logical                       :: isWetDryInterface
-    if (.not.all(H > cfg%coast_height)) then
-       isWetDryInterface = .True.
-    else
-       isWetDryInterface = .False.
+    !---- Coast stays coast ----!
+    if(data%troubled == COAST) then
+       return
     end if
-  end function isWetDryInterface
+    !---------------------------!
+    
+    data%troubled = DG    
+    if(isWetDryInterface(data%Q_DG%H))then
+       data%troubled = WET_DRY_INTERFACE
+    end if
+    if(isDry(data%Q_DG%H)) then
+       data%troubled = DRY
+    end if
+    
+  end subroutine updateCellStatus
 
   function isDry(H)
     real(kind=GRID_SR),intent(in) :: H(:)
@@ -63,6 +72,17 @@ contains
        isDry = .False.
     end if
   end function isDry
+
+  function isWetDryInterface(H)
+    real(kind=GRID_SR),intent(in) :: H(:)
+    logical                       :: isWetDryInterface
+    if (.not.all(H > cfg%dry_dg_guard)) then
+       isWetDryInterface = .True.
+    else
+       isWetDryInterface = .False.
+    end if
+  end function isWetDryInterface
+
 
   function allNeighboursDry(update1,update2,update3) result(neighbours_dry)
     type(num_cell_update) , intent(in) :: update1

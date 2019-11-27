@@ -553,6 +553,7 @@ object_dir = build_dir + 'build_'+ program_name + '/'
 #set module directory (same as build directory)
 if env['compiler'] == 'intel':
   env.Append(F90FLAGS = ' -module ' + object_dir)
+  env.Append(F90FLAGS = ' -extend-source')
 elif env['compiler'] == 'gnu':
   env.Append(F90FLAGS = ' -J' + object_dir)
 

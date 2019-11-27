@@ -202,24 +202,24 @@
                     select case (edge_type)
                     case (1) !cells with id i*i+1 (left leg)
                         do i=0, _SWE_PATCH_ORDER - 1
-                            rep%H(i+1) = H(i*i + 1)
-                            rep%HU(i+1) = HU(i*i + 1)
-                            rep%HV(i+1) = HV(i*i + 1)
-                            rep%B(i+1) = B(i*i + 1)
-                        end do
-                    case (2) ! hypotenuse
-                        do i=1, _SWE_PATCH_ORDER
-                            rep%H(i) = H((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*i - 1)
-                            rep%HU(i) = HU((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*i - 1)
-                            rep%HV(i) = HV((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*i - 1)
-                            rep%B(i) = B((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*i - 1)
-                        end do
-                    case (3) !cells with id i*i (right leg)
-                        do i=1, _SWE_PATCH_ORDER
-                            rep%H(_SWE_PATCH_ORDER + 1 - i) = H(i*i)
-                            rep%HU(_SWE_PATCH_ORDER + 1 - i) = HU(i*i)
-                            rep%HV(_SWE_PATCH_ORDER + 1 - i) = HV(i*i)
-                            rep%B(_SWE_PATCH_ORDER + 1 - i) = B(i*i)
+                    !         rep%H(i+1) = H(i*i + 1)
+                    !         rep%HU(i+1) = HU(i*i + 1)
+                    !         rep%HV(i+1) = HV(i*i + 1)
+                    !         rep%B(i+1) = B(i*i + 1)
+                    !     end do
+                    ! case (2) ! hypotenuse
+                    !     do i=1, _SWE_PATCH_ORDER
+                    !         rep%H(i) = H((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*i - 1)
+                    !         rep%HU(i) = HU((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*i - 1)
+                    !         rep%HV(i) = HV((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*i - 1)
+                    !         rep%B(i) = B((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*i - 1)
+                    !     end do
+                    ! case (3) !cells with id i*i (right leg)
+                    !     do i=1, _SWE_PATCH_ORDER
+                    !         rep%H(_SWE_PATCH_ORDER + 1 - i) = H(i*i)
+                    !         rep%HU(_SWE_PATCH_ORDER + 1 - i) = HU(i*i)
+                    !         rep%HV(_SWE_PATCH_ORDER + 1 - i) = HV(i*i)
+                    !         rep%B(_SWE_PATCH_ORDER + 1 - i) = B(i*i)
                         end do
                     end select
                 end associate
@@ -268,16 +268,16 @@
                 !/____\1   3\|
                 
                 do i=1, _SWE_PATCH_ORDER
-                    update1%H(i) = rep2%H(_SWE_PATCH_ORDER + 1 - i)
-                    update1%HU(i) = rep2%HU(_SWE_PATCH_ORDER + 1 - i)
-                    update1%HV(i) = rep2%HV(_SWE_PATCH_ORDER + 1 - i)
-                    update1%B(i) = rep2%B(_SWE_PATCH_ORDER + 1 - i)
+                    ! update1%H(i) = rep2%H(_SWE_PATCH_ORDER + 1 - i)
+                    ! update1%HU(i) = rep2%HU(_SWE_PATCH_ORDER + 1 - i)
+                    ! update1%HV(i) = rep2%HV(_SWE_PATCH_ORDER + 1 - i)
+                    ! update1%B(i) = rep2%B(_SWE_PATCH_ORDER + 1 - i)
                     
                     
-                    update2%H(i) = rep1%H(_SWE_PATCH_ORDER + 1 - i)
-                    update2%HU(i) = rep1%HU(_SWE_PATCH_ORDER + 1 - i)
-                    update2%HV(i) = rep1%HV(_SWE_PATCH_ORDER + 1 - i)
-                    update2%B(i) = rep1%B(_SWE_PATCH_ORDER + 1 - i)
+                    ! update2%H(i) = rep1%H(_SWE_PATCH_ORDER + 1 - i)
+                    ! update2%HU(i) = rep1%HU(_SWE_PATCH_ORDER + 1 - i)
+                    ! update2%HV(i) = rep1%HV(_SWE_PATCH_ORDER + 1 - i)
+                    ! update2%B(i) = rep1%B(_SWE_PATCH_ORDER + 1 - i)
                 end do
 #           else
 				call compute_geoclaw_flux(edge%transform_data%normal, rep1%Q(1), rep2%Q(1), update1%flux(1), update2%flux(1))
@@ -325,10 +325,10 @@
 				call compute_lf_flux(edge%transform_data%normal, rep%Q(1), bnd_rep, update%flux(1), bnd_flux)
 #           elif defined (_SWE_PATCH)
                 ! boundary conditions on ghost cells
-                update%H = rep%H
-                update%HU = rep%HU
-                update%HV = rep%HV
-                update%B = rep%B
+                ! update%H = rep%H
+                ! update%HU = rep%HU
+                ! update%HV = rep%HV
+                ! update%B = rep%B
 #           else
 				call compute_geoclaw_flux(edge%transform_data%normal, rep%Q(1), bnd_rep, update%flux(1), bnd_flux)
 #			endif

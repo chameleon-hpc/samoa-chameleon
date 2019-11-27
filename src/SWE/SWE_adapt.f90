@@ -19,6 +19,7 @@
 #if defined(_SWE_DG)
     use SWE_dg_predictor
     use SWE_dg_solver
+    use SWE_DG_Limiter    
 #endif
 
     implicit none
@@ -110,10 +111,14 @@
              element%cell%data_pers%troubled = -(element%cell%data_pers%troubled-5)
           end if
 
-          if(.not.all(element%cell%data_pers%Q_DG%H > cfg%coast_height))then
-             element%cell%data_pers%troubled = 1
+          if(isWetDryInterface(element%cell%data_pers%Q_DG%H))then
+             element%cell%data_pers%troubled = WET_DRY_INTERFACE
           end if
 
+          if(isDry(element%cell%data_pers%Q_DG%H)) then
+             element%cell%data_pers%troubled = DRY
+          end if
+          
           if(element%cell%data_pers%troubled.le.0) then
              call dg_predictor(element%cell,section%r_dt)
 #if defined (_DEBUG)             
@@ -132,8 +137,7 @@
           type(t_state),Allocatable          ::rep_temp(:)
           integer                            ::i,j
           local_edge%rep%troubled=neighbor_edge%rep%troubled
-          local_edge%rep%Q_DG=neighbor_edge%rep%Q_DG
-          local_edge%rep%Q_DG_P=neighbor_edge%rep%Q_DG_P          
+          local_edge%rep%Q = neighbor_edge%rep%Q
         end subroutine edge_merge_op_dg
 
 #endif
@@ -223,8 +227,9 @@
           end do
 
           dest_element%cell%data_pers%Q_DG = src_element%cell%data_pers%Q_DG
-          dest_element%cell%data_pers%Q_DG_P = src_element%cell%data_pers%Q_DG_P
           dest_element%cell%data_pers%Q_DG_UPDATE = src_element%cell%data_pers%Q_DG_UPDATE
+          dest_element%cell%data_pers%QP = src_element%cell%data_pers%QP
+          dest_element%cell%data_pers%FP = src_element%cell%data_pers%FP
           
           dest_element%cell%data_pers%troubled=src_element%cell%data_pers%troubled
 
@@ -297,16 +302,14 @@
                 !call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(i_plotter_type))%jacobian)
                 dest_element%cell%data_pers%Q_DG%H=dest_element%cell%data_pers%Q_DG%H-dest_element%cell%data_pers%Q_DG%B
              end do
-
-             call bathymetry_derivatives(dest_element%cell%data_pers,ref_plotter_data(abs(i_plotter_type))%jacobian)
              
-             if(.not.all(dest_element%cell%data_pers%Q_DG%H > cfg%coast_height))then
+             if(isWetDryInterface(dest_element%cell%data_pers%Q_DG%H))then
                 call apply_phi(src_element%cell%data_pers%Q_DG%H,src_element%cell%data_pers%H)
                 call apply_phi(src_element%cell%data_pers%Q_DG%p(1),src_element%cell%data_pers%HU)
                 call apply_phi(src_element%cell%data_pers%Q_DG%p(2),src_element%cell%data_pers%HV)
                 call apply_phi(src_element%cell%data_pers%Q_DG%b,src_element%cell%data_pers%B)
                 src_element%cell%data_pers%H=src_element%cell%data_pers%H+src_element%cell%data_pers%B
-                dest_element%cell%data_pers%troubled=1
+                dest_element%cell%data_pers%troubled=WET_DRY_INTERFACE
              end if
           
              if(dest_element%cell%data_pers%troubled.le.0) then
@@ -473,22 +476,22 @@
                 ! dg = 1 fv = 1
                 dg_coarse= .true.
                 fv_coarse= .true.
-                dest_element%cell%data_pers%troubled = 0
+                dest_element%cell%data_pers%troubled = DG
              else
                 ! dg = 0 fv = 1
                 dg_coarse= .false.
                 fv_coarse= .true.
-                dest_element%cell%data_pers%troubled = 1
+                dest_element%cell%data_pers%troubled = TROUBLED
              end if
           else 
              if(src_element%cell%data_pers%troubled .le. 0) then
                 dg_coarse = merge(.true.,.false.,dest_element%cell%data_pers%troubled.le.0)                
                 fv_coarse = .not.dg_coarse
-                dest_element%cell%data_pers%troubled = 0
+                dest_element%cell%data_pers%troubled = DG
              else
                 dg_coarse= .false.
                 fv_coarse= .true.
-                dest_element%cell%data_pers%troubled = 1
+                dest_element%cell%data_pers%troubled = TROUBLED
              end if
           end if
 
@@ -531,15 +534,14 @@
 !                   call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(i_plotter_type))%jacobian)
                    dest_element%cell%data_pers%Q_DG%B = get_bathymetry_at_dg_patch(section, dest_element%t_element_base, section%r_time)
 
-                   call bathymetry_derivatives(dest_element%cell%data_pers,ref_plotter_data(abs(i_plotter_type))%jacobian)
 
 
                    dest_element%cell%data_pers%Q_DG%H = dest_element%cell%data_pers%Q_DG%H-dest_element%cell%data_pers%Q_DG%B
 
                    ! if cell is dry after refinement do fv coarsening
-                   if(.not.all (dest_element%cell%data_pers%Q_DG%H > cfg%coast_height)) then
+                   if(isWetDryInterface(dest_element%cell%data_pers%Q_DG%H)) then
                       fv_coarse = .true.
-                      dest_element%cell%data_pers%troubled=1
+                      dest_element%cell%data_pers%troubled=WET_DRY_INTERFACE
                    end if
                    
                 end if

@@ -22,6 +22,7 @@ MODULE SWE_DG_solver
 #       endif
   use SWE_DG_Matrices
   use SWE_DG_Predictor
+  use SWE_DG_Limiter  
   use SWE_initialize_bathymetry
   use SWE_PATCH
 #               if defined(_HLLE_FLUX)
@@ -204,7 +205,6 @@ MODULE SWE_DG_solver
        end do
     case (-1,1) !cells with id i*i (right leg)
        do i=1, _SWE_PATCH_ORDER
-          !        j=_SWE_PATCH_ORDER+1-i
           rep%H(i)  = element%cell%data_pers%H(i*i)
           rep%HU(i) = element%cell%data_pers%HU(i*i)
           rep%HV(i) = element%cell%data_pers%HV(i*i)
@@ -212,11 +212,11 @@ MODULE SWE_DG_solver
        end do
     end select
  end if
- 
-    rep%Q_DG = element%cell%data_pers%Q_DG
-    rep%troubled=element%cell%data_pers%troubled
+
+ rep%troubled=element%cell%data_pers%troubled
+ call getObservableLimits(element%cell%data_pers%Q_DG,rep%minObservables,rep%maxObservables)
     
-  end function cell_to_edge_op_dg
+end function cell_to_edge_op_dg
   
 subroutine skeleton_array_op_dg(traversal, grid, edges, rep1, rep2, update1, update2)
 type(t_swe_dg_timestep_traversal), intent(in)	            :: traversal
@@ -335,9 +335,6 @@ integer                                                 :: i,j, edge_type
 real(kind = GRID_SR)	          :: normal(2)
 
 
-update1%Q_DG          =rep2%Q_DG
-update2%Q_DG          =rep1%Q_DG
-
 update1%troubled      =rep2%troubled
 update2%troubled      =rep1%troubled
 
@@ -354,6 +351,12 @@ update1%H  = rep2%H
 update1%HU = rep2%HU
 update1%HV = rep2%HV
 update1%B  = rep2%B
+
+update1%minObservables = rep2%minObservables
+update1%maxObservables = rep2%maxObservables
+update2%minObservables = rep1%minObservables
+update2%maxObservables = rep1%maxObservables
+
 end subroutine skeleton_scalar_op_dg
 
 subroutine bnd_skeleton_array_op_dg(traversal, grid, edges, rep, update)
@@ -382,6 +385,8 @@ integer                                             :: i
 
 normal=(edge%transform_data%normal)/NORM2(edge%transform_data%normal)
 update%troubled=rep%troubled
+update%minObservables = rep%minObservables
+update%maxObservables = rep%maxObservables
 
 if(rep%troubled.le.0) then
    update_bnd = update
@@ -415,21 +420,20 @@ update%HU=rep%HU
 update%HV=rep%HV
 update%B=rep%B
 
-update%Q_DG(:)%h = rep%Q_DG(:)%h
-update%Q_DG(:)%b = rep%Q_DG(:)%b
+! update%Q_DG(:)%h = rep%Q_DG(:)%h
+! update%Q_DG(:)%b = rep%Q_DG(:)%b
 
 normal=(edge%transform_data%normal)/NORM2(edge%transform_data%normal)
 !---DG velocities---!
-do i=1,(_SWE_DG_DOFS)
-   length_flux = dot_product(rep%Q_DG(i)%p, normal)
+!do i=1,(_SWE_DG_DOFS)
+   !length_flux = dot_product(rep%Q_DG(i)%p, normal)
    ! reflecting
-   update%Q_DG(i)%p(1) = rep%Q_DG(i)%p(1)-2.0_GRID_SR*length_flux*normal(1)
-   update%Q_DG(i)%p(2) = rep%Q_DG(i)%p(2)-2.0_GRID_SR*length_flux*normal(2)
+   ! update%Q_DG(i)%p(1) = rep%Q_DG(i)%p(1)-2.0_GRID_SR*length_flux*normal(1)
+   ! update%Q_DG(i)%p(2) = rep%Q_DG(i)%p(2)-2.0_GRID_SR*length_flux*normal(2)
    !outflow
    !update%Q_DG(i)%p(1) = rep%Q_DG(i)%p(1)
    !update%Q_DG(i)%p(2) = rep%Q_DG(i)%p(2)
-end do
-
+!end do
 
 end subroutine bnd_skeleton_scalar_op_dg
 
@@ -450,98 +454,77 @@ real (kind = GRID_SR), dimension (_SWE_DG_DOFS) :: H_old, HU_old, HV_old, B_old
 real (kind = GRID_SR), dimension (_SWE_PATCH_ORDER_SQUARE) :: H, HU, HV
 logical :: drying,troubled,neighbours_troubled,refine,coarsen
 integer :: i_depth,bathy_depth
-real(kind=GRID_SR),Dimension(3) :: edge_sizes     
+real(kind=GRID_SR),Dimension(3) :: edge_sizes
 
-if (element%cell%geometry%i_plotter_type > 0) then ! if orientation = forward, reverse updates
+!> For DMP
+  real(kind=GRID_SR) :: minVals(_DMP_NUM_OBSERVABLES)
+  real(kind=GRID_SR) :: maxVals(_DMP_NUM_OBSERVABLES)
+
+associate(data => element%cell%data_pers)
+
+!----If a cell is dry and all neighbours are we can skip the solver step---!
+if(isDry(data%Q_DG%H)) then
+   data%troubled = DRY
+   if(allNeighboursDry(update1,update2,update3))then
+      return
+   end if
+end if
+!--------------------------------------------------------------------------!
+
+
+!--------------For a positive orientation update are switched--------------!
+if (element%cell%geometry%i_plotter_type > 0) then ! 
    tmp=update1
    update1=update3
    update3=tmp
 end if
+!--------------------------------------------------------------------------!
 
-neighbours_troubled=(update1%troubled.ge.1).or.(update2%troubled.ge.1).or.(update3%troubled.ge.1)
-
-associate(data => element%cell%data_pers)
-  
-if(neighbours_troubled) then
-   data%troubled=merge(data%troubled,2,data%troubled.ge.1)
+!----If any neighbour is troubled use FV scheme ---!
+if(isDG(data%troubled)) then
+   if(neighbourTroubled(update1,update2,update3)) then
+      data%troubled = NEIGHBOUR_TROUBLED
+      call apply_phi(data%Q_DG(:)%h+data%Q_DG(:)%b ,data%h)
+      call apply_phi(data%Q_DG(:)%p(1)             ,data%hu)
+      call apply_phi(data%Q_DG(:)%p(2)             ,data%hv)
+      call apply_phi(data%Q_DG(:)%b                ,data%b)
+   end if
 end if
+!--------------------------------------------------!
 
-if(data%troubled.eq.2) then
+if(isDG(data%troubled)) then
+   data%troubled = DG
+   H_old  = data%Q_DG%H
+   B_old  = data%Q_DG%B
+   HU_old = data%Q_DG%p(1)
+   HV_old = data%Q_DG%p(2)
 
-   call apply_phi(data%Q_DG(:)%h+data%Q_DG(:)%b,data%h)
-   call apply_phi(data%Q_DG(:)%p(1),data%hu)
-   call apply_phi(data%Q_DG(:)%p(2),data%hv)
-
-   data%b=get_bathymetry_at_patch(section, element, section%r_time)
-
-end if
-
-if(data%troubled.le.0) then
-   data%troubled=0
-
-   H_old =data%Q_DG%H
-   B_old =data%Q_DG%B
-   HU_old=data%Q_DG%p(1)
-   HV_old=data%Q_DG%p(2)
-
-   data_max_val(1)=maxval(H_old)
-   data_max_val(2)=maxval(HU_old)
-   data_max_val(3)=maxval(HV_old)
-
-   data_min_val(1)=minval(H_old)
-   data_min_val(2)=minval(HU_old)
-   data_min_val(3)=minval(HV_old)
-
-   max_neighbour(1)=max(maxval(update1%Q_DG(:)%H)   ,maxval(update2%Q_DG(:)%H)   ,maxval(update3%Q_DG(:)%H)   ,data_max_val(1))
-   max_neighbour(2)=max(maxval(update1%Q_DG(:)%p(1)),maxval(update2%Q_DG(:)%p(1)),maxval(update3%Q_DG(:)%p(1)),data_max_val(1))
-   max_neighbour(3)=max(maxval(update1%Q_DG(:)%p(2)),maxval(update2%Q_DG(:)%p(2)),maxval(update3%Q_DG(:)%p(2)),data_max_val(1))
-
-   min_neighbour(1)=min(minval(update1%Q_DG(:)%H)   ,minval(update2%Q_DG(:)%H)   ,minval(update3%Q_DG(:)%H)   ,data_min_val(1))
-   min_neighbour(2)=min(minval(update1%Q_DG(:)%p(1)),minval(update2%Q_DG(:)%p(1)),minval(update3%Q_DG(:)%p(1)),data_min_val(1))
-   min_neighbour(3)=min(minval(update1%Q_DG(:)%p(2)),minval(update2%Q_DG(:)%p(2)),minval(update3%Q_DG(:)%p(2)),data_min_val(1))
-
-   delta(1) = max(0.1_GRID_SR,max_neighbour(1)-min_neighbour(1))
-   delta(2) = max(0.1_GRID_SR,max_neighbour(2)-min_neighbour(2))
-   delta(3) = max(0.1_GRID_SR,max_neighbour(3)-min_neighbour(3))
-
-   delta=delta*1.0e-3_GRID_SR
-   
-
+   call getObservableLimits(element%cell%data_pers%Q_DG,minVals,maxVals)
+ 
    call dg_solver(element,update1%flux,update2%flux,update3%flux,section%r_dt)
 
+   if(isWetDryInterface(data%Q_DG%H)) then
+      data%troubled = WET_DRY_INTERFACE
+   else if(checkDMP(element%cell%data_pers%Q_DG,minVals,maxVals,update1,update2,update3)) then
+      !data%troubled = TROUBLED
+   end if
 
-#if defined(_SWE_DG_LIMITER_UNLIMITED)
-   troubled=.false.
-#elif defined(_SWE_DG_LIMITER_HEIGHT)
-   troubled=.not.all(data%Q_DG%H < max_neighbour(1)+delta(1).and.data%Q_DG%H > min_neighbour(1)-delta(1))
-#elif defined(_SWE_DG_LIMITER_ALL)
-   troubled=&
-        .not.all(data%Q_DG%H   < max_neighbour(1)+delta(1).and.data%Q_DG%H >min_neighbour(1)-delta(1)) .or.&
-        .not.all(data%Q_DG%p(1)< max_neighbour(2)+delta(2).and.data%Q_DG%p(1)>min_neighbour(2)-delta(2)) .or.&
-        .not.all(data%Q_DG%p(2)< max_neighbour(3)+delta(3).and.data%Q_DG%p(2)>min_neighbour(3)-delta(3))
-#endif
-   
-   !   drying=.not.all(data%H - data%B > cfg%dry_tolerance*50.0).or..not.all(data%Q_DG%H > cfg%dry_tolerance*50.0)
-   drying=.not.all(data%Q_DG%H > cfg%coast_height)
-
-   if(troubled.or.drying) then
+   if(isFV(data%troubled)) then
       !--if troubled or drying perform rollback--!
       data%Q_DG%H   = H_old
       data%Q_DG%p(1)= HU_old
       data%Q_DG%p(2)= HV_old
       data%Q_DG%B   = B_old
-      data%troubled=merge(1,3,drying)
 
       call apply_phi(data%Q_DG(:)%h+data%Q_DG(:)%b,data%h)
-      call apply_phi(data%Q_DG(:)%p(1),data%hu)
-      call apply_phi(data%Q_DG(:)%p(2),data%hv)
-   !   call apply_phi(data%Q_DG(:)%b,data%b)
-      data%b=get_bathymetry_at_patch(section, element, section%r_time)
+      call apply_phi(data%Q_DG(:)%p(1)            ,data%hu)
+      call apply_phi(data%Q_DG(:)%p(2)            ,data%hv)
+      call apply_phi(data%Q_DG(:)%b               ,data%b)
 
    else
       do i=1,_SWE_DG_DOFS
          wave_speed =  sqrt(g * (data%Q_DG(i)%h)) + maxval(abs(data%Q_DG(i)%p/data%Q_DG(i)%h))
-
+         
          section%r_dt_new = min(section%r_dt_new,cfg%scaling*  element%transform_data%custom_data%scaling  / (wave_speed* (_SWE_DG_ORDER*4.0_GRID_SR +2.0_GRID_SR)))
          max_wave_speed = max(max_wave_speed,wave_speed)
       end do
@@ -566,7 +549,7 @@ if(data%troubled.le.0) then
       
 
 #if defined(_ASAGI)
-      ! consider bathymetrie
+      ! consider bathymetry
       if(coarsen) then
          section%b_min=-0.1_GRID_SR
          section%b_max=0.1_GRID_SR
@@ -587,14 +570,8 @@ if(data%troubled.le.0) then
          
          bathy_depth = max(min(bathy_depth,cfg%i_max_depth),cfg%i_min_depth)
       end if
-
-      !!      coarsen=coarsen.and. (cfg%i_max_depth-floor(min(element%cell%data_pers%Q_DG%b)/(section%section%b_min/(cfg%i_max_depth-cfg%i_min_depth))) < i_depth)
       coarsen=coarsen.and. (i_depth > bathy_depth)
-      
-!      refine=.false.
-!      coarsen=.false.      
 #endif      
-      
       if (i_depth < cfg%i_max_depth .and. refine) then
          element%cell%geometry%refinement = 1
          traversal%i_refinements_issued = traversal%i_refinements_issued + 1_GRID_DI
@@ -605,8 +582,6 @@ if(data%troubled.le.0) then
    end if
 
 end if   
-
-!if cell is troubled, compute fv solution and mark all edges as troubled
 
 if(data%troubled.ge.1) then
    !-----Call FV patch solver----!
@@ -709,48 +684,6 @@ subroutine dg_solver(element,update1,update2,update3,dt)
   end associate
   
 end subroutine dg_solver
-
-subroutine get_fv_update(update,leg)
-  type(num_cell_update), intent(inout) :: update
-  integer,intent(in) :: leg
-  real(kind=GRID_SR),Dimension(_SWE_PATCH_ORDER_SQUARE) :: H, HU, HV ,B
-  integer :: i,j
-  
-  call apply_phi(update%Q_DG(:)%h,H)
-  call apply_phi(update%Q_DG(:)%p(1),HU)
-  call apply_phi(update%Q_DG(:)%p(2),HV)
-  call apply_phi(update%Q_DG(:)%b,B)
-
-  H=H+B
-
-  !----FV updates need to be in reverse order----!
-  select case (leg)
-  case (3) !cells with id i*i+1 (left leg)
-     do i=0, _SWE_PATCH_ORDER - 1
-        j=_SWE_PATCH_ORDER-1-i
-        update%H(i+1) = H(j*j + 1)
-        update%HU(i+1)= HU(j*j + 1)
-        update%HV(i+1)= HV(j*j + 1)
-        update%B(i+1) = B(j*j + 1)
-     end do
-  case (2) ! hypothenuse
-     do i=1, _SWE_PATCH_ORDER
-        j=_SWE_PATCH_ORDER+1-i
-        update%H(i) = H ((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
-        update%HU(i)= HU((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
-        update%HV(i)= HV((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
-        update%B(i) = B ((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
-     end do
-  case (1) !cells with id i*i (right leg)
-     do i=1, _SWE_PATCH_ORDER
-        update%H(i)  = H(i*i)
-        update%HU(i) = HU(i*i)
-        update%HV(i) = HV(i*i)
-        update%B(i)  = B(i*i)
-     end do
-  end select
-
-end subroutine get_fv_update
 
 subroutine fv_patch_solver(traversal, section, element, update1, update2, update3)
             class(t_traversal), intent(inout)		                            :: traversal
@@ -1018,29 +951,20 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                   maxWaveSpeed=0
                end if
 
-
-               call apply_mue(data%h          ,data%Q_DG%h)
-               call apply_mue(data%hu         ,data%Q_DG%p(1))
-               call apply_mue(data%hv         ,data%Q_DG%p(2))
-
-               data%Q_DG%b=get_bathymetry_at_dg_patch(section, element, section%r_time)
-               call bathymetry_derivatives(element%cell%data_pers,ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian)
-               
+               call apply_mue(data%h ,data%Q_DG%h)
+               call apply_mue(data%hu,data%Q_DG%p(1))
+               call apply_mue(data%hv,data%Q_DG%p(2))
+               call apply_mue(data%b ,data%Q_DG%b)
                data%Q_DG%h=data%Q_DG%h-data%Q_DG%b
-               if(all(data%H - data%B > cfg%coast_height)) then
-                  if(all(data%Q_DG%H > cfg%coast_height)) then
-                     data%troubled = 5+data%troubled
-                     
-                  else
-                     data%troubled = 1
-                  end if
+               
+               if(.not.isWetDryInterface(data%H - data%B).and..not.isWetDryInterface(data%Q_DG%H))then
+                  data%troubled = 5+data%troubled
                else
-                  data%troubled = 1
+                  data%troubled = WET_DRY_INTERFACE
                end if
 
                coarsen = all(data%H - data%B < cfg%dry_tolerance)
                refine  = .not.all(data%H - data%B < cfg%dry_tolerance)
-
 
 #if defined(_ASAGI)
                coarsen=.false.

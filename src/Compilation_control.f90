@@ -199,3 +199,16 @@
 
 !> Standard gravitational field (exact)
 #define _G      9.80665_GRID_SR * _M / (_S ** 2)
+
+
+!> DG specific
+#define _REF_TRIANGLE_SIZE_INV  (2.0q0 * real(_SWE_PATCH_ORDER_SQUARE,kind=kind(1.0q0)))
+
+#if defined(_SWE_DG_LIMITER_UNLIMITED)
+#define _DMP_NUM_OBSERVABLES 0
+#elif defined(_SWE_DG_LIMITER_HEIGHT)
+#define _DMP_NUM_OBSERVABLES 1
+#elif defined(_SWE_DG_LIMITER_ALL)
+#define _DMP_NUM_OBSERVABLES 3
+#endif
+

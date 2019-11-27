@@ -12,11 +12,9 @@ MODULE SWE_Initialize_Bathymetry
   use SFC_edge_traversal
 
   use Samoa_swe
-
-#       if defined(_SWE_PATCH)
   use SWE_PATCH
-#       endif
-
+  use SWE_DG_Limiter
+  
   ! No ASAGI -> Artificial scenario selector 
 #       if !defined(_ASAGI)
   use SWE_Scenario
@@ -31,49 +29,40 @@ MODULE SWE_Initialize_Bathymetry
   type(t_lfs_flux)						:: lfs_flux
 
   PUBLIC get_bathymetry_at_element, get_bathymetry_at_position
-#       if defined (_SWE_PATCH)
   PUBLIC get_bathymetry_at_patch
-#       endif
+  PUBLIC get_bathymetry_at_dg_patch
 
-# if defined(_SWE_DG)
-    PUBLIC get_bathymetry_at_dg_patch
-#endif
+#define _GT_NAME                    t_swe_init_b_traversal
+#define _GT_EDGES                    
+#define _GT_EDGES_TEMP
 
-#		define _GT_NAME							t_swe_init_b_traversal
+#define _GT_PRE_TRAVERSAL_OP        pre_traversal_op
+#define _GT_PRE_TRAVERSAL_GRID_OP   pre_traversal_grid_op
+#define _GT_POST_TRAVERSAL_GRID_OP  post_traversal_grid_op
+#define _GT_ELEMENT_OP              element_op
 
-#		define _GT_EDGES
-#		define _GT_EDGES_TEMP
-
-#		define _GT_PRE_TRAVERSAL_OP				pre_traversal_op
-#		define _GT_PRE_TRAVERSAL_GRID_OP		pre_traversal_grid_op
-#		define _GT_POST_TRAVERSAL_GRID_OP		post_traversal_grid_op
-#		define _GT_ELEMENT_OP					element_op
-
-#		include "SFC_generic_traversal_ringbuffer.f90"
+#include "SFC_generic_traversal_ringbuffer.f90"
 
   subroutine pre_traversal_grid_op(traversal, grid)
-    type(t_swe_init_b_traversal), intent(inout)		        :: traversal
-    type(t_grid), intent(inout)							    :: grid
+    type(t_swe_init_b_traversal), intent(inout)   :: traversal
+    type(t_grid), intent(inout)			  :: grid
 
     grid%r_time = 0.0_GRID_SR
     grid%r_dt = 0.0_GRID_SR
-
     grid%r_dt_new = 0.0_GRID_SR
 
     call scatter(grid%r_time, grid%sections%elements_alloc%r_time)
   end subroutine pre_traversal_grid_op
 
   subroutine post_traversal_grid_op(traversal, grid)
-    type(t_swe_init_b_traversal), intent(inout)		        :: traversal
-    type(t_grid), intent(inout)							    :: grid
+    type(t_swe_init_b_traversal), intent(inout)   :: traversal
+    type(t_grid), intent(inout)	                  :: grid
 
     call reduce(grid%r_dt_new, grid%sections%elements_alloc%r_dt_new, MPI_MIN, .true.)
-
     grid%r_dt = grid%r_dt_new
 
-
-#if defined(_ASAGI)    
-#if defined(_SWE_DG)
+#if defined(_ASAGI)
+    !----- TODO: refactor this -----!
     ! get new minimal an maximal bathymetry
     call reduce(grid%b_min, grid%sections%elements_alloc%b_min_new, MPI_MIN, .true.)
     call reduce(grid%b_max, grid%sections%elements_alloc%b_max_new, MPI_MAX, .true.)
@@ -81,19 +70,15 @@ MODULE SWE_Initialize_Bathymetry
     ! scatter to sections
     call scatter(grid%b_min, grid%sections%elements_alloc%b_min)
     call scatter(grid%b_max, grid%sections%elements_alloc%b_max)
-#endif
-#endif
-
-    
+    !-------------------------------!
+#endif !_ASAGI
   end subroutine post_traversal_grid_op
 
   subroutine pre_traversal_op(traversal, section)
     type(t_swe_init_b_traversal), intent(inout)				    :: traversal
     type(t_grid_section), intent(inout)							:: section
-
-    !this variable will be incremented for each cell with a refinement request
-    section%r_dt_new = huge(1.0_GRID_SR)
     
+    section%r_dt_new = huge(1.0_GRID_SR)
   end subroutine pre_traversal_op
 
   !******************
@@ -101,38 +86,24 @@ MODULE SWE_Initialize_Bathymetry
   !******************
 
   subroutine element_op(traversal, section, element)
-    type(t_swe_init_b_traversal), intent(inout)				    :: traversal
-    type(t_grid_section), intent(inout)						:: section
-    type(t_element_base), intent(inout)						:: element
-    integer::i
-
-#			if defined(_SWE_PATCH)
-    type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE)	:: Q
-    real(kind=grid_sr), dimension(_SWE_PATCH_ORDER_SQUARE,3)	:: Q_temp
-#			else
-    type(t_state), dimension(_SWE_CELL_SIZE)			:: Q
-#			endif
+    type(t_swe_init_b_traversal), intent(inout)               :: traversal
+    type(t_grid_section), intent(inout)                       :: section
+    type(t_element_base), intent(inout)                       :: element
+!    integer                                                   :: i
+    type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE)	      :: Q
+!    real(kind=grid_sr), dimension(_SWE_PATCH_ORDER_SQUARE,3)  :: Q_temp
 
     call alpha_volume_op(traversal, section, element, Q)
 
-# 			if defined(_SWE_PATCH)
+    element%cell%data_pers%B        = Q(:)%b
+    element%cell%data_pers%troubled = WET_DRY_INTERFACE
 
-    element%cell%data_pers%B = Q(:)%b
-    element%cell%data_pers%troubled = 1
-
-#                       if defined(_SWE_DG)   
     call element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian)
+    
 #if defined(_ASAGI)
     section%b_min_new=min( section%b_min_new, minval(element%cell%data_pers%B))
     section%b_max_new=max( section%b_max_new, maxval(element%cell%data_pers%B))    
-#endif    
-    !                        call element%cell%data_pers%convert_dg_to_fv_bathymetry()
-#                       endif                        
-
-#			else
-    call gv_Q%write(element, Q)
-#			endif
-
+#endif !_ASAGI
   end subroutine element_op
 
   !*******************************
@@ -140,28 +111,18 @@ MODULE SWE_Initialize_Bathymetry
   !*******************************
 
   subroutine alpha_volume_op(traversal, section, element, Q)
-    type(t_swe_init_b_traversal), intent(inout)				    :: traversal
-    type(t_grid_section), intent(inout)							:: section
-    type(t_element_base), intent(inout)						:: element
-#           if defined(_SWE_PATCH)
+    type(t_swe_init_b_traversal), intent(inout)		            :: traversal
+    type(t_grid_section), intent(inout)				    :: section
+    type(t_element_base), intent(inout)				    :: element
     type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE), intent(out)  :: Q
-#           else
-    type(t_state), dimension(_SWE_CELL_SIZE), intent(out)   :: Q
-#           endif
 
-    real (kind = GRID_SR), dimension(2)						:: pos
-    integer (kind = GRID_SI)								:: i
-    real (kind = GRID_SR), parameter		                :: r_test_points(2, 3) = reshape([1.0, 0.0, 0.0, 0.0, 0.0, 1.0], [2, 3])
-    real (kind = GRID_SR)                                   :: centroid_square(2), centroid_triangle(2)
-    type(t_state), dimension(3)								:: Q_test
+!    real (kind = GRID_SR), dimension(2)				    :: pos
+!    integer (kind = GRID_SI)					    :: i
+!    real (kind = GRID_SR), parameter  :: r_test_points(2, 3) = &
+!         reshape([1.0, 0.0, 0.0, 0.0, 0.0, 1.0], [2, 3])
+!    real (kind = GRID_SR)             :: centroid_square(2), centroid_triangle(2)
 
-    !evaluate initial function values at dof positions and compute DoFs
-
-#           if defined (_SWE_PATCH)
     Q%b = get_bathymetry_at_patch(section, element, section%r_time)
-#           else
-    Q%b = get_bathymetry_at_element(section, element, section%r_time)
-#           endif
   end subroutine alpha_volume_op
 
   recursive function refine_2D_recursive(section, x1, x2, x3, t, depth) result(bath)
@@ -181,45 +142,42 @@ MODULE SWE_Initialize_Bathymetry
   function get_bathymetry_at_element(section, element, t) result(bathymetry)
     type(t_grid_section), intent(inout)     :: section
     type(t_element_base), intent(inout)     :: element
-    real (kind = GRID_SR), intent(in)		:: t
-    real (kind = GRID_SR)					:: bathymetry
+    real (kind = GRID_SR), intent(in)       :: t
+    real (kind = GRID_SR)                   :: bathymetry
 
     real (kind = GRID_SR)   :: x(2), x1(2), x2(2), x3(2)
     integer                 :: ddepth, data_depth
 
-#           if defined(_ADAPT_INTEGRATE)
+#if defined(_ADAPT_INTEGRATE)
     !limit to 16 refinement levels and maximum depth + 3
-#               if defined(_ASAGI)
+#if defined(_ASAGI)
     data_depth = nint(log(cfg%scaling ** 2 / (asagi_grid_delta(cfg%afh_bathymetry, 0) * asagi_grid_delta(cfg%afh_bathymetry, 1))) / log(2.0_SR))
     ddepth = min(16, min(cfg%i_max_depth + 3, data_depth + 3) - element%cell%geometry%i_depth)
-#               else
+#else
     ddepth = min(16, cfg%i_max_depth - element%cell%geometry%i_depth)
-#               endif
+#endif
 
     x1 = samoa_barycentric_to_world_point(element%transform_data, [1.0_SR, 0.0_SR])
     x2 = samoa_barycentric_to_world_point(element%transform_data, [0.0_SR, 0.0_SR])
     x3 = samoa_barycentric_to_world_point(element%transform_data, [0.0_SR, 1.0_SR])
 
     bathymetry = refine_2D_recursive(section, x1, x2, x3, t, ddepth)
-#           elif defined(_ADAPT_SAMPLE)
+#elif defined(_ADAPT_SAMPLE)
     x = samoa_barycentric_to_world_point(element%transform_data, [1.0_SR / 3.0_SR, 1.0_SR / 3.0_SR])
     bathymetry = get_bathymetry_at_position(section, x, t)
-#           endif
+#endif
   end function get_bathymetry_at_element
 
 
-
-#if defined (_SWE_PATCH)
   function get_bathymetry_at_patch(section, element, t) result(bathymetry)
     type(t_grid_section), intent(inout)     :: section
     type(t_element_base), intent(inout)     :: element
     real (kind = GRID_SR), intent(in)       :: t
     real (kind = GRID_SR), dimension(_SWE_PATCH_ORDER_SQUARE) :: bathymetry
+    integer (kind = GRID_SI)  :: i, j, row, col, cell_id
 
-    integer (kind = GRID_SI)                                        :: i, j, row, col, cell_id
-
-    real (kind = GRID_SR)   :: x(2), x1(2), x2(2), x3(2)
-    integer                 :: ddepth, data_depth
+    real (kind = GRID_SR)     :: x(2), x1(2), x2(2), x3(2)
+    integer                   :: ddepth, data_depth
 
     !iterate through cells in patch
     row = 1
@@ -233,14 +191,14 @@ MODULE SWE_Initialize_Bathymetry
           cell_id = (row-1)*(row-1) + 2 * row - col
        end if
 
-#              if defined(_ADAPT_INTEGRATE)
+#if defined(_ADAPT_INTEGRATE)
        !limit to 16 refinement levels and maximum depth + 3
-#                  if defined(_ASAGI)
+#if defined(_ASAGI)
        data_depth = nint(log(cfg%scaling ** 2 / (asagi_grid_delta(cfg%afh_bathymetry, 0) * asagi_grid_delta(cfg%afh_bathymetry, 1))) / log(2.0_SR))
        ddepth = min(16, min(cfg%i_max_depth + 3, data_depth + 3) - element%cell%geometry%i_depth)
-#                  else
+#else  !_ASAGI
        ddepth = min(16, cfg%i_max_depth - element%cell%geometry%i_depth)
-#                  endif
+#endif !_ASAGI
 
        if (mod(col,2) == 1) then 
           x1 = samoa_barycentric_to_world_point(element%transform_data, SWE_PATCH_geometry%coords(:,1,cell_id) )
@@ -253,7 +211,8 @@ MODULE SWE_Initialize_Bathymetry
        end if
 
        bathymetry(i) = refine_2D_recursive(section, x1, x2, x3, t, ddepth)
-#              elif defined(_ADAPT_SAMPLE)
+!_ADAPT       
+#elif defined(_ADAPT_SAMPLE) 
        ! x = average of the 3 vertices
        x = 0
        do j=1,3
@@ -263,8 +222,7 @@ MODULE SWE_Initialize_Bathymetry
        ! transform x to world coordinates
        x = samoa_barycentric_to_world_point(element%transform_data, x)
        bathymetry(i) = get_bathymetry_at_position(section, x, t)
-#              endif
-
+#endif !_ADAPT
        col = col + 1
        if (col == 2*row) then
           col = 1
@@ -272,9 +230,7 @@ MODULE SWE_Initialize_Bathymetry
        end if
     end do
   end function get_bathymetry_at_patch
-#endif
 
-#if defined (_SWE_DG)
   function get_bathymetry_at_dg_patch(section, element, t) result(bathymetry)
     type(t_grid_section), intent(inout)            :: section
     type(t_element_base), intent(inout)            :: element
@@ -283,6 +239,8 @@ MODULE SWE_Initialize_Bathymetry
     integer (kind = GRID_SI)                       :: i,index
     real (kind = GRID_SR)                          :: x(2)
 
+
+    !------- TODO: refactor me -------!    
 # if (_SWE_DG_ORDER == 1)
     integer (kind = GRID_SI), parameter, dimension(_SWE_DG_DOFS) :: mirrored_coords = [1, 3, 2]
 # elif (_SWE_DG_ORDER == 2)
@@ -293,7 +251,7 @@ MODULE SWE_Initialize_Bathymetry
     integer (kind = GRID_SI), parameter, dimension(_SWE_DG_DOFS) :: mirrored_coords = [ 1, 6, 10, 13, 15, 2, 7, 11, 14, 3, 8, 12, 4, 9, 5]
 #endif
     real (kind = GRID_SR), parameter, dimension(2, _SWE_DG_DOFS) :: coords = nodes
-
+    !------------------------- -------!    
 
     !iterate through cells in patch
     
@@ -308,25 +266,26 @@ MODULE SWE_Initialize_Bathymetry
    end do
 
   end function get_bathymetry_at_dg_patch
-#endif
 
   function get_bathymetry_at_position(section, x, t) result(bathymetry)
-    type(t_grid_section), intent(inout)					:: section
-    real (kind = GRID_SR), dimension(:), intent(in)		:: x						!< position in world coordinates
-    real (kind = GRID_SR), intent(in)		            :: t						!< simulation time
-    real (kind = GRID_SR)								:: bathymetry				!< bathymetry
+    type(t_grid_section), intent(inout)              :: section
+    real (kind = GRID_SR), dimension(:), intent(in)  :: x
+    real (kind = GRID_SR), intent(in)                :: t	
+    real (kind = GRID_SR)                            :: bathymetry
 
-    real (kind = c_double)                              :: xs(3)
-    real(kind=GRID_SR)                                  :: inner_height=1.20_GRID_SR, outer_height=1.10_GRID_SR
-    real (kind = GRID_SR), parameter		            :: dam_radius=0.1
-    real(kind=GRID_SR),Dimension(2)                             :: dam_center=[0.5,0.5]
+    real (kind = c_double)            :: xs(3)
+    real (kind=GRID_SR)               :: inner_height=1.20_GRID_SR, outer_height=1.10_GRID_SR
+    real (kind = GRID_SR), parameter  :: dam_radius=0.1
+    real (kind=GRID_SR),Dimension(2)  :: dam_center=[0.5,0.5]
 
     xs(1:2) = real(cfg%scaling * x + cfg%offset, c_double)
-
-#			if defined(_ASAGI)
-#               if defined(_ASAGI_TIMING)
+#if !defined(_ASAGI)
+    bathymetry = SWE_Scenario_get_bathymetry(real(xs, GRID_SR))
+#else !_ASAGI
+    
+#if defined(_ASAGI_TIMING)
     call section%stats%start_time(asagi_time)
-#               endif
+#endif !_ASAGI_TIMING
 
     if (asagi_grid_min(cfg%afh_bathymetry, 0) <= xs(1) .and. asagi_grid_min(cfg%afh_bathymetry, 1) <= xs(2) &
          .and. xs(1) <= asagi_grid_max(cfg%afh_bathymetry, 0) .and. xs(2) <= asagi_grid_max(cfg%afh_bathymetry, 1)) then
@@ -334,8 +293,7 @@ MODULE SWE_Initialize_Bathymetry
        xs(3) = 0.0
        bathymetry = asagi_grid_get_float(cfg%afh_bathymetry, xs, 0)
     else
-       bathymetry = -5000.0_SR !we assume that the sea floor is constant here
-       !                   bathymetry = 0.0_SR !we assume that the sea floor is constant here                   
+       bathymetry = -5000.0_SR
     end if
 
     if (asagi_grid_min(cfg%afh_displacement, 0) <= xs(1) .and. asagi_grid_min(cfg%afh_displacement, 1) <= xs(2) &
@@ -346,15 +304,11 @@ MODULE SWE_Initialize_Bathymetry
        bathymetry = bathymetry + asagi_grid_get_float(cfg%afh_displacement, xs, 0)
     end if
 
-#               if defined(_ASAGI_TIMING)
+#if defined(_ASAGI_TIMING)
     call section%stats%stop_time(asagi_time)
-#               endif
-#			else
-    bathymetry = SWE_Scenario_get_bathymetry(real(xs, GRID_SR))
-#			endif
+#endif !_ASAGI_TIMING
+#endif !_ASAGI
   end function get_bathymetry_at_position
-
-
 END MODULE SWE_Initialize_Bathymetry
 
 MODULE SWE_Initialize_Dofs
@@ -470,7 +424,6 @@ MODULE SWE_Initialize_Dofs
 
     if(element%cell%data_pers%troubled .ge.1)then
        element%cell%data_pers%Q_DG%B = get_bathymetry_at_dg_patch(section, element, section%r_time)
-       call bathymetry_derivatives(element%cell%data_pers,ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian_normalized)
     end if
 
     Q_DG(:)%b = element%cell%data_pers%Q_DG%B
@@ -481,16 +434,21 @@ MODULE SWE_Initialize_Dofs
     section%b_max_new=max( section%b_max_new, maxval(element%cell%data_pers%B))    
 #endif
 
-    element%cell%data_pers%troubled = 0    
     call alpha_volume_op_dg(traversal, section, element, Q_DG)
     element%cell%data_pers%Q_DG%H    = Q_DG(:)%h-Q_DG(:)%b    
     element%cell%data_pers%Q_DG%p(1) = Q_DG(:)%p(1)
     element%cell%data_pers%Q_DG%p(2) = Q_DG(:)%p(2)
 
+    element%cell%data_pers%troubled = DG    
     !--First test for drying cells--!
-    if(.not.all(element%cell%data_pers%Q_DG%H > cfg%coast_height))then
+    if(isWetDryInterface(element%cell%data_pers%Q_DG%H))then
        element%cell%data_pers%B = get_bathymetry_at_patch(section, element, section%r_time)
-       element%cell%data_pers%troubled = 1
+       element%cell%data_pers%troubled = WET_DRY_INTERFACE
+    end if
+
+    if(isDry(element%cell%data_pers%Q_DG%H)) then
+       element%cell%data_pers%B = get_bathymetry_at_patch(section, element, section%r_time)
+       element%cell%data_pers%troubled = DRY
     end if
 
     if(element%cell%data_pers%troubled .ge.1)then
@@ -499,12 +457,6 @@ MODULE SWE_Initialize_Dofs
        element%cell%data_pers%HU   = Q(:)%p(1)
        element%cell%data_pers%HV   = Q(:)%p(2)
     end if
-
-! #if defined(_ASAGI)    
-!     where(0.0_GRID_SR < element%cell%data_pers%B)
-!        element%cell%data_pers%H=0.0_GRID_SR
-!     end where
-! #endif                   
 
 #           else
     type(t_state), dimension(_SWE_CELL_SIZE)            :: Q
@@ -562,7 +514,6 @@ MODULE SWE_Initialize_Dofs
        !refine if the minimum depth is not met
        element%cell%geometry%refinement = 1
        traversal%i_refinements_issued = traversal%i_refinements_issued + 1
-!    else if (element%cell%geometry%i_depth < cfg%i_max_depth) then
     end if
 
 #if defined (_ASAGI)
@@ -571,29 +522,9 @@ MODULE SWE_Initialize_Dofs
        dQ_norm = maxval(abs(get_bathymetry_at_dg_patch(section, element, real(cfg%t_max_eq + 1.0, GRID_SR) ) - element%cell%data_pers%Q_DG%B))
 
        if (dQ_norm > 2.0_SR) then
-          element%cell%data_pers%troubled = 1
-!          element%cell%geometry%refinement = 1
-!          traversal%i_refinements_issued = traversal%i_refinements_issued + 1
+          element%cell%data_pers%troubled = WET_DRY_INTERFACE
        end if
     end if
-
-
-    
-!     !high refinement on coasts low refinement on depths and mountains
-!     if((minval(element%cell%data_pers%Q_DG%B) * section%b_min) > 0) then
-!        bathy_depth= cfg%i_max_depth-floor(abs(maxval(element%cell%data_pers%Q_DG%B)/abs(section%b_min))*(cfg%i_max_depth-cfg%i_min_depth))
-!     else if((maxval(element%cell%data_pers%Q_DG%B) * section%b_max) > 0) then
-!        bathy_depth= cfg%i_max_depth-floor(abs(minval(element%cell%data_pers%Q_DG%B)/abs(section%b_max))*(cfg%i_max_depth-cfg%i_min_depth))
-!     end if
-    
-!     bathy_depth = max(min(bathy_depth,cfg%i_max_depth),cfg%i_min_depth)
-    
-!     if(element%cell%geometry%i_depth < bathy_depth)then
-!        element%cell%geometry%refinement = 1
-!        traversal%i_refinements_issued = traversal%i_refinements_issued + 1
-!     else if(element%cell%geometry%i_depth > bathy_depth)then
-!        !          element%cell%geometry%refinement = -1
-!     end if
     
 #endif !_ASAGI
     
@@ -701,23 +632,6 @@ MODULE SWE_Initialize_Dofs
 
 
 # if defined(_SWE_DG)
-!        !high refinement on coasts low refinement on depths and mountains
-!        if((minval(element%cell%data_pers%B) * section%b_min) > 0) then
-!           bathy_depth= cfg%i_max_depth-floor(abs(maxval(element%cell%data_pers%B)/abs(section%b_min))*(cfg%i_max_depth-cfg%i_min_depth))
-!        else if((maxval(element%cell%data_pers%B) * section%b_max) > 0) then
-!           bathy_depth= cfg%i_max_depth-floor(abs(minval(element%cell%data_pers%B)/abs(section%b_max))*(cfg%i_max_depth-cfg%i_min_depth))
-!        end if
-       
-!        bathy_depth = max(min(bathy_depth,cfg%i_max_depth),cfg%i_min_depth)
-
-!        if(element%cell%geometry%i_depth < bathy_depth)then
-!           if(abs(minval(element%cell%data_pers%B)) < cfg%coast_height/5.0) then
-!              element%cell%geometry%refinement = 1
-!              traversal%i_refinements_issued = traversal%i_refinements_issued + 1
-!           end if
-!        else if(element%cell%geometry%i_depth > bathy_depth)then
-! !          element%cell%geometry%refinement = -1
-!        end if
 
 
 # if defined (_SWE_PATCH)

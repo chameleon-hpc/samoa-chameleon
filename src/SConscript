@@ -39,6 +39,7 @@ f90_sources = [
 "SWE/SWE_xml_point_output.f90",
 "SWE/ascii_output_view.f90",
 "SWE/ascii_output_model.f90",
+"SWE/SWE_DG_Limiter.f90",        
 "SWE/SWE_point_output.f90",
 "SWE/SWE_euler_timestep.f90",
 "SWE/SWE_adapt.f90",

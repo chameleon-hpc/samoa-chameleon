@@ -43,7 +43,8 @@
 		!Entity data
 		!***********************
 
-		!> state vector of DoFs, either as absoulte values or updates
+  !> state vector of DoFs, either as absoulte values or updates
+  
 		type t_dof_state
 			real (kind = GRID_SR)													:: h						!< water change
 			real (kind = GRID_SR), dimension(2)										:: p						!< momentum change
@@ -57,7 +58,7 @@
             generic :: operator(+) => add
             generic :: operator(-) => inv
             generic :: operator(*) => scale
-		end type
+         end type t_dof_state
 
 		!> cell state vector including bathymetry
   type, extends(t_dof_state) :: t_state
@@ -85,31 +86,19 @@
 			integer (kind = BYTE), dimension(0)											:: dummy					!< no data
                 END type num_edge_data_pers
 
-		!> persistent scenario data on a cell
-		type num_cell_data_pers
-     real(kind=GRID_SR), DIMENSION(2,_SWE_DG_DOFS,3)   :: FP
-     real(kind=GRID_SR), DIMENSION(  _SWE_DG_DOFS,4)   :: QP
-
-
-#		if defined(_SWE_PATCH)
-#                       if defined(_SWE_DG)
-                        type(t_state), DIMENSION(_SWE_DG_DOFS)                      :: Q_DG
-                        real(kind=GRID_SR), DIMENSION(_SWE_DG_DOFS,3)                :: Q_DG_UPDATE
+!> persistent scenario data on a cell
+type num_cell_data_pers
+  real (kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER_SQUARE) :: H, HU, HV, B
+  type(t_state)     , DIMENSION(_SWE_DG_DOFS)     :: Q_DG
+  real(kind=GRID_SR), DIMENSION(_SWE_DG_DOFS,3)   :: Q_DG_UPDATE
+  real(kind=GRID_SR), DIMENSION(2,_SWE_DG_DOFS,3) :: FP
+  real(kind=GRID_SR), DIMENSION(  _SWE_DG_DOFS,4) :: QP
+  type(t_state)     , DIMENSION(_SWE_CELL_SIZE)	  :: Q 
+  integer :: troubled
 #if defined(_DEBUG)
-                        integer :: debug_flag = 0
+  integer :: debug_flag = 0
 #endif                        
-
-                        integer :: troubled = HUGE(1)
-#                       endif
-			type(t_state), DIMENSION(_SWE_CELL_SIZE)			:: Q !TODO: remove this and others Qs --> must handle conflicts with t_gv_Q methods afterwards...
-			real (kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER_SQUARE)	:: H, HU, HV, B !< unknowns + bathymetry in triangular patch
-#		else
-			type(t_state), DIMENSION(_SWE_CELL_SIZE)				:: Q						!< cell status vector
-#		endif
-
-#               if defined(_SWE_DG)
-                        contains
-
+  contains
                           procedure :: convert_fv_to_dg => convert_fv_to_dg
                           procedure :: convert_dg_to_fv => convert_dg_to_fv
                           procedure :: convert_dg_to_fv_bathymetry => convert_dg_to_fv_bathymetry
@@ -117,59 +106,28 @@
 
                           procedure :: get_dofs_dg => get_dofs_dg
                           procedure :: set_dofs_dg => set_dofs_dg
+end type num_cell_data_pers
 
-                          ! procedure :: vec_to_dofs_dg => vec_to_dofs_dg
-                          ! procedure :: vec_to_dofs_dg_p => vec_to_dofs_dg_p
-                          ! procedure :: dofs_to_vec_dg  => dofs_to_vec_dg
-                          ! procedure :: dofs_to_vec_dg_p => dofs_to_vec_dg_p
-
-#               endif
-		END type num_cell_data_pers
-
-		!> Cell representation on an edge, this would typically be everything required from a cell to compute the flux function on an edge
-		type num_cell_rep
-     type(t_state), DIMENSION((_SWE_DG_ORDER+1)*3)				:: Q !TODO: remove this and others Qs --> must handle conflicts with t_gv_Q methods afterwards...
-#if defined(_SWE_PATCH)
-
-     real (kind = GRID_SR), dimension (_SWE_PATCH_ORDER)		:: H, HU, HV, B !< edge stores ghost cells for communication of ghost cells
-
-#if defined(_SWE_DG)
-   type(t_state), DIMENSION(_SWE_DG_DOFS)   :: Q_DG
-#if defined(_DEBUG)   
-   integer   :: debug_flag = 0.0_GRID_SR
-#endif   
-!                        real(kind=GRID_SR),Dimension(3) :: min_val,max_val
-   integer :: troubled
-
-#endif
-
-#else
-!   type(t_state), DIMENSION(1)				:: Q !TODO: remove this and others Qs --> must handle conflicts with t_gv_Q methods afterwards...
-   
-#endif
-
-                     end type num_cell_rep
-
-		!> Cell update, this would typically be a flux function
-		type num_cell_update
-#if defined (_SWE_DG)
-    real (kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER) :: H, HU, HV, B !< values of ghost cells
-    !    type(t_update), DIMENSION((_SWE_DG_ORDER+1)**2)   :: flux
-    type(t_update), DIMENSION(_SWE_DG_ORDER+1)   :: flux
-
-    !dofs at t_n
-    type(t_state), DIMENSION(_SWE_DG_DOFS)   :: Q_DG
+  !> Cell representation on an edge, this would typically be everything required from a cell to compute the flux function on an edge
+  type num_cell_rep
+    type(t_state), DIMENSION((_SWE_DG_ORDER+1)*3)           :: Q
+    real (kind = GRID_SR), dimension (_SWE_PATCH_ORDER)     :: H, HU, HV, B
+    real (kind = GRID_SR), dimension (_DMP_NUM_OBSERVABLES) :: minObservables
+    real (kind = GRID_SR), dimension (_DMP_NUM_OBSERVABLES) :: maxObservables
     integer :: troubled
-#else
+#if defined(_DEBUG)   
+    integer :: debug_flag = 0.0_GRID_SR
+#endif   
+  end type num_cell_rep
 
-#if defined (_SWE_PATCH)
-                    real (kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER)							:: H, HU, HV, B !< values of ghost cells
-#else                        
-                    type(t_update), DIMENSION(_SWE_EDGE_SIZE)									:: flux						!< cell update
-#endif
-!_SWE_DG
-#endif
-                     end type num_cell_update
+  !> Cell update, this would typically be a flux function
+  type num_cell_update
+    type(t_update), DIMENSION(_SWE_DG_ORDER+1)   :: flux
+    real (kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER) :: H, HU, HV, B !< values of ghost cells
+    real (kind = GRID_SR), dimension (_DMP_NUM_OBSERVABLES) :: minObservables
+    real (kind = GRID_SR), dimension (_DMP_NUM_OBSERVABLES) :: maxObservables
+    integer :: troubled
+  end type num_cell_update
 
 		!*************************
 		!Temporary per-Entity data
@@ -348,17 +306,6 @@
                       dofs%Q_DG(i)%b=b_temp(i)
                    end do
                  end subroutine convert_fv_to_dg_bathymetry
-
-                 subroutine bathymetry_derivatives(dofs,normals)
-                   class(num_cell_data_pers) :: dofs
-                   real(kind=GRID_SR) :: b_x_temp(_SWE_DG_DOFS)
-                   real(kind=GRID_SR) :: b_y_temp(_SWE_DG_DOFS)
-                   real(kind=GRID_SR) :: normals(2,2)
-                   
-                   b_x_temp=matmul(basis_der_x,dofs%Q_DG(:)%B)
-                   b_y_temp=matmul(basis_der_y,dofs%Q_DG(:)%B)
-
-                 end subroutine bathymetry_derivatives
 #endif                   
 
 		!adds two state vectors

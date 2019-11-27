@@ -113,8 +113,8 @@
                 if( element%cell%data_pers%troubled .le. 0 .or. element%cell%data_pers%troubled .ge. 6) then
                    db_dg = -element%cell%data_pers%Q_DG%B + get_bathymetry_at_dg_patch(section, element, section%r_time)
 
-                   if( .not.all(element%cell%data_pers%Q_DG%H +db_dg > cfg%coast_height))then
-                      element%cell%data_pers%troubled = 1
+                   if(isWetDryInterface(element%cell%data_pers%Q_DG%H + db_dg))then
+                      element%cell%data_pers%troubled = WET_DRY_INTERFACE
                       ! print*,db_dg
                       ! print*,element%cell%data_pers%Q_DG%H
                       ! print*,element%cell%data_pers%Q_DG%p(1)
@@ -135,7 +135,6 @@
                    else
                       element%cell%data_pers%Q_DG%H = element%cell%data_pers%Q_DG%H + db_dg
                       element%cell%data_pers%Q_DG%B = element%cell%data_pers%Q_DG%B + db_dg
-                      call bathymetry_derivatives(element%cell%data_pers,ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian)
                    end if
 
                 else

@@ -10,7 +10,6 @@
 MODULE SWE_dg_predictor
   use SFC_edge_traversal
   use Samoa_swe
-  use SWE_DG_Limiter
   implicit none
   
   public dg_predictor,flux_1,flux_2
@@ -46,10 +45,10 @@ contains
     real(kind=GRID_SR),Dimension(_SWE_DG_ORDER,1) :: t_k_t_11_inv_x_t_k_t_10 
 
     associate(Q_DG        => cell%data_pers%Q_DG,&
+              Q_DG_P      => cell%data_pers%Q_DG_P,&
               Q_DG_UPDATE => cell%data_pers%Q_DG_UPDATE,&
               QP => cell%data_pers%QP,&
               FP => cell%data_pers%FP)
-
 
 
       ! TODO make this a precompiled matrix
@@ -192,13 +191,7 @@ contains
          !------Guard for diverging Picard Loop------!
          if(iteration > 200) then                           
             print*,"predictor not converging"
-            !------ if predictor diverges continue with fv cell ------!
-            call apply_phi(Q_DG(:)%h+Q_DG(:)%b     ,cell%data_pers%H)
-            call apply_phi(Q_DG(:)%p(1)            ,cell%data_pers%HU)
-            call apply_phi(Q_DG(:)%p(2)            ,cell%data_pers%HV)
-            call apply_phi(Q_DG(:)%b               ,cell%data_pers%B)
-            cell%data_pers%troubled=TROUBLED
-            !---------------------------------------------------------!
+            cell%data_pers%troubled=4
             exit
          end if
          !-------------------------------------------!
@@ -228,20 +221,25 @@ contains
       source_st(:,:,2) = source_ref_st(:,:,2) * jacobian(1,1) + source_ref_st(:,:,3) * jacobian(1,2)
       source_st(:,:,3) = source_ref_st(:,:,2) * jacobian(2,1) + source_ref_st(:,:,3) * jacobian(2,2)
 
+      !!--------set update vector for -----------!!
       volume_flux = volume_flux + source_st
       
       Q_DG_UPDATE(:,1) = reshape(matmul(t_a,volume_flux(:,:,1)),(/_SWE_DG_DOFS/))
       Q_DG_UPDATE(:,2) = reshape(matmul(t_a,volume_flux(:,:,2)),(/_SWE_DG_DOFS/))
       Q_DG_UPDATE(:,3) = reshape(matmul(t_a,volume_flux(:,:,3)),(/_SWE_DG_DOFS/))
-      !!------------------------------!!
+      !!-----------------------------------------!!
+
       
-      !!---- set values for riemannsolve ----!!
+      !!------average flux and dofs for riemann problem------!!
       do i = 1,_SWE_DG_DOFS
          QP(  i,1:3) = reshape( matmul(t_a,q_i_st(:,i,:)),(/ 3 /))
-         FP(1,i, : ) = reshape( matmul(t_a,f_ref(1,:,i,:)),(/ 3 /))
-         FP(2,i, : ) = reshape( matmul(t_a,f_ref(2,:,i,:)),(/ 3 /))
+         FP(1,i, : ) = reshape( matmul(t_a,   f(1,:,i,:)),(/ 3 /))
+         FP(2,i, : ) = reshape( matmul(t_a,   f(2,:,i,:)),(/ 3 /))
       end do
       QP(:,4) = Q_DG(:)%B
+      !!-----------------------------------------------------!!
+
+      call cell%data_pers%set_dofs_pred(q_i)
       
     end associate
   end subroutine dg_predictor

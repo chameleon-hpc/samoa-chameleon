@@ -1,6 +1,7 @@
 #include "Compilation_control.f90"
 
 #if defined(_SWE_DG)
+#define _REF_TRIANGLE_SIZE_INV  (2.0q0 * real(_SWE_PATCH_ORDER_SQUARE,kind=kind(1.0q0)))
 MODULE SWE_dg_matrices
 	implicit none
 	
@@ -32,7 +33,6 @@ MODULE SWE_dg_matrices
 !#include "dg_matrices/mue_lu_SWE_DG_ORDER_TAG.incl"
 !#include "dg_matrices/mue_lu_pivot_SWE_DG_ORDER_TAG.incl"
 
-
 !New and refactored
 #include "dg_matrices/t_k_t_10_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/t_k_t_11_inv_SWE_DG_ORDER_TAG.incl"
@@ -50,6 +50,12 @@ MODULE SWE_dg_matrices
 #include "dg_matrices/s_b_1_l_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/s_b_2_m_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/s_b_3_r_SWE_DG_ORDER_TAG.incl"
+
+!New FV projection
+#include "dg_matrices/phi_l_SWE_DG_ORDER_TAG.incl"
+#include "dg_matrices/phi_m_SWE_DG_ORDER_TAG.incl"
+#include "dg_matrices/phi_r_SWE_DG_ORDER_TAG.incl"
+
 
 
 !old only for debugging
@@ -139,6 +145,9 @@ subroutine lusolve(mat,n,pivot,b)
 
  return
 end subroutine lusolve
+
+
+
 
 END MODULE SWE_dg_matrices
 #endif

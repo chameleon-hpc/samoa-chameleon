@@ -1,0 +1,6 @@
+output/
+results/
+_documentation_tmp/
+documentation_tmp/
+documentation/
+!*.csv

@@ -1,0 +1,3 @@
+export BINARY='asagi'
+export PARAMS='-dmin 18 -dmax 18 -tmax 40 -tout 0.05d0 -drytolerance 0.0001d0 -courant 0.3d0 -manning -1.0d0 -boundaryside 3 -fboundary scripts/FlashAnalysis/verfication/data/okushiri/boundary.csv -xdmffilterindex 1 -xdmffilterparams 4.521 5.448 1.196 2.4 -fbath scripts/FlashAnalysis/verfication/data/okushiri/bathymetry.nc -fdispl scripts/FlashAnalysis/verfication/data/okushiri/displacement.nc -static_displacement'
+export DESCRIPTION='Default test'

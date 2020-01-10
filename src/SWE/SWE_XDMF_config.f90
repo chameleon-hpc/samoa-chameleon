@@ -1,11 +1,11 @@
 #include "Compilation_control.f90"
 #include "XDMF/XDMF_compilation_control.f90"
 
-! This module defines the XDMF configuration for FLASH
-#if defined(_FLASH)
-    module FLASH_XDMF_Config
+! This module defines the XDMF configuration for SWE
+#if defined(_SWE)
+    module SWE_XDMF_Config
 
-        use Samoa_flash
+        use Samoa_swe
         use XDMF_data_types
         use XDMF_config
 
@@ -14,36 +14,36 @@
         implicit none
 
         ! Integer value names
-        character(len = 1), parameter			:: flash_hdf5_attr_depth_dname_nz = "d"
-        character(len = 1), parameter			:: flash_hdf5_attr_rank_dname_nz = "o"
-        character(len = 1), parameter			:: flash_hdf5_attr_plotter_dname_nz = "l"
-        character(len = 1), parameter			:: flash_hdf5_attr_section_dname_nz = "s"
-        character(len = 2), parameter			:: flash_hdf5_attr_depth_dname = flash_hdf5_attr_depth_dname_nz//char(0)
-        character(len = 2), parameter			:: flash_hdf5_attr_rank_dname = flash_hdf5_attr_rank_dname_nz//char(0)
-        character(len = 2), parameter			:: flash_hdf5_attr_plotter_dname = flash_hdf5_attr_plotter_dname_nz//char(0)
-        character(len = 2), parameter			:: flash_hdf5_attr_section_dname = flash_hdf5_attr_section_dname_nz//char(0)
+        character(len = 1), parameter			:: swe_hdf5_attr_depth_dname_nz = "d"
+        character(len = 1), parameter			:: swe_hdf5_attr_rank_dname_nz = "o"
+        character(len = 1), parameter			:: swe_hdf5_attr_plotter_dname_nz = "l"
+        character(len = 1), parameter			:: swe_hdf5_attr_section_dname_nz = "s"
+        character(len = 2), parameter			:: swe_hdf5_attr_depth_dname = swe_hdf5_attr_depth_dname_nz//char(0)
+        character(len = 2), parameter			:: swe_hdf5_attr_rank_dname = swe_hdf5_attr_rank_dname_nz//char(0)
+        character(len = 2), parameter			:: swe_hdf5_attr_plotter_dname = swe_hdf5_attr_plotter_dname_nz//char(0)
+        character(len = 2), parameter			:: swe_hdf5_attr_section_dname = swe_hdf5_attr_section_dname_nz//char(0)
 
         ! Real value names
-        character(len = 1), parameter			:: flash_hdf5_attr_b_dname_nz = "b"
-        character(len = 1), parameter			:: flash_hdf5_attr_h_dname_nz = "h"
-        character(len = 1), parameter			:: flash_hdf5_attr_bh_dname_nz = "k"
-        character(len = 2), parameter			:: flash_hdf5_attr_b_dname = flash_hdf5_attr_b_dname_nz//char(0)
-        character(len = 2), parameter			:: flash_hdf5_attr_h_dname = flash_hdf5_attr_h_dname_nz//char(0)
-        character(len = 2), parameter			:: flash_hdf5_attr_bh_dname = flash_hdf5_attr_bh_dname_nz//char(0)
+        character(len = 1), parameter			:: swe_hdf5_attr_b_dname_nz = "b"
+        character(len = 1), parameter			:: swe_hdf5_attr_h_dname_nz = "h"
+        character(len = 1), parameter			:: swe_hdf5_attr_bh_dname_nz = "k"
+        character(len = 2), parameter			:: swe_hdf5_attr_b_dname = swe_hdf5_attr_b_dname_nz//char(0)
+        character(len = 2), parameter			:: swe_hdf5_attr_h_dname = swe_hdf5_attr_h_dname_nz//char(0)
+        character(len = 2), parameter			:: swe_hdf5_attr_bh_dname = swe_hdf5_attr_bh_dname_nz//char(0)
 
         ! 2D vector real value names
-        character(len = 1), parameter			:: flash_hdf5_attr_f_dname_nz = "f"
-        character(len = 1), parameter			:: flash_hdf5_attr_g_dname_nz = "g"
-        character(len = 2), parameter			:: flash_hdf5_attr_f_dname = flash_hdf5_attr_f_dname_nz//char(0)
-        character(len = 2), parameter			:: flash_hdf5_attr_g_dname = flash_hdf5_attr_g_dname_nz//char(0)
+        character(len = 1), parameter			:: swe_hdf5_attr_f_dname_nz = "f"
+        character(len = 1), parameter			:: swe_hdf5_attr_g_dname_nz = "g"
+        character(len = 2), parameter			:: swe_hdf5_attr_f_dname = swe_hdf5_attr_f_dname_nz//char(0)
+        character(len = 2), parameter			:: swe_hdf5_attr_g_dname = swe_hdf5_attr_g_dname_nz//char(0)
        
         ! Convenient offsets
-        integer, parameter                      :: flash_hdf5_valsi_plotter_offset = 3
-        integer, parameter                      :: flash_hdf5_valsr_b_offset = 1, flash_hdf5_valsr_bh_offset = 3
-        integer, parameter                      :: flash_hdf5_valsuv_f_offset = 1, flash_hdf5_valsuv_g_offset = 2
+        integer, parameter                      :: swe_hdf5_valsi_plotter_offset = 3
+        integer, parameter                      :: swe_hdf5_valsr_b_offset = 1, swe_hdf5_valsr_bh_offset = 3
+        integer, parameter                      :: swe_hdf5_valsuv_f_offset = 1, swe_hdf5_valsuv_g_offset = 2
 
         ! Parameter for the XDMF core API
-        type(t_xdmf_parameter), save            :: flash_xdmf_param = t_xdmf_parameter( &
+        type(t_xdmf_parameter), save            :: swe_xdmf_param = t_xdmf_parameter( &
             hdf5_valsg_width = 2, &     ! 2 geometry data fields: dimensions X and Y
             hdf5_valst_width = 3, &     ! 3 geometry entries per triangle: corners
             hdf5_attr_width = 3, &      ! 3 attribute structure instances per triangle: one per corner 
@@ -57,20 +57,20 @@
 
         contains
 
-        ! This routine loads the XDMF config for FLASH
-        subroutine FLASH_xdmf_config_load()
-            call flash_xdmf_param%allocate()
+        ! This routine loads the XDMF config for SWE
+        subroutine SWE_xdmf_config_load()
+            call swe_xdmf_param%allocate()
           
-            flash_xdmf_param%hdf5_valsi_dnames = &
-                (/ flash_hdf5_attr_depth_dname_nz, flash_hdf5_attr_rank_dname_nz, flash_hdf5_attr_plotter_dname_nz, flash_hdf5_attr_section_dname_nz /)
-            flash_xdmf_param%hdf5_valsr_dnames = &
-                (/ flash_hdf5_attr_b_dname_nz, flash_hdf5_attr_h_dname_nz, flash_hdf5_attr_bh_dname_nz /)
-            flash_xdmf_param%hdf5_valsuv_dnames = &
-                (/ flash_hdf5_attr_f_dname_nz, flash_hdf5_attr_g_dname_nz /)
+            swe_xdmf_param%hdf5_valsi_dnames = &
+                (/ swe_hdf5_attr_depth_dname_nz, swe_hdf5_attr_rank_dname_nz, swe_hdf5_attr_plotter_dname_nz, swe_hdf5_attr_section_dname_nz /)
+            swe_xdmf_param%hdf5_valsr_dnames = &
+                (/ swe_hdf5_attr_b_dname_nz, swe_hdf5_attr_h_dname_nz, swe_hdf5_attr_bh_dname_nz /)
+            swe_xdmf_param%hdf5_valsuv_dnames = &
+                (/ swe_hdf5_attr_f_dname_nz, swe_hdf5_attr_g_dname_nz /)
         end subroutine
 
         ! Subsection filter routines
-        subroutine FLASH_xdmf_filter(element, index, argc, argv, result)
+        subroutine SWE_xdmf_filter(element, index, argc, argv, result)
             type(t_element_base), intent(inout) :: element
             integer, intent(in) 	            :: index, argc
             real, dimension(xdmf_filter_params_width), intent(in) :: argv
@@ -78,11 +78,11 @@
 
             select case (index)
                 case (1)
-                    call FLASH_xdmf_filter_rect(element, argv(1), argv(2), argv(3), argv(4), result)
+                    call SWE_xdmf_filter_rect(element, argv(1), argv(2), argv(3), argv(4), result)
                 case (2)
-                    call FLASH_xdmf_filter_h_treshold(element, argv(1), argv(2), result)
+                    call SWE_xdmf_filter_h_treshold(element, argv(1), argv(2), result)
                 case (3)
-                    call FLASH_xdmf_filter_probes(element, argv(1), (argc - 1) / 2, &
+                    call SWE_xdmf_filter_probes(element, argv(1), (argc - 1) / 2, &
                         reshape(argv(2:), (/ 2, xdmf_filter_max_probes /), (/ 0.0 /)), result)
                 case default
                     result = .true.
@@ -90,7 +90,7 @@
         end subroutine
 
         ! Rectangular selection filter
-        subroutine FLASH_xdmf_filter_rect(element, xmin, xmax, ymin, ymax, result)
+        subroutine SWE_xdmf_filter_rect(element, xmin, xmax, ymin, ymax, result)
             type(t_element_base), intent(inout) :: element
             real, intent(in)                    :: xmin, xmax, ymin, ymax
             logical, intent(out)                :: result
@@ -112,7 +112,7 @@
         end subroutine
 
         ! Water height treshold selection filter
-        subroutine FLASH_xdmf_filter_h_treshold(element, min, max, result)
+        subroutine SWE_xdmf_filter_h_treshold(element, min, max, result)
             type(t_element_base), intent(inout) :: element
             real, intent(in)                    :: min, max
             logical, intent(out)                :: result
@@ -133,7 +133,7 @@
         end subroutine
 
         ! Include probes output filter
-        subroutine FLASH_xdmf_filter_probes(element, radius, num_probes, probes, result)
+        subroutine SWE_xdmf_filter_probes(element, radius, num_probes, probes, result)
             type(t_element_base), intent(inout) :: element
             real, intent(in)                    :: radius
             integer, intent(in)                 :: num_probes

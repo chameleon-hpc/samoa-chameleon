@@ -1,15 +1,15 @@
 #include "Compilation_control.f90"
 #include "XDMF/XDMF_compilation_control.f90"
 
-#if defined(_FLASH)
-    module FLASH_XDMF_output_filter
+#if defined(_SWE)
+    module SWE_XDMF_output_filter
         
         use SFC_edge_traversal
-        use Samoa_flash
-        use FLASH_heun1_timestep
+        use Samoa_swe
+        use SWE_heun1_timestep
         use Tools_openmp
 
-        use FLASH_XDMF_config
+        use SWE_XDMF_config
         use XDMF_output_base
 
         implicit none
@@ -25,7 +25,7 @@
 #           define _GT_NODE_MPI_TYPE
 #       endif  
 
-#		define _GT_NAME								    t_flash_xdmf_output_filter_traversal
+#		define _GT_NAME								    t_swe_xdmf_output_filter_traversal
 
 #		define _GT_PRE_TRAVERSAL_OP					    pre_traversal_op
 #		define _GT_POST_TRAVERSAL_OP				    post_traversal_op
@@ -39,7 +39,7 @@
 #		include "SFC_generic_traversal_ringbuffer.f90"
 
         subroutine pre_traversal_grid_op(traversal, grid)
-            type(t_flash_xdmf_output_filter_traversal), intent(inout)		:: traversal
+            type(t_swe_xdmf_output_filter_traversal), intent(inout)		:: traversal
             type(t_grid), intent(inout)							            :: grid
 
             integer                                                         :: i
@@ -50,27 +50,27 @@
         end subroutine
 
         subroutine post_traversal_grid_op(traversal, grid)
-            type(t_flash_xdmf_output_filter_traversal), intent(inout)		:: traversal
+            type(t_swe_xdmf_output_filter_traversal), intent(inout)		:: traversal
             type(t_grid), intent(inout)							            :: grid
 
             traversal%base%output_iteration = traversal%base%output_iteration + 1
         end subroutine
 
         subroutine pre_traversal_op(traversal, section)
-            type(t_flash_xdmf_output_filter_traversal), intent(inout)		:: traversal
+            type(t_swe_xdmf_output_filter_traversal), intent(inout)		:: traversal
             type(t_grid_section), intent(inout)							    :: section
 
             section%xdmf_filter_count = 0
         end subroutine
 
         subroutine post_traversal_op(traversal, section)
-            type(t_flash_xdmf_output_filter_traversal), intent(inout)		:: traversal
+            type(t_swe_xdmf_output_filter_traversal), intent(inout)		:: traversal
             type(t_grid_section), intent(inout)							    :: section
 
         end subroutine
 
         subroutine element_op(traversal, section, element)
-            type(t_flash_xdmf_output_filter_traversal), intent(inout)		:: traversal
+            type(t_swe_xdmf_output_filter_traversal), intent(inout)		:: traversal
             type(t_grid_section), intent(inout)							    :: section
             type(t_element_base), intent(inout)					            :: element
 
@@ -85,7 +85,7 @@
 
             ! Evaluate filter if this step is not a checkpoint
             if ((.not. write_cp) .and. (cfg%xdmf%i_xdmffilter_index .ne. 0)) then
-                call flash_xdmf_filter(element, cfg%xdmf%i_xdmffilter_index, cfg%xdmf%i_xmdffilter_params_count, &
+                call swe_xdmf_filter(element, cfg%xdmf%i_xdmffilter_index, cfg%xdmf%i_xmdffilter_params_count, &
                     cfg%xdmf%r_xdmffilter_params_vector, filter_result)
             end if
 

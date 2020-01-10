@@ -1,15 +1,15 @@
 #include "Compilation_control.f90"
 #include "XDMF/XDMF_compilation_control.f90"
 
-#if defined(_FLASH)
-    module FLASH_XDMF_output
+#if defined(_SWE)
+    module SWE_XDMF_output
         
         use SFC_edge_traversal
-        use Samoa_flash
-        use FLASH_heun1_timestep
+        use Samoa_swe
+        use SWE_heun1_timestep
         use Tools_openmp
 
-        use FLASH_XDMF_config
+        use SWE_XDMF_config
         use XDMF_output_base
         use XDMF_xmf  
 
@@ -27,7 +27,7 @@
 #           define _GT_NODE_MPI_TYPE
 #       endif 
         
-#		define _GT_NAME								    t_flash_xdmf_output_traversal
+#		define _GT_NAME								    t_swe_xdmf_output_traversal
 
 #		define _GT_PRE_TRAVERSAL_OP					    pre_traversal_op
 #		define _GT_POST_TRAVERSAL_OP				    post_traversal_op
@@ -43,7 +43,7 @@
         ! This routine creates an array of wrappedsection pointers, 
         ! because fortran does not like arrays of pointers.
         subroutine ptr_wrap_sections(traversal, sections_ptr)
-            type(t_flash_xdmf_output_traversal), intent(inout)				:: traversal
+            type(t_swe_xdmf_output_traversal), intent(inout)				:: traversal
             type(t_xdmf_base_output_traversal_ptr), &
                 dimension(:), allocatable, intent(out)                      :: sections_ptr
 
@@ -57,7 +57,7 @@
 
 
         subroutine pre_traversal_grid_op(traversal, grid)
-            type(t_flash_xdmf_output_traversal), intent(inout)				:: traversal
+            type(t_swe_xdmf_output_traversal), intent(inout)				:: traversal
             type(t_grid), intent(inout)							            :: grid
 
             type(t_xdmf_base_output_traversal_ptr), &
@@ -66,12 +66,12 @@
 
             ! Pass this call the the core API
             call ptr_wrap_sections(traversal, sections_ptr)
-            call xdmf_base_pre_traversal_grid_op(traversal%base, sections_ptr, grid, flash_xdmf_param)
+            call xdmf_base_pre_traversal_grid_op(traversal%base, sections_ptr, grid, swe_xdmf_param)
             deallocate(sections_ptr, stat = error); assert_eq(error, 0)
         end subroutine
 
         subroutine post_traversal_grid_op(traversal, grid)
-            type(t_flash_xdmf_output_traversal), intent(inout)				:: traversal
+            type(t_swe_xdmf_output_traversal), intent(inout)				:: traversal
             type(t_grid), intent(inout)							            :: grid
 
             type(t_xdmf_base_output_traversal_ptr), &
@@ -80,7 +80,7 @@
 
             ! Pass this call the the core API
             call ptr_wrap_sections(traversal, sections_ptr)
-            call xdmf_base_post_traversal_grid_op(traversal%base, sections_ptr, grid, flash_xdmf_param)
+            call xdmf_base_post_traversal_grid_op(traversal%base, sections_ptr, grid, swe_xdmf_param)
             deallocate(sections_ptr, stat = error); assert_eq(error, 0)
 
             if(rank_MPI .eq. 0) then
@@ -92,20 +92,20 @@
         end subroutine
 
         subroutine pre_traversal_op(traversal, section)
-            type(t_flash_xdmf_output_traversal), intent(inout)				:: traversal
+            type(t_swe_xdmf_output_traversal), intent(inout)				:: traversal
             type(t_grid_section), intent(inout)							    :: section
 
             traversal%base%sect_store_index = 1
         end subroutine
 
         subroutine post_traversal_op(traversal, section)
-            type(t_flash_xdmf_output_traversal), intent(inout)				:: traversal
+            type(t_swe_xdmf_output_traversal), intent(inout)				:: traversal
             type(t_grid_section), intent(inout)							    :: section
 
         end subroutine
 
         subroutine element_op(traversal, section, element)
-            type(t_flash_xdmf_output_traversal), intent(inout)				:: traversal
+            type(t_swe_xdmf_output_traversal), intent(inout)				:: traversal
             type(t_grid_section), intent(inout)							    :: section
             type(t_element_base), intent(inout)					            :: element
 
@@ -125,7 +125,7 @@
 
             ! Evaluate filter if this step is not a checkpoint
             if ((.not. write_cp) .and. (cfg%xdmf%i_xdmffilter_index .ne. 0)) then
-                call flash_xdmf_filter(element, cfg%xdmf%i_xdmffilter_index, cfg%xdmf%i_xmdffilter_params_count, &
+                call swe_xdmf_filter(element, cfg%xdmf%i_xdmffilter_index, cfg%xdmf%i_xmdffilter_params_count, &
                     cfg%xdmf%r_xdmffilter_params_vector, filter_result)
             end if
 
@@ -167,7 +167,7 @@
                         int(element%cell%geometry%i_plotter_type, INT32), &
                         int(section%index, INT32) /)
 
-                    do i = 1, flash_xdmf_param%hdf5_attr_width
+                    do i = 1, swe_xdmf_param%hdf5_attr_width
                         ! Compute data storage order in cell
                         if (element%cell%geometry%i_plotter_type .le. 0) then
                             point_id = i
@@ -197,14 +197,14 @@
                         new_bigh = real(element%cell%data_pers%Q(point_id)%h, XDMF_ISO_P)
                         traversal%base%sect_store%ptr%valsr(i, cell_offs, :) = (/ &
                             real(element%cell%data_pers%Q(point_id)%b, XDMF_ISO_P), new_h, new_bigh /)
-                        traversal%base%sect_store%ptr%valsuv(:, i, cell_offs, flash_hdf5_valsuv_f_offset) = &
+                        traversal%base%sect_store%ptr%valsuv(:, i, cell_offs, swe_hdf5_valsuv_f_offset) = &
                             real(element%cell%data_pers%Q(point_id)%p(:), XDMF_ISO_P)
-                        traversal%base%sect_store%ptr%valsuv(:, i, cell_offs, flash_hdf5_valsuv_g_offset) = &
+                        traversal%base%sect_store%ptr%valsuv(:, i, cell_offs, swe_hdf5_valsuv_g_offset) = &
                             real(element%cell%data_pers%Q(point_id)%gradB(:), XDMF_ISO_P)
                     end do
-                    forall(i = 1:flash_xdmf_param%hdf5_valst_width) &
+                    forall(i = 1:swe_xdmf_param%hdf5_valst_width) &
                         traversal%base%sect_store%ptr%valsg(:, &
-                        ((cell_offs - 1) * flash_xdmf_param%hdf5_valst_width) + i) = position(:, i)
+                        ((cell_offs - 1) * swe_xdmf_param%hdf5_valst_width) + i) = position(:, i)
                 end if
                 traversal%base%sect_store_index = traversal%base%sect_store_index + 1
             end if
@@ -274,7 +274,7 @@
     
             ! Topology
             xml_dims_string(:) = " "
-            write (xml_dims_string, "(I0, A, I0)") num_cells, " ", flash_xdmf_param%hdf5_valst_width
+            write (xml_dims_string, "(I0, A, I0)") num_cells, " ", swe_xdmf_param%hdf5_valst_width
             xml_hdf5_path_string(:) = " "
             write (xml_hdf5_path_string, "(A, A, I0, A, I0, A, A)") trim(base%s_file_stamp_base), "_", &
                 output_meta_iteration, "_xdmf.h5:/", base%output_iteration, "/", hdf5_valst_dname_nz
@@ -283,7 +283,7 @@
     
             ! Geometry
             xml_dims_string(:) = " "
-            write (xml_dims_string, "(I0, A, I0)") (num_cells * flash_xdmf_param%hdf5_valst_width), " ", flash_xdmf_param%hdf5_valsg_width
+            write (xml_dims_string, "(I0, A, I0)") (num_cells * swe_xdmf_param%hdf5_valst_width), " ", swe_xdmf_param%hdf5_valsg_width
             xml_hdf5_path_string(:) = " "
             write (xml_hdf5_path_string, "(A, A, I0, A, I0, A, A)") trim(base%s_file_stamp_base), "_", &
                 output_meta_iteration, "_xdmf.h5:/", base%output_iteration, "/", hdf5_valsg_dname_nz
@@ -292,23 +292,23 @@
     
             ! Cell attributes
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                num_cells, 0_HSIZE_T, 0_HSIZE_T, flash_hdf5_attr_depth_dname_nz, "Depth", .true., .true., xml_file_id)
+                num_cells, 0_HSIZE_T, 0_HSIZE_T, swe_hdf5_attr_depth_dname_nz, "Depth", .true., .true., xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                num_cells, 0_HSIZE_T, 0_HSIZE_T, flash_hdf5_attr_rank_dname_nz, "Rank", .true., .true., xml_file_id)
+                num_cells, 0_HSIZE_T, 0_HSIZE_T, swe_hdf5_attr_rank_dname_nz, "Rank", .true., .true., xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                num_cells, 0_HSIZE_T, 0_HSIZE_T, flash_hdf5_attr_plotter_dname_nz, "Plotter", .true., .true., xml_file_id)
+                num_cells, 0_HSIZE_T, 0_HSIZE_T, swe_hdf5_attr_plotter_dname_nz, "Plotter", .true., .true., xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                num_cells, 0_HSIZE_T, 0_HSIZE_T, flash_hdf5_attr_section_dname_nz, "Section", .true., .true., xml_file_id)
+                num_cells, 0_HSIZE_T, 0_HSIZE_T, swe_hdf5_attr_section_dname_nz, "Section", .true., .true., xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                num_cells, flash_xdmf_param%hdf5_attr_width, 0_HSIZE_T, flash_hdf5_attr_b_dname_nz, "Bathymetry", .false., .false., xml_file_id)
+                num_cells, swe_xdmf_param%hdf5_attr_width, 0_HSIZE_T, swe_hdf5_attr_b_dname_nz, "Bathymetry", .false., .false., xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                num_cells, flash_xdmf_param%hdf5_attr_width, 0_HSIZE_T, flash_hdf5_attr_bh_dname_nz, "WaterHeight", .false., .false., xml_file_id)
+                num_cells, swe_xdmf_param%hdf5_attr_width, 0_HSIZE_T, swe_hdf5_attr_bh_dname_nz, "WaterHeight", .false., .false., xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                num_cells, flash_xdmf_param%hdf5_attr_width, 0_HSIZE_T, flash_hdf5_attr_h_dname_nz, "WaterLevel", .false., .false., xml_file_id)
+                num_cells, swe_xdmf_param%hdf5_attr_width, 0_HSIZE_T, swe_hdf5_attr_h_dname_nz, "WaterLevel", .false., .false., xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                num_cells, flash_xdmf_param%hdf5_attr_width, 2_HSIZE_T, flash_hdf5_attr_f_dname_nz, "Momentum", .false., .false., xml_file_id)
+                num_cells, swe_xdmf_param%hdf5_attr_width, 2_HSIZE_T, swe_hdf5_attr_f_dname_nz, "Momentum", .false., .false., xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                num_cells, flash_xdmf_param%hdf5_attr_width, 2_HSIZE_T, flash_hdf5_attr_g_dname_nz, "BathymetryGradient", .false., .false., xml_file_id)
+                num_cells, swe_xdmf_param%hdf5_attr_width, 2_HSIZE_T, swe_hdf5_attr_g_dname_nz, "BathymetryGradient", .false., .false., xml_file_id)
     
             write(xml_file_id, "(A)", advance="yes") '</Grid>'
     

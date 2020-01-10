@@ -2,16 +2,16 @@
 #include "XDMF/XDMF_compilation_control.f90"
 
 ! This module defines the XDMF input traversal
-#if defined(_FLASH)
-    module FLASH_XDMF_Initialize_Dofs
+#if defined(_SWE)
+    module SWE_XDMF_Initialize_Dofs
         use Tools_noise
 
         use iso_c_binding
         use SFC_edge_traversal
-        use FLASH_heun1_timestep
-        use Samoa_flash
+        use SWE_euler_timestep
+        use Samoa_swe
 
-        use FLASH_XDMF_config
+        use SWE_XDMF_config
         use XDMF_initialize_dofs_base
 
         implicit none
@@ -28,7 +28,7 @@
 #           define _GT_NODE_MPI_TYPE
 #       endif 
 
-#		define _GT_NAME							t_flash_xdmf_init_dofs_traversal
+#		define _GT_NAME							t_swe_xdmf_init_dofs_traversal
 
 #		define _GT_PRE_TRAVERSAL_OP				pre_traversal_op
 #		define _GT_PRE_TRAVERSAL_GRID_OP		pre_traversal_grid_op
@@ -42,7 +42,7 @@
         ! This routine creates an array of wrappedsection pointers, 
         ! because fortran does not like arrays of pointers.
         subroutine ptr_wrap_sections(traversal, sections_ptr)
-            type(t_flash_xdmf_init_dofs_traversal), intent(inout)			:: traversal
+            type(t_swe_xdmf_init_dofs_traversal), intent(inout)			:: traversal
             type(t_xdmf_base_initialize_dofs_traversal_ptr), &
                 dimension(:), allocatable, intent(out)                      :: sections_ptr
 
@@ -55,7 +55,7 @@
         end subroutine
 
         subroutine pre_traversal_grid_op(traversal, grid)
-            type(t_flash_xdmf_init_dofs_traversal), intent(inout)		    :: traversal
+            type(t_swe_xdmf_init_dofs_traversal), intent(inout)		    :: traversal
             type(t_grid), intent(inout)							    		:: grid
 
             type(t_xdmf_base_initialize_dofs_traversal_ptr), &
@@ -64,12 +64,12 @@
             
             ! Pass this call the the core API
             call ptr_wrap_sections(traversal, sections_ptr)
-            call xdmf_base_pre_traversal_grid_op(traversal%base, sections_ptr, grid, flash_xdmf_param)
+            call xdmf_base_pre_traversal_grid_op(traversal%base, sections_ptr, grid, swe_xdmf_param)
             deallocate(sections_ptr, stat = error); assert_eq(error, 0)
         end subroutine
 
         subroutine post_traversal_grid_op(traversal, grid)
-            type(t_flash_xdmf_init_dofs_traversal), intent(inout)		    :: traversal
+            type(t_swe_xdmf_init_dofs_traversal), intent(inout)		    :: traversal
             type(t_grid), intent(inout)							    		:: grid
 
             type(t_xdmf_base_initialize_dofs_traversal_ptr), &
@@ -78,19 +78,19 @@
             
             ! Pass this call the the core API
             call ptr_wrap_sections(traversal, sections_ptr)
-            call xdmf_base_post_traversal_grid_op(traversal%base, sections_ptr, grid, flash_xdmf_param)
+            call xdmf_base_post_traversal_grid_op(traversal%base, sections_ptr, grid, swe_xdmf_param)
             deallocate(sections_ptr, stat = error); assert_eq(error, 0)
         end subroutine
 
         subroutine pre_traversal_op(traversal, section)
-            type(t_flash_xdmf_init_dofs_traversal), intent(inout)			:: traversal
+            type(t_swe_xdmf_init_dofs_traversal), intent(inout)			:: traversal
             type(t_grid_section), intent(inout)								:: section
 
             traversal%base%i_refinements_issued = 0
         end subroutine
 
         subroutine element_op(traversal, section, element)
-            type(t_flash_xdmf_init_dofs_traversal), intent(inout)			:: traversal
+            type(t_swe_xdmf_init_dofs_traversal), intent(inout)			:: traversal
             type(t_grid_section), intent(inout)								:: section
             type(t_element_base), intent(inout)					        	:: element
 
@@ -100,11 +100,11 @@
             integer (HSIZE_T), dimension(hdf5_rank)                    		:: hdf5_tree_offset, hdf5_tree_dims = (/ 2_HSIZE_T, 1_HSIZE_T /)
             integer (INT32), dimension(hdf5_tree_width)                     :: hdf5_tree_buffer
 
-            type(t_state), dimension(_FLASH_CELL_SIZE)            		    :: Q
+            type(t_state), dimension(_SWE_CELL_SIZE)            		    :: Q
 
-            real (XDMF_ISO_P), dimension(flash_xdmf_param%hdf5_attr_width, 1)   :: hdf5_bh_buffer, hdf5_b_buffer
+            real (XDMF_ISO_P), dimension(swe_xdmf_param%hdf5_attr_width, 1)   :: hdf5_bh_buffer, hdf5_b_buffer
             integer(INT32), dimension(1) 									:: hdf5_l_buffer
-            real (XDMF_ISO_P), dimension(hdf5_vector_width, flash_xdmf_param%hdf5_attr_width, 1) :: hdf5_f_buffer, hdf5_g_buffer
+            real (XDMF_ISO_P), dimension(hdf5_vector_width, swe_xdmf_param%hdf5_attr_width, 1) :: hdf5_f_buffer, hdf5_g_buffer
 
             ! Assume no refinement per default
             element%cell%geometry%refinement = 0
@@ -158,35 +158,35 @@
                 
                 ! Load actual cell values
                 !$omp critical
-                call hdf5_read_chunk_real(traversal%base%root_desc%hdf5_ids%batch_valsr(flash_hdf5_valsr_b_offset)%dset_id, &
-                    traversal%base%root_desc%hdf5_ids%batch_valsr(flash_hdf5_valsr_b_offset)%dspace_id, &
-                    (/ 0_HSIZE_T, int(hdf5_tree_buffer(2), HSIZE_T) /), (/ flash_xdmf_param%hdf5_attr_width, 1_HSIZE_T /), &
+                call hdf5_read_chunk_real(traversal%base%root_desc%hdf5_ids%batch_valsr(swe_hdf5_valsr_b_offset)%dset_id, &
+                    traversal%base%root_desc%hdf5_ids%batch_valsr(swe_hdf5_valsr_b_offset)%dspace_id, &
+                    (/ 0_HSIZE_T, int(hdf5_tree_buffer(2), HSIZE_T) /), (/ swe_xdmf_param%hdf5_attr_width, 1_HSIZE_T /), &
                     hdf5_rank, hdf5_subset_stride, hdf5_subset_block, &
                     hdf5_b_buffer, traversal%base%root_desc%hdf5_meta_ids%access_dset_id)
-                call hdf5_read_chunk_real(traversal%base%root_desc%hdf5_ids%batch_valsr(flash_hdf5_valsr_bh_offset)%dset_id, &
-                    traversal%base%root_desc%hdf5_ids%batch_valsr(flash_hdf5_valsr_bh_offset)%dspace_id, &
-                    (/ 0_HSIZE_T, int(hdf5_tree_buffer(2), HSIZE_T) /), (/ flash_xdmf_param%hdf5_attr_width, 1_HSIZE_T /), &
+                call hdf5_read_chunk_real(traversal%base%root_desc%hdf5_ids%batch_valsr(swe_hdf5_valsr_bh_offset)%dset_id, &
+                    traversal%base%root_desc%hdf5_ids%batch_valsr(swe_hdf5_valsr_bh_offset)%dspace_id, &
+                    (/ 0_HSIZE_T, int(hdf5_tree_buffer(2), HSIZE_T) /), (/ swe_xdmf_param%hdf5_attr_width, 1_HSIZE_T /), &
                     hdf5_rank, hdf5_subset_stride, hdf5_subset_block, &
                     hdf5_bh_buffer, traversal%base%root_desc%hdf5_meta_ids%access_dset_id)
-                call hdf5_read_chunk_real(traversal%base%root_desc%hdf5_ids%batch_valsuv(flash_hdf5_valsuv_f_offset)%dset_id, &
-                    traversal%base%root_desc%hdf5_ids%batch_valsuv(flash_hdf5_valsuv_f_offset)%dspace_id, &
+                call hdf5_read_chunk_real(traversal%base%root_desc%hdf5_ids%batch_valsuv(swe_hdf5_valsuv_f_offset)%dset_id, &
+                    traversal%base%root_desc%hdf5_ids%batch_valsuv(swe_hdf5_valsuv_f_offset)%dspace_id, &
                     (/ 0_HSIZE_T, 0_HSIZE_T, int(hdf5_tree_buffer(2), HSIZE_T) /), (/ hdf5_vector_width, &
-                    flash_xdmf_param%hdf5_attr_width, 1_HSIZE_T /), hdf5_rank_v, hdf5_subset_stride_v, hdf5_subset_block_v, &
+                    swe_xdmf_param%hdf5_attr_width, 1_HSIZE_T /), hdf5_rank_v, hdf5_subset_stride_v, hdf5_subset_block_v, &
                     hdf5_f_buffer, traversal%base%root_desc%hdf5_meta_ids%access_dset_id)
-                call hdf5_read_chunk_real(traversal%base%root_desc%hdf5_ids%batch_valsuv(flash_hdf5_valsuv_g_offset)%dset_id, &
-                    traversal%base%root_desc%hdf5_ids%batch_valsuv(flash_hdf5_valsuv_g_offset)%dspace_id, &
+                call hdf5_read_chunk_real(traversal%base%root_desc%hdf5_ids%batch_valsuv(swe_hdf5_valsuv_g_offset)%dset_id, &
+                    traversal%base%root_desc%hdf5_ids%batch_valsuv(swe_hdf5_valsuv_g_offset)%dspace_id, &
                     (/ 0_HSIZE_T, 0_HSIZE_T, int(hdf5_tree_buffer(2), HSIZE_T) /), (/ hdf5_vector_width, &
-                    flash_xdmf_param%hdf5_attr_width, 1_HSIZE_T /), hdf5_rank_v, hdf5_subset_stride_v, hdf5_subset_block_v, &
+                    swe_xdmf_param%hdf5_attr_width, 1_HSIZE_T /), hdf5_rank_v, hdf5_subset_stride_v, hdf5_subset_block_v, &
                     hdf5_g_buffer, traversal%base%root_desc%hdf5_meta_ids%access_dset_id)
-                call hdf5_read_chunk_int(traversal%base%root_desc%hdf5_ids%batch_valsi(flash_hdf5_valsi_plotter_offset)%dset_id, &
-                    traversal%base%root_desc%hdf5_ids%batch_valsi(flash_hdf5_valsi_plotter_offset)%dspace_id, &
+                call hdf5_read_chunk_int(traversal%base%root_desc%hdf5_ids%batch_valsi(swe_hdf5_valsi_plotter_offset)%dset_id, &
+                    traversal%base%root_desc%hdf5_ids%batch_valsi(swe_hdf5_valsi_plotter_offset)%dspace_id, &
                     (/ 0_HSIZE_T, int(hdf5_tree_buffer(2), HSIZE_T) /), (/ 1_HSIZE_T, 1_HSIZE_T /), &
                     hdf5_rank, hdf5_subset_stride, hdf5_subset_block, &
                     hdf5_l_buffer, traversal%base%root_desc%hdf5_meta_ids%access_dset_id)
                 !$omp end critical
 
                 !Write data into samoa data model
-                do i = 1, flash_xdmf_param%hdf5_attr_width
+                do i = 1, swe_xdmf_param%hdf5_attr_width
                     if (hdf5_l_buffer(1) .le. 0) then
                         point_id = i
                         if (i .eq. 1) then

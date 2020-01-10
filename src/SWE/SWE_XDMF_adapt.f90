@@ -3,14 +3,14 @@
 
 ! This module defines the XDMF input adaption traversal
 ! It is essentially empty and exists only to trigger the splitting of cells
-#if defined(_FLASH)
-    module FLASH_XDMF_Adapt
+#if defined(_SWE)
+    module SWE_XDMF_Adapt
         use SFC_edge_traversal
         use Conformity
 
-        use Samoa_flash
+        use Samoa_swe
         use Tools_noise
-        use FLASH_heun1_timestep
+        use SWE_heun1_timestep
 
         implicit none
 
@@ -24,7 +24,7 @@
 #           define _GT_NODE_MPI_TYPE
 #       endif 
 
-#		define _GT_NAME							t_flash_xdmf_adaption_traversal
+#		define _GT_NAME							t_swe_xdmf_adaption_traversal
 
 #		define _GT_POST_TRAVERSAL_GRID_OP		post_traversal_grid_op
 #		define _GT_PRE_TRAVERSAL_GRID_OP		pre_traversal_grid_op
@@ -40,34 +40,34 @@
 #		include "SFC_generic_adaptive_traversal.f90"
 
         subroutine pre_traversal_grid_op(traversal, grid)
-            type(t_flash_xdmf_adaption_traversal), intent(inout)		        :: traversal
+            type(t_swe_xdmf_adaption_traversal), intent(inout)		        :: traversal
             type(t_grid), intent(inout)							            :: grid
         end subroutine
 
         subroutine post_traversal_grid_op(traversal, grid)
-            type(t_flash_xdmf_adaption_traversal), intent(inout)				:: traversal
+            type(t_swe_xdmf_adaption_traversal), intent(inout)				:: traversal
             type(t_grid), intent(inout)							            :: grid
         end subroutine
 
         subroutine pre_traversal_op(traversal, section)
-            type(t_flash_xdmf_adaption_traversal), intent(inout)				:: traversal
+            type(t_swe_xdmf_adaption_traversal), intent(inout)				:: traversal
             type(t_grid_section), intent(inout)							    :: section
         end subroutine
 
         subroutine post_traversal_op(traversal, section)
-            type(t_flash_xdmf_adaption_traversal), intent(inout)	            :: traversal
+            type(t_swe_xdmf_adaption_traversal), intent(inout)	            :: traversal
             type(t_grid_section), intent(inout)							    :: section
         end subroutine
 
         subroutine transfer_op(traversal, section, src_element, dest_element)
-             type(t_flash_xdmf_adaption_traversal), intent(inout)	             :: traversal
+             type(t_swe_xdmf_adaption_traversal), intent(inout)	             :: traversal
             type(t_grid_section), intent(inout)								 :: section
             type(t_traversal_element), intent(inout)						 :: src_element
             type(t_traversal_element), intent(inout)						 :: dest_element
         end subroutine
 
         subroutine refine_op(traversal, section, src_element, dest_element, refinement_path)
-            type(t_flash_xdmf_adaption_traversal), intent(inout)	             :: traversal
+            type(t_swe_xdmf_adaption_traversal), intent(inout)	             :: traversal
             type(t_grid_section), intent(inout)								 :: section
             type(t_traversal_element), intent(inout)						 :: src_element
             type(t_traversal_element), intent(inout)						 :: dest_element
@@ -75,7 +75,7 @@
         end subroutine
 
         subroutine coarsen_op(traversal, section, src_element, dest_element, refinement_path)
-             type(t_flash_xdmf_adaption_traversal), intent(inout)	             :: traversal
+            type(t_swe_xdmf_adaption_traversal), intent(inout)	             :: traversal
             type(t_grid_section), intent(inout)								 :: section
             type(t_traversal_element), intent(inout)						 :: src_element
             type(t_traversal_element), intent(inout)						 :: dest_element

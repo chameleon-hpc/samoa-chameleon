@@ -14,6 +14,14 @@
         use SWE_XDMF_config
         use XDMF_initialize_dofs_base
 
+#       if defined(_SWE_PATCH)
+            use SWE_PATCH
+#       endif
+#       if defined(_SWE_DG)
+            use SWE_dg_matrices
+            use SWE_data_types
+#       endif   
+
         implicit none
 
         ! For traversal data, use the XDMF core data structure as a base
@@ -22,12 +30,6 @@
         end type
 
 #       define _GT_EDGES
-#       if defined(LIMITER_BJ_EDGE)
-#           define _GT_EDGE_MPI_TYPE
-#       elif defined(LIMITER_BJ_VERTEX)
-#           define _GT_NODE_MPI_TYPE
-#       endif 
-
 #		define _GT_NAME							t_swe_xdmf_init_dofs_traversal
 
 #		define _GT_PRE_TRAVERSAL_OP				pre_traversal_op

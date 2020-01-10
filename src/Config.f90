@@ -15,9 +15,17 @@ module config
     use Tools_openmp
     use Tools_mpi
 
+#	if defined(_XDMF)
+        use XDMF_config
+#	endif
+
 #	if defined(_ASAGI)
 		use asagi
 #	endif
+
+#   if defined(_BOUNDARY_FILE)
+        use Tools_boundary_file
+#   endif
 
     implicit none
 
@@ -45,7 +53,10 @@ module config
 
 	    logical 				                :: l_gridoutput			                            !< grid output on/off
 	    logical 				                :: l_xml_pointoutput			                            !< xml point output on/off
-	    character(256)				            :: output_dir			                            !< output directory
+#       if defined(_XDMF)
+            type(t_config_xdmf)                 :: xdmf                                             !< XDMF additional variables
+#       endif	
+        character(256)				            :: output_dir			                            !< output directory
 
         double precision                        :: courant_number                                   !< time step size relative to the CFL condition
 
@@ -131,6 +142,13 @@ module config
     double precision                    :: dry_tolerance                                    !< dry tolerance
 #       endif
 
+#      if defined(_BOUNDARY)
+            integer                             :: i_boundary_side                              !< which boundary to choose for incoming wave
+#           if defined(_BOUNDARY_FILE)
+                character(256)                  :: s_boundary_file                              !< boundary incoming wave file
+#           endif
+#      endif
+
         contains
 
         procedure, pass :: read_from_program_arguments
@@ -165,6 +183,9 @@ module config
         write(arguments, '(A)') "-v .false. --version .false. -h .false. --help .false."
         write(arguments, '(A, A)') trim(arguments),   " -lbtime .false. -lbsplit .false. -lbserial .false. -lbcellweight 1.0d0 -lbbndweight 0.0d0"
         write(arguments, '(A, A)') trim(arguments),  " -asagihints 2 -phases 1 -tadapt -1.0 -nadapt 1 -asciioutput_width 60 -output_dir output -asciioutput .false. -xmloutput .false. -xmlpointoutput .false. -stestpoints '' -noprint .false. -sections 4"
+#       if defined(_XDMF)
+            write(arguments, '(A, A)') trim(arguments),  " -xdmfoutput .false. -xdmfcpint 0 -xdmfspf 100 -xdmfinput -xdmffilterindex 0 -xdmffilterparams "
+#       endif
         write(arguments, '(A, A, I0)') trim(arguments), " -threads ", omp_get_max_threads()
 
         !define additional command arguments and default values depending on the choice of the scenario
@@ -202,13 +223,19 @@ module config
 #    	else
 #           error No scenario selected!
 #    	endif
+#       if defined(_BOUNDARY)
+            write(arguments, '(A, A)') trim(arguments),  " -boundaryside 0 "
+#           if defined(_BOUNDARY_FILE)
+               write(arguments, '(A, A)') trim(arguments),  " -fboundary data/boundary.csv "
+#           endif
+#       endif
     end subroutine
 
     subroutine parse_string(config, string)
         class(t_config), intent(inout)  :: config
-        character(*), intent(inout)     :: string
+        character(*), intent(in)     :: string
 
-        call parse('samoa', string, "no_add")
+        call parse('samoa', string, "add")
         call config%update()
     end subroutine
 
@@ -217,6 +244,9 @@ module config
         character(*), intent(inout)     :: arguments
 
         call kracken('samoa', arguments)
+#       if defined(_XDMF)
+            config%xdmf%l_xdmfcheckpoint_loaded = .false.
+#       endif
         call config%update()
     end subroutine
 
@@ -226,6 +256,11 @@ module config
         logical					        :: l_help, l_version
         character(64), parameter        :: lsolver_to_char(0:3) = [character(64) :: "Jacobi", "CG", "Pipelined CG", "Pipelined CG (unstable)"]
         character(64), parameter        :: asagi_mode_to_char(0:4) = [character(64) :: "default", "pass through", "no mpi", "no mpi + small cache", "large grid"]
+
+#       if defined(_XDMF)
+            character (1024)            :: kraken_command_buffer
+            integer                     :: kraken_ilen, kraken_ier, error, result
+#       endif
 
         !  get values
         l_help = lget('samoa_-help') .or. lget('samoa_h')
@@ -252,6 +287,20 @@ module config
         config%r_adapt_time_step = iget('samoa_tadapt')
         config%courant_number = rget('samoa_courant')
         config%l_gridoutput = lget('samoa_xmloutput')
+#       if defined(_XDMF)
+            config%xdmf%l_xdmfoutput = lget('samoa_xdmfoutput')
+            config%xdmf%i_xdmfcpint = iget('samoa_xdmfcpint')
+            config%xdmf%i_xdmfspf = iget('samoa_xdmfspf')
+            config%xdmf%i_xdmffilter_index = iget('samoa_xdmffilterindex')
+            config%xdmf%s_xdmffilter_params = sget('samoa_xdmffilterparams', 256)
+            call xdmf_splitfilter_config(config%xdmf)
+            config%xdmf%s_xdmfinput_file = sget('samoa_xdmfinput', 256)
+            if(.not.config%xdmf%l_xdmfcheckpoint_loaded) then
+               config%xdmf%l_xdmfcheckpoint = (len_trim(config%xdmf%s_xdmfinput_file).ne.0)
+               call get_command_arguments(kraken_command_buffer, kraken_ilen, kraken_ier)
+               config%xdmf%s_krakencommand = trim(kraken_command_buffer)
+            end if
+#       endif
         config%l_xml_pointoutput = lget('samoa_xmlpointoutput')
         config%output_dir = sget('samoa_output_dir', 256)
 
@@ -292,18 +341,23 @@ module config
                 config%s_displacement_file = sget('samoa_fdispl', 256)
 #           endif
 
-                config%dry_tolerance = rget('samoa_drytolerance')
-#if defined(_SWE_DG)                
+            config%dry_tolerance = rget('samoa_drytolerance')
+#           if defined(_SWE_DG)                
                 config%coast_height = rget('samoa_coastheight')
                 config%dry_dg_guard = rget('samoa_dry_dg_guard')
-#endif
+#           endif
 
+#           if defined(_BOUNDARY)
+               config%i_boundary_side = iget('samoa_boundaryside')
+#              if defined(_BOUNDARY_FILE)
+                  config%s_boundary_file = sget('samoa_fboundary', 256)
+                  call boundary_file_parse(config%s_boundary_file)
+#              endif
+#           endif
 
             config%l_ascii_output = lget('samoa_asciioutput')
             config%i_ascii_width = iget('samoa_asciioutput_width')
             config%s_testpoints = sget('samoa_stestpoints', 262144)
-            
-
 
             if (len(trim(config%s_testpoints)) .ne. 2) then
                 config%l_pointoutput = .true.
@@ -346,7 +400,15 @@ module config
                 !This argument is not supported for now
                 !PRINT '(A, I0, A)',   "	-tadapt                 remeshing time step in seconds, less than 0: disabled (value: ", config%r_adapt_time_step, ")"
                 PRINT '(A, F0.3, A)',  "	-courant <value>        time step size relative to the CFL condition (value: ", config%courant_number, ")"
-        		PRINT '(A, L, A)',     "	-xmloutput              [-tout required] turns on grid output (value: ", config%l_gridoutput, ")"
+#               if defined(_XDMF)
+                PRINT '(A, L, A)',   "	-xdmfoutput               [-tout required] turns on xdmf output (value: ", config%xdmf%l_xdmfoutput, ")"
+                PRINT '(A, I0, A)',  "	-xdmfcpint                [-xdmfoutput required] interval of checkpoints, 0: disabled (value: ", config%xdmf%i_xdmfcpint, ")"
+                PRINT '(A, I0, A)',  "	-xdmfspf                  [-xdmfoutput required] amount of output steps per file (value: ", config%xdmf%i_xdmfspf, ")"
+                PRINT '(A, I0, A)',  "	-xdmffilterindex <value>  [-xdmfoutput required] xdmf filter function index (value: ", config%xdmf%i_xdmffilter_index, ")"
+                PRINT '(A, A, A)',   "	-xdmffilterparams <value;value;...> [-xdmfoutput required] xdmf filter function parameters (value: ", trim(config%xdmf%s_xdmffilter_params), ")"
+                PRINT '(A, A, A)',   "	-xdmfinput <value>        xdmf checkpoint file (value: ", trim(config%xdmf%s_xdmfinput_file), ")"
+#               endif
+                PRINT '(A, L, A)',     "	-xmloutput              [-tout required] turns on grid output (value: ", config%l_gridoutput, ")"
         		PRINT '(A, A, A)',     "	-output_dir <value>     output directory (value: ", trim(config%output_dir), ")"
                 PRINT '(A, L, A)',      "	-noprint                print log to file instead of console (value: ", config%l_log, ")"
                 PRINT '(A)',            "	--help, -h              display this help and exit"
@@ -400,6 +462,12 @@ module config
                     PRINT '(A, A, A)',  "	-fbath <value>          bathymetry file (value: ", trim(config%s_bathymetry_file), ")"
                     PRINT '(A, A, A)',  "	-fdispl <value>         displacement file (value: ", trim(config%s_displacement_file), ")"
 #               endif
+#               if defined(_BOUNDARY)
+                    PRINT '(A, I0, A)',     "	-boundaryside <value>   inflow boundary side (top = 0, left = 1, bottom = 2, right = 3) (value: ", config%i_boundary_side, ")"
+#                   if defined(_BOUNDARY_FILE)
+                        PRINT '(A, A, A)',   "	-fboundary <value>      inflow boundary file (value: ", trim(config%s_boundary_file), ")"
+#                   endif
+#               endif
             end if
         end if
 
@@ -407,6 +475,27 @@ module config
         if (l_help .or. l_version) then
             stop
         end if
+
+#        if defined(_XDMF)
+            if(rank_MPI == 0) then
+               call xdmf_load_config(config%xdmf, result)
+            end if
+#           if defined(_MPI)
+               call mpi_bcast(result, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, error); assert_eq(error, 0)
+               if(result == 1) then
+                  call xdmf_bcast_config(config%xdmf)
+                  call parse_string(config, config%xdmf%s_krakencommand)
+               else if(result == 0) then
+                  call exit()
+               end if
+#           else
+               if(result == 1) then
+                  call parse_string(config, config%xdmf%s_krakencommand)
+               else if(result == 0) then
+                  call exit()
+               end if
+#           endif
+#        endif
 
         !init openmp threads
         call omp_set_num_threads(config%i_threads)
@@ -631,6 +720,35 @@ module config
 
             _log_write(0, '(" SWE: dry_tolerance: ", ES8.1)') config%dry_tolerance
 #		endif
+
+#       if defined(_BOUNDARY)
+            select case(config%i_boundary_side)
+               case(0)
+                  _log_write(0, '(" Inflow boundary: side: 0 (top)")')
+               case(1)
+                  _log_write(0, '(" Inflow boundary: side: 1 (left)")')
+               case(2)
+                  _log_write(0, '(" Inflow boundary: side: 2 (bottom)")')
+               case(3)
+                  _log_write(0, '(" Inflow boundary: side: 3 (right)")')
+               case default
+                  _log_write(0, '(" Inflow boundary: side: ", I0, " (unknown)")'), config%i_boundary_side
+            end select
+#           if defined(_BOUNDARY_FILE)
+               try(boundary_file_success, "inflow boundary data file " // trim(config%s_boundary_file) // " could not be loaded, reason: " // trim(boundary_file_last_msg))
+
+               _log_write(0, '(" Inflow boundary: file: ", A)') trim(config%s_boundary_file)
+               _log_write(0, '(" Inflow boundary: status: ", A)') trim(boundary_file_last_msg)
+#           endif
+#           if defined(_BOUNDARY_FUNC)
+               _log_write(0, '(" Inflow boundary: function from scenario")')
+#           endif
+#       endif
+
+#       if defined(_XDMF)
+            _log_write(0, '(" XDMF: enabled")') 
+            call xdmf_filter_write(cfg%xdmf)
+#       endif
 
         _log_write(0, '("")')
     end subroutine

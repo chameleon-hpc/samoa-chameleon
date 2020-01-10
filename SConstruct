@@ -108,6 +108,16 @@ vars.AddVariables(
 
   BoolVariable( 'standard', 'check for Fortran 2008 standard compatibility', False),
 
+  BoolVariable( 'xdmf', 'XDMF support', False),
+
+  PathVariable( 'xdmf_fox_dir', 'FoX directory, if not in search path', '.'),
+
+  PathVariable( 'xdmf_hdf5_dir', 'HDF5 directory, if not in search path', '.'),
+
+  EnumVariable( 'boundary', 'Inflow boundary condition', 'disabled',
+                allowed_values=('disabled', 'file', 'function')
+              ),
+
   EnumVariable( 'chameleon', 'use chameleon library for load balancing', '0',
                 allowed_values=('0', '1', '2')
               ),
@@ -179,29 +189,50 @@ elif  env['compiler'] == 'gnu':
   env.SetDefault(openmp = 'notasks')
 
 # If MPI is active, use the mpif90 wrapper for compilation
+fc_env_vars = ''
 if env['mpi'] == 'default':
-  env['F90'] = 'MPICH_F90=' + fc + ' OMPI_FC=' + fc + ' I_MPI_F90=' + fc + ' mpif90'
-  env['LINK'] = 'MPICH_F90=' + fc + ' OMPI_FC=' + fc + ' I_MPI_F90=' + fc + ' mpif90'
-  env['F90FLAGS'] += ' -D_MPI'
+  fc_env_vars = 'MPICH_F90=' + fc + ' OMPI_FC=' + fc + ' I_MPI_F90=' + fc
+  env['F90'] = 'mpif90'
+  env['LINK'] = 'mpif90'
 elif env['mpi'] == 'ibm':
-  env['F90'] = 'MPICH_F90=' + fc + ' OMPI_FC=' + fc + ' I_MPI_F90=' + fc + ' mpif90'
-  env['LINK'] = 'MPICH_F90=' + fc + ' OMPI_FC=' + fc + ' I_MPI_F90=' + fc + ' mpif90'
-  env['F90FLAGS'] += ' -D_MPI'
+  fc_env_vars = 'MPICH_F90=' + fc + ' OMPI_FC=' + fc + ' I_MPI_F90=' + fc
+  env['F90'] = 'mpif90'
+  env['LINK'] = 'mpif90'
+elif env['mpi'] == 'mpich':
+  fc_env_vars = 'MPICH_F90=' + fc
+  env['F90'] = 'mpif90.mpich'
+  env['LINK'] = 'mpif90.mpich'
 elif env['mpi'] == 'mpich2':
-  env['F90'] = 'MPICH_F90=' + fc + ' mpif90.mpich2'
-  env['LINK'] = 'MPICH_F90=' + fc + ' mpif90.mpich2'
-  env['F90FLAGS'] += ' -D_MPI'
+  fc_env_vars = 'MPICH_F90=' + fc
+  env['F90'] = 'mpif90.mpich2'
+  env['LINK'] = 'mpif90.mpich2'
 elif env['mpi'] == 'openmpi':
-  env['F90'] = 'OMPI_FC=' + fc + ' mpif90.openmpi'
-  env['LINK'] = 'OMPI_FC=' + fc + ' mpif90.openmpi'
-  env['F90FLAGS'] += ' -D_MPI'
+  fc_env_vars = 'OMPI_FC=' + fc
+  env['F90'] = 'mpif90.openmpi'
+  env['LINK'] = 'mpif90.openmpi'
 elif env['mpi'] == 'intel':
-  env['F90'] = 'I_MPI_F90=' + fc + ' mpif90.intel'
-  env['LINK'] = 'I_MPI_F90=' + fc + ' mpif90.intel'
-  env['F90FLAGS'] += ' -D_MPI'
+  fc_env_vars = 'I_MPI_F90=' + fc
+  env['F90'] = 'mpif90.intel'
+  env['LINK'] = 'mpif90.intel'
 elif env['mpi'] == 'nompi':
   env['F90'] = fc
   env['LINK'] = fc
+if env['mpi'] != 'nompi':
+  env['F90FLAGS'] += ' -D_MPI'
+# If XDMF is active, use the h5fc wrapper for compilation
+if env['xdmf']:
+  fc_env_vars += ' HDF5_FC=' + env['F90'] + ' HDF5_FLINKER=' + env['LINK']
+  h5c = '/bin/h5fc -shlib'
+  if env['mpi'] != 'nompi':
+    h5c = '/bin/h5pfc -shlib'
+  env['F90'] = fc_env_vars + ' ' + env['xdmf_hdf5_dir'] + h5c
+  env['LINK'] = fc_env_vars + ' ' + env['xdmf_hdf5_dir'] + h5c
+  if env['xdmf_hdf5_dir'] != '.':
+    env['F90'] += ' -prefix=' + env['xdmf_hdf5_dir']
+    env['LINK'] += ' -prefix=' + env['xdmf_hdf5_dir']
+  env['F90'] += ' -c'
+else:
+  env['F90'] = fc_env_vars + ' ' + env['F90']
 
 # set scenario with preprocessor macros
 if env['scenario'] == 'darcy':
@@ -276,6 +307,15 @@ if env['asagi_timing']:
   if not env['asagi']:
     print "Error: asagi_timing must not be set if asagi is not active"
     Exit(-1)
+
+#Configure linker and preprocessor macros for FoX (for XDMF) support
+if env['xdmf']:
+  if env['xdmf_fox_dir'] != '.':
+    env.Append(F90PATH = os.path.abspath(env['xdmf_fox_dir'] + '/include'))
+    env['LINKFLAGS'] += ' -Wl,--rpath,' + os.path.abspath(env['xdmf_fox_dir']) + '/lib'
+    env.AppendUnique(LIBPATH = env['xdmf_fox_dir'] + '/lib')
+  env['F90FLAGS'] += ' -D_XDMF'
+  env.Append(LIBS = ['FoX_dom', 'FoX_common', 'FoX_fsys', 'FoX_sax', 'FoX_utils', 'FoX_wxml'])
  
 #Choose a flux solver
 if env['flux_solver'] == 'upwind':

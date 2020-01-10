@@ -70,6 +70,30 @@ f77_sources = [
 "geoclaw/riemannsolvers_qp.f",
 ]
 
+if env['xdmf']: 
+    f90_sources+=[
+        "XDMF/XDMF_config.f90",
+        "XDMF/XDMF_data_types.f90",
+        "XDMF/XDMF_hdf5.f90",
+        "XDMF/XDMF_math.f90",
+        "XDMF/input/XDMF_fox.f90",
+        "XDMF/input/XDMF_initialize_base_data_types.f90",
+        "XDMF/input/XDMF_initialize_base.f90",
+        "XDMF/output/XDMF_output_base_data_types.f90",
+        "XDMF/output/XDMF_output_base.f90",
+        "XDMF/output/XDMF_xmf.f90",
+        "SWE/SWE_XDMF_config.f90",
+        "SWE/SWE_XDMF_output_filter.f90",
+        "SWE/SWE_XDMF_output.f90",
+        "SWE/SWE_XDMF_initialize.f90",
+        "SWE/SWE_XDMF_adapt.f90"
+    ]
+
+if env['boundary'] == 'file':
+    f90_sources += [
+        "Tools_boundary_file.f90"
+    ]
+
 objs = env.Object(f90_sources) + env.Object(f77_sources)
 env.obj_files += [obj for obj in objs if obj.get_suffix() == ".o"]
 

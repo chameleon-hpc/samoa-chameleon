@@ -10,7 +10,7 @@
 
         use Samoa_swe
         use Tools_noise
-        use SWE_heun1_timestep
+        use SWE_euler_timestep
 
 #       if defined(_SWE_PATCH)
             use SWE_PATCH

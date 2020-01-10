@@ -6,7 +6,7 @@
         
         use SFC_edge_traversal
         use Samoa_swe
-        use SWE_heun1_timestep
+        use SWE_euler_timestep
         use Tools_openmp
 
         use SWE_XDMF_config

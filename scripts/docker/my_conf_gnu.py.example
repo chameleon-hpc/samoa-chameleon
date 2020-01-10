@@ -1,0 +1,13 @@
+scenario='flash'
+flash_order='1'
+swe_scenario='resting_lake'
+limiter="BJ_edge"
+compiler='gnu'
+asagi='false'
+mpi='default'
+target='debug'
+data_refinement='sample'
+xdmf='true'
+xdmf_fox_dir='/app/samoa_xdmf_libs/gnu/parallel'
+xdmf_hdf5_dir='/app/samoa_xdmf_libs/gnu/parallel'
+exe="samoa_flash"+('_xdmf' if xdmf=='true' else '')

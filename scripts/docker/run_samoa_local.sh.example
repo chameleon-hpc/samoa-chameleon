@@ -1,0 +1,29 @@
+#!/bin/bash
+
+export LC_NUMERIC="en_US.UTF-8"
+export OMP_NUM_THREADS=4
+
+#export HDF5_DEBUG=trace
+
+OUTP=output/output_longwave_basin_tout2P-dw10e-8
+
+STEPS="-dmin 15 -dmax 15 -tmax 3600 -tout 3546.0d0"
+DOMCFG="-drytolerance 0.00000001d0 -courant 0.2d0"
+
+tasks=2
+
+rm -rf $OUTP
+mkdir -p $OUTP
+#rsync -ah --progress output/output_${i_max}_cp/ output/output_$i_max/
+
+BINARY="bin/samoa_flash_xdmf"
+#PARAMS_FILTER="-xdmffilterindex 1 -xdmffilterparams -4000;4000;-50;50"
+#PARAMS="$STEPS -output_dir $OUTP -xdmfoutput $DOMCFG $PARAMS_FILTER"
+#PARAMS_CHECKPOINT="-xdmfinput output/output_${i_max}/flash_20190718_134601.089_xdmf.xmf"
+PARAMS="$STEPS $DOMCFG -output_dir $OUTP -xdmfoutput $PARAMS_FILTER"
+
+#PREFIX="valgrind --track-origins=yes --keep-stacktraces=alloc-and-free"
+#PREFIX="gdb --args"
+PREFIX="mpiexec -n $tasks"
+
+$PREFIX $BINARY $PARAMS #_CHECKPOINT

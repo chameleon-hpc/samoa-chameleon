@@ -1,0 +1,36 @@
+FROM ubuntu:18.04
+
+ENV DEBIAN_FRONTEND noninteractive
+ENV TZ=Europe/Berlin
+
+# Package dependencies
+
+RUN apt-get -y update && apt-get -y upgrade && \
+    apt-get -y install git cmake build-essential autotools-dev autoconf pkg-config scons \
+        cpio libpthread-stubs0-dev zlib1g-dev libnuma-dev libyaml-cpp-dev libcurl3-dev \
+        valgrind rsync && \
+    rm -rf /var/lib/apt/lists/*
+
+# Intel compiler
+
+COPY scripts/docker/intel_compiler/parallel_studio_xe_2019_update4_cluster_edition_online.tgz /app/intel.tgz
+COPY scripts/docker/intel_compiler/silent.cfg scripts/docker/intel_compiler/license.lic scripts/docker/intel_compiler/intelrc.sh /app/intel/
+WORKDIR /app
+RUN mkdir -p intel && \
+    tar -zxvf intel.tgz -C intel
+WORKDIR /app/intel/parallel_studio_xe_2019_update4_cluster_edition_online
+RUN ./install.sh --silent=../silent.cfg && \
+    rm -rf /tmp/root && rm -rf /tmp/install*
+
+# Libraries
+
+COPY scripts/XDMF /app/samoa/scripts/XDMF
+WORKDIR /app/samoa/scripts/XDMF
+RUN /bin/bash -c "source /app/intel/intelrc.sh && ./install_all.sh mpi intel /app/samoa_xdmf_libs" && \
+    /bin/bash -c "source /app/intel/intelrc.sh && ./install_all.sh nompi intel /app/samoa_xdmf_libs" && \
+    rm -rf /app/samoa/scripts/XDMF/libsrc
+
+# Entrypoint
+
+WORKDIR /app/samoa
+CMD /bin/bash -c "source /app/intel/intelrc.sh && scons -j 8 config=my_conf_intel.py"

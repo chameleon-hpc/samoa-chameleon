@@ -1,13 +1,16 @@
-scenario='flash'
-flash_order='1'
-swe_scenario='resting_lake'
-limiter="BJ_edge"
+scenario='swe'
+swe_patch_order='1'
+swe_dg_order='1'
+swe_scenario='radial_dam_break'
 compiler='gnu'
 asagi='false'
+asagi_dir='/app/samoa_xdmf_libs/gnu/parallel'
+netcdf_dir='/app/samoa_xdmf_libs/gnu/parallel'
 mpi='default'
 target='debug'
 data_refinement='sample'
+boundary='disabled'
 xdmf='true'
 xdmf_fox_dir='/app/samoa_xdmf_libs/gnu/parallel'
 xdmf_hdf5_dir='/app/samoa_xdmf_libs/gnu/parallel'
-exe="samoa_flash"+('_xdmf' if xdmf=='true' else '')
+exe='samoa_swe_gnu_'+swe_scenario

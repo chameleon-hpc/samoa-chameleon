@@ -16,10 +16,10 @@ rm -rf $OUTP
 mkdir -p $OUTP
 #rsync -ah --progress output/output_${i_max}_cp/ output/output_$i_max/
 
-BINARY="bin/samoa_flash_xdmf"
+BINARY="bin/samoa_swe_xdmf"
 #PARAMS_FILTER="-xdmffilterindex 1 -xdmffilterparams -4000;4000;-50;50"
 #PARAMS="$STEPS -output_dir $OUTP -xdmfoutput $DOMCFG $PARAMS_FILTER"
-#PARAMS_CHECKPOINT="-xdmfinput output/output_${i_max}/flash_20190718_134601.089_xdmf.xmf"
+#PARAMS_CHECKPOINT="-xdmfinput output/output_${i_max}/swe_20190718_134601.089_xdmf.xmf"
 PARAMS="$STEPS $DOMCFG -output_dir $OUTP -xdmfoutput $PARAMS_FILTER"
 
 #PREFIX="valgrind --track-origins=yes --keep-stacktraces=alloc-and-free"

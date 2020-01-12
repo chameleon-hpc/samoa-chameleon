@@ -13,7 +13,7 @@
             use SWE_PATCH
 #       endif
 #       if defined(_SWE_DG)
-1           use SWE_DG_solver
+           use SWE_DG_solver
 #       endif            
 		use Samoa_swe
 

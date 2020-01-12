@@ -158,34 +158,35 @@
 
                 hdf5_tree_buffer(2) = hdf5_tree_buffer(2) - 1
                 
+                ! TODO XDMF read values
                 ! Load actual cell values
-                !$omp critical
-                call hdf5_read_chunk_real(traversal%base%root_desc%hdf5_ids%batch_valsr(swe_hdf5_valsr_b_offset)%dset_id, &
-                    traversal%base%root_desc%hdf5_ids%batch_valsr(swe_hdf5_valsr_b_offset)%dspace_id, &
-                    (/ 0_HSIZE_T, int(hdf5_tree_buffer(2), HSIZE_T) /), (/ swe_xdmf_param%hdf5_attr_width, 1_HSIZE_T /), &
-                    hdf5_rank, hdf5_subset_stride, hdf5_subset_block, &
-                    hdf5_b_buffer, traversal%base%root_desc%hdf5_meta_ids%access_dset_id)
-                call hdf5_read_chunk_real(traversal%base%root_desc%hdf5_ids%batch_valsr(swe_hdf5_valsr_bh_offset)%dset_id, &
-                    traversal%base%root_desc%hdf5_ids%batch_valsr(swe_hdf5_valsr_bh_offset)%dspace_id, &
-                    (/ 0_HSIZE_T, int(hdf5_tree_buffer(2), HSIZE_T) /), (/ swe_xdmf_param%hdf5_attr_width, 1_HSIZE_T /), &
-                    hdf5_rank, hdf5_subset_stride, hdf5_subset_block, &
-                    hdf5_bh_buffer, traversal%base%root_desc%hdf5_meta_ids%access_dset_id)
-                call hdf5_read_chunk_real(traversal%base%root_desc%hdf5_ids%batch_valsuv(swe_hdf5_valsuv_f_offset)%dset_id, &
-                    traversal%base%root_desc%hdf5_ids%batch_valsuv(swe_hdf5_valsuv_f_offset)%dspace_id, &
-                    (/ 0_HSIZE_T, 0_HSIZE_T, int(hdf5_tree_buffer(2), HSIZE_T) /), (/ hdf5_vector_width, &
-                    swe_xdmf_param%hdf5_attr_width, 1_HSIZE_T /), hdf5_rank_v, hdf5_subset_stride_v, hdf5_subset_block_v, &
-                    hdf5_f_buffer, traversal%base%root_desc%hdf5_meta_ids%access_dset_id)
-                call hdf5_read_chunk_real(traversal%base%root_desc%hdf5_ids%batch_valsuv(swe_hdf5_valsuv_g_offset)%dset_id, &
-                    traversal%base%root_desc%hdf5_ids%batch_valsuv(swe_hdf5_valsuv_g_offset)%dspace_id, &
-                    (/ 0_HSIZE_T, 0_HSIZE_T, int(hdf5_tree_buffer(2), HSIZE_T) /), (/ hdf5_vector_width, &
-                    swe_xdmf_param%hdf5_attr_width, 1_HSIZE_T /), hdf5_rank_v, hdf5_subset_stride_v, hdf5_subset_block_v, &
-                    hdf5_g_buffer, traversal%base%root_desc%hdf5_meta_ids%access_dset_id)
-                call hdf5_read_chunk_int(traversal%base%root_desc%hdf5_ids%batch_valsi(swe_hdf5_valsi_plotter_offset)%dset_id, &
-                    traversal%base%root_desc%hdf5_ids%batch_valsi(swe_hdf5_valsi_plotter_offset)%dspace_id, &
-                    (/ 0_HSIZE_T, int(hdf5_tree_buffer(2), HSIZE_T) /), (/ 1_HSIZE_T, 1_HSIZE_T /), &
-                    hdf5_rank, hdf5_subset_stride, hdf5_subset_block, &
-                    hdf5_l_buffer, traversal%base%root_desc%hdf5_meta_ids%access_dset_id)
-                !$omp end critical
+                ! !$omp critical
+                ! call hdf5_read_chunk_real(traversal%base%root_desc%hdf5_ids%batch_valsr(swe_hdf5_valsr_b_offset)%dset_id, &
+                !     traversal%base%root_desc%hdf5_ids%batch_valsr(swe_hdf5_valsr_b_offset)%dspace_id, &
+                !     (/ 0_HSIZE_T, int(hdf5_tree_buffer(2), HSIZE_T) /), (/ swe_xdmf_param%hdf5_attr_width, 1_HSIZE_T /), &
+                !     hdf5_rank, hdf5_subset_stride, hdf5_subset_block, &
+                !     hdf5_b_buffer, traversal%base%root_desc%hdf5_meta_ids%access_dset_id)
+                ! call hdf5_read_chunk_real(traversal%base%root_desc%hdf5_ids%batch_valsr(swe_hdf5_valsr_bh_offset)%dset_id, &
+                !     traversal%base%root_desc%hdf5_ids%batch_valsr(swe_hdf5_valsr_bh_offset)%dspace_id, &
+                !     (/ 0_HSIZE_T, int(hdf5_tree_buffer(2), HSIZE_T) /), (/ swe_xdmf_param%hdf5_attr_width, 1_HSIZE_T /), &
+                !     hdf5_rank, hdf5_subset_stride, hdf5_subset_block, &
+                !     hdf5_bh_buffer, traversal%base%root_desc%hdf5_meta_ids%access_dset_id)
+                ! call hdf5_read_chunk_real(traversal%base%root_desc%hdf5_ids%batch_valsuv(swe_hdf5_valsuv_f_offset)%dset_id, &
+                !     traversal%base%root_desc%hdf5_ids%batch_valsuv(swe_hdf5_valsuv_f_offset)%dspace_id, &
+                !     (/ 0_HSIZE_T, 0_HSIZE_T, int(hdf5_tree_buffer(2), HSIZE_T) /), (/ hdf5_vector_width, &
+                !     swe_xdmf_param%hdf5_attr_width, 1_HSIZE_T /), hdf5_rank_v, hdf5_subset_stride_v, hdf5_subset_block_v, &
+                !     hdf5_f_buffer, traversal%base%root_desc%hdf5_meta_ids%access_dset_id)
+                ! call hdf5_read_chunk_real(traversal%base%root_desc%hdf5_ids%batch_valsuv(swe_hdf5_valsuv_g_offset)%dset_id, &
+                !     traversal%base%root_desc%hdf5_ids%batch_valsuv(swe_hdf5_valsuv_g_offset)%dspace_id, &
+                !     (/ 0_HSIZE_T, 0_HSIZE_T, int(hdf5_tree_buffer(2), HSIZE_T) /), (/ hdf5_vector_width, &
+                !     swe_xdmf_param%hdf5_attr_width, 1_HSIZE_T /), hdf5_rank_v, hdf5_subset_stride_v, hdf5_subset_block_v, &
+                !     hdf5_g_buffer, traversal%base%root_desc%hdf5_meta_ids%access_dset_id)
+                ! call hdf5_read_chunk_int(traversal%base%root_desc%hdf5_ids%batch_valsi(swe_hdf5_valsi_plotter_offset)%dset_id, &
+                !     traversal%base%root_desc%hdf5_ids%batch_valsi(swe_hdf5_valsi_plotter_offset)%dspace_id, &
+                !     (/ 0_HSIZE_T, int(hdf5_tree_buffer(2), HSIZE_T) /), (/ 1_HSIZE_T, 1_HSIZE_T /), &
+                !     hdf5_rank, hdf5_subset_stride, hdf5_subset_block, &
+                !     hdf5_l_buffer, traversal%base%root_desc%hdf5_meta_ids%access_dset_id)
+                ! !$omp end critical
 
                 !Write data into samoa data model
                 do i = 1, swe_xdmf_param%hdf5_attr_width
@@ -207,14 +208,15 @@
                         end if
                     end if
 
-                    element%cell%data_pers%Q(point_id)%b = hdf5_b_buffer(i, 1)
-                    element%cell%data_pers%Q(point_id)%h = hdf5_bh_buffer(i, 1)
-                    element%cell%data_pers%Q(point_id)%p(:) = hdf5_f_buffer(:, i, 1)
-                    element%cell%data_pers%Q(point_id)%gradB(:) = hdf5_g_buffer(:, i, 1)
-                    element%cell%data_pers%Q_inter(point_id)%b = element%cell%data_pers%Q(point_id)%b
-                    element%cell%data_pers%Q_inter(point_id)%h = element%cell%data_pers%Q(point_id)%h
-                    element%cell%data_pers%Q_inter(point_id)%p(:) = element%cell%data_pers%Q(point_id)%p(:)
-                    element%cell%data_pers%Q_inter(point_id)%gradB(:) = element%cell%data_pers%Q(point_id)%gradB(:)
+                    ! TODO XDMF write data into cell model
+                    ! element%cell%data_pers%Q(point_id)%b = hdf5_b_buffer(i, 1)
+                    ! element%cell%data_pers%Q(point_id)%h = hdf5_bh_buffer(i, 1)
+                    ! element%cell%data_pers%Q(point_id)%p(:) = hdf5_f_buffer(:, i, 1)
+                    ! element%cell%data_pers%Q(point_id)%gradB(:) = hdf5_g_buffer(:, i, 1)
+                    ! element%cell%data_pers%Q_inter(point_id)%b = element%cell%data_pers%Q(point_id)%b
+                    ! element%cell%data_pers%Q_inter(point_id)%h = element%cell%data_pers%Q(point_id)%h
+                    ! element%cell%data_pers%Q_inter(point_id)%p(:) = element%cell%data_pers%Q(point_id)%p(:)
+                    ! element%cell%data_pers%Q_inter(point_id)%gradB(:) = element%cell%data_pers%Q(point_id)%gradB(:)
                 end do
             end if
         end subroutine

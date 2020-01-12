@@ -190,19 +190,20 @@
                         end if
                         
                         ! Store point data in traversal buffer
-                        new_h = real(element%cell%data_pers%Q(point_id)%h, XDMF_ISO_P)
-                        if (new_h.le.cfg%dry_tolerance) then
-                            new_h = 0
-                        else
-                            new_h = new_h + real(element%cell%data_pers%Q(point_id)%b, XDMF_ISO_P)
-                        end if
-                        new_bigh = real(element%cell%data_pers%Q(point_id)%h, XDMF_ISO_P)
-                        traversal%base%sect_store%ptr%valsr(i, cell_offs, :) = (/ &
-                            real(element%cell%data_pers%Q(point_id)%b, XDMF_ISO_P), new_h, new_bigh /)
-                        traversal%base%sect_store%ptr%valsuv(:, i, cell_offs, swe_hdf5_valsuv_f_offset) = &
-                            real(element%cell%data_pers%Q(point_id)%p(:), XDMF_ISO_P)
-                        traversal%base%sect_store%ptr%valsuv(:, i, cell_offs, swe_hdf5_valsuv_g_offset) = &
-                            real(element%cell%data_pers%Q(point_id)%gradB(:), XDMF_ISO_P)
+                        ! TODO XDMF write data into buffer
+                        ! new_h = real(element%cell%data_pers%Q(point_id)%h, XDMF_ISO_P)
+                        ! if (new_h.le.cfg%dry_tolerance) then
+                        !     new_h = 0
+                        ! else
+                        !     new_h = new_h + real(element%cell%data_pers%Q(point_id)%b, XDMF_ISO_P)
+                        ! end if
+                        ! new_bigh = real(element%cell%data_pers%Q(point_id)%h, XDMF_ISO_P)
+                        ! traversal%base%sect_store%ptr%valsr(i, cell_offs, :) = (/ &
+                        !     real(element%cell%data_pers%Q(point_id)%b, XDMF_ISO_P), new_h, new_bigh /)
+                        ! traversal%base%sect_store%ptr%valsuv(:, i, cell_offs, swe_hdf5_valsuv_f_offset) = &
+                        !     real(element%cell%data_pers%Q(point_id)%p(:), XDMF_ISO_P)
+                        ! traversal%base%sect_store%ptr%valsuv(:, i, cell_offs, swe_hdf5_valsuv_g_offset) = &
+                        !     real(element%cell%data_pers%Q(point_id)%gradB(:), XDMF_ISO_P)
                     end do
                     forall(i = 1:swe_xdmf_param%hdf5_valst_width) &
                         traversal%base%sect_store%ptr%valsg(:, &

@@ -164,7 +164,10 @@ end type num_cell_data_pers
      real (kind = GRID_SR)							:: b_max_new=TINY(1.0_GRID_SR),b_min_new=HUGE(1.0_GRID_SR)     
 
 #endif
-#endif   
+#endif
+#     if defined(_XDMF)
+        integer (kind = GRID_SI)                               :: xdmf_filter_count !<amount of cells in this section after filtering
+#     endif   
 		end type
 
 		contains

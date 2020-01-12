@@ -60,7 +60,7 @@ module M_kracken
    private :: bounce           ! find location (index) in Language Dictionary where VARNAME can be found
    private :: add_string       ! Add new string name to Language Library dictionary
    private :: send_message
-   private :: get_command_arguments ! get_command_arguments: return all command arguments as a string
+   public :: get_command_arguments ! get_command_arguments: return all command arguments as a string
 
    ! functionS:
    public :: rget    ! fetch real    value of name VERB_NAME from the language dictionary

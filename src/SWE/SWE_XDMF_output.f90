@@ -116,6 +116,9 @@
             integer(INT64)                                                  :: element_hash
             real(XDMF_ISO_P)                                                :: new_h, new_bigh
             integer(GRID_SI)                                                :: cell_offs
+#           if defined (_SWE_PATCH)
+                integer(GRID_SI)                                            :: j, k, patch_cell_id, patch_cell_offs, row, col
+#           endif
             logical                                                         :: write_cp, filter_result = .true.
 
             ! Compute whether to output tree (checkpoint) data
@@ -132,14 +135,13 @@
             end if
 
             if (write_cp .or. filter_result) then
-                ! Compute the cells cartesian position
-                do i = 1, 3
-                    position(:, i) = real((cfg%scaling * element%nodes(i)%ptr%position) + cfg%offset(:), XDMF_ISO_P) 
-                end do
-
                 ! Get thread buffer offset
                 offset_cells_buffer = traversal%base%root_layout_desc%ranks(rank_MPI + 1)%sections(section%index)%offset_cells_buffer
-                offset_tree_buffer = offset_cells_buffer
+#               if defined (_SWE_PATCH)
+                    offset_tree_buffer = offset_cells_buffer / _SWE_PATCH_ORDER_SQUARE
+#               else
+                    offset_tree_buffer = offset_cells_buffer
+#               endif
 
                 ! Check buffer overflows
                 if((traversal%base%sect_store_index + offset_tree_buffer .gt. size(traversal%base%sect_store%ptr%tree)) .or. &
@@ -161,53 +163,136 @@
                     end if
                     traversal%base%sect_store%ptr%tree(traversal%base%sect_store_index + offset_tree_buffer) = int(element_hash, INT32)
 
-                    cell_offs = traversal%base%sect_store_index + offset_cells_buffer
-                    ! Store cell values, see SWE implementation for details
-                    traversal%base%sect_store%ptr%valsi(cell_offs, :) = (/ &
-                        int(element%cell%geometry%i_depth, INT32), &
-                        int(rank_MPI, INT32), &
-                        int(element%cell%geometry%i_plotter_type, INT32), &
-                        int(section%index, INT32) /)
+#                   if defined (_SWE_PATCH)
+                        ! Depending on the iteration direction (sign. plotter type), the order of the cells inside
+                        ! a patch may need to be flipped
+                        row = 1
+                        col = 1
+                        do i = 1, _SWE_PATCH_ORDER_SQUARE
+                            if (element%cell%geometry%i_plotter_type.gt.0) then 
+                                patch_cell_id = i
+                            else
+                                patch_cell_id = (row - 1) * (row - 1) + 2 * row - col
+                            end if
 
-                    do i = 1, swe_xdmf_param%hdf5_attr_width
-                        ! Compute data storage order in cell
-                        if (element%cell%geometry%i_plotter_type .le. 0) then
-                            point_id = i
-                            if (i .eq. 1) then
-                                point_id = 3
-                            else if (i .eq. 2) then
-                                point_id = 1
-                            else if (i .eq. 3) then
-                                point_id = 2
+                            ! Compute the global offset in the datasets of this cell
+                            ! Note that the triangle order inside a patch is normalized here, i.e. independent from plotter direction
+                            patch_cell_offs = ((traversal%base%sect_store_index - 1) * _SWE_PATCH_ORDER_SQUARE) + patch_cell_id
+                            cell_offs = patch_cell_offs + offset_cells_buffer
+                          
+                            ! Compute and store the actual position of this subcell in the domain
+                            forall(j = 1:swe_xdmf_param%hdf5_valst_width) traversal%base%sect_store%ptr%valsg(:, &
+                                ((cell_offs - 1) * swe_xdmf_param%hdf5_valst_width) + j) = &
+                                real(cfg%scaling * samoa_barycentric_to_world_point(element%transform_data, SWE_PATCH_geometry%coords(:, j, i)) + cfg%offset, REAL32)
+
+                            ! Store cell values, see SWE implementation for details
+                            traversal%base%sect_store%ptr%valsi(cell_offs, :) = (/ &
+                            int(element%cell%geometry%i_depth, INT32), &
+                            int(rank_MPI, INT32), &
+                            int(element%cell%geometry%i_plotter_type, INT32), &
+                            int(section%index, INT32) /)
+
+                            do k = 1, swe_xdmf_param%hdf5_attr_width
+                                !Compute data storage order in cell
+                                point_id = k
+                                ! if (element%cell%geometry%i_plotter_type .le. 0) then
+                                !     point_id = k
+                                !     if (k .eq. 1) then
+                                !         point_id = 3
+                                !     else if (k .eq. 2) then
+                                !         point_id = 1
+                                !     else if (k .eq. 3) then
+                                !         point_id = 2
+                                !     end if
+                                ! else
+                                !     point_id = k
+                                !     if (k .eq. 1) then
+                                !         point_id = 2
+                                !     else if (k .eq. 2) then
+                                !         point_id = 1
+                                !     end if
+                                ! end if
+                                
+                                ! Store point data in traversal buffer
+                                new_h = real(element%cell%data_pers%Q(point_id)%h, XDMF_ISO_P)
+                                if (new_h.le.cfg%dry_tolerance) then
+                                    new_h = 0
+                                else
+                                    new_h = new_h + real(element%cell%data_pers%Q(point_id)%b, XDMF_ISO_P)
+                                end if
+                                new_bigh = real(element%cell%data_pers%Q(point_id)%h, XDMF_ISO_P)
+                                traversal%base%sect_store%ptr%valsr(k, cell_offs, :) = (/ &
+                                    real(element%cell%data_pers%Q(point_id)%b, XDMF_ISO_P), new_h, new_bigh /)
+                                traversal%base%sect_store%ptr%valsuv(:, k, cell_offs, swe_hdf5_valsuv_f_offset) = &
+                                    real(element%cell%data_pers%Q(point_id)%p(:), XDMF_ISO_P)
+                            end do
+
+                            ! Compute the subcells cartesian position
+                            do j = 1, swe_xdmf_param%hdf5_valst_width
+                                position(:, j) = real(cfg%scaling * samoa_barycentric_to_world_point(element%transform_data, SWE_PATCH_geometry%coords(:, j, i)) + cfg%offset, REAL32)
+                            end do
+                            forall(j = 1:swe_xdmf_param%hdf5_valst_width) &
+                                traversal%base%sect_store%ptr%valsg(:, &
+                                ((cell_offs - 1) * swe_xdmf_param%hdf5_valst_width) + j) = position(:, j)
+
+                            col = col + 1
+                            if (col.eq.(2 * row)) then
+                                col = 1
+                                row = row + 1
                             end if
-                        else
+                        end do
+#                   else
+                        cell_offs = traversal%base%sect_store_index + offset_cells_buffer
+                        ! Store cell values, see SWE implementation for details
+                        traversal%base%sect_store%ptr%valsi(cell_offs, :) = (/ &
+                            int(element%cell%geometry%i_depth, INT32), &
+                            int(rank_MPI, INT32), &
+                            int(element%cell%geometry%i_plotter_type, INT32), &
+                            int(section%index, INT32) /)
+
+                        do i = 1, swe_xdmf_param%hdf5_attr_width
+                            !Compute data storage order in cell
                             point_id = i
-                            if (i .eq. 1) then
-                                point_id = 2
-                            else if (i .eq. 2) then
-                                point_id = 1
+                            ! if (element%cell%geometry%i_plotter_type .le. 0) then
+                            !     point_id = i
+                            !     if (i .eq. 1) then
+                            !         point_id = 3
+                            !     else if (i .eq. 2) then
+                            !         point_id = 1
+                            !     else if (i .eq. 3) then
+                            !         point_id = 2
+                            !     end if
+                            ! else
+                            !     point_id = i
+                            !     if (i .eq. 1) then
+                            !         point_id = 2
+                            !     else if (i .eq. 2) then
+                            !         point_id = 1
+                            !     end if
+                            ! end if
+                            
+                            ! Store point data in traversal buffer
+                            new_h = real(element%cell%data_pers%Q(point_id)%h, XDMF_ISO_P)
+                            if (new_h.le.cfg%dry_tolerance) then
+                                new_h = 0
+                            else
+                                new_h = new_h + real(element%cell%data_pers%Q(point_id)%b, XDMF_ISO_P)
                             end if
-                        end if
-                        
-                        ! Store point data in traversal buffer
-                        ! TODO XDMF write data into buffer
-                        ! new_h = real(element%cell%data_pers%Q(point_id)%h, XDMF_ISO_P)
-                        ! if (new_h.le.cfg%dry_tolerance) then
-                        !     new_h = 0
-                        ! else
-                        !     new_h = new_h + real(element%cell%data_pers%Q(point_id)%b, XDMF_ISO_P)
-                        ! end if
-                        ! new_bigh = real(element%cell%data_pers%Q(point_id)%h, XDMF_ISO_P)
-                        ! traversal%base%sect_store%ptr%valsr(i, cell_offs, :) = (/ &
-                        !     real(element%cell%data_pers%Q(point_id)%b, XDMF_ISO_P), new_h, new_bigh /)
-                        ! traversal%base%sect_store%ptr%valsuv(:, i, cell_offs, swe_hdf5_valsuv_f_offset) = &
-                        !     real(element%cell%data_pers%Q(point_id)%p(:), XDMF_ISO_P)
-                        ! traversal%base%sect_store%ptr%valsuv(:, i, cell_offs, swe_hdf5_valsuv_g_offset) = &
-                        !     real(element%cell%data_pers%Q(point_id)%gradB(:), XDMF_ISO_P)
-                    end do
-                    forall(i = 1:swe_xdmf_param%hdf5_valst_width) &
-                        traversal%base%sect_store%ptr%valsg(:, &
-                        ((cell_offs - 1) * swe_xdmf_param%hdf5_valst_width) + i) = position(:, i)
+                            new_bigh = real(element%cell%data_pers%Q(point_id)%h, XDMF_ISO_P)
+                            traversal%base%sect_store%ptr%valsr(i, cell_offs, :) = (/ &
+                                real(element%cell%data_pers%Q(point_id)%b, XDMF_ISO_P), new_h, new_bigh /)
+                            traversal%base%sect_store%ptr%valsuv(:, i, cell_offs, swe_hdf5_valsuv_f_offset) = &
+                                real(element%cell%data_pers%Q(point_id)%p(:), XDMF_ISO_P)
+                        end do
+
+                        ! Compute the cells cartesian position
+                        do i = 1, swe_xdmf_param%hdf5_valst_width
+                            position(:, i) = real((cfg%scaling * element%nodes(i)%ptr%position) + cfg%offset(:), XDMF_ISO_P) 
+                        end do
+                        forall(i = 1:swe_xdmf_param%hdf5_valst_width) &
+                            traversal%base%sect_store%ptr%valsg(:, &
+                            ((cell_offs - 1) * swe_xdmf_param%hdf5_valst_width) + i) = position(:, i)
+#                   endif
                 end if
                 traversal%base%sect_store_index = traversal%base%sect_store_index + 1
             end if
@@ -310,8 +395,6 @@
                 num_cells, swe_xdmf_param%hdf5_attr_width, 0_HSIZE_T, swe_hdf5_attr_h_dname_nz, "WaterLevel", .false., .false., xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
                 num_cells, swe_xdmf_param%hdf5_attr_width, 2_HSIZE_T, swe_hdf5_attr_f_dname_nz, "Momentum", .false., .false., xml_file_id)
-            call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                num_cells, swe_xdmf_param%hdf5_attr_width, 2_HSIZE_T, swe_hdf5_attr_g_dname_nz, "BathymetryGradient", .false., .false., xml_file_id)
     
             write(xml_file_id, "(A)", advance="yes") '</Grid>'
     

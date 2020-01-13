@@ -91,6 +91,7 @@
             traversal%base%i_refinements_issued = 0
         end subroutine
 
+        ! TDODO XDMF Add PATCH support
         subroutine element_op(traversal, section, element)
             type(t_swe_xdmf_init_dofs_traversal), intent(inout)			:: traversal
             type(t_grid_section), intent(inout)								:: section

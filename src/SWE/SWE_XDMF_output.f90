@@ -18,6 +18,7 @@
 #       endif
 #       if defined(_SWE_DG)
             use SWE_dg_matrices
+            use SWE_dg_limiter
             use SWE_data_types
 #       endif 
 
@@ -166,8 +167,8 @@
 #                   if defined (_SWE_PATCH)
                         ! Apply attribute size correction
 #                       if defined(_SWE_DG)    
-                            if (element%cell%data_pers%troubled .le. 0) then
-                                call apply_phi(element%cell%data_pers%Q_DG%H, element%cell%data_pers%H)
+                            if (isDG(element%cell%data_pers%troubled)) then
+                                call apply_phi(element%cell%data_pers%Q_DG%H + element%cell%data_pers%Q_DG%b, element%cell%data_pers%H)
                                 call apply_phi(element%cell%data_pers%Q_DG%p(1), element%cell%data_pers%HU)
                                 call apply_phi(element%cell%data_pers%Q_DG%p(2), element%cell%data_pers%HV)
                                 call apply_phi(element%cell%data_pers%Q_DG%b, element%cell%data_pers%B)
@@ -206,15 +207,16 @@
                                 /)
 
                             ! Store point data in traversal buffer
-                            new_h = real(element%cell%data_pers%H(patch_cell_id) + element%cell%data_pers%B(patch_cell_id), XDMF_ISO_P)
-                            if (new_h.le.cfg%dry_tolerance) then
-                                new_h = 0
-                            end if
                             new_bigh = real(element%cell%data_pers%H(patch_cell_id), XDMF_ISO_P)
+                            new_h = real(element%cell%data_pers%H(patch_cell_id) - element%cell%data_pers%B(patch_cell_id), XDMF_ISO_P)
+                            ! if (new_h.le.cfg%dry_tolerance) then
+                            !     new_h = 0
+                            ! end if
+  
                             traversal%base%sect_store%ptr%valsr(1, cell_offs, :) = (/ &
                                 real(element%cell%data_pers%B(patch_cell_id), XDMF_ISO_P), new_h, new_bigh /)
                             traversal%base%sect_store%ptr%valsuv(:, 1, cell_offs, swe_hdf5_valsuv_f_offset) = &
-                                real((/ element%cell%data_pers%HU(patch_cell_id), element%cell%data_pers%HU(patch_cell_id) /), XDMF_ISO_P)
+                                real((/ element%cell%data_pers%HU(patch_cell_id), element%cell%data_pers%HV(patch_cell_id) /), XDMF_ISO_P)
 
                             ! Compute the subcells cartesian position
                             do j = 1, swe_xdmf_param%hdf5_valst_width
@@ -244,11 +246,12 @@
                             /)
                             
                         ! Store point data in traversal buffer
-                        new_h = real(element%cell%data_pers%Q%h + element%cell%data_pers%Q%b, XDMF_ISO_P)
-                        if (new_h.le.cfg%dry_tolerance) then
-                            new_h = 0
-                        end if
                         new_bigh = real(element%cell%data_pers%Q%h, XDMF_ISO_P)
+                        new_h = real(element%cell%data_pers%Q%h + element%cell%data_pers%Q%b, XDMF_ISO_P)
+                        ! if (new_h.le.cfg%dry_tolerance) then
+                        !     new_h = 0
+                        ! end if
+                       
                         traversal%base%sect_store%ptr%valsr(1, cell_offs, :) = (/ &
                             real(element%cell%data_pers%Q%b, XDMF_ISO_P), new_h, new_bigh /)
                         traversal%base%sect_store%ptr%valsuv(:, 1, cell_offs, swe_hdf5_valsuv_f_offset) = &

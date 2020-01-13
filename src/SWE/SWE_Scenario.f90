@@ -326,8 +326,8 @@ END MODULE SWE_Scenario_linear_dam_break
 ! [1] Gallardo et al., 2007. On a well-balanced high-order finite volume scheme for shallow water equations with topography and dry areas. Journal of Computational Physics, volume 227
 ! [2] Meister & Ortleb, 2014. On unconditionally positive implicit time integration for the dg scheme applied to shallow water flows. International Journal for Numerical Methods in Fluids, volume 76, 69-94.
 !
-! Domain: [-2, 2]²
-! Bathymetry: b(x,y) = 0.1 (x² + y²)
+! Domain: [-2, 2]ï¿½
+! Bathymetry: b(x,y) = 0.1 (xï¿½ + yï¿½)
 !
 ! Analytic solution:
 ! H(x,y,t) = max{ 0.0, 0.05 * (2x cos(wt) + 2y sin(wt) + 0.075 - b(x,y) ) }
@@ -470,50 +470,32 @@ MODULE SWE_Scenario_single_wave_on_the_beach
     function SWE_Scenario_get_scaling() result(scaling)
         real (kind = GRID_SR) :: scaling
         
-        scaling = 200.0_GRID_SR
+        scaling = 50400.0_GRID_SR                                                                ! 10 * L
     end function
 
     function SWE_Scenario_get_offset() result(offset)
         real (kind = GRID_SR) :: offset(2)
         
-        offset = SWE_Scenario_get_scaling() * [-0.5_GRID_SR, -0.5_GRID_SR]
+        offset = [-400.0_GRID_SR, 0.0_GRID_SR]
     end function
     
     function SWE_Scenario_get_bathymetry(x) result(bathymetry)
         real (kind = GRID_SR), intent(in) :: x(2)
         real (kind = GRID_SR) :: bathymetry
-        real (kind = GRID_SR) :: x_0(2)
-        real (kind = GRID_SR) :: desc=0.5
-        real (kind = GRID_SR) :: depth=-25.0
-                
-        x_0 =[0.0,0.0]
 
-        if(x(1)< x_0(1)) then
-           bathymetry = depth
-        else
-           bathymetry = depth+x(1)*desc
-        end if
-        
+        bathymetry = -0.1_GRID_SR * x(1)                                                        ! Linear beach: L - alpha * x
     end function
     
     function SWE_Scenario_get_initial_Q(x) result(Q)
         real (kind = GRID_SR), intent(in) :: x(2)
         type(t_dof_state) :: Q
-        real(kind=GRID_SR) :: d = 20.0
-        real(kind=GRID_SR) :: H = 2.0
-        real(kind=GRID_SR) :: x_s(2) = [-25,-25]
-        real(kind=GRID_SR) :: sech
-        real(kind=GRID_SR) :: gamma
-        real(kind=GRID_SR) :: z
         
-        gamma=sqrt(3*H/(4*d))
-        z = gamma*(x(1)-x_s(1))/d
-        sech=2/(exp(z)+exp(-z))
-
-        Q%h=sech**2 * (H) + d
-
         Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
-    end function
+        Q%h = max((((0.006_GRID_SR * exp(-0.4444_GRID_SR    * (((x(1) / 5000.0_GRID_SR) - 4.1209_GRID_SR) ** 2))) - & ! Two gaussian terms of the submarine landslide n-wave
+                    (0.018_GRID_SR * exp(-4.0_GRID_SR       * (((x(1) / 5000.0_GRID_SR) - 1.6384_GRID_SR) ** 2)))) &  ! x / L transforms x to non-dimensional form
+                  * 500.0_GRID_SR) &                                                                     ! Backtransform eta: x *= alpha * L
+                    , SWE_Scenario_get_bathymetry(x))                                                     ! Water level to water height
+    end function SWE_Scenario_get_initial_Q
 
 END MODULE SWE_Scenario_single_wave_on_the_beach
 #endif

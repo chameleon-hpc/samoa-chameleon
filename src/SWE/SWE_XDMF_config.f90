@@ -18,10 +18,16 @@
         character(len = 1), parameter			:: swe_hdf5_attr_rank_dname_nz = "o"
         character(len = 1), parameter			:: swe_hdf5_attr_plotter_dname_nz = "l"
         character(len = 1), parameter			:: swe_hdf5_attr_section_dname_nz = "s"
+#       if defined(_SWE_DG)
+            character(len = 1), parameter		:: swe_hdf5_attr_troubled_dname_nz = "t"
+#       endif
         character(len = 2), parameter			:: swe_hdf5_attr_depth_dname = swe_hdf5_attr_depth_dname_nz//char(0)
         character(len = 2), parameter			:: swe_hdf5_attr_rank_dname = swe_hdf5_attr_rank_dname_nz//char(0)
         character(len = 2), parameter			:: swe_hdf5_attr_plotter_dname = swe_hdf5_attr_plotter_dname_nz//char(0)
         character(len = 2), parameter			:: swe_hdf5_attr_section_dname = swe_hdf5_attr_section_dname_nz//char(0)
+#       if defined(_SWE_DG)
+            character(len = 2), parameter	    :: swe_hdf5_attr_troubled_dname = swe_hdf5_attr_troubled_dname_nz//char(0)
+#       endif
 
         ! Real value names
         character(len = 1), parameter			:: swe_hdf5_attr_b_dname_nz = "b"
@@ -45,7 +51,11 @@
             hdf5_valsg_width = 2, &     ! 2 geometry data fields: dimensions X and Y
             hdf5_valst_width = 3, &     ! 3 geometry entries per triangle: corners
             hdf5_attr_width = 1, &      ! 1 attribute structure instances per triangle: in the middle
-            hdf5_valsi_width = 4, &     ! 4 int32 values per cell: d, o, l, s
+#           if defined(_SWE_DG)
+                hdf5_valsi_width = 5, &     ! 5 int32 values per cell: d, o, l, s, t
+#           else
+                hdf5_valsi_width = 4, &     ! 5 int32 values per cell: d, o, l, s
+#           endif
             hdf5_valsuv_width = 1, &    ! 1 2D vector real32 values in attribute structure: f
             hdf5_valsr_width = 3 &      ! 3 real32 values in attribute structure: b, h, k
         )
@@ -60,7 +70,11 @@
             call swe_xdmf_param%allocate()
           
             swe_xdmf_param%hdf5_valsi_dnames = &
-                (/ swe_hdf5_attr_depth_dname_nz, swe_hdf5_attr_rank_dname_nz, swe_hdf5_attr_plotter_dname_nz, swe_hdf5_attr_section_dname_nz /)
+                (/ swe_hdf5_attr_depth_dname_nz, swe_hdf5_attr_rank_dname_nz, swe_hdf5_attr_plotter_dname_nz, swe_hdf5_attr_section_dname_nz &
+#               if defined(_SWE_DG)
+                    , swe_hdf5_attr_troubled_dname_nz & 
+#               endif
+                    /)
             swe_xdmf_param%hdf5_valsr_dnames = &
                 (/ swe_hdf5_attr_b_dname_nz, swe_hdf5_attr_h_dname_nz, swe_hdf5_attr_bh_dname_nz /)
             swe_xdmf_param%hdf5_valsuv_dnames = &

@@ -164,6 +164,15 @@
                     traversal%base%sect_store%ptr%tree(traversal%base%sect_store_index + offset_tree_buffer) = int(element_hash, INT32)
 
 #                   if defined (_SWE_PATCH)
+                        ! Apply attribute size correction
+#                       if defined(_SWE_DG)    
+                            if (element%cell%data_pers%troubled .le. 0) then
+                                call apply_phi(element%cell%data_pers%Q_DG%H, element%cell%data_pers%H)
+                                call apply_phi(element%cell%data_pers%Q_DG%p(1), element%cell%data_pers%HU)
+                                call apply_phi(element%cell%data_pers%Q_DG%p(2), element%cell%data_pers%HV)
+                                call apply_phi(element%cell%data_pers%Q_DG%b, element%cell%data_pers%B)
+                            end if
+#                       endif
                         ! Depending on the iteration direction (sign. plotter type), the order of the cells inside
                         ! a patch may need to be flipped
                         row = 1
@@ -187,13 +196,17 @@
 
                             ! Store cell values, see SWE implementation for details
                             traversal%base%sect_store%ptr%valsi(cell_offs, :) = (/ &
-                            int(element%cell%geometry%i_depth, INT32), &
-                            int(rank_MPI, INT32), &
-                            int(element%cell%geometry%i_plotter_type, INT32), &
-                            int(section%index, INT32) /)
+                                int(element%cell%geometry%i_depth, INT32), &
+                                int(rank_MPI, INT32), &
+                                int(element%cell%geometry%i_plotter_type, INT32), &
+                                int(section%index, INT32) &
+#                               if defined(_SWE_DG)
+                                    , int(element%cell%data_pers%troubled, INT32) &
+#                               endif
+                                /)
 
                             ! Store point data in traversal buffer
-                            new_h = real(element%cell%data_pers%H(patch_cell_id) - element%cell%data_pers%B(patch_cell_id), XDMF_ISO_P)
+                            new_h = real(element%cell%data_pers%H(patch_cell_id) + element%cell%data_pers%B(patch_cell_id), XDMF_ISO_P)
                             if (new_h.le.cfg%dry_tolerance) then
                                 new_h = 0
                             end if
@@ -224,10 +237,14 @@
                             int(element%cell%geometry%i_depth, INT32), &
                             int(rank_MPI, INT32), &
                             int(element%cell%geometry%i_plotter_type, INT32), &
-                            int(section%index, INT32) /)
+                            int(section%index, INT32) &
+#                           if defined(_SWE_DG)
+                                , int(element%cell%data_pers%troubled, INT32) &
+#                           endif
+                            /)
                             
                         ! Store point data in traversal buffer
-                        new_h = real(element%cell%data_pers%Q%h - element%cell%data_pers%Q%b, XDMF_ISO_P)
+                        new_h = real(element%cell%data_pers%Q%h + element%cell%data_pers%Q%b, XDMF_ISO_P)
                         if (new_h.le.cfg%dry_tolerance) then
                             new_h = 0
                         end if
@@ -342,6 +359,10 @@
                 num_cells, 0_HSIZE_T, 0_HSIZE_T, swe_hdf5_attr_plotter_dname_nz, "Plotter", .true., .true., xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
                 num_cells, 0_HSIZE_T, 0_HSIZE_T, swe_hdf5_attr_section_dname_nz, "Section", .true., .true., xml_file_id)
+#           if defined(_SWE_DG)                                             
+                call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
+                    num_cells, 0_HSIZE_T, 0_HSIZE_T, swe_hdf5_attr_troubled_dname_nz, "Troubled", .true., .true., xml_file_id)
+#           endif
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
                 num_cells, swe_xdmf_param%hdf5_attr_width, 0_HSIZE_T, swe_hdf5_attr_b_dname_nz, "Bathymetry", .false., .true., xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &

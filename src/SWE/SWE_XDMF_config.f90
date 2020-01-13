@@ -33,14 +33,12 @@
 
         ! 2D vector real value names
         character(len = 1), parameter			:: swe_hdf5_attr_f_dname_nz = "f"
-        character(len = 1), parameter			:: swe_hdf5_attr_g_dname_nz = "g"
         character(len = 2), parameter			:: swe_hdf5_attr_f_dname = swe_hdf5_attr_f_dname_nz//char(0)
-        character(len = 2), parameter			:: swe_hdf5_attr_g_dname = swe_hdf5_attr_g_dname_nz//char(0)
        
         ! Convenient offsets
         integer, parameter                      :: swe_hdf5_valsi_plotter_offset = 3
         integer, parameter                      :: swe_hdf5_valsr_b_offset = 1, swe_hdf5_valsr_bh_offset = 3
-        integer, parameter                      :: swe_hdf5_valsuv_f_offset = 1, swe_hdf5_valsuv_g_offset = 2
+        integer, parameter                      :: swe_hdf5_valsuv_f_offset = 1
 
         ! Parameter for the XDMF core API
         type(t_xdmf_parameter), save            :: swe_xdmf_param = t_xdmf_parameter( &
@@ -48,7 +46,7 @@
             hdf5_valst_width = 3, &     ! 3 geometry entries per triangle: corners
             hdf5_attr_width = 3, &      ! 3 attribute structure instances per triangle: one per corner 
             hdf5_valsi_width = 4, &     ! 4 int32 values per cell: d, o, l, s
-            hdf5_valsuv_width = 2, &    ! 2 2D vector real32 values in attribute structure: f, g
+            hdf5_valsuv_width = 1, &    ! 1 2D vector real32 values in attribute structure: f
             hdf5_valsr_width = 3 &      ! 3 real32 values in attribute structure: b, h, k
         )
 
@@ -66,7 +64,7 @@
             swe_xdmf_param%hdf5_valsr_dnames = &
                 (/ swe_hdf5_attr_b_dname_nz, swe_hdf5_attr_h_dname_nz, swe_hdf5_attr_bh_dname_nz /)
             swe_xdmf_param%hdf5_valsuv_dnames = &
-                (/ swe_hdf5_attr_f_dname_nz, swe_hdf5_attr_g_dname_nz /)
+                (/ swe_hdf5_attr_f_dname_nz /)
         end subroutine
 
         ! Subsection filter routines

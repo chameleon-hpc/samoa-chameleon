@@ -18,6 +18,15 @@
 		use SWE_xml_output
 		use SWE_xml_point_output
 		use SWE_point_output
+#       if defined(_XDMF)
+            use HDF5
+            use XDMF_output_base_data_types
+            use SWE_XDMF_config
+            use SWE_XDMF_output
+            use SWE_XDMF_output_filter
+            use SWE_XDMF_initialize_dofs
+            use SWE_XDMF_adapt
+#       endif
 		use SWE_euler_timestep
 #       if defined(_SWE_PATCH)
 			use SWE_PATCH
@@ -48,6 +57,12 @@
 			type(t_swe_xml_point_output_traversal)  :: xml_point_output
 			type(t_swe_xml_output_traversal)        :: xml_output
 			type(t_swe_point_output_traversal)	    :: point_output
+#           if defined(_XDMF)
+                type(t_swe_xdmf_output_traversal)   :: xdmf_output
+                type(t_swe_xdmf_output_filter_traversal) :: xdmf_output_filter
+                type(t_swe_xdmf_adaption_traversal)  :: xdmf_adaption
+                type(t_swe_xdmf_init_dofs_traversal) :: xdmf_init_dofs
+#           endif
 			
 			type(t_swe_euler_timestep_traversal)    :: euler
 			type(t_swe_adaption_traversal)          :: adaption
@@ -76,6 +91,9 @@
 			!local variables
 			character(64)												:: s_log_name, s_date, s_time
 			integer                                                     :: i_error
+#           if defined(_XDMF)
+                integer                      							:: i_xdmffile_stamp_bn_index
+#           endif
 
 #			if defined (_SWE_PATCH)
 				call SWE_PATCH_geometry%init(_SWE_PATCH_ORDER)
@@ -89,10 +107,26 @@
 #           endif
 
 			swe%output%s_file_stamp = trim(cfg%output_dir) // "/swe_" // trim(s_date) // "_" // trim(s_time)
-			swe%xml_output%s_file_stamp = trim(cfg%output_dir) // "/swe_" // trim(s_date) // "_" // trim(s_time)
-			swe%xml_point_output%s_file_stamp = trim(cfg%output_dir) // "/swe_" // trim(s_date) // "_" // trim(s_time)
-			swe%point_output%s_file_stamp = trim(cfg%output_dir) // "/swe_" // trim(s_date) // "_" // trim(s_time)
-			s_log_name = trim(swe%xml_output%s_file_stamp) // ".log"
+#           if defined(_XDMF)
+                call SWE_xdmf_config_load()
+                if(cfg%xdmf%l_xdmfcheckpoint) then
+                    swe%output%s_file_stamp = cfg%xdmf%s_xdmffile_stamp
+                    i_xdmffile_stamp_bn_index = index(cfg%xdmf%s_xdmfinput_file, "_", .true.)
+                    swe%xdmf_init_dofs%base%s_file_stamp = trim(cfg%xdmf%s_xdmfinput_file(:i_xdmffile_stamp_bn_index-1))
+                    swe%xdmf_init_dofs%base%output_iteration = cfg%xdmf%i_xdmfcheckpoint_iteration
+                    swe%xdmf_init_dofs%base%l_load_data = .false.
+                    swe%xdmf_output%base%output_iteration = cfg%xdmf%i_xdmfcheckpoint_iteration + 1
+                    swe%xdmf_output_filter%base%output_iteration = swe%xdmf_output%base%output_iteration
+                else
+                    swe%xdmf_output%base%output_iteration = 0
+                    swe%xdmf_output_filter%base%output_iteration = 0
+                end if
+                swe%xdmf_output%base%s_file_stamp = swe%output%s_file_stamp
+#           endif
+			swe%xml_output%s_file_stamp = swe%output%s_file_stamp
+			swe%xml_point_output%s_file_stamp = swe%output%s_file_stamp
+			swe%point_output%s_file_stamp = swe%output%s_file_stamp
+			s_log_name = trim(swe%output%s_file_stamp) // ".log"
 
 			if (l_log) then
 				_log_open_file(s_log_name)
@@ -106,6 +140,12 @@
 			call swe%output%create()
 			call swe%xml_output%create()
 			call swe%xml_point_output%create()
+#           if defined(_XDMF)
+                call swe%xdmf_output%create()
+                call swe%xdmf_output_filter%create()
+                call swe%xdmf_adaption%create()
+                call swe%xdmf_init_dofs%create()
+#           endif
 			call swe%euler%create()
 			call swe%adaption%create()
 #			if defined(_SWE_DG)
@@ -211,6 +251,13 @@
 			call swe%xml_output%destroy()
 			call swe%xml_point_output%destroy()
 			call swe%point_output%destroy()
+#           if defined(_XDMF)
+                call swe%xdmf_output%destroy()
+                call swe%xdmf_output_filter%destroy()
+                call swe%xdmf_adaption%destroy()
+                call swe%xdmf_init_dofs%destroy()
+                call swe_xdmf_param%deallocate()
+#           endif
 			call swe%euler%destroy()
 			call swe%adaption%destroy()
 
@@ -241,29 +288,57 @@
 			type(t_grid_info)           	                            :: grid_info, grid_info_max
 			integer (kind = GRID_SI)                                    :: i_initial_step, i_time_step
 			integer  (kind = GRID_SI)                                   :: i_stats_phase
+#           if defined(_XDMF)
+                integer                                                 :: hdf5_error
+#           endif
 
 			!init parameters
 			r_time_next_output = 0.0_GRID_SR
 
 			if (rank_MPI == 0) then
-				!$omp master
-					_log_write(0, *) "SWE: setting initial values and a priori refinement.."
-					_log_write(0, *) ""
-				!$omp end master
-			end if
+                !$omp master
+#           		if defined(_XDMF)
+                		if (.not. cfg%xdmf%l_xdmfcheckpoint) then
+#           		endif
+                    		_log_write(0, *) "SWE: setting initial values and a priori refinement.."
+#           		if defined(_XDMF)
+                		else
+                    		_log_write(0, *) "SWE: reconstructing initial refinement from XDMF.."
+                		end if
+#           		endif
+                	_log_write(0, *) ""
+                !$omp end master
+            end if
+#           if defined(_XDMF)
+                call h5open_f(hdf5_error)
+#           endif
 
 			call update_stats(swe, grid)
 			i_stats_phase = 0
-
 			i_initial_step = 0
 
-			!initialize the bathymetry
-			call swe%init_b%traverse(grid)
+#           if defined(_XDMF)
+				if (.not. cfg%xdmf%l_xdmfcheckpoint) then
+#           endif
+				!initialize the bathymetry
+				call swe%init_b%traverse(grid)
+#           if defined(_XDMF)
+				end if
+#           endif
 
+			!initialize dofs and set refinement conditions
 			do
-				!initialize dofs and set refinement conditions
-				call swe%init_dofs%traverse(grid)
+#               if defined(_XDMF)
+                    if (.not. cfg%xdmf%l_xdmfcheckpoint) then
+#               endif
+                        call swe%init_dofs%traverse(grid)
+#               if defined(_XDMF)
+                    else
+                        call swe%xdmf_init_dofs%traverse(grid)
+                    end if
+#               endif
 				
+
 				grid_info%i_cells = grid%get_cells(MPI_SUM, .true.)
 				if (rank_MPI == 0) then
 					!$omp master
@@ -275,67 +350,115 @@
 					!$omp end master
 				end if
 				
-				!output grids during initial phase if and only if t_out is 0
-				if (cfg%r_output_time_step == 0.0_GRID_SR) then
-					
-					if (cfg%l_pointoutput) then
-						call swe%point_output%traverse(grid)
-					end if
-					
-					if(cfg%l_gridoutput) then
-						call swe%xml_output%traverse(grid)
-					end if
 
-					if(cfg%l_xml_pointoutput) then
-						call swe%xml_point_output%traverse(grid)
-					end if
-					
-					r_time_next_output = r_time_next_output + cfg%r_output_time_step
-				end if
-
-				if (swe%init_dofs%i_refinements_issued .le. 0) then
-					exit
-				endif
+#               if defined(_XDMF)
+                    if (.not. cfg%xdmf%l_xdmfcheckpoint) then
+#               endif
+                        if (swe%init_dofs%i_refinements_issued .le. 0) then
+                            exit
+                        end if
+#               if defined(_XDMF)
+                    else
+                        if (swe%xdmf_init_dofs%base%i_refinements_issued .le. 0) then
+                            exit
+                        end if
+                    end if
+#               endif
 				
-				call swe%adaption%traverse(grid)               
+#               if defined(_XDMF)
+                    if (.not. cfg%xdmf%l_xdmfcheckpoint) then
+#               endif
+                        call swe%adaption%traverse(grid)
+#               if defined(_XDMF)
+                    else
+                        call swe%xdmf_adaption%traverse(grid)
+                    end if
+#               endif
 
-				
+#               if defined(_XDMF)
+                    if (.not. cfg%xdmf%l_xdmfcheckpoint) then
+#               endif
+                        !output grids during initial phase if and only if t_out is 0
+                        if (cfg%r_output_time_step == 0.0_GRID_SR) then
+							if (cfg%l_pointoutput) then
+								call swe%point_output%traverse(grid)
+							end if
+							
+							if(cfg%l_gridoutput) then
+								call swe%xml_output%traverse(grid)
+							end if
+
+							if(cfg%l_xml_pointoutput) then
+								call swe%xml_point_output%traverse(grid)
+							end if
+
+#                           if defined(_XDMF)
+                                if(cfg%xdmf%l_xdmfoutput) then
+                                    call xdmf_output_wrapper(swe, grid, 0)
+                                end if
+#                           endif
+
+                            r_time_next_output = r_time_next_output + cfg%r_output_time_step
+                        end if
+#               if defined(_XDMF)
+                    !do not output grid when reloading checkpoint
+                    end if
+#               endif
+
 				i_initial_step = i_initial_step + 1
 			end do
 			
+#           if defined(_XDMF)
+				if (cfg%xdmf%l_xdmfcheckpoint) then
+					if (rank_MPI == 0) then
+						!$omp master
+							_log_write(0, *) "XDMF: loading values"
+						!$omp end master
+					end if
+					swe%xdmf_init_dofs%base%l_load_data = .true.
+					call swe%xdmf_init_dofs%traverse(grid)
+				end if
+#           endif   
+
 			grid_info = grid%get_info(MPI_SUM, .true.)
 
 			if (rank_MPI == 0) then
 				!$omp master
 				_log_write(0, *) "SWE: done."
 				_log_write(0, *) ""
-
 				call grid_info%print()
 				!$omp end master
 			end if
 
 			!output initial grid
-			if (cfg%i_output_time_steps > 0 .or. cfg%r_output_time_step >= 0.0_GRID_SR) then
+#           if defined(_XDMF)
+				if (.not. cfg%xdmf%l_xdmfcheckpoint) then
+#           endif
+					if (cfg%i_output_time_steps > 0 .or. cfg%r_output_time_step >= 0.0_GRID_SR) then
+						if (cfg%l_pointoutput) then
+							call swe%point_output%traverse(grid)
+						end if
+						
+						if(cfg%l_gridoutput) then
+							call swe%xml_output%traverse(grid)
+						end if
 
-				if(cfg%l_gridoutput) then
-					call swe%xml_output%traverse(grid)
+						if(cfg%l_xml_pointoutput) then
+							call swe%xml_point_output%traverse(grid)
+						end if
+
+#                       if defined(_XDMF)
+							if(cfg%xdmf%l_xdmfoutput) then
+								call xdmf_output_wrapper(swe, grid, 0)
+							end if
+#                       endif
+
+						r_time_next_output = r_time_next_output + cfg%r_output_time_step
+					end if
+#          	if defined(_XDMF)
+				!do not output grid when reloading checkpoint
 				end if
-
-				if (cfg%l_pointoutput) then
-					call swe%point_output%traverse(grid)
-				 end if
-				 
-				 if(cfg%l_xml_pointoutput) then
-					call swe%xml_point_output%traverse(grid)
-				 end if
-
-
-				if (cfg%l_xml_pointoutput) then
-				   call swe%xml_point_output%traverse(grid)
-				end if
-				
-				r_time_next_output = r_time_next_output + cfg%r_output_time_step
-			end if
+#           endif
 
 			!print initial stats
 			if (cfg%i_stats_phases >= 0) then
@@ -345,17 +468,44 @@
 			end if
 
 			!$omp master
-			call swe%init_dofs%reduce_stats(MPI_SUM, .true.)
-			call swe%adaption%reduce_stats(MPI_SUM, .true.)
-			call grid%reduce_stats(MPI_SUM, .true.)
+#           	if defined(_XDMF)
+					if (.not. cfg%xdmf%l_xdmfcheckpoint) then
+#           	endif
+						call swe%init_dofs%reduce_stats(MPI_SUM, .true.)
+						call swe%adaption%reduce_stats(MPI_SUM, .true.)
+#           	if defined(_XDMF)
+					else
+						call swe%xdmf_init_dofs%reduce_stats(MPI_SUM, .true.)
+						call swe%xdmf_adaption%reduce_stats(MPI_SUM, .true.)
+					end if
+#           	endif
+				call grid%reduce_stats(MPI_SUM, .true.)
 
-			if (rank_MPI == 0) then
-				_log_write(0, *) "SWE: running time steps.."
-				_log_write(0, *) ""
-			end if
+				if (rank_MPI == 0) then
+#           		if defined(_XDMF)
+						if (.not. cfg%xdmf%l_xdmfcheckpoint) then
+#           		endif
+							_log_write(0, *) "SWE: running time steps.."
+#           		if defined(_XDMF)
+						else
+							_log_write(0, *) "SWE: continuing time steps.."
+						end if
+#           		endif
+					_log_write(0, *) ""
+				end if
 			!$omp end master
 
-			i_time_step = 0
+#           if defined(_XDMF)
+                if (.not. cfg%xdmf%l_xdmfcheckpoint) then
+#           endif
+                    i_time_step = 0
+#           if defined(_XDMF)
+                else
+                    i_time_step = cfg%xdmf%i_xdmfsimulation_iteration
+                    grid%r_time = cfg%xdmf%r_xdmftime
+                    grid%r_dt = cfg%xdmf%r_xdmfdeltatime
+                end if
+#           endif
 
 #           if defined(_ASAGI)
 				! during the earthquake, do small time steps that include a displacement
@@ -426,6 +576,12 @@
 							call swe%point_output%traverse(grid)
 						end if
 
+#                       if defined(_XDMF)
+							if(cfg%xdmf%l_xdmfoutput) then
+								call xdmf_output_wrapper(swe, grid, i_time_step)
+							end if
+#                       endif
+
 						r_time_next_output = r_time_next_output + cfg%r_output_time_step
 					end if
 				end do
@@ -448,12 +604,18 @@
 								end if
 
 								if(cfg%l_xml_pointoutput) then
-								call swe%xml_point_output%traverse(grid)
+									call swe%xml_point_output%traverse(grid)
 								end if
 
 								if (cfg%l_pointoutput) then
 									call swe%point_output%traverse(grid)
 								end if
+
+#                       		if defined(_XDMF)
+									if(cfg%xdmf%l_xdmfoutput) then
+										call xdmf_output_wrapper(swe, grid, i_time_step)
+									end if
+#                       		endif
 						end if
 						exit
 					end if
@@ -482,7 +644,6 @@
 				   
 				   
 #					if defined(_SWE_DG)
- 
 						!call swe%dg_predictor%traverse(grid)
 				   		call swe%adaption%traverse(grid)
 #					else
@@ -526,6 +687,12 @@
 							call swe%xml_point_output%traverse(grid)
 						end if
 						
+#                       if defined(_XDMF)
+							if(cfg%xdmf%l_xdmfoutput) then
+								call xdmf_output_wrapper(swe, grid, i_time_step)
+							end if
+#                       endif
+
 						r_time_next_output = r_time_next_output + cfg%r_output_time_step
 					end if
 				   
@@ -551,6 +718,12 @@
 
 				call grid_info%print()
 			end if
+#           if defined(_XDMF)
+                if(swe%xdmf_output%base%root_desc%hdf5_meta_ids%file_id .ne. 0) then
+                    call h5fclose_f(swe%xdmf_output%base%root_desc%hdf5_meta_ids%file_id, hdf5_error)
+                end if
+                call h5close_f(hdf5_error)
+#           endif
 			!$omp end master
 		end subroutine
 
@@ -573,6 +746,11 @@
 						call swe%euler%reduce_stats(MPI_SUM, .true.)
 #					endif                    
 					call swe%adaption%reduce_stats(MPI_SUM, .true.)
+#                   if defined(_XDMF)
+                        call swe%xdmf_init_dofs%reduce_stats(MPI_SUM, .true.)
+                        call swe%xdmf_output%reduce_stats(MPI_SUM, .true.)
+                        call swe%xdmf_output_filter%reduce_stats(MPI_SUM, .true.)
+#                   endif
 					call grid%reduce_stats(MPI_SUM, .true.)
 	   
 					if (rank_MPI == 0) then
@@ -591,7 +769,18 @@
 							_log_write(0, '(A, T34, A)') "Predictor and Adaptions: ", trim(swe%adaption%stats%to_string())
 #						else
 							_log_write(0, '(A, T34, A)') " Adaptions: ", trim(swe%adaption%stats%to_string())
-#						endif                        
+#						endif
+#                   	if defined(_XDMF)
+							if(cfg%xdmf%l_xdmfcheckpoint) then
+								_log_write(0, '(A, T34, A)') " XDMF Input: ", trim(swe%xdmf_init_dofs%stats%to_string())
+							end if
+							if(cfg%xdmf%l_xdmfoutput) then
+								_log_write(0, '(A, T34, A)') " XDMF Output: ", trim(swe%xdmf_output%stats%to_string())
+								if (cfg%xdmf%i_xdmffilter_index .ne. 0) then
+									_log_write(0, '(A, T34, A)') " XDMF Output filter: ", trim(swe%xdmf_output_filter%stats%to_string())
+								end if
+							end if
+#                   	endif
 						_log_write(0, '(A, T34, A)') " Grid: ", trim(grid%stats%to_string())
 						! throughput calculations are a bit different if using patches
 #                       if defined(_SWE_PATCH)                        
@@ -625,7 +814,12 @@
 					call swe%dg_timestep%clear_stats()
 #				else
 					call swe%euler%clear_stats()
-#				endif                
+#				endif
+#           	if defined(_XDMF)
+					call swe%xdmf_init_dofs%clear_stats()
+					call swe%xdmf_output%clear_stats()
+					call swe%xdmf_output_filter%clear_stats()
+#           	endif               
 
 				call swe%adaption%clear_stats()
 				call grid%clear_stats()
@@ -633,6 +827,23 @@
 				t_phase = -get_wtime()
 			!$omp end master
 		end subroutine
+
+#       if defined(_XDMF)
+            subroutine xdmf_output_wrapper(swe, grid, time_step)
+                class(t_swe), intent(inout)                               :: swe
+                type(t_grid), intent(inout)									:: grid
+                integer (kind = GRID_SI), intent(in)						:: time_step
+
+                integer                                                     :: i
+
+                swe%xdmf_output%base%i_sim_iteration = time_step
+                swe%xdmf_output_filter%base%i_sim_iteration = time_step
+                if (cfg%xdmf%i_xdmffilter_index .ne. 0) then
+                    call swe%xdmf_output_filter%traverse(grid)
+                end if
+                call swe%xdmf_output%traverse(grid)
+            end subroutine
+#       endif
 
 	END MODULE SWE
 #endif

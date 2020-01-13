@@ -1,5 +1,4 @@
 scenario='swe'
-swe_patch_order='1'
 swe_dg_order='1'
 flux_solver='fwave'
 swe_scenario='radial_dam_break'

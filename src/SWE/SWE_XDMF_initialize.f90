@@ -190,23 +190,23 @@
 
                 !Write data into samoa data model
                 do i = 1, swe_xdmf_param%hdf5_attr_width
-                    if (hdf5_l_buffer(1) .le. 0) then
-                        point_id = i
-                        if (i .eq. 1) then
-                            point_id = 3
-                        else if (i .eq. 2) then
-                            point_id = 1
-                        else if (i .eq. 3) then
-                            point_id = 2
-                        end if
-                    else
-                        point_id = i
-                        if (i .eq. 1) then
-                            point_id = 2
-                        else if (i .eq. 2) then
-                            point_id = 1
-                        end if
-                    end if
+                    ! if (hdf5_l_buffer(1) .le. 0) then
+                    !     point_id = i
+                    !     if (i .eq. 1) then
+                    !         point_id = 3
+                    !     else if (i .eq. 2) then
+                    !         point_id = 1
+                    !     else if (i .eq. 3) then
+                    !         point_id = 2
+                    !     end if
+                    ! else
+                    !     point_id = i
+                    !     if (i .eq. 1) then
+                    !         point_id = 2
+                    !     else if (i .eq. 2) then
+                    !         point_id = 1
+                    !     end if
+                    ! end if
 
                     ! TODO XDMF write data into cell model
                     ! element%cell%data_pers%Q(point_id)%b = hdf5_b_buffer(i, 1)

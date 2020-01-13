@@ -149,6 +149,9 @@ module XDMF_output_base
         hdf5_vals_length = base%root_layout_desc%ranks(rank_MPI + 1)%num_cells
         hdf5_vals_offset = base%root_layout_desc%ranks(rank_MPI + 1)%offset_cells
         hdf5_tree_length = hdf5_vals_length
+#       if defined (_XDMF_PATCH)  
+            hdf5_tree_length = hdf5_tree_length / _XDMF_PATCH_ORDER_SQUARE
+#       endif
 
         ! Compute tree hashtable parameters
         htbl_size = 0
@@ -157,7 +160,11 @@ module XDMF_output_base
         end if
 
         ! Create hdf5 datasets
-        num_cells = base%num_cells
+#       if defined (_XDMF_PATCH)
+            num_cells = base%num_cells * _XDMF_PATCH_ORDER_SQUARE
+#       else
+            num_cells = base%num_cells
+#       endif
         call base%root_desc%hdf5_ids%create(param, base%root_desc%hdf5_meta_ids%step_group_id, num_cells, htbl_size)
 
         ! Check for empty domain, otherwise MPI-IO might fail
@@ -194,7 +201,11 @@ module XDMF_output_base
                     ! Build the offsets of tree data in hash table in memory
                     htbl_num_cells = 0
                     do i = 1, hdf5_tree_length
-                        hdf5_tree_index = 1 + hdf5_vals_offset + (i - 1)
+#                       if defined (_XDMF_PATCH)                    
+                            hdf5_tree_index = 1 + hdf5_vals_offset + ((i - 1) * _XDMF_PATCH_ORDER_SQUARE)
+#                       else
+                            hdf5_tree_index = 1 + hdf5_vals_offset + (i - 1)
+#                       endif
                         ! Hash the tree offset to compute hash table offset
                         htbl_element = sect_store_data%tree(i)
                         htbl_try = 0
@@ -412,6 +423,9 @@ module XDMF_output_base
                 do j = 1, sections_size
                     section_info = grid%sections%elements(j)%get_info()
                     num_cells_local(j) = section_info%i_cells
+#                   if defined(_XDMF_PATCH)
+                        num_cells_local(j) = num_cells_local(j) * _XDMF_PATCH_ORDER_SQUARE
+#                   endif
                 end do
             else
                 do j = 1, sections_size
@@ -483,6 +497,9 @@ module XDMF_output_base
                 if (.not. from_filter) then
                     section_info = grid%sections%elements(j)%get_info()
                     num_cells_section = section_info%i_cells
+#                   if defined(_XDMF_PATCH)
+                        num_cells_section = num_cells_section * _XDMF_PATCH_ORDER_SQUARE
+#                   endif
                 else
                     num_cells_section = grid%sections%elements(j)%xdmf_filter_count
                 end if

@@ -11,7 +11,7 @@
 # endif
 
 ! This is needed to prevent module dependency conflicts
-! Note that ADER-DG still uses the old patch format
+! Note that ADER-DG still uses the old patch format, as opposed to master, which uses the new one (Tools_patch)
 
 # if defined(_SWE_PATCH)
 #   define _XDMF_PATCH

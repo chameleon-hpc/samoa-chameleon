@@ -69,17 +69,24 @@ module XDMF_output_base_data_types
         integer, intent(in)                     :: sect_cells        
         type(t_xdmf_parameter), intent(in)      :: param
 
+        integer(XDMF_GRID_SI)                   :: sect_cells_actual
         integer                                 :: error
+
+#       if defined (_XDMF_PATCH)
+            sect_cells_actual = sect_cells * _XDMF_PATCH_ORDER_SQUARE
+#       else
+            sect_cells_actual = sect_cells
+#       endif
 
         allocate(this%tree(sect_cells), stat = error); assert_eq(error, 0)
         this%tree = 0
-        allocate(this%valsi(sect_cells, param%hdf5_valsi_width), stat = error); assert_eq(error, 0)
+        allocate(this%valsi(sect_cells_actual, param%hdf5_valsi_width), stat = error); assert_eq(error, 0)
         this%valsi = 0
-        allocate(this%valsr(param%hdf5_attr_width, sect_cells, param%hdf5_valsr_width), stat = error); assert_eq(error, 0)
+        allocate(this%valsr(param%hdf5_attr_width, sect_cells_actual, param%hdf5_valsr_width), stat = error); assert_eq(error, 0)
         this%valsr = 0
-        allocate(this%valsuv(hdf5_vector_width, param%hdf5_attr_width, sect_cells, param%hdf5_valsuv_width), stat = error); assert_eq(error, 0)
+        allocate(this%valsuv(hdf5_vector_width, param%hdf5_attr_width, sect_cells_actual, param%hdf5_valsuv_width), stat = error); assert_eq(error, 0)
         this%valsuv = 0
-        allocate(this%valsg(param%hdf5_valsg_width, sect_cells * param%hdf5_valst_width), stat = error); assert_eq(error, 0)
+        allocate(this%valsg(param%hdf5_valsg_width, sect_cells_actual * param%hdf5_valst_width), stat = error); assert_eq(error, 0)
         this%valsg = 0
     end subroutine
 

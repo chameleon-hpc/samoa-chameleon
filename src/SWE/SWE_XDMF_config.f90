@@ -44,7 +44,7 @@
         type(t_xdmf_parameter), save            :: swe_xdmf_param = t_xdmf_parameter( &
             hdf5_valsg_width = 2, &     ! 2 geometry data fields: dimensions X and Y
             hdf5_valst_width = 3, &     ! 3 geometry entries per triangle: corners
-            hdf5_attr_width = 3, &      ! 3 attribute structure instances per triangle: one per corner 
+            hdf5_attr_width = 1, &      ! 1 attribute structure instances per triangle: in the middle
             hdf5_valsi_width = 4, &     ! 4 int32 values per cell: d, o, l, s
             hdf5_valsuv_width = 1, &    ! 1 2D vector real32 values in attribute structure: f
             hdf5_valsr_width = 3 &      ! 3 real32 values in attribute structure: b, h, k

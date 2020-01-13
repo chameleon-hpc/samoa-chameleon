@@ -117,7 +117,7 @@
             real(XDMF_ISO_P)                                                :: new_h, new_bigh
             integer(GRID_SI)                                                :: cell_offs
 #           if defined (_SWE_PATCH)
-                integer(GRID_SI)                                            :: j, k, patch_cell_id, patch_cell_offs, row, col
+                integer(GRID_SI)                                            :: j, patch_cell_id, patch_cell_offs, row, col
 #           endif
             logical                                                         :: write_cp, filter_result = .true.
 
@@ -192,40 +192,16 @@
                             int(element%cell%geometry%i_plotter_type, INT32), &
                             int(section%index, INT32) /)
 
-                            do k = 1, swe_xdmf_param%hdf5_attr_width
-                                !Compute data storage order in cell
-                                point_id = k
-                                ! if (element%cell%geometry%i_plotter_type .le. 0) then
-                                !     point_id = k
-                                !     if (k .eq. 1) then
-                                !         point_id = 3
-                                !     else if (k .eq. 2) then
-                                !         point_id = 1
-                                !     else if (k .eq. 3) then
-                                !         point_id = 2
-                                !     end if
-                                ! else
-                                !     point_id = k
-                                !     if (k .eq. 1) then
-                                !         point_id = 2
-                                !     else if (k .eq. 2) then
-                                !         point_id = 1
-                                !     end if
-                                ! end if
-                                
-                                ! Store point data in traversal buffer
-                                new_h = real(element%cell%data_pers%Q(point_id)%h, XDMF_ISO_P)
-                                if (new_h.le.cfg%dry_tolerance) then
-                                    new_h = 0
-                                else
-                                    new_h = new_h + real(element%cell%data_pers%Q(point_id)%b, XDMF_ISO_P)
-                                end if
-                                new_bigh = real(element%cell%data_pers%Q(point_id)%h, XDMF_ISO_P)
-                                traversal%base%sect_store%ptr%valsr(k, cell_offs, :) = (/ &
-                                    real(element%cell%data_pers%Q(point_id)%b, XDMF_ISO_P), new_h, new_bigh /)
-                                traversal%base%sect_store%ptr%valsuv(:, k, cell_offs, swe_hdf5_valsuv_f_offset) = &
-                                    real(element%cell%data_pers%Q(point_id)%p(:), XDMF_ISO_P)
-                            end do
+                            ! Store point data in traversal buffer
+                            new_h = real(element%cell%data_pers%H(patch_cell_id) - element%cell%data_pers%B(patch_cell_id), XDMF_ISO_P)
+                            if (new_h.le.cfg%dry_tolerance) then
+                                new_h = 0
+                            end if
+                            new_bigh = real(element%cell%data_pers%H(patch_cell_id), XDMF_ISO_P)
+                            traversal%base%sect_store%ptr%valsr(1, cell_offs, :) = (/ &
+                                real(element%cell%data_pers%B(patch_cell_id), XDMF_ISO_P), new_h, new_bigh /)
+                            traversal%base%sect_store%ptr%valsuv(:, 1, cell_offs, swe_hdf5_valsuv_f_offset) = &
+                                real((/ element%cell%data_pers%HU(patch_cell_id), element%cell%data_pers%HU(patch_cell_id) /), XDMF_ISO_P)
 
                             ! Compute the subcells cartesian position
                             do j = 1, swe_xdmf_param%hdf5_valst_width
@@ -249,41 +225,17 @@
                             int(rank_MPI, INT32), &
                             int(element%cell%geometry%i_plotter_type, INT32), &
                             int(section%index, INT32) /)
-
-                        do i = 1, swe_xdmf_param%hdf5_attr_width
-                            !Compute data storage order in cell
-                            point_id = i
-                            ! if (element%cell%geometry%i_plotter_type .le. 0) then
-                            !     point_id = i
-                            !     if (i .eq. 1) then
-                            !         point_id = 3
-                            !     else if (i .eq. 2) then
-                            !         point_id = 1
-                            !     else if (i .eq. 3) then
-                            !         point_id = 2
-                            !     end if
-                            ! else
-                            !     point_id = i
-                            !     if (i .eq. 1) then
-                            !         point_id = 2
-                            !     else if (i .eq. 2) then
-                            !         point_id = 1
-                            !     end if
-                            ! end if
                             
-                            ! Store point data in traversal buffer
-                            new_h = real(element%cell%data_pers%Q(point_id)%h, XDMF_ISO_P)
-                            if (new_h.le.cfg%dry_tolerance) then
-                                new_h = 0
-                            else
-                                new_h = new_h + real(element%cell%data_pers%Q(point_id)%b, XDMF_ISO_P)
-                            end if
-                            new_bigh = real(element%cell%data_pers%Q(point_id)%h, XDMF_ISO_P)
-                            traversal%base%sect_store%ptr%valsr(i, cell_offs, :) = (/ &
-                                real(element%cell%data_pers%Q(point_id)%b, XDMF_ISO_P), new_h, new_bigh /)
-                            traversal%base%sect_store%ptr%valsuv(:, i, cell_offs, swe_hdf5_valsuv_f_offset) = &
-                                real(element%cell%data_pers%Q(point_id)%p(:), XDMF_ISO_P)
-                        end do
+                        ! Store point data in traversal buffer
+                        new_h = real(element%cell%data_pers%Q%h - element%cell%data_pers%Q%b, XDMF_ISO_P)
+                        if (new_h.le.cfg%dry_tolerance) then
+                            new_h = 0
+                        end if
+                        new_bigh = real(element%cell%data_pers%Q%h, XDMF_ISO_P)
+                        traversal%base%sect_store%ptr%valsr(1, cell_offs, :) = (/ &
+                            real(element%cell%data_pers%Q%b, XDMF_ISO_P), new_h, new_bigh /)
+                        traversal%base%sect_store%ptr%valsuv(:, 1, cell_offs, swe_hdf5_valsuv_f_offset) = &
+                            real(element%cell%data_pers%Q%p(:), XDMF_ISO_P)
 
                         ! Compute the cells cartesian position
                         do i = 1, swe_xdmf_param%hdf5_valst_width
@@ -359,6 +311,9 @@
                 grid%r_dt, '</DataItem></Attribute>'
     
             num_cells = int(base%num_cells, HSIZE_T)
+#           if defined(_SWE_PATCH)
+                num_cells = num_cells * _SWE_PATCH_ORDER_SQUARE
+#           endif
     
             ! Topology
             xml_dims_string(:) = " "
@@ -388,13 +343,13 @@
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
                 num_cells, 0_HSIZE_T, 0_HSIZE_T, swe_hdf5_attr_section_dname_nz, "Section", .true., .true., xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                num_cells, swe_xdmf_param%hdf5_attr_width, 0_HSIZE_T, swe_hdf5_attr_b_dname_nz, "Bathymetry", .false., .false., xml_file_id)
+                num_cells, swe_xdmf_param%hdf5_attr_width, 0_HSIZE_T, swe_hdf5_attr_b_dname_nz, "Bathymetry", .false., .true., xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                num_cells, swe_xdmf_param%hdf5_attr_width, 0_HSIZE_T, swe_hdf5_attr_bh_dname_nz, "WaterHeight", .false., .false., xml_file_id)
+                num_cells, swe_xdmf_param%hdf5_attr_width, 0_HSIZE_T, swe_hdf5_attr_bh_dname_nz, "WaterHeight", .false., .true., xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                num_cells, swe_xdmf_param%hdf5_attr_width, 0_HSIZE_T, swe_hdf5_attr_h_dname_nz, "WaterLevel", .false., .false., xml_file_id)
+                num_cells, swe_xdmf_param%hdf5_attr_width, 0_HSIZE_T, swe_hdf5_attr_h_dname_nz, "WaterLevel", .false., .true., xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                num_cells, swe_xdmf_param%hdf5_attr_width, 2_HSIZE_T, swe_hdf5_attr_f_dname_nz, "Momentum", .false., .false., xml_file_id)
+                num_cells, swe_xdmf_param%hdf5_attr_width, 2_HSIZE_T, swe_hdf5_attr_f_dname_nz, "Momentum", .false., .true., xml_file_id)
     
             write(xml_file_id, "(A)", advance="yes") '</Grid>'
     

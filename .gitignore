@@ -19,3 +19,4 @@ output/*
 *.attr
 *.mod
 *.o
+.vscode

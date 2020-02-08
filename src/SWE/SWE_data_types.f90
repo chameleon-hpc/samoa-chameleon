@@ -67,17 +67,16 @@ MODULE SWE_data_types
 		END type num_node_data_pers
 
 		!> persistent scenario data on an edge
-		type num_edge_data_pers
-			integer (kind = BYTE), dimension(0)											:: dummy					!< no data
-                END type num_edge_data_pers
+  type num_edge_data_pers
+     real(kind=GRID_SR)   ,DIMENSION(_SWE_DG_ORDER+1,4)   :: QP
+     real(kind=GRID_SR)   ,DIMENSION(2,_SWE_DG_ORDER+1,3) :: FP
+     real (kind = GRID_SR),DIMENSION(_SWE_PATCH_ORDER)    :: H, HU, HV, B
+  end type num_edge_data_pers
 
 !> persistent scenario data on a cell
 type num_cell_data_pers
   real (kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER_SQUARE) :: H, HU, HV, B
-  real(kind=GRID_SR), DIMENSION(2,_SWE_DG_DOFS,3) :: FP
-  real(kind=GRID_SR), DIMENSION(  _SWE_DG_DOFS,4) :: QP
   type(t_state)     , DIMENSION(_SWE_DG_DOFS)     :: Q
-  real(kind=GRID_SR), DIMENSION(_SWE_DG_DOFS,3)   :: Q_DG_UPDATE
 
   integer :: troubled
 #if defined(_DEBUG)

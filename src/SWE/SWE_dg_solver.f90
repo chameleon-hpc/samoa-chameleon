@@ -121,64 +121,28 @@ MODULE SWE_DG_solver
     rep%debug_flag = element%cell%data_pers%debug_flag
 #endif    
 
-    associate(cell_edge => ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%edges, normal => edge%transform_data%normal)
-      do i=1,3
-         if ( normal(1) == cell_edge(i)%normal(1) .and. normal(2) == cell_edge(i)%normal(2) )   then
-            edge_type = i
-         else if( normal(1) == -cell_edge(i)%normal(1) .and. normal(2) == -cell_edge(i)%normal(2) ) then
-            edge_type = -i
-         endif
-      end do
-
-    end associate
     if(element%cell%data_pers%troubled.le.0) then
-    !---- Project time averaged predictor and fluxes ----!
-    do i=0,_SWE_DG_ORDER
-       select case (edge_type)
-       case(-1 ,1) !right
-          indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i+1)*(_SWE_DG_ORDER-i+2)/2 +1
-       case(-2,2) !mid
-          indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i)*(_SWE_DG_ORDER-i+1)/2
-       case(-3 ,3) !left
-          indx=1+i
-       case default
-          stop
-       end select
-       rep%Q(i+1)%h                        = element%cell%data_pers%QP(indx,1)
-       rep%Q(i+1)%p(1)                     = element%cell%data_pers%QP(indx,2)
-       rep%Q(i+1)%p(2)                     = element%cell%data_pers%QP(indx,3)
-       rep%Q(i+1)%b                        = element%cell%data_pers%QP(indx,4)
-       
-       rep%Q((_SWE_DG_ORDER+1)+i+1)%h      = element%cell%data_pers%FP(1,indx,1)
-       rep%Q((_SWE_DG_ORDER+1)+i+1)%p(1)   = element%cell%data_pers%FP(1,indx,2)
-       rep%Q((_SWE_DG_ORDER+1)+i+1)%p(2)   = element%cell%data_pers%FP(1,indx,3)
-       rep%Q((_SWE_DG_ORDER+1)+i+1)%b      = 0.0_GRID_SR
-       
-       rep%Q(2*(_SWE_DG_ORDER+1)+i+1)%h    = element%cell%data_pers%FP(2,indx,1)
-       rep%Q(2*(_SWE_DG_ORDER+1)+i+1)%p(1) = element%cell%data_pers%FP(2,indx,2)
-       rep%Q(2*(_SWE_DG_ORDER+1)+i+1)%p(2) = element%cell%data_pers%FP(2,indx,3)
-       rep%Q(2*(_SWE_DG_ORDER+1)+i+1)%b    = 0.0_GRID_SR
-    end do
-    !-----------------------------------------------------!
+    !------------------read edge data---------------------!
+    rep%Q(                    1:1*(_SWE_DG_ORDER+1))%h    = edge%data_pers%QP(:,1)
+    rep%Q(                    1:1*(_SWE_DG_ORDER+1))%p(1) = edge%data_pers%QP(:,2)
+    rep%Q(                    1:1*(_SWE_DG_ORDER+1))%p(2) = edge%data_pers%QP(:,3)
+    rep%Q(                    1:1*(_SWE_DG_ORDER+1))%b    = edge%data_pers%QP(:,4)
     
-    !------------------Project FV dofs------------------!
-    select case (edge_type)
-    case (-3,3) !cells with id i*i+1 (left leg)
-       rep%H  = matmul(phi_l,element%cell%data_pers%Q%h) 
-       rep%HU = matmul(phi_l,element%cell%data_pers%Q%p(1))
-       rep%HV = matmul(phi_l,element%cell%data_pers%Q%p(2)) 
-       rep%B  = matmul(phi_l,element%cell%data_pers%Q%b)
-    case (-2,2) ! hypotenuse
-       rep%H  = matmul(phi_m,element%cell%data_pers%Q%h)
-       rep%HU = matmul(phi_m,element%cell%data_pers%Q%p(1))
-       rep%HV = matmul(phi_m,element%cell%data_pers%Q%p(2))
-       rep%B  = matmul(phi_m,element%cell%data_pers%Q%b)
-    case (-1,1) !cells with id i*i (right leg)
-       rep%H  = matmul(phi_r,element%cell%data_pers%Q%h)
-       rep%HU = matmul(phi_r,element%cell%data_pers%Q%p(1))
-       rep%HV = matmul(phi_r,element%cell%data_pers%Q%p(2))
-       rep%B  = matmul(phi_r,element%cell%data_pers%Q%b)
-    end select
+    rep%Q(  (_SWE_DG_ORDER+1)+1:2*(_SWE_DG_ORDER+1))%h    = edge%data_pers%FP(1,:,1)
+    rep%Q(  (_SWE_DG_ORDER+1)+1:2*(_SWE_DG_ORDER+1))%p(1) = edge%data_pers%FP(1,:,2)
+    rep%Q(  (_SWE_DG_ORDER+1)+1:2*(_SWE_DG_ORDER+1))%p(2) = edge%data_pers%FP(1,:,3)
+    rep%Q(  (_SWE_DG_ORDER+1)+1:2*(_SWE_DG_ORDER+1))%b    = 0.0_GRID_SR
+    
+    rep%Q(2*(_SWE_DG_ORDER+1)+1:3*(_SWE_DG_ORDER+1))%h    = edge%data_pers%FP(2,:,1)
+    rep%Q(2*(_SWE_DG_ORDER+1)+1:3*(_SWE_DG_ORDER+1))%p(1) = edge%data_pers%FP(2,:,2)
+    rep%Q(2*(_SWE_DG_ORDER+1)+1:3*(_SWE_DG_ORDER+1))%p(2) = edge%data_pers%FP(2,:,3)
+    rep%Q(2*(_SWE_DG_ORDER+1)+1:3*(_SWE_DG_ORDER+1))%b    = 0.0_GRID_SR
+   
+    rep%H  = edge%data_pers%H
+    rep%HU = edge%data_pers%HU
+    rep%HV = edge%data_pers%HV
+    rep%B  = edge%data_pers%B
+    !-----------------------------------------------------!
     !---scale by element size---!
     rep%H = (rep%H + rep%B) * _REF_TRIANGLE_SIZE_INV
     rep%HU = rep%HU * _REF_TRIANGLE_SIZE_INV
@@ -187,6 +151,17 @@ MODULE SWE_DG_solver
     !-----------------------------------------------------!
  else
     select case (edge_type)
+
+    associate(cell_edge => ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%edges, normal => edge%transform_data%normal)
+      do i=1,3
+         if ( normal(1) == cell_edge(i)%normal(1) .and. normal(2) == cell_edge(i)%normal(2) )   then
+            edge_type = i
+         else if( normal(1) == -cell_edge(i)%normal(1) .and. normal(2) == -cell_edge(i)%normal(2) ) then
+            edge_type = -i
+         endif
+      end do
+    end associate
+       
     case (-3,3) !cells with id i*i+1 (left leg)
        do i=0, _SWE_PATCH_ORDER - 1
           j=_SWE_PATCH_ORDER-1-i
@@ -651,8 +626,7 @@ subroutine dg_solver(element,update1,update2,update3,dt)
   real(kind=GRID_SR) :: q(_SWE_DG_DOFS,3)
 
   associate(data        => element%cell%data_pers, &
-            Q_DG        => element%cell%data_pers%Q, &
-            Q_DG_UPDATE => element%cell%data_pers%Q_DG_UPDATE)
+            Q_DG        => element%cell%data_pers%Q)
 
     call data%get_dofs_dg(q)
     
@@ -671,7 +645,7 @@ subroutine dg_solver(element,update1,update2,update3,dt)
     bnd_flux_r(:,3) = matmul(s_m_inv,matmul(s_b_3_r,update3(:)%p(2)))
     !-----------------------------------------------------!
     !!----update dofs----!!
-    q=q-((bnd_flux_l + bnd_flux_m + bnd_flux_r) - Q_DG_UPDATE )* dt/dx
+    q=q-(bnd_flux_l + bnd_flux_m + bnd_flux_r)* dt/dx
     !!-------------------!!
 
     call data%set_dofs_dg(q)

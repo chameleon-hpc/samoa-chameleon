@@ -144,19 +144,19 @@ MODULE SWE_DG_solver
        case default
           stop
        end select
-       rep%Q(i+1)%h                        = element%cell%data_temp%QP(indx,1)
-       rep%Q(i+1)%p(1)                     = element%cell%data_temp%QP(indx,2)
-       rep%Q(i+1)%p(2)                     = element%cell%data_temp%QP(indx,3)
-       rep%Q(i+1)%b                        = element%cell%data_temp%QP(indx,4)
+       rep%Q(i+1)%h                        = element%cell%data_pers%QP(indx,1)
+       rep%Q(i+1)%p(1)                     = element%cell%data_pers%QP(indx,2)
+       rep%Q(i+1)%p(2)                     = element%cell%data_pers%QP(indx,3)
+       rep%Q(i+1)%b                        = element%cell%data_pers%QP(indx,4)
        
-       rep%Q((_SWE_DG_ORDER+1)+i+1)%h      = element%cell%data_temp%FP(1,indx,1)
-       rep%Q((_SWE_DG_ORDER+1)+i+1)%p(1)   = element%cell%data_temp%FP(1,indx,2)
-       rep%Q((_SWE_DG_ORDER+1)+i+1)%p(2)   = element%cell%data_temp%FP(1,indx,3)
+       rep%Q((_SWE_DG_ORDER+1)+i+1)%h      = element%cell%data_pers%FP(1,indx,1)
+       rep%Q((_SWE_DG_ORDER+1)+i+1)%p(1)   = element%cell%data_pers%FP(1,indx,2)
+       rep%Q((_SWE_DG_ORDER+1)+i+1)%p(2)   = element%cell%data_pers%FP(1,indx,3)
        rep%Q((_SWE_DG_ORDER+1)+i+1)%b      = 0.0_GRID_SR
        
-       rep%Q(2*(_SWE_DG_ORDER+1)+i+1)%h    = element%cell%data_temp%FP(2,indx,1)
-       rep%Q(2*(_SWE_DG_ORDER+1)+i+1)%p(1) = element%cell%data_temp%FP(2,indx,2)
-       rep%Q(2*(_SWE_DG_ORDER+1)+i+1)%p(2) = element%cell%data_temp%FP(2,indx,3)
+       rep%Q(2*(_SWE_DG_ORDER+1)+i+1)%h    = element%cell%data_pers%FP(2,indx,1)
+       rep%Q(2*(_SWE_DG_ORDER+1)+i+1)%p(1) = element%cell%data_pers%FP(2,indx,2)
+       rep%Q(2*(_SWE_DG_ORDER+1)+i+1)%p(2) = element%cell%data_pers%FP(2,indx,3)
        rep%Q(2*(_SWE_DG_ORDER+1)+i+1)%b    = 0.0_GRID_SR
     end do
     !-----------------------------------------------------!

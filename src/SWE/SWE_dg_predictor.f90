@@ -50,8 +50,8 @@ contains
 
     associate(Q_DG        => cell%data_pers%Q,&
               Q_DG_UPDATE => cell%data_pers%Q_DG_UPDATE,&
-              QP => cell%data_temp%QP,&
-              FP => cell%data_temp%FP)
+              QP => cell%data_pers%QP,&
+              FP => cell%data_pers%FP)
 
 
       ! TODO make this a precompiled matrix

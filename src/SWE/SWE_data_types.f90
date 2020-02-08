@@ -74,6 +74,8 @@ MODULE SWE_data_types
 !> persistent scenario data on a cell
 type num_cell_data_pers
   real (kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER_SQUARE) :: H, HU, HV, B
+  real(kind=GRID_SR), DIMENSION(2,_SWE_DG_DOFS,3) :: FP
+  real(kind=GRID_SR), DIMENSION(  _SWE_DG_DOFS,4) :: QP
   type(t_state)     , DIMENSION(_SWE_DG_DOFS)     :: Q
   real(kind=GRID_SR), DIMENSION(_SWE_DG_DOFS,3)   :: Q_DG_UPDATE
 
@@ -123,8 +125,6 @@ end type num_cell_data_pers
 
 		!> temporary scenario data on a cell (deleted after each traversal)
 		type num_cell_data_temp
-     real(kind=GRID_SR), DIMENSION(2,_SWE_DG_DOFS,3) :: FP
-     real(kind=GRID_SR), DIMENSION(  _SWE_DG_DOFS,4) :: QP
 		END type num_cell_data_temp
 
 		!***********************

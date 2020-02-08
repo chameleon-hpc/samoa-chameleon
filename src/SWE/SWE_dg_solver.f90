@@ -150,7 +150,6 @@ MODULE SWE_DG_solver
     rep%B  = rep%B  * _REF_TRIANGLE_SIZE_INV
     !-----------------------------------------------------!
  else
-    select case (edge_type)
 
     associate(cell_edge => ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%edges, normal => edge%transform_data%normal)
       do i=1,3
@@ -161,7 +160,8 @@ MODULE SWE_DG_solver
          endif
       end do
     end associate
-       
+    
+    select case (edge_type)       
     case (-3,3) !cells with id i*i+1 (left leg)
        do i=0, _SWE_PATCH_ORDER - 1
           j=_SWE_PATCH_ORDER-1-i

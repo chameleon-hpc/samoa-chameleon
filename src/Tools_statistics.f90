@@ -55,8 +55,11 @@ module Tools_statistics
 		procedure, public, pass :: add_time => t_statistics_add_time
 		procedure, public, pass :: clear_time => t_statistics_clear_time
 
-        procedure, public, pass :: scale => t_statistics_scale
-        procedure, public, pass :: to_string => t_statistics_to_string
+        	procedure, public, pass :: scale => t_statistics_scale
+        	procedure, public, pass :: to_string => t_statistics_to_string
+                procedure, public, pass :: to_csv_header => t_statistics_to_csv_header
+                procedure, public, pass :: to_csv => t_statistics_to_csv
+
 		procedure, public, pass :: clear => t_statistics_clear
 
 		generic, public :: reduce => reduce_local, reduce_global
@@ -84,9 +87,11 @@ module Tools_statistics
 		procedure, public, pass :: stop_time => t_adaptive_statistics_stop_time
 		procedure, public, pass :: get_time => t_adaptive_statistics_get_time
 		procedure, public, pass :: clear_time => t_adaptive_statistics_clear_time
-        procedure, public, pass :: scale => t_adaptive_statistics_scale
-        procedure, public, pass :: to_string => t_adaptive_statistics_to_string
+                procedure, public, pass :: scale => t_adaptive_statistics_scale
+                procedure, public, pass :: to_string => t_adaptive_statistics_to_string
 		procedure, public, pass :: clear => t_adaptive_statistics_clear
+
+                procedure, public, pass :: to_csv => t_statistics_to_csv_adaptive
 
 		generic, private :: add => add_stats, add_adaptive_stats
 		generic, public :: reduce => reduce_local, reduce_global
@@ -270,6 +275,35 @@ module Tools_statistics
 
 		s%time_stats(time_type) = 0.d0
     end subroutine
+
+    pure function t_statistics_to_csv_header(s) result(str)
+        class(t_statistics), intent(in)	:: s
+        character (len = 512)		:: str
+        write(str, '(A)') , "travs; time; comp; pre; inner; post; asagi; sync; barr"
+    end function t_statistics_to_csv_header
+
+    pure function t_statistics_to_csv(s) result(str)
+        class(t_statistics), intent(in)	:: s
+        character (len = 512)		:: str
+
+        write(str,'(I0 ,";", F0.4 ";", F0.4,";", F0.4, ";", F0.4, ";", F0.4, ";", F0.4, ",", F0.4, ";", F0.4)'),&
+            s%get_counter(traversals), s%get_time(traversal_time),  &
+            s%get_time(pre_compute_time) + s%get_time(inner_compute_time) + s%get_time(post_compute_time), &
+            s%get_time(pre_compute_time), s%get_time(inner_compute_time), s%get_time(post_compute_time), &
+            s%get_time(asagi_time), s%get_time(sync_time), s%get_time(barrier_time)
+    end function t_statistics_to_csv
+
+    pure function t_statistics_to_csv_adaptive(s) result(str)
+        class(t_adaptive_statistics), intent(in)	:: s
+        character (len = 512)		:: str
+
+        write(str,'(I0 ,";", F0.4 ";", F0.4,";", F0.4, ";", F0.4, ";", F0.4, ";", F0.4, ",", F0.4, ";", F0.4)'),&
+            s%get_counter(traversals), s%get_time(traversal_time),  &
+            s%get_time(pre_compute_time) + s%get_time(inner_compute_time) + s%get_time(post_compute_time), &
+            s%get_time(pre_compute_time), s%get_time(inner_compute_time), s%get_time(post_compute_time), &
+            s%get_time(asagi_time), s%get_time(sync_time), s%get_time(barrier_time)
+    end function t_statistics_to_csv_adaptive
+
 
     pure function t_statistics_to_string(s) result(str)
         class(t_statistics), intent(in)			:: s

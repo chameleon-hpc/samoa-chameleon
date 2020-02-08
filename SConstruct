@@ -165,9 +165,9 @@ unknownVariables = vars.UnknownVariables()
 
 # exit in case of unknown variables
 if unknownVariables:
-  print "****************************************************"
-  print "Error: unknown variable(s):", unknownVariables.keys()
-  print "****************************************************"
+  print("****************************************************")
+  print("Error: unknown variable(s):", unknownVariables.keys())
+  print("****************************************************")
   Exit(1)
 
 #
@@ -305,7 +305,7 @@ if env['asagi_timing']:
   env['F90FLAGS'] += ' -D_ASAGI_TIMING'
 
   if not env['asagi']:
-    print "Error: asagi_timing must not be set if asagi is not active"
+    print("Error: asagi_timing must not be set if asagi is not active")
     Exit(-1)
 
 #Configure linker and preprocessor macros for FoX (for XDMF) support
@@ -350,7 +350,7 @@ if (int(env['swe_dg_order'])) > 0:
     env['F90FLAGS'] += ' -D_SWE_DG_ORDER=' + env['swe_dg_order']
     env['F90FLAGS'] += ' -D_SWE_DG_DOFS=' + str(int( (int(env['swe_dg_order'])+1)*(int(env['swe_dg_order'])+2)/2))
     if (int(env['swe_patch_order'])) > 1:
-        print "WARNING: DG options will override set patch options"
+        print("WARNING: DG options will override set patch options")
         
     env['swe_patch_order'] = str(2* int(env['swe_dg_order']) + 1)
 
@@ -363,14 +363,14 @@ if (int(env['swe_patch_order'])) > 1:
   
 if env['swe_patch_solver']:
   if (int(env['swe_patch_order'])) <= 1:
-      print "Error: patch solvers are only available when using patches. Set swe_patch_solver=False or swe_patch_order=2 or higher"
+      print("Error: patch solvers are only available when using patches. Set swe_patch_solver=False or swe_patch_order=2 or higher")
       Exit(-1)
   env['F90FLAGS'] += ' -D_SWE_USE_PATCH_SOLVER'
   
 #Check if solver is really available (some are not/only available when using patch solvers)
 if (int(env['swe_patch_order'])) > 1 and env['swe_patch_solver']:
     if env['flux_solver'] != 'hlle' and env['flux_solver'] != 'fwave' and env['flux_solver'] != 'aug_riemann':
-        print "Error: Only hlle, fwave and aug_riemann solvers are available as patch solvers. Try using another solver or setting swe_patch_solver=True"
+        print("Error: Only hlle, fwave and aug_riemann solvers are available as patch solvers. Try using another solver or setting swe_patch_solver=True")
         Exit(-1)
         
 #Select artificial scenario for SWE (if not using ASAGI)
@@ -434,11 +434,11 @@ elif env['perm_averaging'] == 'harmonic':
   env['F90FLAGS'] += ' -D_PERM_MEAN_HARMONIC'
 
 if env['scenario'] == 'darcy' and not env['flux_solver'] in ['upwind']:
-  print "Error: flux solver must be one of ", ['upwind']
+  print("Error: flux solver must be one of ", ['upwind'])
   Exit(-1)
 
 if env['scenario'] == 'swe' and env['flux_solver'] in ['upwind']:
-  print "Error: flux solver must be one of ", ['lf', 'lfbath', 'llf', 'llfbath', 'fwave', 'aug_riemann']
+  print ("Error: flux solver must be one of ", ['lf', 'lfbath', 'llf', 'llfbath', 'fwave', 'aug_riemann'])
   Exit(-1)
 
 #Set the number of vertical layers for 2.5D
@@ -478,8 +478,8 @@ elif env['target'] == 'release':
   env.SetDefault(assertions = False)
 
   if env['compiler'] == 'intel':
-    env['F90FLAGS'] += ' -g -O3 -ipo -fno-alias -align all -inline-level=2 -funroll-loops -unroll'
-    env['LINKFLAGS'] += ' -g -O3 -ip -ipo'
+    env['F90FLAGS'] += ' -O3 -ipo -fno-alias -align all -inline-level=2 -funroll-loops -unroll'
+    env['LINKFLAGS'] += ' -O3 -ip -ipo'
   elif  env['compiler'] == 'gnu':
     env['F90FLAGS'] += ' -Ofast -march=native -Wa,-q -malign-double -funroll-loops -fstrict-aliasing -finline-limit=2048'
     env['LINKFLAGS'] += '  -Ofast -march=native -Wa,-q -malign-double -funroll-loops -fstrict-aliasing -finline-limit=2048'

@@ -802,9 +802,16 @@
 							_log_write(0, '(A, T34, F12.4, A)') " Total cell updates: ", 1.0d-6 * dble(swe%euler%stats%get_counter(traversed_cells)), " millions"
 							_log_write(0, '(A, T34, F12.4, A)') " Flux solver throughput: ", 1.0d-6 * dble(swe%euler%stats%get_counter(traversed_edges)) / t_phase, " M/s"
 #                       endif
+       
 						_log_write(0, '(A, T34, F12.4, A)') " Asagi time:", grid%stats%get_time(asagi_time), " s"
 						_log_write(0, '(A, T34, F12.4, A)') " Phase time:", t_phase, " s"
 						_log_write(0, *) ""
+                                        _log_write(0, '(A, A)') "traversal; ",trim(swe%dg_timestep%stats%to_csv_header())
+                                        _log_write(0, '(A, A)') "predictor; ",trim(swe%adaption%stats%to_csv())
+                                        _log_write(0, '(A, A)') "solver; "   ,trim(swe%dg_timestep%stats%to_csv())
+                                        _log_write(0, '(A)') "threads; procs; dmin; dmax; Order"
+                                        _log_write(0, '(I0,";",I0,";",I0,";",I0,";",I0)') cfg%i_threads, omp_get_num_procs(), cfg%i_min_depth, cfg%i_max_depth, _SWE_DG_ORDER
+
 					end if
 				end if
 
@@ -827,6 +834,7 @@
 				t_phase = -get_wtime()
 			!$omp end master
 		end subroutine
+
 
 #       if defined(_XDMF)
             subroutine xdmf_output_wrapper(swe, grid, time_step)

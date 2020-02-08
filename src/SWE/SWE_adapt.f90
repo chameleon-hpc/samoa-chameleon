@@ -108,7 +108,7 @@
           integer :: i
         
           if(isDG(element%cell%data_pers%troubled)) then
-             call dg_predictor(element%cell,section%r_dt)
+             call dg_predictor(element,section%r_dt)
 #if defined (_DEBUG)             
              element%cell%data_pers%debug_flag = -1
           else
@@ -204,33 +204,13 @@
           call gv_Q%write( dest_element%t_element_base, Q)
 #endif
 #if defined (_SWE_DG)
-
-#if !defined(_SWE_DG_NODAL)                               
-!          dest_element%cell%data_pers%b_x = src_element%cell%data_pers%b_x
-!          dest_element%cell%data_pers%b_y = src_element%cell%data_pers%b_y
-#else
-#endif
           do i=1,size(dest_element%edges)
              dest_element%edges(i)%ptr%rep = src_element%edges(i)%ptr%rep
+             dest_element%edges(i)%ptr%data_pers = src_element%edges(i)%ptr%data_pers
           end do
 
           dest_element%cell%data_pers%Q = src_element%cell%data_pers%Q
-          dest_element%cell%data_pers%Q_DG_UPDATE = src_element%cell%data_pers%Q_DG_UPDATE
-          dest_element%cell%data_pers%QP = src_element%cell%data_pers%QP
-          dest_element%cell%data_pers%FP = src_element%cell%data_pers%FP
-          
           dest_element%cell%data_pers%troubled=src_element%cell%data_pers%troubled
-
-!          if(dest_element%cell%data_pers%troubled .le. -1 )then
-!             call dg_predictor(dest_element%cell,section%r_dt)
-#if defined (_DEBUG)                          
-!             dest_element%cell%data_pers%debug_flag=-3
-!          else
-
-!             dest_element%cell%data_pers%debug_flag=src_element%cell%data_pers%troubled
-#endif
-!          end if
-
 #endif
         end subroutine transfer_op
         
@@ -301,7 +281,7 @@
              end if
           
              if(dest_element%cell%data_pers%troubled.le.0) then
-                call dg_predictor(dest_element%cell,section%r_dt)
+                call dg_predictor(dest_element,section%r_dt)
              end if
           end if
 #endif
@@ -639,7 +619,7 @@
      end if
 
      if(dest_element%cell%data_pers%troubled .le. 0 ) then
-        call dg_predictor(dest_element%cell,section%r_dt)
+        call dg_predictor(dest_element,section%r_dt)
 #if defined (_DEBUG)                     
         dest_element%cell%data_pers%debug_flag=-2
      else

@@ -106,6 +106,12 @@ MODULE SWE_dg_matrices
 ! #include "dg_matrices/bnd_gl_node_vals_SWE_DG_ORDER_TAG.incl"
 ! #include "dg_matrices/bnd_gl_weights_SWE_DG_ORDER_TAG.incl"
 
+real(kind=GRID_SR), Parameter :: s_m_inv_s_k_x_t   (_SWE_DG_DOFS,_SWE_DG_DOFS)     = matmul(s_m_inv,transpose(s_k_x))
+real(kind=GRID_SR), Parameter :: s_m_inv_s_k_y_t   (_SWE_DG_DOFS,_SWE_DG_DOFS)     = matmul(s_m_inv,transpose(s_k_y))
+real(kind=GRID_SR), Parameter :: t_k_t_11_inv_t_m_1(_SWE_DG_ORDER,_SWE_DG_ORDER+1) = matmul(t_k_t_11_inv,t_m_1)
+real(kind=GRID_SR), Parameter :: s_k_x_s_b_3_s_b_2 (_SWE_DG_DOFS,_SWE_DG_DOFS)   = s_k_x + s_b_3 - s_b_2
+real(kind=GRID_SR), Parameter :: s_k_y_s_b_1_s_b_2 (_SWE_DG_DOFS,_SWE_DG_DOFS)   = s_k_y + s_b_1 - s_b_2
+
 
 contains 
 

@@ -9,6 +9,7 @@ MODULE SWE_xml_point_output
   use LIB_VTK_IO
 
   use SFC_edge_traversal
+  use SWE_DG_limiter
 
   use Samoa_swe
 
@@ -221,7 +222,7 @@ MODULE SWE_xml_point_output
 
     ! Iterate over all elements to count stuff correctly.
     do i=1, grid_info%i_cells
-       if (traversal%troubled(i).le.0 .or. traversal%troubled(i).ge.5) then
+       if (.not.isCoast(traversal%troubled(i))) then
        !if (traversal%troubled(i).le.0) then       
           l_point_mask(i_real_points + 1 : i_real_points + _SWE_DG_DOFS) = .true.
           l_cell_mask(i_real_cells + 1: i_real_cells + i_cells_per_dg) = .true.
@@ -355,7 +356,8 @@ MODULE SWE_xml_point_output
 
     ! We need this to count the number of valid cells in the post-traversal op.
     traversal%troubled(traversal%i_element_data_index) = element%cell%data_pers%troubled
-    if (element%cell%data_pers%troubled.le.0 .or. element%cell%data_pers%troubled.ge.5) then
+    if (.not.isCoast(element%cell%data_pers%troubled)) then
+!    if (element%cell%data_pers%troubled.le.0 .or. element%cell%data_pers%troubled.ge.5) then
 !    if (element%cell%data_pers%troubled.le.0) then    
        ! Calulated by DG.
 

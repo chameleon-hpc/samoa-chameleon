@@ -44,6 +44,24 @@ contains
     isCoast = troubled.eq.COAST
   end function isCoast
 
+  function isDry(troubled)
+    integer :: troubled
+    logical :: isDry
+    isDry = troubled.eq.DRY
+  end function isDry
+
+  function checkIfCellIsDry(H) result(isDry)
+    real(kind=GRID_SR),intent(in) :: H(:)
+    logical                       :: isDry
+    if (all(H < cfg%dry_tolerance)) then
+       isDry = .True.
+    else
+       isDry = .False.
+    end if
+  end function checkIfCellIsDry
+
+
+
   subroutine updateCellStatus(data)
     type(num_cell_data_pers),intent(inout) :: data
 
@@ -57,21 +75,11 @@ contains
     if(isWetDryInterface(data%Q_DG%H))then
        data%troubled = WET_DRY_INTERFACE
     end if
-    if(isDry(data%Q_DG%H)) then
+    if(checkIfCellIsDry(data%Q_DG%H)) then
        data%troubled = DRY
     end if
     
   end subroutine updateCellStatus
-
-  function isDry(H)
-    real(kind=GRID_SR),intent(in) :: H(:)
-    logical                       :: isDry
-    if (all(H < cfg%dry_tolerance)) then
-       isDry = .True.
-    else
-       isDry = .False.
-    end if
-  end function isDry
 
   function isWetDryInterface(H)
     real(kind=GRID_SR),intent(in) :: H(:)

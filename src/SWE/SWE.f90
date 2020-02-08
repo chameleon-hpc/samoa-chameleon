@@ -651,15 +651,11 @@
 							call swe%adaption%traverse(grid)
 						end if
 #					endif
-#					if defined(_SWE_DG)
-					!$omp barrier
-					call swe%dg_timestep%traverse(grid)
 
-#					elif defined(_SWE_PATCH)
-				   		call swe%euler%traverse(grid)
-#					endif                   
-				   
-					grid_info%i_cells = grid%get_cells(MPI_SUM, .true.)
+      !$omp barrier
+      call swe%dg_timestep%traverse(grid)
+
+      grid_info%i_cells = grid%get_cells(MPI_SUM, .true.)
 					if (rank_MPI == 0) then
 						!$omp master
 #                       	if defined (_SWE_PATCH)

@@ -432,7 +432,7 @@ MODULE SWE_Initialize_Dofs
        element%cell%data_pers%troubled = WET_DRY_INTERFACE
     end if
 
-    if(isDry(element%cell%data_pers%Q_DG%H)) then
+    if(checkIfCellIsDry(element%cell%data_pers%Q_DG%H)) then
        element%cell%data_pers%troubled = DRY
     end if
 

@@ -93,7 +93,8 @@ type num_cell_data_pers
   real(kind=GRID_SR), DIMENSION(_SWE_DG_DOFS,3)   :: Q_DG_UPDATE
   real(kind=GRID_SR), DIMENSION(2,_SWE_DG_DOFS,3) :: FP
   real(kind=GRID_SR), DIMENSION(  _SWE_DG_DOFS,4) :: QP
-  type(t_state)     , DIMENSION(_SWE_CELL_SIZE)	  :: Q 
+  type(t_state)     , DIMENSION(_SWE_CELL_SIZE)	  :: Q
+
   integer :: troubled
 #if defined(_DEBUG)
   integer :: debug_flag = 0

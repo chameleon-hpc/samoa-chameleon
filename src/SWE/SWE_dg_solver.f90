@@ -448,11 +448,10 @@ real(kind=GRID_SR),Dimension(3) :: edge_sizes
 associate(data => element%cell%data_pers)
 
 !----If a cell is dry and all neighbours are we can skip the solver step---!
-if(isDry(data%Q_DG%H)) then
-   data%troubled = DRY
-   if(allNeighboursDry(update1,update2,update3))then
-      return
-   end if
+ if(isDry(data%troubled)) then
+      if(allNeighboursDry(update1,update2,update3))then
+         return
+      end if
 end if
 !--------------------------------------------------------------------------!
 
@@ -507,12 +506,6 @@ if(isDG(data%troubled)) then
       call apply_phi(data%Q_DG(:)%b               ,data%b)
 
    else
-      do i=1,_SWE_DG_DOFS
-         wave_speed =  sqrt(g * (data%Q_DG(i)%h)) + maxval(abs(data%Q_DG(i)%p/data%Q_DG(i)%h))
-         
-         section%r_dt_new = min(section%r_dt_new,cfg%scaling*  element%transform_data%custom_data%scaling  / (wave_speed* (_SWE_DG_ORDER*4.0_GRID_SR +2.0_GRID_SR)))
-         max_wave_speed = max(max_wave_speed,wave_speed)
-      end do
       i_depth = element%cell%geometry%i_depth
       
       dQ_norm = maxval(abs(data%Q_DG%H-H_old))
@@ -568,10 +561,26 @@ if(isDG(data%troubled)) then
 
 end if   
 
-if(data%troubled.ge.1) then
+if(isFV(data%troubled)) then
    !-----Call FV patch solver----!
    call fv_patch_solver(traversal, section, element, update1, update2, update3)
 end if
+
+
+!------- Update cell status and compute next timestep size --------!
+call updateCellStatus(data)
+dx = cfg%scaling *  element%transform_data%custom_data%scaling
+if(isDG(data%troubled)) then
+   do i=1,_SWE_DG_DOFS
+      section%r_dt_new = min(section%r_dt_new, get_next_time_step_size(data%Q_DG(i)%h,data%Q_DG(i)%p(1),data%Q_DG(i)%p(2),dx,cfg%dry_tolerance))
+   end do
+else
+   do i=1,_SWE_PATCH_ORDER_SQUARE
+      section%r_dt_new = min(section%r_dt_new, get_next_time_step_size(data%h(i)-data%b(i),data%hu(i),data%hv(i),dx,cfg%dry_tolerance))
+   end do
+endif
+!------------------------------------------------------------------!
+
 end associate
 
 end subroutine cell_update_op_dg
@@ -846,7 +855,6 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                     upd_hR(j) = update_b%h
                     upd_huR(j) = update_b%p(1)
                     upd_hvR(j) = update_b%p(2)
-!                    maxWaveSpeed = max(maxWaveSpeed, update_a%max_wave_speed)
                  end do
 #                       endif
                   ! compute dQ
@@ -886,7 +894,8 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
 #if defined (_ASAGI)                  
                   data%H = min(0.0_GRID_SR,data%B)
 #else
-                  data%H = data%B + cfg%dry_tolerance
+                  !                  data%H = data%B + cfg%dry_tolerance
+                  data%H = data%B 
 #endif                  
                   data%HU = 0.0_GRID_SR
                   data%HV = 0.0_GRID_SR
@@ -909,12 +918,6 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                   data%HV = 0.0_GRID_SR
                end where
 
-               ! maxWaveSpeed=maxval(maxWaveSpeeds)
-               if(maxWaveSpeed > 0.0_GRID_SR) then
-                  section%r_dt_new = min(section%r_dt_new, volume / (edge_lengths(2) * maxWaveSpeed) )
-                  maxWaveSpeed=0
-               end if
-
                call apply_mue(data%h ,data%Q_DG%h)
                call apply_mue(data%hu,data%Q_DG%p(1))
                call apply_mue(data%hv,data%Q_DG%p(2))
@@ -936,21 +939,26 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                   else if ( element%cell%geometry%i_depth > cfg%i_min_depth .and. coarsen) then
                      element%cell%geometry%refinement = -1
                   endif
-               end if
-
-               
-            !consider new dg cells in r_dt
-               if(data%troubled .le. 0) then
-                  do i=1,_SWE_DG_DOFS
-                     maxWaveSpeed =  sqrt(g * (data%Q_DG(i)%h)) + maxval(abs(data%Q_DG(i)%p/data%Q_DG(i)%h))
-                     section%r_dt_new = min(section%r_dt_new,cfg%scaling*  element%transform_data%custom_data%scaling  / (maxWaveSpeed* (_SWE_DG_ORDER*4.0_GRID_SR +2.0_GRID_SR)))
-                     maxWaveSpeed = 0.0
-                  end do
-               end if
-               
+               end if               
           end associate
 
-        end subroutine
+        end subroutine fv_patch_solver
+
+        function get_next_time_step_size(h,hu,hv,dx,dry_tolerance) result(dt)
+          real(kind=GRID_SR), INTENT(in)  :: h,hu,hv
+          real(kind=GRID_SR), INTENT(in)  :: dx
+          real(kind=GRID_SR), INTENT(in)  :: dry_tolerance
+          real(kind=GRID_SR)              :: dt
+          
+          real(kind=GRID_SR)              :: waveSpeed
+
+          dt = huge(1.0_GRID_SR)
+          if(h > dry_tolerance) then
+             waveSpeed =  sqrt(g * (h)) + max(abs(hu/h),abs(hv/h))
+             dt = min(dx  / (waveSpeed * (_SWE_DG_ORDER*2.0_GRID_SR+2.0_GRID_SR)),dt)
+          end if
+
+        end function get_next_time_step_size
 
         
 END MODULE SWE_DG_solver

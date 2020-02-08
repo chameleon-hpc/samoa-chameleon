@@ -214,7 +214,7 @@
              dest_element%edges(i)%ptr%rep = src_element%edges(i)%ptr%rep
           end do
 
-          dest_element%cell%data_pers%Q_DG = src_element%cell%data_pers%Q_DG
+          dest_element%cell%data_pers%Q = src_element%cell%data_pers%Q
           dest_element%cell%data_pers%Q_DG_UPDATE = src_element%cell%data_pers%Q_DG_UPDATE
           dest_element%cell%data_pers%QP = src_element%cell%data_pers%QP
           dest_element%cell%data_pers%FP = src_element%cell%data_pers%FP
@@ -274,28 +274,28 @@
              do i=1, size(refinement_path)
                 ! decide which child is being computed (first = left to hypot, second = right to hypot.)
                 if ( (refinement_path(i) == 1 .and. i_plotter_type>0) .or. (refinement_path(i) == 2 .and. i_plotter_type<0)) then
-                   dest_element%cell%data_pers%Q_DG%H=matmul(ref2,src_element%cell%data_pers%Q_DG%H+src_element%cell%data_pers%Q_DG%B)
-                   dest_element%cell%data_pers%Q_DG%p(1)=matmul(ref2,src_element%cell%data_pers%Q_DG%p(1))
-                   dest_element%cell%data_pers%Q_DG%p(2)=matmul(ref2,src_element%cell%data_pers%Q_DG%p(2))
+                   dest_element%cell%data_pers%Q%H=matmul(ref2,src_element%cell%data_pers%Q%H+src_element%cell%data_pers%Q%B)
+                   dest_element%cell%data_pers%Q%p(1)=matmul(ref2,src_element%cell%data_pers%Q%p(1))
+                   dest_element%cell%data_pers%Q%p(2)=matmul(ref2,src_element%cell%data_pers%Q%p(2))
                 else
-                   dest_element%cell%data_pers%Q_DG%H=matmul(ref1,src_element%cell%data_pers%Q_DG%H+src_element%cell%data_pers%Q_DG%B)
-                   dest_element%cell%data_pers%Q_DG%p(1)=matmul(ref1,src_element%cell%data_pers%Q_DG%p(1))
-                   dest_element%cell%data_pers%Q_DG%p(2)=matmul(ref1,src_element%cell%data_pers%Q_DG%p(2))
+                   dest_element%cell%data_pers%Q%H=matmul(ref1,src_element%cell%data_pers%Q%H+src_element%cell%data_pers%Q%B)
+                   dest_element%cell%data_pers%Q%p(1)=matmul(ref1,src_element%cell%data_pers%Q%p(1))
+                   dest_element%cell%data_pers%Q%p(2)=matmul(ref1,src_element%cell%data_pers%Q%p(2))
                 end if
 
-                dest_element%cell%data_pers%Q_DG%H=matmul(s_m_inv,dest_element%cell%data_pers%Q_DG%H)
-                dest_element%cell%data_pers%Q_DG%p(1)=matmul(s_m_inv,dest_element%cell%data_pers%Q_DG%p(1))
-                dest_element%cell%data_pers%Q_DG%p(2)=matmul(s_m_inv,dest_element%cell%data_pers%Q_DG%p(2))
-                dest_element%cell%data_pers%Q_DG%B = get_bathymetry_at_dg_patch(section, dest_element%t_element_base, section%r_time)
+                dest_element%cell%data_pers%Q%H=matmul(s_m_inv,dest_element%cell%data_pers%Q%H)
+                dest_element%cell%data_pers%Q%p(1)=matmul(s_m_inv,dest_element%cell%data_pers%Q%p(1))
+                dest_element%cell%data_pers%Q%p(2)=matmul(s_m_inv,dest_element%cell%data_pers%Q%p(2))
+                dest_element%cell%data_pers%Q%B = get_bathymetry_at_dg_patch(section, dest_element%t_element_base, section%r_time)
                 !call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(i_plotter_type))%jacobian)
-                dest_element%cell%data_pers%Q_DG%H=dest_element%cell%data_pers%Q_DG%H-dest_element%cell%data_pers%Q_DG%B
+                dest_element%cell%data_pers%Q%H=dest_element%cell%data_pers%Q%H-dest_element%cell%data_pers%Q%B
              end do
              
-             if(isWetDryInterface(dest_element%cell%data_pers%Q_DG%H))then
-                call apply_phi(src_element%cell%data_pers%Q_DG%H,src_element%cell%data_pers%H)
-                call apply_phi(src_element%cell%data_pers%Q_DG%p(1),src_element%cell%data_pers%HU)
-                call apply_phi(src_element%cell%data_pers%Q_DG%p(2),src_element%cell%data_pers%HV)
-                call apply_phi(src_element%cell%data_pers%Q_DG%b,src_element%cell%data_pers%B)
+             if(isWetDryInterface(dest_element%cell%data_pers%Q%H))then
+                call apply_phi(src_element%cell%data_pers%Q%H,src_element%cell%data_pers%H)
+                call apply_phi(src_element%cell%data_pers%Q%p(1),src_element%cell%data_pers%HU)
+                call apply_phi(src_element%cell%data_pers%Q%p(2),src_element%cell%data_pers%HV)
+                call apply_phi(src_element%cell%data_pers%Q%b,src_element%cell%data_pers%B)
                 src_element%cell%data_pers%H=src_element%cell%data_pers%H+src_element%cell%data_pers%B
                 dest_element%cell%data_pers%troubled=WET_DRY_INTERFACE
              end if
@@ -485,26 +485,26 @@
 
           if(dg_coarse) then
                 if (first) then
-                   dest_element%cell%data_pers%Q_DG%H   =0.0_GRID_SR
-                   dest_element%cell%data_pers%Q_DG%p(1)=0.0_GRID_SR
-                   dest_element%cell%data_pers%Q_DG%p(2)=0.0_GRID_SR
-                   dest_element%cell%data_pers%Q_DG%B = 0.0_GRID_SR
+                   dest_element%cell%data_pers%Q%H   =0.0_GRID_SR
+                   dest_element%cell%data_pers%Q%p(1)=0.0_GRID_SR
+                   dest_element%cell%data_pers%Q%p(2)=0.0_GRID_SR
+                   dest_element%cell%data_pers%Q%B = 0.0_GRID_SR
 
                 end if
                 
                 if (first .and. i_plotter_type > 0 .or. .not.first .and. i_plotter_type < 0)then
 
                    !preserving constant water height
-                   dest_element%cell%data_pers%Q_DG%H   =dest_element%cell%data_pers%Q_DG%H   +matmul(coarsen(:,_SWE_DG_DOFS+1:_SWE_DG_DOFS*2),src_element%cell%data_pers%Q_DG%H &
-                                                                                                                                            +  src_element%cell%data_pers%Q_DG%B)
-                   dest_element%cell%data_pers%Q_DG%p(1)=dest_element%cell%data_pers%Q_DG%p(1)+matmul(coarsen(:,_SWE_DG_DOFS+1:_SWE_DG_DOFS*2),src_element%cell%data_pers%Q_DG%p(1))
-                   dest_element%cell%data_pers%Q_DG%p(2)=dest_element%cell%data_pers%Q_DG%p(2)+matmul(coarsen(:,_SWE_DG_DOFS+1:_SWE_DG_DOFS*2),src_element%cell%data_pers%Q_DG%p(2))
+                   dest_element%cell%data_pers%Q%H   =dest_element%cell%data_pers%Q%H   +matmul(coarsen(:,_SWE_DG_DOFS+1:_SWE_DG_DOFS*2),src_element%cell%data_pers%Q%H &
+                                                                                                                                            +  src_element%cell%data_pers%Q%B)
+                   dest_element%cell%data_pers%Q%p(1)=dest_element%cell%data_pers%Q%p(1)+matmul(coarsen(:,_SWE_DG_DOFS+1:_SWE_DG_DOFS*2),src_element%cell%data_pers%Q%p(1))
+                   dest_element%cell%data_pers%Q%p(2)=dest_element%cell%data_pers%Q%p(2)+matmul(coarsen(:,_SWE_DG_DOFS+1:_SWE_DG_DOFS*2),src_element%cell%data_pers%Q%p(2))
                 else
                    !preserving constant water height
-                   dest_element%cell%data_pers%Q_DG%H   =dest_element%cell%data_pers%Q_DG%H   +matmul(coarsen(:,1:_SWE_DG_DOFS),src_element%cell%data_pers%Q_DG%H &
-                                                                                                                              + src_element%cell%data_pers%Q_DG%B)
-                   dest_element%cell%data_pers%Q_DG%p(1)=dest_element%cell%data_pers%Q_DG%p(1)+matmul(coarsen(:,1:_SWE_DG_DOFS),src_element%cell%data_pers%Q_DG%p(1))
-                   dest_element%cell%data_pers%Q_DG%p(2)=dest_element%cell%data_pers%Q_DG%p(2)+matmul(coarsen(:,1:_SWE_DG_DOFS),src_element%cell%data_pers%Q_DG%p(2))
+                   dest_element%cell%data_pers%Q%H   =dest_element%cell%data_pers%Q%H   +matmul(coarsen(:,1:_SWE_DG_DOFS),src_element%cell%data_pers%Q%H &
+                                                                                                                              + src_element%cell%data_pers%Q%B)
+                   dest_element%cell%data_pers%Q%p(1)=dest_element%cell%data_pers%Q%p(1)+matmul(coarsen(:,1:_SWE_DG_DOFS),src_element%cell%data_pers%Q%p(1))
+                   dest_element%cell%data_pers%Q%p(2)=dest_element%cell%data_pers%Q%p(2)+matmul(coarsen(:,1:_SWE_DG_DOFS),src_element%cell%data_pers%Q%p(2))
                 end if
 
                 if(.not.first)then
@@ -513,21 +513,21 @@
                    ! call lusolve(s_m_lu, _SWE_DG_DOFS, s_m_lu_pivot,dest_element%cell%data_pers%Q_DG%p(1))
                    ! call lusolve(s_m_lu, _SWE_DG_DOFS, s_m_lu_pivot,dest_element%cell%data_pers%Q_DG%p(2))
 
-                   dest_element%cell%data_pers%Q_DG%H=matmul(s_m_inv,dest_element%cell%data_pers%Q_DG%H)
-                   dest_element%cell%data_pers%Q_DG%p(1)=matmul(s_m_inv,dest_element%cell%data_pers%Q_DG%p(1))
-                   dest_element%cell%data_pers%Q_DG%p(2)=matmul(s_m_inv,dest_element%cell%data_pers%Q_DG%p(2))
+                   dest_element%cell%data_pers%Q%H=matmul(s_m_inv,dest_element%cell%data_pers%Q%H)
+                   dest_element%cell%data_pers%Q%p(1)=matmul(s_m_inv,dest_element%cell%data_pers%Q%p(1))
+                   dest_element%cell%data_pers%Q%p(2)=matmul(s_m_inv,dest_element%cell%data_pers%Q%p(2))
                    !generate bythymetry from initial data
                    
 !                   dest_element%cell%data_pers%B = get_bathymetry_at_patch(section, dest_element%t_element_base, section%r_time)
 !                   call dest_element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(i_plotter_type))%jacobian)
-                   dest_element%cell%data_pers%Q_DG%B = get_bathymetry_at_dg_patch(section, dest_element%t_element_base, section%r_time)
+                   dest_element%cell%data_pers%Q%B = get_bathymetry_at_dg_patch(section, dest_element%t_element_base, section%r_time)
 
 
 
-                   dest_element%cell%data_pers%Q_DG%H = dest_element%cell%data_pers%Q_DG%H-dest_element%cell%data_pers%Q_DG%B
+                   dest_element%cell%data_pers%Q%H = dest_element%cell%data_pers%Q%H-dest_element%cell%data_pers%Q%B
 
                    ! if cell is dry after refinement do fv coarsening
-                   if(isWetDryInterface(dest_element%cell%data_pers%Q_DG%H)) then
+                   if(isWetDryInterface(dest_element%cell%data_pers%Q%H)) then
                       fv_coarse = .true.
                       dest_element%cell%data_pers%troubled=WET_DRY_INTERFACE
                    end if
@@ -537,10 +537,10 @@
           
              if(fv_coarse) then
                 if(src_element%cell%data_pers%troubled.le.0) then
-                   call apply_phi(src_element%cell%data_pers%Q_DG%H,src_element%cell%data_pers%H)
-                   call apply_phi(src_element%cell%data_pers%Q_DG%p(1),src_element%cell%data_pers%HU)
-                   call apply_phi(src_element%cell%data_pers%Q_DG%p(2),src_element%cell%data_pers%HV)
-                   call apply_phi(src_element%cell%data_pers%Q_DG%b,src_element%cell%data_pers%B)
+                   call apply_phi(src_element%cell%data_pers%Q%H,src_element%cell%data_pers%H)
+                   call apply_phi(src_element%cell%data_pers%Q%p(1),src_element%cell%data_pers%HU)
+                   call apply_phi(src_element%cell%data_pers%Q%p(2),src_element%cell%data_pers%HV)
+                   call apply_phi(src_element%cell%data_pers%Q%b,src_element%cell%data_pers%B)
                    src_element%cell%data_pers%H=src_element%cell%data_pers%H+src_element%cell%data_pers%B
                 end if
 

@@ -122,7 +122,7 @@ module config
             !< cells below this threshold are solved with a fv scheme by default
             double precision                    :: dry_dg_guard
 
-            integer                              :: max_picard_iterations = 20
+            integer                              :: max_picard_iterations = 4
 #endif            
 
             logical                             :: l_ascii_output                                   !< ascii output on/off

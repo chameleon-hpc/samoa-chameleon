@@ -14,7 +14,7 @@ def generate (env, **kw):
                 fout.write(line.replace('SWE_DG_ORDER_TAG', str(env['swe_dg_order'])))
 
     
-    print "generate Kernels Tool"
+    print("generate Kernels Tool")
     return
 
 def exists(env):

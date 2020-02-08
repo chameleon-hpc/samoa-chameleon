@@ -144,19 +144,19 @@ MODULE SWE_DG_solver
        case default
           stop
        end select
-       rep%Q(i+1)%h                        = element%cell%data_pers%QP(indx,1)
-       rep%Q(i+1)%p(1)                     = element%cell%data_pers%QP(indx,2)
-       rep%Q(i+1)%p(2)                     = element%cell%data_pers%QP(indx,3)
-       rep%Q(i+1)%b                        = element%cell%data_pers%QP(indx,4)
+       rep%Q(i+1)%h                        = element%cell%data_temp%QP(indx,1)
+       rep%Q(i+1)%p(1)                     = element%cell%data_temp%QP(indx,2)
+       rep%Q(i+1)%p(2)                     = element%cell%data_temp%QP(indx,3)
+       rep%Q(i+1)%b                        = element%cell%data_temp%QP(indx,4)
        
-       rep%Q((_SWE_DG_ORDER+1)+i+1)%h      = element%cell%data_pers%FP(1,indx,1)
-       rep%Q((_SWE_DG_ORDER+1)+i+1)%p(1)   = element%cell%data_pers%FP(1,indx,2)
-       rep%Q((_SWE_DG_ORDER+1)+i+1)%p(2)   = element%cell%data_pers%FP(1,indx,3)
+       rep%Q((_SWE_DG_ORDER+1)+i+1)%h      = element%cell%data_temp%FP(1,indx,1)
+       rep%Q((_SWE_DG_ORDER+1)+i+1)%p(1)   = element%cell%data_temp%FP(1,indx,2)
+       rep%Q((_SWE_DG_ORDER+1)+i+1)%p(2)   = element%cell%data_temp%FP(1,indx,3)
        rep%Q((_SWE_DG_ORDER+1)+i+1)%b      = 0.0_GRID_SR
        
-       rep%Q(2*(_SWE_DG_ORDER+1)+i+1)%h    = element%cell%data_pers%FP(2,indx,1)
-       rep%Q(2*(_SWE_DG_ORDER+1)+i+1)%p(1) = element%cell%data_pers%FP(2,indx,2)
-       rep%Q(2*(_SWE_DG_ORDER+1)+i+1)%p(2) = element%cell%data_pers%FP(2,indx,3)
+       rep%Q(2*(_SWE_DG_ORDER+1)+i+1)%h    = element%cell%data_temp%FP(2,indx,1)
+       rep%Q(2*(_SWE_DG_ORDER+1)+i+1)%p(1) = element%cell%data_temp%FP(2,indx,2)
+       rep%Q(2*(_SWE_DG_ORDER+1)+i+1)%p(2) = element%cell%data_temp%FP(2,indx,3)
        rep%Q(2*(_SWE_DG_ORDER+1)+i+1)%b    = 0.0_GRID_SR
     end do
     !-----------------------------------------------------!
@@ -164,20 +164,20 @@ MODULE SWE_DG_solver
     !------------------Project FV dofs------------------!
     select case (edge_type)
     case (-3,3) !cells with id i*i+1 (left leg)
-       rep%H  = matmul(phi_l,element%cell%data_pers%Q_DG%h) 
-       rep%HU = matmul(phi_l,element%cell%data_pers%Q_DG%p(1))
-       rep%HV = matmul(phi_l,element%cell%data_pers%Q_DG%p(2)) 
-       rep%B  = matmul(phi_l,element%cell%data_pers%Q_DG%b)
+       rep%H  = matmul(phi_l,element%cell%data_pers%Q%h) 
+       rep%HU = matmul(phi_l,element%cell%data_pers%Q%p(1))
+       rep%HV = matmul(phi_l,element%cell%data_pers%Q%p(2)) 
+       rep%B  = matmul(phi_l,element%cell%data_pers%Q%b)
     case (-2,2) ! hypotenuse
-       rep%H  = matmul(phi_m,element%cell%data_pers%Q_DG%h)
-       rep%HU = matmul(phi_m,element%cell%data_pers%Q_DG%p(1))
-       rep%HV = matmul(phi_m,element%cell%data_pers%Q_DG%p(2))
-       rep%B  = matmul(phi_m,element%cell%data_pers%Q_DG%b)
+       rep%H  = matmul(phi_m,element%cell%data_pers%Q%h)
+       rep%HU = matmul(phi_m,element%cell%data_pers%Q%p(1))
+       rep%HV = matmul(phi_m,element%cell%data_pers%Q%p(2))
+       rep%B  = matmul(phi_m,element%cell%data_pers%Q%b)
     case (-1,1) !cells with id i*i (right leg)
-       rep%H  = matmul(phi_r,element%cell%data_pers%Q_DG%h)
-       rep%HU = matmul(phi_r,element%cell%data_pers%Q_DG%p(1))
-       rep%HV = matmul(phi_r,element%cell%data_pers%Q_DG%p(2))
-       rep%B  = matmul(phi_r,element%cell%data_pers%Q_DG%b)
+       rep%H  = matmul(phi_r,element%cell%data_pers%Q%h)
+       rep%HU = matmul(phi_r,element%cell%data_pers%Q%p(1))
+       rep%HV = matmul(phi_r,element%cell%data_pers%Q%p(2))
+       rep%B  = matmul(phi_r,element%cell%data_pers%Q%b)
     end select
     !---scale by element size---!
     rep%H = (rep%H + rep%B) * _REF_TRIANGLE_SIZE_INV
@@ -214,7 +214,7 @@ MODULE SWE_DG_solver
  end if
 
  rep%troubled=element%cell%data_pers%troubled
- call getObservableLimits(element%cell%data_pers%Q_DG,rep%minObservables,rep%maxObservables)
+ call getObservableLimits(element%cell%data_pers%Q,rep%minObservables,rep%maxObservables)
     
 end function cell_to_edge_op_dg
   
@@ -464,53 +464,54 @@ if (element%cell%geometry%i_plotter_type > 0) then !
 end if
 !--------------------------------------------------------------------------!
 
+edge_sizes=element%cell%geometry%get_edge_sizes()
+
 !----If any neighbour is troubled use FV scheme ---!
 if(isDG(data%troubled)) then
    if(neighbourTroubled(update1,update2,update3)) then
       data%troubled = NEIGHBOUR_TROUBLED
-      call apply_phi(data%Q_DG(:)%h+data%Q_DG(:)%b ,data%h)
-      call apply_phi(data%Q_DG(:)%p(1)             ,data%hu)
-      call apply_phi(data%Q_DG(:)%p(2)             ,data%hv)
-      call apply_phi(data%Q_DG(:)%b                ,data%b)
+      call apply_phi(data%Q(:)%h+data%Q(:)%b ,data%h)
+      call apply_phi(data%Q(:)%p(1)          ,data%hu)
+      call apply_phi(data%Q(:)%p(2)          ,data%hv)
+      call apply_phi(data%Q(:)%b             ,data%b)
    end if
 end if
 !--------------------------------------------------!
 
 if(isDG(data%troubled)) then
    data%troubled = DG
-   H_old  = data%Q_DG%H
-   B_old  = data%Q_DG%B
-   HU_old = data%Q_DG%p(1)
-   HV_old = data%Q_DG%p(2)
+   H_old  = data%Q%H
+   B_old  = data%Q%B
+   HU_old = data%Q%p(1)
+   HV_old = data%Q%p(2)
 
-   call getObservableLimits(element%cell%data_pers%Q_DG,minVals,maxVals)
+   call getObservableLimits(element%cell%data_pers%Q,minVals,maxVals)
  
    call dg_solver(element,update1%flux,update2%flux,update3%flux,section%r_dt)
 
-   if(isWetDryInterface(data%Q_DG%H)) then
+   if(isWetDryInterface(data%Q%H)) then
       data%troubled = WET_DRY_INTERFACE
-   else if(checkDMP(element%cell%data_pers%Q_DG,minVals,maxVals,update1,update2,update3)) then
+   else if(checkDMP(element%cell%data_pers%Q,minVals,maxVals,update1,update2,update3)) then
       !data%troubled = TROUBLED
    end if
 
    if(isFV(data%troubled)) then
       !--if troubled or drying perform rollback--!
-      data%Q_DG%H   = H_old
-      data%Q_DG%p(1)= HU_old
-      data%Q_DG%p(2)= HV_old
-      data%Q_DG%B   = B_old
+      data%Q%H   = H_old
+      data%Q%p(1)= HU_old
+      data%Q%p(2)= HV_old
+      data%Q%B   = B_old
 
-      call apply_phi(data%Q_DG(:)%h+data%Q_DG(:)%b,data%h)
-      call apply_phi(data%Q_DG(:)%p(1)            ,data%hu)
-      call apply_phi(data%Q_DG(:)%p(2)            ,data%hv)
-      call apply_phi(data%Q_DG(:)%b               ,data%b)
+      call apply_phi(data%Q(:)%h+data%Q(:)%b,data%h)
+      call apply_phi(data%Q(:)%p(1)            ,data%hu)
+      call apply_phi(data%Q(:)%p(2)            ,data%hv)
+      call apply_phi(data%Q(:)%b               ,data%b)
 
    else
       i_depth = element%cell%geometry%i_depth
       
-      dQ_norm = maxval(abs(data%Q_DG%H-H_old))
+      dQ_norm = maxval(abs(data%Q%H-H_old))
       
-      edge_sizes=element%cell%geometry%get_edge_sizes()
 
       !refine      
       !consider wave
@@ -532,16 +533,16 @@ if(isDG(data%troubled)) then
          section%b_min=-0.1_GRID_SR
          section%b_max=0.1_GRID_SR
 
-         if((minval(element%cell%data_pers%Q_DG%B) * section%b_min) > 0) then
+         if((minval(element%cell%data_pers%Q%B) * section%b_min) > 0) then
             
             bathy_depth= cfg%i_max_depth &
-            -floor(abs(minval(element%cell%data_pers%Q_DG%B)/abs(section%b_min)) &
+            -floor(abs(minval(element%cell%data_pers%Q%B)/abs(section%b_min)) &
             *(cfg%i_max_depth-cfg%i_min_depth))
             
-         else if((maxval(element%cell%data_pers%Q_DG%B) * section%b_max) > 0) then
+         else if((maxval(element%cell%data_pers%Q%B) * section%b_max) > 0) then
 
             bathy_depth= cfg%i_max_depth &
-            -floor(abs(maxval(element%cell%data_pers%Q_DG%B)/abs(section%b_max)) &
+            -floor(abs(maxval(element%cell%data_pers%Q%B)/abs(section%b_max)) &
             *(cfg%i_max_depth-cfg%i_min_depth))
             
          end if
@@ -569,10 +570,10 @@ end if
 
 !------- Update cell status and compute next timestep size --------!
 call updateCellStatus(data)
-dx = cfg%scaling *  element%transform_data%custom_data%scaling
+dx = cfg%scaling *  edge_sizes(1)
 if(isDG(data%troubled)) then
    do i=1,_SWE_DG_DOFS
-      section%r_dt_new = min(section%r_dt_new, get_next_time_step_size(data%Q_DG(i)%h,data%Q_DG(i)%p(1),data%Q_DG(i)%p(2),dx,cfg%dry_tolerance))
+      section%r_dt_new = min(section%r_dt_new, get_next_time_step_size(data%Q(i)%h,data%Q(i)%p(1),data%Q(i)%p(2),dx,cfg%dry_tolerance))
    end do
 else
    do i=1,_SWE_PATCH_ORDER_SQUARE
@@ -650,7 +651,7 @@ subroutine dg_solver(element,update1,update2,update3,dt)
   real(kind=GRID_SR) :: q(_SWE_DG_DOFS,3)
 
   associate(data        => element%cell%data_pers, &
-            Q_DG        => element%cell%data_pers%Q_DG, &
+            Q_DG        => element%cell%data_pers%Q, &
             Q_DG_UPDATE => element%cell%data_pers%Q_DG_UPDATE)
 
     call data%get_dofs_dg(q)
@@ -670,7 +671,7 @@ subroutine dg_solver(element,update1,update2,update3,dt)
     bnd_flux_r(:,3) = matmul(s_m_inv,matmul(s_b_3_r,update3(:)%p(2)))
     !-----------------------------------------------------!
     !!----update dofs----!!
-    q=q-((bnd_flux_l + bnd_flux_m + bnd_flux_r) - Q_DG_UPDATE) * dt/dx
+    q=q-((bnd_flux_l + bnd_flux_m + bnd_flux_r) - Q_DG_UPDATE )* dt/dx
     !!-------------------!!
 
     call data%set_dofs_dg(q)
@@ -918,11 +919,11 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                   data%HV = 0.0_GRID_SR
                end where
 
-               call apply_mue(data%h ,data%Q_DG%h)
-               call apply_mue(data%hu,data%Q_DG%p(1))
-               call apply_mue(data%hv,data%Q_DG%p(2))
-               call apply_mue(data%b ,data%Q_DG%b)
-               data%Q_DG%h=data%Q_DG%h-data%Q_DG%b
+               call apply_mue(data%h ,data%Q%h)
+               call apply_mue(data%hu,data%Q%p(1))
+               call apply_mue(data%hv,data%Q%p(2))
+               call apply_mue(data%b ,data%Q%b)
+               data%Q%h=data%Q%h-data%Q%b
                
                coarsen = all(data%H - data%B < cfg%dry_tolerance)
                refine  = .not.all(data%H - data%B < cfg%dry_tolerance)

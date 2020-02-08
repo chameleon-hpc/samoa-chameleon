@@ -86,8 +86,8 @@ MODULE SWE_dg_matrices
 ! #include "dg_matrices/st_w_k_t_1_1_lu_SWE_DG_ORDER_TAG.incl"
 ! #include "dg_matrices/st_w_k_t_1_1_lu_pivot_SWE_DG_ORDER_TAG.incl"
 
-#include "dg_matrices/basis_der_st_x_SWE_DG_ORDER_TAG.incl"
-#include "dg_matrices/basis_der_st_y_SWE_DG_ORDER_TAG.incl"
+!#include "dg_matrices/basis_der_st_x_SWE_DG_ORDER_TAG.incl"
+!#include "dg_matrices/basis_der_st_y_SWE_DG_ORDER_TAG.incl"
 
 
 !L2 projection

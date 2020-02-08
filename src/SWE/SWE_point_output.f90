@@ -249,8 +249,12 @@ end subroutine pre_traversal_grid_op
 
 #if defined(_SWE_DG)        
         if(element%cell%data_pers%troubled .le. 0) then
-!           call element%cell%data_pers%convert_dg_to_fv_bathymetry()
-           call element%cell%data_pers%convert_dg_to_fv()
+           associate(data => element%cell%data_pers)
+             call apply_phi(data%Q(:)%h+data%Q(:)%b,data%h)
+             call apply_phi(data%Q(:)%p(1)         ,data%hu)
+             call apply_phi(data%Q(:)%p(2)         ,data%hv)
+             call apply_phi(data%Q(:)%b            ,data%b)
+           end associate
         end if
 #endif
             associate(data => element%cell%data_pers, geom => SWE_PATCH_geometry)

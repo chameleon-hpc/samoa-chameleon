@@ -324,10 +324,10 @@
     
 #if defined(_SWE_DG)    
     if (element%cell%data_pers%troubled.le.0) then
-       call apply_phi(element%cell%data_pers%Q_DG%H,element%cell%data_pers%H)
-       call apply_phi(element%cell%data_pers%Q_DG%p(1),element%cell%data_pers%HU)
-       call apply_phi(element%cell%data_pers%Q_DG%p(2),element%cell%data_pers%HV)
-       call apply_phi(element%cell%data_pers%Q_DG%b,element%cell%data_pers%B)
+       call apply_phi(element%cell%data_pers%Q%H,element%cell%data_pers%H)
+       call apply_phi(element%cell%data_pers%Q%p(1),element%cell%data_pers%HU)
+       call apply_phi(element%cell%data_pers%Q%p(2),element%cell%data_pers%HV)
+       call apply_phi(element%cell%data_pers%Q%b,element%cell%data_pers%B)
        element%cell%data_pers%H=element%cell%data_pers%H+element%cell%data_pers%B
     end if
 #endif

@@ -6,74 +6,59 @@
 #include "Compilation_control.f90"
 
 #if defined(_SWE)
-	MODULE SWE_data_types
+MODULE SWE_data_types
 #if defined(_SWE_DG)
-   use SWE_DG_matrices
+  use SWE_DG_matrices
    
-		implicit none
-# else
-		implicit none
-		PUBLIC
-
-		!data precision
-#       if defined(_SINGLE_PRECISION)
-            integer, PARAMETER :: GRID_SR = kind(1.0e0)
-#       elif defined(_DOUBLE_PRECISION)
-            integer, PARAMETER :: GRID_SR = kind(1.0d0)
-#       elif defined(_QUAD_PRECISION)
-            integer, PARAMETER :: GRID_SR = kind(1.0q0)
-#       else
-#           error "No floating point precision is chosen!"
-#       endif
-#endif
-
-		integer, PARAMETER :: BYTE = selected_int_kind(1)
-		integer, PARAMETER :: SHORT = selected_int_kind(4)
-		integer, PARAMETER :: GRID_SI = selected_int_kind(8)
-		integer, PARAMETER :: GRID_DI = selected_int_kind(16)
-
-                integer, PARAMETER :: SR = GRID_SR
-                integer, PARAMETER :: SI = GRID_SI
-                integer, PARAMETER :: DI = GRID_DI
+  implicit none
   
-		real (kind = GRID_SR), parameter					:: g = 9.80665_GRID_SR		!< gravitational constant
-
-
-		!***********************
-		!Entity data
-		!***********************
-
+  integer, PARAMETER :: BYTE = selected_int_kind(1)
+  integer, PARAMETER :: SHORT = selected_int_kind(4)
+  integer, PARAMETER :: GRID_SI = selected_int_kind(8)
+  integer, PARAMETER :: GRID_DI = selected_int_kind(16)
+  
+  integer, PARAMETER :: SR = GRID_SR
+  integer, PARAMETER :: SI = GRID_SI
+  integer, PARAMETER :: DI = GRID_DI
+  
+  real (kind = GRID_SR), parameter					:: g = 9.80665_GRID_SR		!< gravitational constant
+  
+  
+  !***********************
+  !Entity data
+  !***********************
+  
   !> state vector of DoFs, either as absoulte values or updates
   
-		type t_dof_state
-			real (kind = GRID_SR)													:: h						!< water change
-			real (kind = GRID_SR), dimension(2)										:: p						!< momentum change
-
-            contains
-
-            procedure, pass :: add => dof_state_add
-			procedure, pass :: inv => dof_state_inv
-			procedure, pass :: scale => dof_state_scale
-
-            generic :: operator(+) => add
-            generic :: operator(-) => inv
-            generic :: operator(*) => scale
-         end type t_dof_state
-
-		!> cell state vector including bathymetry
+  type t_dof_state
+     real (kind = GRID_SR)													:: h						!< water change
+     real (kind = GRID_SR), dimension(2)										:: p						!< momentum change
+     
+   contains
+     
+     procedure, pass :: add => dof_state_add
+     procedure, pass :: inv => dof_state_inv
+     procedure, pass :: scale => dof_state_scale
+     
+     generic :: operator(+) => add
+     generic :: operator(-) => inv
+     generic :: operator(*) => scale
+  end type t_dof_state
+  
+  !> cell state vector including bathymetry
   type, extends(t_dof_state) :: t_state
      real (kind = GRID_SR) :: b						!< bathymetry 
-            contains
-
-            procedure, pass :: add_state => state_add
-            generic :: operator(+) => add_state
-         end type t_state
-
-		!> update vector
-         type, extends(t_dof_state) :: t_update
-          contains
-            procedure, pass :: add_update => update_add
-            generic :: operator(+) => add_update
+   contains
+     
+     procedure, pass :: add_state => state_add
+     generic :: operator(+) => add_state
+  end type t_state
+  
+  !> update vector
+  type, extends(t_dof_state) :: t_update
+   contains
+     procedure, pass :: add_update => update_add
+     generic :: operator(+) => add_update
          end type t_update
 
 		!> persistent scenario data on a node
@@ -89,22 +74,14 @@
 !> persistent scenario data on a cell
 type num_cell_data_pers
   real (kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER_SQUARE) :: H, HU, HV, B
-  type(t_state)     , DIMENSION(_SWE_DG_DOFS)     :: Q_DG
+  type(t_state)     , DIMENSION(_SWE_DG_DOFS)     :: Q
   real(kind=GRID_SR), DIMENSION(_SWE_DG_DOFS,3)   :: Q_DG_UPDATE
-  real(kind=GRID_SR), DIMENSION(2,_SWE_DG_DOFS,3) :: FP
-  real(kind=GRID_SR), DIMENSION(  _SWE_DG_DOFS,4) :: QP
-  type(t_state)     , DIMENSION(_SWE_CELL_SIZE)	  :: Q
 
   integer :: troubled
 #if defined(_DEBUG)
   integer :: debug_flag = 0
 #endif                        
   contains
-                          procedure :: convert_fv_to_dg => convert_fv_to_dg
-                          procedure :: convert_dg_to_fv => convert_dg_to_fv
-                          procedure :: convert_dg_to_fv_bathymetry => convert_dg_to_fv_bathymetry
-                          procedure :: convert_fv_to_dg_bathymetry => convert_fv_to_dg_bathymetry
-
                           procedure :: get_dofs_dg => get_dofs_dg
                           procedure :: set_dofs_dg => set_dofs_dg
 end type num_cell_data_pers
@@ -146,7 +123,8 @@ end type num_cell_data_pers
 
 		!> temporary scenario data on a cell (deleted after each traversal)
 		type num_cell_data_temp
-			integer (kind = BYTE), dimension(0)										:: dummy					!< no data
+     real(kind=GRID_SR), DIMENSION(2,_SWE_DG_DOFS,3) :: FP
+     real(kind=GRID_SR), DIMENSION(  _SWE_DG_DOFS,4) :: QP
 		END type num_cell_data_temp
 
 		!***********************
@@ -172,79 +150,6 @@ end type num_cell_data_pers
 		end type
 
 		contains
-#if defined (_SWE_DG)
-
-                 subroutine convert_fv_to_dg(dofs)
-                   class(num_cell_data_pers) :: dofs
-                   real(kind=GRID_SR) :: q(_SWE_PATCH_ORDER*_SWE_PATCH_ORDER,3),q_temp(_SWE_DG_DOFS+1,3)
-                   real(kind=GRID_SR) :: h_temp(_SWE_DG_DOFS +1), hu_temp(_SWE_DG_DOFS +1), hv_temp(_SWE_DG_DOFS +1)
-                   real(kind=GRID_SR) :: q_dg(_SWE_DG_DOFS,3)
-                   
-                   real(kind=GRID_SR) :: epsilon=0.0_GRID_SR
-                   integer :: i,j
-
-!                  PATCHES store h+b DG not
-
-                   !                   q(:,1)=dofs%H-dofs%b
-                   
-                   q(:,1)=dofs%H
-                   q(:,2)=dofs%HU
-                   q(:,3)=dofs%HV
-
-                   q_temp(1:_SWE_DG_DOFS,:) = 2.0q0*matmul(transpose(phi),q)
-
-                   q_temp(_SWE_DG_DOFS+1,1) = sum(q(:,1))
-                   q_temp(_SWE_DG_DOFS+1,2) = sum(q(:,2))
-                   q_temp(_SWE_DG_DOFS+1,3) = sum(q(:,3))
-
-                   q_temp = q_temp /_REF_TRIANGLE_SIZE_INV
-
-                   ! call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,q_temp(:,1))
-                   ! call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,q_temp(:,2))
-                   ! call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,q_temp(:,3))
-
-                   q_temp(:,1)=matmul(mue_inv,q_temp(:,1))
-                   q_temp(:,2)=matmul(mue_inv,q_temp(:,2))
-                   q_temp(:,3)=matmul(mue_inv,q_temp(:,3))
-
-!                   print*,q_temp(1:_SWE_DG_DOFS,:)
-                   
-                   q_temp(1:_SWE_DG_DOFS,1)=q_temp(1:_SWE_DG_DOFS,1) - dofs%Q_DG%b
-
-                   q_dg=q_temp(1:_SWE_DG_DOFS,:)
-                
-                   
-                   call dofs%set_dofs_dg(q_dg)
-                   
-                 end subroutine convert_fv_to_dg
-
-                 subroutine convert_dg_to_fv(dofs)
-                   class(num_cell_data_pers) :: dofs
-                   real(kind=GRID_SR)        :: q(_SWE_DG_DOFS,3)
-                   real(kind=GRID_SR)        :: fv_temp(_SWE_PATCH_ORDER*_SWE_PATCH_ORDER,3)
-
-                   call dofs%get_dofs_dg(q)
-
-                   !PATCHES store h+b DG not
-                   q(:,1)  = q(:,1) + dofs%Q_DG%b
-
-                   fv_temp=matmul(phi,q)*_REF_TRIANGLE_SIZE_INV
-
-                   !                   dofs%H=fv_temp(:,1) + dofs%B
-                   dofs%H=fv_temp(:,1)
-                   dofs%HU=fv_temp(:,2)
-                   dofs%HV=fv_temp(:,3)
-
-                   ! #if defined(_ASAGI)
-
-!                    where(0_GRID_SR)
-!                       q_temp(1:_SWE_DG_DOFS,1)=0.0_GRID_SR
-!                    end where
-! #endif                   
-
-
-
-                 end subroutine convert_dg_to_fv
 
                  subroutine apply_phi(dg,fv)
                    real(kind=GRID_SR),intent(out) :: fv(_SWE_PATCH_ORDER_SQUARE)
@@ -273,44 +178,6 @@ end type num_cell_data_pers
                    
                  end subroutine apply_mue
 
-
-
-                 subroutine convert_dg_to_fv_bathymetry(dofs)
-                   class(num_cell_data_pers) :: dofs
-                   real(kind=GRID_SR)        :: q(_SWE_DG_DOFS)
-                   real(kind=GRID_SR)        :: fv_temp(_SWE_PATCH_ORDER*_SWE_PATCH_ORDER)
-
-                   q = dofs%Q_DG%B
-                   fv_temp=matmul(phi,q)*_REF_TRIANGLE_SIZE_INV
-                   dofs%B=fv_temp
-
-                 end subroutine convert_dg_to_fv_bathymetry
-
-
-
-                 subroutine convert_fv_to_dg_bathymetry(dofs,normals)
-                   class(num_cell_data_pers) :: dofs
-                   real(kind=GRID_SR) :: b_temp(_SWE_DG_DOFS +1),b_fv(_SWE_PATCH_ORDER_SQUARE)
-
-                   real(kind=GRID_SR) :: b_x_temp(_SWE_DG_DOFS)
-                   real(kind=GRID_SR) :: b_y_temp(_SWE_DG_DOFS)
-                   real(kind=GRID_SR),intent(in) :: normals(2,2)
-                   real(kind=GRID_SR) :: normals_normed(2,2)
-                   integer ::i,j
-                   real(kind=GRID_SR) :: epsilon=0.0_GRID_SR
-
-                   normals_normed=normals/NORM2(normals(1,1:2))
-
-                   b_temp(1:_SWE_DG_DOFS)= 2.0q0*matmul(transpose(phi),dofs%b)
-                   b_temp(_SWE_DG_DOFS+1) = sum(dofs%b)
-                   b_temp = b_temp /_REF_TRIANGLE_SIZE_INV
-                   b_temp=matmul(mue_inv,b_temp)                   
-
-                   do i=1,_SWE_DG_DOFS
-                      dofs%Q_DG(i)%b=b_temp(i)
-                   end do
-                 end subroutine convert_fv_to_dg_bathymetry
-#endif                   
 
 		!adds two state vectors
 		elemental function state_add(Q1, Q2)	result(Q_out)
@@ -355,23 +222,22 @@ end type num_cell_data_pers
 			f_out = t_dof_state(s * f%h, s * f%p)
 		end function
 
-#if defined(_SWE_DG)                
 		!multiplies a scalar with a dof state vector
                 subroutine get_dofs_dg(f,q)
                   integer ::i
                   class (num_cell_data_pers), intent(in)		:: f
-                  real (kind = GRID_SR),intent(out)               :: q (size(f%Q_DG,1),3)
-                  q(:,1)= f%Q_DG(:)%h
-                  q(:,2)= f%Q_DG(:)%p(1)
-                  q(:,3)= f%Q_DG(:)%p(2)
+                  real (kind = GRID_SR),intent(out)               :: q (size(f%Q,1),3)
+                  q(:,1)= f%Q(:)%h
+                  q(:,2)= f%Q(:)%p(1)
+                  q(:,3)= f%Q(:)%p(2)
                 end subroutine get_dofs_dg
 
 		subroutine set_dofs_dg(f,q)
                   class (num_cell_data_pers),intent(inout) 	:: f
-                  real (kind = GRID_SR) 		        :: q(size(f%q_dg,1),3)
-                  f%Q_DG(:)%H = q(:,1)
-                  f%Q_DG(:)%p(1) =q(:,2)
-                  f%Q_DG(:)%p(2) =q(:,3)
+                  real (kind = GRID_SR) 		        :: q(size(f%Q,1),3)
+                  f%Q(:)%H    = q(:,1)
+                  f%Q(:)%p(1) =q(:,2)
+                  f%Q(:)%p(2) =q(:,3)
                 end subroutine set_dofs_dg
 #endif
 	END MODULE SWE_data_types

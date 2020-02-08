@@ -72,10 +72,10 @@ contains
     !---------------------------!
     
     data%troubled = DG    
-    if(isWetDryInterface(data%Q_DG%H))then
+    if(isWetDryInterface(data%Q%H))then
        data%troubled = WET_DRY_INTERFACE
     end if
-    if(checkIfCellIsDry(data%Q_DG%H)) then
+    if(checkIfCellIsDry(data%Q%H)) then
        data%troubled = DRY
     end if
     

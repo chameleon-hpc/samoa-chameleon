@@ -96,7 +96,6 @@ MODULE SWE_Initialize_Bathymetry
     element%cell%data_pers%B        = Q(:)%b
     element%cell%data_pers%troubled = WET_DRY_INTERFACE
 
-    call element%cell%data_pers%convert_fv_to_dg_bathymetry(ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%jacobian)
     
 #if defined(_ASAGI)
     section%b_min_new=min( section%b_min_new, minval(element%cell%data_pers%B))
@@ -409,10 +408,10 @@ MODULE SWE_Initialize_Dofs
     type(t_state), dimension(_SWE_DG_DOFS)   :: Q_DG
 
     if(element%cell%data_pers%troubled .ge.1)then
-       element%cell%data_pers%Q_DG%B = get_bathymetry_at_dg_patch(section, element, section%r_time)
+       element%cell%data_pers%Q%B = get_bathymetry_at_dg_patch(section, element, section%r_time)
     end if
 
-    Q_DG(:)%b = element%cell%data_pers%Q_DG%B
+    Q_DG(:)%b = element%cell%data_pers%Q%B
     Q(:)%b = element%cell%data_pers%B    
 
 #if defined(_ASAGI)    
@@ -421,22 +420,22 @@ MODULE SWE_Initialize_Dofs
 #endif
 
     call alpha_volume_op_dg(traversal, section, element, Q_DG)
-    element%cell%data_pers%Q_DG%H    = Q_DG(:)%h-Q_DG(:)%b    
-    element%cell%data_pers%Q_DG%p(1) = Q_DG(:)%p(1)
-    element%cell%data_pers%Q_DG%p(2) = Q_DG(:)%p(2)
+    element%cell%data_pers%Q%H    = Q_DG(:)%h-Q_DG(:)%b    
+    element%cell%data_pers%Q%p(1) = Q_DG(:)%p(1)
+    element%cell%data_pers%Q%p(2) = Q_DG(:)%p(2)
 
 
     !------------- set initial state -------------------!
     element%cell%data_pers%troubled = DG    
-    if(isWetDryInterface(element%cell%data_pers%Q_DG%H))then
+    if(isWetDryInterface(element%cell%data_pers%Q%H))then
        element%cell%data_pers%troubled = WET_DRY_INTERFACE
     end if
 
-    if(checkIfCellIsDry(element%cell%data_pers%Q_DG%H)) then
+    if(checkIfCellIsDry(element%cell%data_pers%Q%H)) then
        element%cell%data_pers%troubled = DRY
     end if
 
-    if(any(abs(element%cell%data_pers%Q_DG%B) < cfg%coast_height)) then
+    if(any(abs(element%cell%data_pers%Q%B) < cfg%coast_height)) then
        element%cell%data_pers%troubled = COAST
     end if
 
@@ -447,7 +446,7 @@ MODULE SWE_Initialize_Dofs
        if(isCoast(element%cell%data_pers%troubled)) then
           element%cell%data_pers%B = get_bathymetry_at_patch(section, element, section%r_time)
        else
-          call apply_phi(element%cell%data_pers%Q_DG%B,element%cell%data_pers%B)
+          call apply_phi(element%cell%data_pers%Q%B,element%cell%data_pers%B)
        end if
        call alpha_volume_op(traversal, section, element, Q)
        element%cell%data_pers%H    = Q(:)%h
@@ -506,7 +505,7 @@ MODULE SWE_Initialize_Dofs
 #if defined (_ASAGI)
     if (element%cell%geometry%i_depth < cfg%i_max_depth) then
 
-       dQ_norm = maxval(abs(get_bathymetry_at_dg_patch(section, element, real(cfg%t_max_eq + 1.0, GRID_SR) ) - element%cell%data_pers%Q_DG%B))
+       dQ_norm = maxval(abs(get_bathymetry_at_dg_patch(section, element, real(cfg%t_max_eq + 1.0, GRID_SR) ) - element%cell%data_pers%Q%B))
 
        if (dQ_norm > 2.0_SR) then
           element%cell%data_pers%troubled = WET_DRY_INTERFACE

@@ -45,11 +45,13 @@ contains
 
     real(kind=GRID_SR),Dimension(_SWE_DG_ORDER,1) :: t_k_t_11_inv_x_t_k_t_10 
 
-    associate(Q_DG        => cell%data_pers%Q_DG,&
-              Q_DG_UPDATE => cell%data_pers%Q_DG_UPDATE,&
-              QP => cell%data_pers%QP,&
-              FP => cell%data_pers%FP)
+    real(kind=GRID_SR), DIMENSION(_SWE_DG_DOFS,3)   :: Q_DG_UPDATE
 
+
+    associate(Q_DG        => cell%data_pers%Q,&
+              Q_DG_UPDATE => cell%data_pers%Q_DG_UPDATE,&
+              QP => cell%data_temp%QP,&
+              FP => cell%data_temp%FP)
 
 
       ! TODO make this a precompiled matrix
@@ -241,7 +243,6 @@ contains
          FP(2,i, : ) = reshape( matmul(t_a,f_ref(2,:,i,:)),(/ 3 /))
       end do
       QP(:,4) = Q_DG(:)%B
-      
     end associate
   end subroutine dg_predictor
 

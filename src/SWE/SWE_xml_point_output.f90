@@ -416,10 +416,10 @@ MODULE SWE_xml_point_output
              traversal%point_data(traversal%i_point_data_index + i - 1)%i_plotter_type = element%cell%geometry%i_plotter_type
              traversal%point_data(traversal%i_point_data_index + i - 1)%refinement = element%cell%geometry%refinement
              traversal%point_data(traversal%i_point_data_index + i - 1)%troubled = element%cell%data_pers%troubled
-             traversal%point_data(traversal%i_point_data_index + i - 1)%Q%b = element%cell%data_pers%Q_DG(cell_id)%b
-             traversal%point_data(traversal%i_point_data_index + i - 1)%Q%p(1) = element%cell%data_pers%Q_DG(cell_id)%p(1)
-             traversal%point_data(traversal%i_point_data_index + i - 1)%Q%p(2) = element%cell%data_pers%Q_DG(cell_id)%p(2)
-             traversal%point_data(traversal%i_point_data_index + i - 1)%Q%h = element%cell%data_pers%Q_DG(cell_id)%h
+             traversal%point_data(traversal%i_point_data_index + i - 1)%Q%b = element%cell%data_pers%Q(cell_id)%b
+             traversal%point_data(traversal%i_point_data_index + i - 1)%Q%p(1) = element%cell%data_pers%Q(cell_id)%p(1)
+             traversal%point_data(traversal%i_point_data_index + i - 1)%Q%p(2) = element%cell%data_pers%Q(cell_id)%p(2)
+             traversal%point_data(traversal%i_point_data_index + i - 1)%Q%h = element%cell%data_pers%Q(cell_id)%h
           end do
 
           ! prepare for next cell

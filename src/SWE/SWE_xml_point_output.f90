@@ -222,7 +222,7 @@ MODULE SWE_xml_point_output
 
     ! Iterate over all elements to count stuff correctly.
     do i=1, grid_info%i_cells
-       if (.not.isCoast(traversal%troubled(i))) then
+       if (.not.isCoast(int(traversal%troubled(i), 4))) then
        !if (traversal%troubled(i).le.0) then       
           l_point_mask(i_real_points + 1 : i_real_points + _SWE_DG_DOFS) = .true.
           l_cell_mask(i_real_cells + 1: i_real_cells + i_cells_per_dg) = .true.

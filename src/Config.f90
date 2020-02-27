@@ -184,7 +184,7 @@ module config
         write(arguments, '(A, A)') trim(arguments),   " -lbtime .false. -lbsplit .false. -lbserial .false. -lbcellweight 1.0d0 -lbbndweight 0.0d0"
         write(arguments, '(A, A)') trim(arguments),  " -asagihints 2 -phases 1 -tadapt -1.0 -nadapt 1 -asciioutput_width 60 -output_dir output -asciioutput .false. -xmloutput .false. -xmlpointoutput .false. -stestpoints '' -noprint .false. -sections 4"
 #       if defined(_XDMF)
-            write(arguments, '(A, A)') trim(arguments),  " -xdmfoutput .false. -xdmfcpint 0 -xdmfspf 100 -xdmfinput -xdmffilterindex 0 -xdmffilterparams "
+            write(arguments, '(A, A)') trim(arguments),  " -xdmfoutput .false. -xdmfoutputmode 1 -xdmfcpint 0 -xdmfspf 100 -xdmfinput -xdmffilterindex 0 -xdmffilterparams "
 #       endif
         write(arguments, '(A, A, I0)') trim(arguments), " -threads ", omp_get_max_threads()
 
@@ -289,6 +289,7 @@ module config
         config%l_gridoutput = lget('samoa_xmloutput')
 #       if defined(_XDMF)
             config%xdmf%l_xdmfoutput = lget('samoa_xdmfoutput')
+            config%xdmf%i_xdmfoutput_mode = iget('samoa_xdmfoutputmode')
             config%xdmf%i_xdmfcpint = iget('samoa_xdmfcpint')
             config%xdmf%i_xdmfspf = iget('samoa_xdmfspf')
             config%xdmf%i_xdmffilter_index = iget('samoa_xdmffilterindex')
@@ -402,6 +403,7 @@ module config
                 PRINT '(A, F0.3, A)',  "	-courant <value>        time step size relative to the CFL condition (value: ", config%courant_number, ")"
 #               if defined(_XDMF)
                 PRINT '(A, L, A)',   "	-xdmfoutput               [-tout required] turns on xdmf output (value: ", config%xdmf%l_xdmfoutput, ")"
+                PRINT '(A, I0, A)',   "	-xdmfoutputmode           [-xdmfoutput required] xdmf output mode (value: ", config%xdmf%i_xdmfoutput_mode, ")"
                 PRINT '(A, I0, A)',  "	-xdmfcpint                [-xdmfoutput required] interval of checkpoints, 0: disabled (value: ", config%xdmf%i_xdmfcpint, ")"
                 PRINT '(A, I0, A)',  "	-xdmfspf                  [-xdmfoutput required] amount of output steps per file (value: ", config%xdmf%i_xdmfspf, ")"
                 PRINT '(A, I0, A)',  "	-xdmffilterindex <value>  [-xdmfoutput required] xdmf filter function index (value: ", config%xdmf%i_xdmffilter_index, ")"

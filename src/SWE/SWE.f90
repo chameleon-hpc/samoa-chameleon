@@ -256,7 +256,10 @@
                 call swe%xdmf_output_filter%destroy()
                 call swe%xdmf_adaption%destroy()
                 call swe%xdmf_init_dofs%destroy()
-                call swe_xdmf_param%deallocate()
+				call swe_xdmf_param_cells%deallocate()
+#				if defined(_SWE_PATCH)
+					call swe_xdmf_param_patches%deallocate()
+#				endif
 #           endif
 			call swe%euler%destroy()
 			call swe%adaption%destroy()

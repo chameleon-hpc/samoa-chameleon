@@ -49,7 +49,7 @@ module XDMF_output_base_data_types
 
         type(t_xdmf_layout_descriptor)          :: root_layout_desc
         type(t_xdmf_file_descriptor)            :: root_desc
-        type(t_xdmf_section_buffer_ptr)         :: sect_store
+        type(t_xdmf_section_buffer_ptr)         :: sect_store_cells, sect_store_patches
     end type
 
     ! This pointer data structure is needed to pass the section arrays to the core XDMF library

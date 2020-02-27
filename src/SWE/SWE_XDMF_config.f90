@@ -47,7 +47,7 @@
         integer, parameter                      :: swe_hdf5_valsuv_f_offset = 1
 
         ! Parameter for the XDMF core API
-        type(t_xdmf_parameter), save            :: swe_xdmf_param = t_xdmf_parameter( &
+        type(t_xdmf_parameter), save            :: swe_xdmf_param_cells = t_xdmf_parameter( &
             hdf5_valsg_width = 2, &     ! 2 geometry data fields: dimensions X and Y
             hdf5_valst_width = 3, &     ! 3 geometry entries per triangle: corners
             hdf5_attr_width = 1, &      ! 1 attribute structure instances per triangle: in the middle
@@ -60,6 +60,21 @@
             hdf5_valsr_width = 3 &      ! 3 real32 values in attribute structure: b, h, k
         )
 
+#       if defined (_SWE_PATCH)
+            type(t_xdmf_parameter), save        :: swe_xdmf_param_patches = t_xdmf_parameter( &
+                hdf5_valsg_width = 2, &     ! 2 geometry data fields: dimensions X and Y
+                hdf5_valst_width = 3, &     ! 3 geometry entries per triangle: corners
+#           if defined(_SWE_DG)
+                hdf5_attr_width = _SWE_DG_DOFS, &      ! _SWE_DG_DOFS attribute structure instances per triangle: at the sampling nodes
+#           else
+                hdf5_attr_width = 1, &      ! fallback 1 attribute structure instances per triangle: in the middle
+#           endif
+                hdf5_valsi_width = 5, &     ! 5 int32 values per cell: d, o, l, s, t
+                hdf5_valsuv_width = 1, &    ! 1 2D vector real32 values in attribute structure: f
+                hdf5_valsr_width = 3 &      ! 3 real32 values in attribute structure: b, h, k
+            )
+#       endif
+
         ! Max amount of probes
         integer, parameter                      :: xdmf_filter_max_probes = (xdmf_filter_params_width - 1) / 2
 
@@ -67,17 +82,26 @@
 
         ! This routine loads the XDMF config for SWE
         subroutine SWE_xdmf_config_load()
-            call swe_xdmf_param%allocate()
-          
-            swe_xdmf_param%hdf5_valsi_dnames = &
+            call swe_xdmf_param_cells%allocate()
+            call assign_names(swe_xdmf_param_cells)
+#           if defined (_SWE_PATCH)
+                call swe_xdmf_param_patches%allocate()
+                call assign_names(swe_xdmf_param_patches)
+#           endif
+        end subroutine
+
+        subroutine assign_names(param)
+            type(t_xdmf_parameter), intent(inout)   :: param
+
+            param%hdf5_valsi_dnames = &
                 (/ swe_hdf5_attr_depth_dname_nz, swe_hdf5_attr_rank_dname_nz, swe_hdf5_attr_plotter_dname_nz, swe_hdf5_attr_section_dname_nz &
-#               if defined(_SWE_DG)
+#           if defined(_SWE_DG)
                     , swe_hdf5_attr_troubled_dname_nz & 
-#               endif
-                    /)
-            swe_xdmf_param%hdf5_valsr_dnames = &
+#           endif
+                /)
+            param%hdf5_valsr_dnames = &
                 (/ swe_hdf5_attr_b_dname_nz, swe_hdf5_attr_h_dname_nz, swe_hdf5_attr_bh_dname_nz /)
-            swe_xdmf_param%hdf5_valsuv_dnames = &
+            param%hdf5_valsuv_dnames = &
                 (/ swe_hdf5_attr_f_dname_nz /)
         end subroutine
 

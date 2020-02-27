@@ -47,6 +47,11 @@ module XDMF_data_types
     character(len = 1), parameter			:: hdf5_valst_dname_nz = "p"
     character(len = 2), parameter			:: hdf5_valsg_dname = hdf5_valsg_dname_nz//char(0)
     character(len = 2), parameter			:: hdf5_valst_dname = hdf5_valst_dname_nz//char(0)
+    ! Name of the substeps
+    character(len = 1), parameter			:: hdf5_gr_cells_dname_nz = "c"
+    character(len = 2), parameter			:: hdf5_gr_cells_dname = hdf5_gr_cells_dname_nz//char(0)
+    character(len = 1), parameter			:: hdf5_gr_patches_dname_nz = "p"
+    character(len = 2), parameter			:: hdf5_gr_patches_dname = hdf5_gr_patches_dname_nz//char(0)
 
     ! This parameter controls the amount of data for a cell
     type t_xdmf_parameter
@@ -64,11 +69,14 @@ module XDMF_data_types
 
         procedure, pass                     :: allocate => xdmf_parameter_allocate
         procedure, pass                     :: deallocate => xdmf_parameter_deallocate
-    end type                                         
+    end type
 
     ! This structure describes the location and space of a section in a HDF5 file
     type t_xdmf_section_descriptor
         integer(XDMF_GRID_SI)			    :: num_cells = 0, offset_cells = 0, offset_cells_buffer = 0
+#       if defined(_XDMF_PATCH)
+            integer(XDMF_GRID_SI)           :: num_patches = 0, offset_patches = 0, offset_patches_buffer = 0
+#       endif
     end type
 
     ! This structure describes the layout of all sections of a rank in a HDF5 file
@@ -76,6 +84,9 @@ module XDMF_data_types
         type(t_xdmf_section_descriptor), &
             dimension(:), allocatable       :: sections
         integer(XDMF_GRID_SI)               :: num_cells = 0, offset_cells = 0
+#       if defined(_XDMF_PATCH)
+            integer(XDMF_GRID_SI)           :: num_patches = 0, offset_patches = 0
+#       endif
 
         contains
 
@@ -150,11 +161,20 @@ module XDMF_data_types
         do n = 1, size(this%ranks)
             child%ranks(n)%num_cells = this%ranks(n)%num_cells
             child%ranks(n)%offset_cells = this%ranks(n)%offset_cells
+#           if defined(_XDMF_PATCH)
+                child%ranks(n)%num_patches = this%ranks(n)%num_patches
+                child%ranks(n)%offset_patches = this%ranks(n)%offset_patches
+#           endif
             allocate(child%ranks(n)%sections(size(this%ranks(n)%sections)), stat = error); assert_eq(error, 0)
             do k = 1, size(this%ranks(n)%sections)
                 child%ranks(n)%sections(k)%num_cells = this%ranks(n)%sections(k)%num_cells
                 child%ranks(n)%sections(k)%offset_cells = this%ranks(n)%sections(k)%offset_cells
                 child%ranks(n)%sections(k)%offset_cells_buffer = this%ranks(n)%sections(k)%offset_cells_buffer
+#               if defined(_XDMF_PATCH)
+                    child%ranks(n)%sections(k)%num_patches = this%ranks(n)%sections(k)%num_patches
+                    child%ranks(n)%sections(k)%offset_patches = this%ranks(n)%sections(k)%offset_patches
+                    child%ranks(n)%sections(k)%offset_patches_buffer = this%ranks(n)%sections(k)%offset_patches_buffer
+#               endif
             end do
         end do
     end subroutine

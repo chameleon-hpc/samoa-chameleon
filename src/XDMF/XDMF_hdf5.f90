@@ -27,7 +27,10 @@ module XDMF_hdf5
                      
     ! This structure stores the HDF5 ids of a file
     type t_xdmf_hdf5_metadata 
-        integer(HID_T)			         	:: file_id = 0, step_group_id = 0, access_dset_id = 0
+        integer(HID_T)			         	:: file_id = 0, step_group_id = 0, step_group_cells_id = 0, access_dset_id = 0
+#       if defined(_XDMF_PATCH)
+            integer(HID_T)			        :: step_group_patches_id = 0
+#       endif
 
         contains
 
@@ -60,7 +63,10 @@ module XDMF_hdf5
     ! This structure stores all HDF5 ids of a file and one step
     type t_xdmf_file_descriptor
         type(t_xdmf_hdf5_metadata)              :: hdf5_meta_ids
-        type(t_xdmf_hdf5)                       :: hdf5_ids
+        type(t_xdmf_hdf5)                       :: hdf5_ids_cells
+#       if defined(_XDMF_PATCH)
+            type(t_xdmf_hdf5)                   :: hdf5_ids_patches
+#       endif
 
         contains
 
@@ -190,26 +196,45 @@ module XDMF_hdf5
                     call h5ldelete_f(this%file_id, hdf5_step_group_name, hdf5_error)
                     ! Recreate step
                     call h5gcreate_f(this%file_id, hdf5_step_group_name, this%step_group_id, hdf5_error)
+                    ! Recreate substeps
+                    call h5gcreate_f(this%step_group_id, hdf5_gr_cells_dname, this%step_group_cells_id, hdf5_error)
+#                   if defined(_XDMF_PATCH)
+                        call h5gcreate_f(this%step_group_id, hdf5_gr_patches_dname, this%step_group_patches_id, hdf5_error)
+#                   endif
                 else
                     ! Open step group
                     call h5gopen_f(this%file_id, hdf5_step_group_name, this%step_group_id, hdf5_error)
+                    ! Open substeps
+                    call h5gopen_f(this%step_group_id, hdf5_gr_cells_dname, this%step_group_cells_id, hdf5_error)
+#                   if defined(_XDMF_PATCH)
+                        call h5gopen_f(this%step_group_id, hdf5_gr_patches_dname, this%step_group_patches_id, hdf5_error)
+#                   endif
                 end if
             else
                 if (allow_create) then
                     ! Create step group
                     call h5gcreate_f(this%file_id, hdf5_step_group_name, this%step_group_id, hdf5_error)
+                    ! Create substeps
+                    call h5gcreate_f(this%step_group_id, hdf5_gr_cells_dname, this%step_group_cells_id, hdf5_error)
+#                   if defined(_XDMF_PATCH)
+                        call h5gcreate_f(this%step_group_id, hdf5_gr_patches_dname, this%step_group_patches_id, hdf5_error)
+#                   endif
                 end if
             end if
         end if
     end subroutine
 
-    ! This routine closes a HDF% file
+    ! This routine closes a HDF5 file
     subroutine xdmf_hdf5_metadata_close(this)
         class(t_xdmf_hdf5_metadata), intent(inout)                      :: this
 
         integer                                                         :: hdf5_error
 
         call h5gclose_f(this%step_group_id, hdf5_error)
+        call h5gclose_f(this%step_group_cells_id, hdf5_error)
+#       if defined(_XDMF_PATCH)
+            call h5gclose_f(this%step_group_patches_id, hdf5_error)
+#       endif
         call h5pclose_f(this%access_dset_id, hdf5_error)
         call h5fflush_f(this%file_id, H5F_SCOPE_LOCAL_F, hdf5_error)
         ! call h5fclose_f(this%file_id, hdf5_error)
@@ -221,6 +246,10 @@ module XDMF_hdf5
 
         child%file_id = this%file_id
         child%step_group_id = this%step_group_id
+        child%step_group_cells_id = this%step_group_cells_id
+#       if defined(_XDMF_PATCH)
+            child%step_group_patches_id = this%step_group_patches_id
+#       endif
     end subroutine
 
 
@@ -357,7 +386,10 @@ module XDMF_hdf5
         class(t_xdmf_file_descriptor), intent(inout)    :: child
 
         call this%hdf5_meta_ids%scatter_to(child%hdf5_meta_ids)
-        call this%hdf5_ids%scatter_to(param, child%hdf5_ids)
+        call this%hdf5_ids_cells%scatter_to(param, child%hdf5_ids_cells)
+#       if defined(_XDMF_PATCH)
+            call this%hdf5_ids_patches%scatter_to(param, child%hdf5_ids_patches)
+#       endif
     end subroutine
 
 

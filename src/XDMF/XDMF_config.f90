@@ -21,9 +21,14 @@ module XDMF_config
     integer, parameter                      :: xdmf_filter_params_width = 16
     character(len = 1), parameter           :: xdmf_filter_params_delim = " "
 
+    ! Output mode flags
+    integer, parameter                      :: xdmf_output_mode_cells = 1
+    integer, parameter                      :: xdmf_output_mode_patches = 2
+
     ! This structure contains all XDMF-releated configuration variables
     type t_config_xdmf
         logical 				            :: l_xdmfoutput			                            !< xdmf output on/off
+        integer                             :: i_xdmfoutput_mode                                !< xdmf output mode flags
         character(256) 				        :: s_xdmfinput_file			                        !< xdmf input file
         integer                             :: i_xdmfcpint                                      !< write checkpoint data every n steps
         integer                             :: i_xdmfspf                                        !< amount of steps per file

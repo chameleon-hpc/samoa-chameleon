@@ -62,7 +62,10 @@
             type(t_swe_xdmf_output_filter_traversal), intent(inout)		:: traversal
             type(t_grid_section), intent(inout)							    :: section
 
-            section%xdmf_filter_count = 0
+            section%xdmf_filter_count_cells = 0
+#           if defined(_SWE_PATCH)
+                section%xdmf_filter_count_patches = 0
+#           endif
         end subroutine
 
         subroutine post_traversal_op(traversal, section)
@@ -93,7 +96,12 @@
 
             ! Update cell count
             if (write_cp .or. filter_result) then
-                section%xdmf_filter_count = section%xdmf_filter_count + 1
+#               if defined(_SWE_PATCH)
+                    section%xdmf_filter_count_cells = section%xdmf_filter_count_cells + _SWE_PATCH_ORDER_SQUARE
+                    section%xdmf_filter_count_patches = section%xdmf_filter_count_patches + 1
+#               else
+                    section%xdmf_filter_count_cells = section%xdmf_filter_count_cells + 1
+#               endif
             end if
         end subroutine
 

@@ -14,11 +14,10 @@ module XDMF_xmf
 
     ! This routine generates an XML tag describing a cell attribute in XDMF
     subroutine xdmf_xmf_add_attribute(output_iteration, output_meta_iteration, &
-            file_stamp_base, dim_length, dim_width, dim_depth, attr_dname_nz, attr_cname, is_int, is_cell, xml_file_id)
+            file_stamp_base, subgroup_dname_nz, dim_length, dim_width, dim_depth, attr_dname_nz, attr_cname, is_int, is_cell, xml_file_id)
         integer (XDMF_GRID_SI), intent(in)					            :: output_iteration, output_meta_iteration
-        character (len = *), intent(in)					                :: file_stamp_base
+        character (len = *), intent(in)					                :: file_stamp_base, subgroup_dname_nz, attr_dname_nz, attr_cname
         integer (XDMF_GRID_DI), intent(in)					            :: dim_length, dim_width, dim_depth
-        character (len = *), intent(in)					                :: attr_dname_nz, attr_cname
         logical, intent(in)                                             :: is_int, is_cell
         integer, intent(inout)                                          :: xml_file_id
 
@@ -53,8 +52,8 @@ module XDMF_xmf
         end if
 
         xml_hdf5_path_string(:) = " "
-        write (xml_hdf5_path_string, "(A, A, I0, A, I0, A, A, A, A)") trim(file_stamp_base), &
-            "_", output_meta_iteration, "_xdmf.h5:/", output_iteration, "/", hdf5_attr_dname_nz, "/", attr_dname_nz
+        write (xml_hdf5_path_string, "(A, A, I0, A, I0, A, A, A, A, A, A)") trim(file_stamp_base), &
+            "_", output_meta_iteration, "_xdmf.h5:/", output_iteration, "/", subgroup_dname_nz, "/", hdf5_attr_dname_nz, "/", attr_dname_nz
 
         write(xml_file_id, "(A, A, A, A, A, A, A, A, A, A, A)", advance="no") '<Attribute Name="', attr_cname, &
             '" Center="', xml_center_type_string, '"><DataItem Format="HDF" NumberType="',  trim(xml_number_type_string), &

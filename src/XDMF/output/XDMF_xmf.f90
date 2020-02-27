@@ -19,7 +19,7 @@ module XDMF_xmf
         character (len = *), intent(in)					                :: file_stamp_base, subgroup_dname_nz, attr_dname_nz, attr_cname
         integer (XDMF_GRID_DI), intent(in)					            :: dim_length, dim_width, dim_depth
         logical, intent(in)                                             :: is_int, is_cell
-        integer, intent(inout)                                          :: xml_file_id
+        integer, intent(in)                                             :: xml_file_id
 
         character(len = 512)					                        :: xml_hdf5_path_string
         character(len = 32)                                             :: xml_dims_string

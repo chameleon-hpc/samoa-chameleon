@@ -96,7 +96,7 @@
 
             if(rank_MPI .eq. 0) then
                 ! Output the XMF file
-                call write_xdmf(traversal%base, grid, hdf5_gr_cells_dname_nz)
+                call write_xdmf(traversal%base, grid)
             end if
     
             traversal%base%output_iteration = traversal%base%output_iteration + 1
@@ -334,20 +334,17 @@
         end subroutine
 
         ! This routine generates the XMF file needed to index the HDF5 files
-        subroutine write_xdmf(base, grid, subgroup_dname_nz)
+        subroutine write_xdmf(base, grid)
             type(t_xdmf_base_output_traversal), intent(inout)				:: base
             type(t_grid), intent(inout)							            :: grid
-            character(*), intent(in)                                        :: subgroup_dname_nz
     
             character(len = 256)					                        :: file_name_h5, file_name_xmf
             integer                                                         :: xml_file_id = 42
             integer(GRID_SI)                                                :: output_meta_iteration
             integer(HSIZE_T)                                                :: num_cells
             character(len = 17)                                             :: xml_time_string
-            character(len = 21)                                             :: xml_dims_string
-            character(len = 512)					                        :: xml_hdf5_path_string
             logical                                                         :: file_xmf_exist
-            integer                                                         :: is_cp, i
+            integer                                                         :: write_cp, i
     
             write(file_name_xmf, "(A, A, A)") trim(base%s_file_stamp), "_xdmf.xmf"
     
@@ -371,15 +368,15 @@
             output_meta_iteration = int(real(base%output_iteration, GRID_SR) / cfg%xdmf%i_xdmfspf, GRID_SI)
             write (file_name_h5, "(A, A, I0, A, A)") trim(base%s_file_stamp), "_", output_meta_iteration, "_xdmf.h5", char(0)
     
-            write(xml_file_id, "(A)", advance="no") '<Grid>'
+            write(xml_file_id, "(A)", advance="no") '<Grid GridType="Collection" CollectionType="Spatial">'
 
             ! Compute whether to output tree (checkpoint) data
-            is_cp = 0
+            write_cp = 0
             if((cfg%xdmf%i_xdmfcpint.ne.0) .and. &
                 mod(int(base%output_iteration, GRID_SI), int(cfg%xdmf%i_xdmfcpint, GRID_SI)).eq.0) then
-                is_cp = 1
+                write_cp = 1
             end if
-            write(xml_file_id, "(A, I0, A)", advance="no") '<Information Name="CP" Value="', is_cp, '" />'
+            write(xml_file_id, "(A, I0, A)", advance="no") '<Information Name="CP" Value="', write_cp, '" />'
     
             ! Time
             xml_time_string(:) = " "
@@ -393,12 +390,48 @@
                 base%i_sim_iteration, '</DataItem></Attribute>', &
                 '<Attribute Name="DeltaTime" Center="Grid"><DataItem Format="XML" NumberType="Float" Dimensions="1">', &
                 grid%r_dt, '</DataItem></Attribute>'
-    
+          
             num_cells = int(base%num_cells, HSIZE_T)
 #           if defined(_SWE_PATCH)
                 num_cells = num_cells * _SWE_PATCH_ORDER_SQUARE
 #           endif
+
+            if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .ne. 0) .or. write_cp .eq. 1) then
+                call write_xdmf_data(base, xml_file_id, num_cells, output_meta_iteration, hdf5_gr_cells_dname_nz)
+            end if
+#           if defined(_SWE_PATCH)
+                if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .ne. 0) .or. write_cp .eq. 1) then
+                    call write_xdmf_data(base, xml_file_id, int(base%num_cells, HSIZE_T), output_meta_iteration, hdf5_gr_patches_dname_nz)
+                end if
+#           endif
+
+            write(xml_file_id, "(A)", advance="yes") '</Grid>'
     
+            write(xml_file_id, "(A)", advance="no") '</Grid></Domain></Xdmf>'
+            close(unit=xml_file_id)
+        end subroutine
+
+        ! This routine generates the XMF attributes for a grid
+        subroutine write_xdmf_data(base, xml_file_id, num_cells, output_meta_iteration, subgroup_dname_nz, hdf5_attr_width_override_p)
+            type(t_xdmf_base_output_traversal), intent(inout)				    :: base
+            integer, intent(in)                                                 :: xml_file_id
+            integer(HSIZE_T), intent(in)                                        :: num_cells
+            integer(GRID_SI), intent(in)                                        :: output_meta_iteration
+            character(*), intent(in)                                            :: subgroup_dname_nz
+            integer (XDMF_GRID_DI), intent(in), optional	                    :: hdf5_attr_width_override_p
+
+            integer (XDMF_GRID_DI)	                                            :: hdf5_attr_width_override
+            character(len = 21)                                                 :: xml_dims_string
+            character(len = 512)					                            :: xml_hdf5_path_string
+
+            if (present(hdf5_attr_width_override_p)) then
+                hdf5_attr_width_override = hdf5_attr_width_override_p
+            else
+                hdf5_attr_width_override = swe_xdmf_param_cells%hdf5_attr_width
+            end if
+
+            write(xml_file_id, "(A)", advance="no") '<Grid>'
+
             ! Topology
             xml_dims_string(:) = " "
             write (xml_dims_string, "(I0, A, I0)") num_cells, " ", swe_xdmf_param_cells%hdf5_valst_width
@@ -431,18 +464,15 @@
                     subgroup_dname_nz, num_cells, 0_HSIZE_T, 0_HSIZE_T, swe_hdf5_attr_troubled_dname_nz, "Troubled", .true., .true., xml_file_id)
 #           endif
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                subgroup_dname_nz, num_cells, swe_xdmf_param_cells%hdf5_attr_width, 0_HSIZE_T, swe_hdf5_attr_b_dname_nz, "Bathymetry", .false., .true., xml_file_id)
+                subgroup_dname_nz, num_cells, hdf5_attr_width_override, 0_HSIZE_T, swe_hdf5_attr_b_dname_nz, "Bathymetry", .false., .true., xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                subgroup_dname_nz, num_cells, swe_xdmf_param_cells%hdf5_attr_width, 0_HSIZE_T, swe_hdf5_attr_bh_dname_nz, "WaterHeight", .false., .true., xml_file_id)
+                subgroup_dname_nz, num_cells, hdf5_attr_width_override, 0_HSIZE_T, swe_hdf5_attr_bh_dname_nz, "WaterHeight", .false., .true., xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                subgroup_dname_nz, num_cells, swe_xdmf_param_cells%hdf5_attr_width, 0_HSIZE_T, swe_hdf5_attr_h_dname_nz, "WaterLevel", .false., .true., xml_file_id)
+                subgroup_dname_nz, num_cells, hdf5_attr_width_override, 0_HSIZE_T, swe_hdf5_attr_h_dname_nz, "WaterLevel", .false., .true., xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                subgroup_dname_nz, num_cells, swe_xdmf_param_cells%hdf5_attr_width, 2_HSIZE_T, swe_hdf5_attr_f_dname_nz, "Momentum", .false., .true., xml_file_id)
+                subgroup_dname_nz, num_cells, hdf5_attr_width_override, 2_HSIZE_T, swe_hdf5_attr_f_dname_nz, "Momentum", .false., .true., xml_file_id)
     
-            write(xml_file_id, "(A)", advance="yes") '</Grid>'
-    
-            write(xml_file_id, "(A)", advance="no") '</Grid></Domain></Xdmf>'
-            close(unit=xml_file_id)
+            write(xml_file_id, "(A)", advance="no") '</Grid>'
         end subroutine
 
     end module

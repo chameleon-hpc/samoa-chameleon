@@ -43,7 +43,11 @@ module XDMF_output_base_data_types
     type, extends(t_xdmf_base_output_filter_traversal) :: t_xdmf_base_output_traversal
         integer (XDMF_GRID_SI)	                :: num_cells = 0
         integer (XDMF_GRID_SI)	                :: grid_scale
-        integer (XDMF_GRID_SI)	                :: sect_store_index = 1
+        integer (XDMF_GRID_SI)	                :: sect_store_index_cells = 1
+#       if defined(_XDMF_PATCH)
+            integer (XDMF_GRID_SI)	            :: num_patches = 0
+            integer (XDMF_GRID_SI)	            :: sect_store_index_patches = 1
+#       endif
         character(len = 256)					:: s_file_stamp, s_file_stamp_base
         integer                                 :: xdmf_remove_lines = 0
 

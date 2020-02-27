@@ -24,6 +24,7 @@ module XDMF_config
     ! Output mode flags
     integer, parameter                      :: xdmf_output_mode_cells = 1
     integer, parameter                      :: xdmf_output_mode_patches = 2
+    integer, parameter                      :: xdmf_output_mode_all = 3
 
     ! This structure contains all XDMF-releated configuration variables
     type t_config_xdmf
@@ -223,6 +224,8 @@ module XDMF_config
         if (config%i_xdmffilter_index .ne. 0) then
             _log_write(0, '(" XDMF: output filter index: ", I0, ", ", I0, " parameters: ", A)'), &
                 config%i_xdmffilter_index, config%i_xmdffilter_params_count, trim(params_string)
+        else if(iand(config%i_xdmfoutput_mode, xdmf_output_mode_all) .eq. xdmf_output_mode_all) then
+            _log_write(0, '(" XDMF: output filter used only for hybrid layering")')
         else
             _log_write(0, '(" XDMF: output filter disabled")')
         end if

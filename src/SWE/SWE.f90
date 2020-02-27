@@ -775,7 +775,8 @@
 							end if
 							if(cfg%xdmf%l_xdmfoutput) then
 								_log_write(0, '(A, T34, A)') " XDMF Output: ", trim(swe%xdmf_output%stats%to_string())
-								if (cfg%xdmf%i_xdmffilter_index .ne. 0) then
+								if ((cfg%xdmf%i_xdmffilter_index .ne. 0) .or. &
+									(iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_all) .eq. xdmf_output_mode_all)) then
 									_log_write(0, '(A, T34, A)') " XDMF Output filter: ", trim(swe%xdmf_output_filter%stats%to_string())
 								end if
 							end if
@@ -837,7 +838,8 @@
 
                 swe%xdmf_output%base%i_sim_iteration = time_step
                 swe%xdmf_output_filter%base%i_sim_iteration = time_step
-                if (cfg%xdmf%i_xdmffilter_index .ne. 0) then
+                if ((cfg%xdmf%i_xdmffilter_index .ne. 0) .or. &
+					(iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_all) .eq. xdmf_output_mode_all)) then
                     call swe%xdmf_output_filter%traverse(grid)
                 end if
                 call swe%xdmf_output%traverse(grid)

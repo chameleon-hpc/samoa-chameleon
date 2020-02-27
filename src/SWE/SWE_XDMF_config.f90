@@ -8,6 +8,9 @@
         use Samoa_swe
         use XDMF_data_types
         use XDMF_config
+#       if defined(_SWE_DG)
+            use SWE_DG_Limiter
+#       endif
 
         use, intrinsic :: iso_fortran_env
 
@@ -106,12 +109,23 @@
         end subroutine
 
         ! Subsection filter routines
-        subroutine SWE_xdmf_filter(element, index, argc, argv, result)
+        subroutine SWE_xdmf_filter(element, index, argc, argv, is_cell_layer, result)
             type(t_element_base), intent(inout) :: element
             integer, intent(in) 	            :: index, argc
             real, dimension(xdmf_filter_params_width), intent(in) :: argv
+            logical, intent(in)                 :: is_cell_layer
             logical, intent(out)                :: result
 
+            ! Evaluate hybrid compositing filter
+            if(iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_all) .eq. xdmf_output_mode_all) then
+                call SWE_xdmf_filter_hybrid_selector(element, result)
+                if((is_cell_layer .and. .not. result) .or. (.not. is_cell_layer .and. result)) then
+                    result = .false.
+                    return
+                end if
+            end if
+
+            ! Evaluate regular filter
             select case (index)
                 case (1)
                     call SWE_xdmf_filter_rect(element, argv(1), argv(2), argv(3), argv(4), result)
@@ -123,6 +137,16 @@
                 case default
                     result = .true.
             end select
+        end subroutine
+
+        ! Hybrid layer selector
+        subroutine SWE_xdmf_filter_hybrid_selector(element, result)
+            type(t_element_base), intent(inout) :: element
+            logical, intent(out)                :: result
+
+            ! result = element%cell%data_pers%troubled .ne. TROUBLED
+            call SWE_xdmf_filter_probes(element, 2.0, 1, &
+                reshape((/ 0.0, 2.0 /), (/ 2, xdmf_filter_max_probes /), (/ 0.0 /)), result)
         end subroutine
 
         ! Rectangular selection filter

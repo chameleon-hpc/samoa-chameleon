@@ -79,7 +79,10 @@
             type(t_grid_section), intent(inout)							    :: section
             type(t_element_base), intent(inout)					            :: element
 
-            logical                                                         :: write_cp, filter_result = .true.
+            logical                                                         :: write_cp, filter_result_cells = .true.
+#           if defined(_SWE_PATCH)
+                logical                                                     :: filter_result_patches = .true.
+#           endif
 
             ! Compute whether to output tree (checkpoint) data
             if(cfg%xdmf%i_xdmfcpint.eq.0) then
@@ -89,18 +92,33 @@
             end if
 
             ! Evaluate filter if this step is not a checkpoint
-            if ((.not. write_cp) .and. (cfg%xdmf%i_xdmffilter_index .ne. 0)) then
-                call swe_xdmf_filter(element, cfg%xdmf%i_xdmffilter_index, cfg%xdmf%i_xmdffilter_params_count, &
-                    cfg%xdmf%r_xdmffilter_params_vector, filter_result)
+            if ((.not. write_cp) .and. ((cfg%xdmf%i_xdmffilter_index .ne. 0) .or. &
+                (iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_all) .eq. xdmf_output_mode_all))) then
+                if (iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells) then
+                    call SWE_xdmf_filter(element, cfg%xdmf%i_xdmffilter_index, cfg%xdmf%i_xmdffilter_params_count, &
+                        cfg%xdmf%r_xdmffilter_params_vector, .true., filter_result_cells)
+                end if
+#               if defined(_SWE_PATCH)
+                    if (iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .eq. xdmf_output_mode_patches) then
+                        call SWE_xdmf_filter(element, cfg%xdmf%i_xdmffilter_index, cfg%xdmf%i_xmdffilter_params_count, &
+                            cfg%xdmf%r_xdmffilter_params_vector, .false., filter_result_patches)
+                    end if
+#               endif
             end if
 
             ! Update cell count
-            if (write_cp .or. filter_result) then
+            if (write_cp .or. filter_result_cells .or. filter_result_patches) then
+                if (filter_result_cells) then
+#                   if defined(_SWE_PATCH)
+                        section%xdmf_filter_count_cells = section%xdmf_filter_count_cells + _SWE_PATCH_ORDER_SQUARE
+#                   else
+                        section%xdmf_filter_count_cells = section%xdmf_filter_count_cells + 1
+#                   endif
+                end if
 #               if defined(_SWE_PATCH)
-                    section%xdmf_filter_count_cells = section%xdmf_filter_count_cells + _SWE_PATCH_ORDER_SQUARE
-                    section%xdmf_filter_count_patches = section%xdmf_filter_count_patches + 1
-#               else
-                    section%xdmf_filter_count_cells = section%xdmf_filter_count_cells + 1
+                    if (filter_result_patches) then
+                        section%xdmf_filter_count_patches = section%xdmf_filter_count_patches + 1
+                    end if
 #               endif
             end if
         end subroutine

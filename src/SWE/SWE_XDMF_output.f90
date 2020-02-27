@@ -106,7 +106,10 @@
             type(t_swe_xdmf_output_traversal), intent(inout)				:: traversal
             type(t_grid_section), intent(inout)							    :: section
 
-            traversal%base%sect_store_index = 1
+            traversal%base%sect_store_index_cells = 1
+#           if defined(_SWE_PATCH)
+                traversal%base%sect_store_index_patches = 1
+#           endif
         end subroutine
 
         subroutine post_traversal_op(traversal, section)
@@ -131,7 +134,10 @@
 #           if defined (_SWE_PATCH)
                 integer(GRID_SI)                                            :: j, patch_cell_id, patch_cell_offs, row, col
 #           endif
-            logical                                                         :: write_cp, filter_result = .true.
+            logical                                                         :: write_cp, filter_result_cells = .true.
+#           if defined(_SWE_PATCH)
+                logical                                                     :: filter_result_patches = .true.
+#           endif
 
             ! Compute whether to output tree (checkpoint) data
             if(cfg%xdmf%i_xdmfcpint.eq.0) then
@@ -141,12 +147,21 @@
             end if
 
             ! Evaluate filter if this step is not a checkpoint
-            if ((.not. write_cp) .and. (cfg%xdmf%i_xdmffilter_index .ne. 0)) then
-                call swe_xdmf_filter(element, cfg%xdmf%i_xdmffilter_index, cfg%xdmf%i_xmdffilter_params_count, &
-                    cfg%xdmf%r_xdmffilter_params_vector, filter_result)
+            if ((.not. write_cp) .and. ((cfg%xdmf%i_xdmffilter_index .ne. 0) .or. &
+                (iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_all) .eq. xdmf_output_mode_all))) then
+                if (iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells) then
+                    call SWE_xdmf_filter(element, cfg%xdmf%i_xdmffilter_index, cfg%xdmf%i_xmdffilter_params_count, &
+                        cfg%xdmf%r_xdmffilter_params_vector, .true., filter_result_cells)
+                end if
+#               if defined(_SWE_PATCH)
+                    if (iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .eq. xdmf_output_mode_patches) then
+                        call SWE_xdmf_filter(element, cfg%xdmf%i_xdmffilter_index, cfg%xdmf%i_xmdffilter_params_count, &
+                            cfg%xdmf%r_xdmffilter_params_vector, .false., filter_result_patches)
+                    end if
+#               endif
             end if
 
-            if (write_cp .or. filter_result) then
+            if (write_cp .or. filter_result_cells .or. filter_result_patches) then
                 ! Get thread buffer offset
                 offset_cells_buffer = traversal%base%root_layout_desc%ranks(rank_MPI + 1)%sections(section%index)%offset_cells_buffer
 #               if defined (_SWE_PATCH)
@@ -157,17 +172,17 @@
 #               endif
 
                 ! Check buffer overflows
-                if(((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .ne. 0) .or. write_cp) .and. &
-                    ((traversal%base%sect_store_index + offset_tree_buffer .gt. size(traversal%base%sect_store_cells%ptr%tree)) .or. &
-                    (traversal%base%sect_store_index + offset_cells_buffer .gt. size(traversal%base%sect_store_cells%ptr%valsi, 1)))) then
+                if((((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells) .and. filter_result_cells) .or. write_cp) .and. &
+                    ((traversal%base%sect_store_index_cells + offset_tree_buffer .gt. size(traversal%base%sect_store_cells%ptr%tree)) .or. &
+                    (traversal%base%sect_store_index_cells + offset_cells_buffer .gt. size(traversal%base%sect_store_cells%ptr%valsi, 1)))) then
                         _log_write(1, '(A, I0, A, I0, A, I0, A, I0, A)') " XDMF: Warning: Writing ", &
-                            traversal%base%sect_store_index + offset_cells_buffer, &
-                            " cells (tree: ", traversal%base%sect_store_index + offset_tree_buffer, "), into buffer of size ", &
+                            traversal%base%sect_store_index_cells + offset_cells_buffer, &
+                            " cells (tree: ", traversal%base%sect_store_index_cells + offset_tree_buffer, "), into buffer of size ", &
                             size(traversal%base%sect_store_cells%ptr%valsi, 1), ", (tree: ", size(traversal%base%sect_store_cells%ptr%tree), "). Skipping."
-                else if(((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .ne. 0) .or. write_cp) .and. &
-                    ((traversal%base%sect_store_index + offset_patches_buffer .gt. size(traversal%base%sect_store_patches%ptr%valsi, 1)))) then
+                else if((((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .eq. xdmf_output_mode_patches) .and. filter_result_patches) .or. write_cp) .and. &
+                    ((traversal%base%sect_store_index_patches + offset_patches_buffer .gt. size(traversal%base%sect_store_patches%ptr%valsi, 1)))) then
                         _log_write(1, '(A, I0, A, I0, A)') " XDMF: Warning: Writing ", &
-                            traversal%base%sect_store_index + offset_patches_buffer, &
+                            traversal%base%sect_store_index_patches + offset_patches_buffer, &
                             " patches, into buffer of size ", &
                             size(traversal%base%sect_store_patches%ptr%valsi, 1), ". Skipping."
                 else
@@ -181,11 +196,11 @@
                         assert(.false.)
                         element_hash = 0
                     end if
-                    if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .ne. 0) .or. write_cp) then
-                        traversal%base%sect_store_cells%ptr%tree(traversal%base%sect_store_index + offset_tree_buffer) = int(element_hash, INT32)
+                    if ((filter_result_cells .and. (iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells)) .or. write_cp) then
+                        traversal%base%sect_store_cells%ptr%tree(traversal%base%sect_store_index_cells + offset_tree_buffer) = int(element_hash, INT32)
                     end if
 #                   if defined (_SWE_PATCH)
-                        if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .ne. 0) .or. write_cp) then
+                        if ((filter_result_cells .and. (iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells)) .or. write_cp) then
                             ! Apply attribute size correction
 #                           if defined(_SWE_DG)    
                                 if (isDG(element%cell%data_pers%troubled)) then
@@ -208,7 +223,7 @@
 
                                 ! Compute the global offset in the datasets of this cell
                                 ! Note that the triangle order inside a patch is normalized here, i.e. independent from plotter direction
-                                patch_cell_offs = ((traversal%base%sect_store_index - 1) * _SWE_PATCH_ORDER_SQUARE) + patch_cell_id
+                                patch_cell_offs = ((traversal%base%sect_store_index_cells - 1) * _SWE_PATCH_ORDER_SQUARE) + patch_cell_id
                                 cell_offs = patch_cell_offs + offset_cells_buffer
                             
                                 ! Compute and store the actual position of this subcell in the domain
@@ -253,11 +268,13 @@
                                     row = row + 1
                                 end if
                             end do
+
+                            traversal%base%sect_store_index_cells = traversal%base%sect_store_index_cells + 1
                         end if
 
-                        if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .ne. 0) .or. write_cp) then
+                        if ((filter_result_patches .and. (iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .eq. xdmf_output_mode_patches)) .or. write_cp) then
                             ! Store the patch, too
-                            patch_offs = traversal%base%sect_store_index + offset_patches_buffer
+                            patch_offs = traversal%base%sect_store_index_patches + offset_patches_buffer
                             ! Store patch values, see SWE implementation for details
                             traversal%base%sect_store_patches%ptr%valsi(patch_offs, :) = (/ &
                                 int(element%cell%geometry%i_depth, INT32), &
@@ -292,10 +309,12 @@
                             forall(i = 1:swe_xdmf_param_patches%hdf5_valst_width) &
                                 traversal%base%sect_store_patches%ptr%valsg(:, &
                                 ((patch_offs - 1) * swe_xdmf_param_patches%hdf5_valst_width) + i) = position(:, i)
+
+                            traversal%base%sect_store_index_patches = traversal%base%sect_store_index_patches + 1
                         end if
 #                   else
-                        if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .ne. 0) .or. write_cp) then
-                            cell_offs = traversal%base%sect_store_index + offset_cells_buffer
+                        if ((filter_result_cells .or. (iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells)) .or. write_cp) then
+                            cell_offs = traversal%base%sect_store_index_cells + offset_cells_buffer
                             ! Store cell values, see SWE implementation for details
                             traversal%base%sect_store_cells%ptr%valsi(cell_offs, :) = (/ &
                                 int(element%cell%geometry%i_depth, INT32), &
@@ -326,10 +345,11 @@
                             forall(i = 1:swe_xdmf_param_cells%hdf5_valst_width) &
                                 traversal%base%sect_store_cells%ptr%valsg(:, &
                                 ((cell_offs - 1) * swe_xdmf_param_cells%hdf5_valst_width) + i) = position(:, i)
+
+                            traversal%base%sect_store_index_cells = traversal%base%sect_store_index_cells + 1
                         end if
 #                   endif
                 end if
-                traversal%base%sect_store_index = traversal%base%sect_store_index + 1
             end if
         end subroutine
 
@@ -341,7 +361,6 @@
             character(len = 256)					                        :: file_name_h5, file_name_xmf
             integer                                                         :: xml_file_id = 42
             integer(GRID_SI)                                                :: output_meta_iteration
-            integer(HSIZE_T)                                                :: num_cells
             character(len = 17)                                             :: xml_time_string
             logical                                                         :: file_xmf_exist
             integer                                                         :: write_cp, i
@@ -390,18 +409,13 @@
                 base%i_sim_iteration, '</DataItem></Attribute>', &
                 '<Attribute Name="DeltaTime" Center="Grid"><DataItem Format="XML" NumberType="Float" Dimensions="1">', &
                 grid%r_dt, '</DataItem></Attribute>'
-          
-            num_cells = int(base%num_cells, HSIZE_T)
-#           if defined(_SWE_PATCH)
-                num_cells = num_cells * _SWE_PATCH_ORDER_SQUARE
-#           endif
 
-            if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .ne. 0) .or. write_cp .eq. 1) then
-                call write_xdmf_data(base, xml_file_id, num_cells, output_meta_iteration, hdf5_gr_cells_dname_nz)
+            if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells) .or. write_cp .eq. 1) then
+                call write_xdmf_data(base, xml_file_id, int(base%num_cells, HSIZE_T), output_meta_iteration, hdf5_gr_cells_dname_nz)
             end if
 #           if defined(_SWE_PATCH)
-                if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .ne. 0) .or. write_cp .eq. 1) then
-                    call write_xdmf_data(base, xml_file_id, int(base%num_cells, HSIZE_T), output_meta_iteration, hdf5_gr_patches_dname_nz)
+                if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .eq. xdmf_output_mode_patches) .or. write_cp .eq. 1) then
+                    call write_xdmf_data(base, xml_file_id, int(base%num_patches, HSIZE_T), output_meta_iteration, hdf5_gr_patches_dname_nz)
                 end if
 #           endif
 

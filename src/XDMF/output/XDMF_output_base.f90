@@ -39,8 +39,13 @@ module XDMF_output_base
         integer                                                         :: file_basename_index, i, j, sect_j
         logical                                                         :: write_cp, no_filter
         type(t_xdmf_layout_descriptor)                                  :: layout_desc_bku
-        integer(XDMF_GRID_SI)                                           :: num_cells_complete
-        real                                                            :: filter_amount
+        integer(XDMF_GRID_SI)                                           :: num_cells, num_cells_complete
+        real                                                            :: filter_amount_cells
+#       if defined(_XDMF_PATCH)
+            integer(XDMF_GRID_SI)                                       :: num_patches, num_patches_complete
+            real                                                        :: filter_amount_patches
+#       endif
+
 
         ! Compute several meta infos about the domain
         base%grid_scale = ishft(1_XDMF_GRID_SI, ishft(cfg%i_max_depth + 1, -1))
@@ -58,18 +63,35 @@ module XDMF_output_base
         else
             write_cp = mod(int(base%output_iteration, GRID_SI), int(cfg%xdmf%i_xdmfcpint, GRID_SI)).eq.0
         end if
-        no_filter = cfg%xdmf%i_xdmffilter_index .eq. 0 .or. write_cp
+        no_filter = (cfg%xdmf%i_xdmffilter_index .eq. 0 .or. write_cp) .and. .not. &
+            (iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_all) .eq. xdmf_output_mode_all)
 
         ! Compute number of cells
-        call xdmf_compute_num_cells(size(sections_ptr), grid, num_cells_complete, .false.)
-        if (no_filter) then
-            base%num_cells = num_cells_complete
-            filter_amount = 100
-        else
-            call xdmf_compute_num_cells(size(sections_ptr), grid, base%num_cells, .true.)
-            filter_amount = (real(base%num_cells) / real(num_cells_complete)) * 100
-        end if
-        
+#       if defined(_XDMF_PATCH)
+            call xdmf_compute_num_cells(size(sections_ptr), grid, num_cells_complete, .false., .false.)
+            call xdmf_compute_num_cells(size(sections_ptr), grid, num_patches_complete, .false., .true.)
+            if (no_filter) then
+                base%num_cells = num_cells_complete
+                base%num_patches = num_patches_complete
+                filter_amount_cells = 100
+                filter_amount_patches = 100
+            else
+                call xdmf_compute_num_cells(size(sections_ptr), grid, base%num_cells, .true., .false.)
+                call xdmf_compute_num_cells(size(sections_ptr), grid, base%num_patches, .true., .true.)
+                filter_amount_cells = (real(base%num_cells) / real(num_cells_complete)) * 100
+                filter_amount_patches = (real(base%num_patches) / real(num_patches_complete)) * 100
+            end if
+#       else
+            call xdmf_compute_num_cells(size(sections_ptr), grid, num_cells_complete, .false.)
+            if (no_filter) then
+                base%num_cells = num_cells_complete
+                filter_amount_cells = 100
+            else
+                call xdmf_compute_num_cells(size(sections_ptr), grid, base%num_cells, .true.)
+                filter_amount_cells = (real(base%num_cells) / real(num_cells_complete)) * 100
+            end if
+#       endif
+
         ! Calculate section offsets in file
         call xdmf_allocate_compute_sections_descs(base, size(sections_ptr), grid, .not. no_filter)
 
@@ -78,19 +100,38 @@ module XDMF_output_base
                 _log_write(1, '(A, I0, A, I0)') " XDMF: Output step: ", base%output_iteration, &
                     ", simulation step: ", base%i_sim_iteration
             else
-                _log_write(1, '(A, I0, A, I0, A, I0, A, I0, A, F0.2, A)') " XDMF: Output step: ", base%output_iteration, &
-                    ", simulation step: ", base%i_sim_iteration, ", filter: ", base%num_cells, &
-                    " of ", num_cells_complete, " cells (", filter_amount, "%)"
+#               if defined(_XDMF_PATCH)
+                    if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_all) .eq. xdmf_output_mode_all) .or. write_cp) then
+                        _log_write(1, '(A, I0, A, I0, A, I0, A, I0, A, F0.2, A, I0, A, I0, A, F0.2, A)') " XDMF: Output step: ", base%output_iteration, &
+                            ", simulation step: ", base%i_sim_iteration, ", filter: ", base%num_cells, &
+                            " of ", num_cells_complete, " cells (", filter_amount_cells, "%), ", base%num_patches, &
+                            " of ", num_patches_complete, " patches (", filter_amount_patches, "%)"
+                    else if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells)) then
+                        _log_write(1, '(A, I0, A, I0, A, I0, A, I0, A, F0.2, A)') " XDMF: Output step: ", base%output_iteration, &
+                            ", simulation step: ", base%i_sim_iteration, ", filter: ", base%num_cells, &
+                            " of ", num_cells_complete, " cells (", filter_amount_cells, "%)"
+                    else if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .eq. xdmf_output_mode_patches)) then
+                        _log_write(1, '(A, I0, A, I0, A, I0, A, I0, A, F0.2, A)') " XDMF: Output step: ", base%output_iteration, &
+                            ", simulation step: ", base%i_sim_iteration, ", filter: ", base%num_patches, &
+                            " of ", num_patches_complete, " patches (", filter_amount_patches, "%)"
+                    end if
+#               else
+                    if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells) .or. write_cp) then
+                        _log_write(1, '(A, I0, A, I0, A, I0, A, I0, A, F0.2, A)') " XDMF: Output step: ", base%output_iteration, &
+                            ", simulation step: ", base%i_sim_iteration, ", filter: ", base%num_cells, &
+                            " of ", num_cells_complete, " cells (", filter_amount_cells, "%)"
+                    end if
+#               endif
             end if
         end if
 
         ! Allocate buffers for cell data for the all sections of this rank
-        if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .ne. 0) .or. write_cp) then
+        if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells) .or. write_cp) then
             call sect_store_data_cells%allocate(base%root_layout_desc%ranks(rank_MPI + 1)%num_cells, param_cells)
         end if
 #       if defined (_XDMF_PATCH)
-            if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .ne. 0) .or. write_cp) then
-                call sect_store_data_patches%allocate(base%root_layout_desc%ranks(rank_MPI + 1)%num_cells, param_patches)
+            if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .eq. xdmf_output_mode_patches) .or. write_cp) then
+                call sect_store_data_patches%allocate(base%root_layout_desc%ranks(rank_MPI + 1)%num_patches, param_patches)
             end if
 #       endif
         
@@ -186,17 +227,12 @@ module XDMF_output_base
         end if
 
         ! Create hdf5 datasets
-#       if defined (_XDMF_PATCH)
-            num_cells = base%num_cells * _XDMF_PATCH_ORDER_SQUARE
-#       else
-            num_cells = base%num_cells
-#       endif
-        if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .ne. 0) .or. write_cp) then
-            call base%root_desc%hdf5_ids_cells%create(param_cells, base%root_desc%hdf5_meta_ids%step_group_cells_id, num_cells, htbl_size)
+        if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells) .or. write_cp) then
+            call base%root_desc%hdf5_ids_cells%create(param_cells, base%root_desc%hdf5_meta_ids%step_group_cells_id, base%num_cells, htbl_size)
         end if
 #       if defined (_XDMF_PATCH)
-            if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .ne. 0) .or. write_cp) then
-                call base%root_desc%hdf5_ids_patches%create(param_patches, base%root_desc%hdf5_meta_ids%step_group_patches_id, base%num_cells, 0_XDMF_GRID_DI)
+            if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .eq. xdmf_output_mode_patches) .or. write_cp) then
+                call base%root_desc%hdf5_ids_patches%create(param_patches, base%root_desc%hdf5_meta_ids%step_group_patches_id, base%num_patches, 0_XDMF_GRID_DI)
             end if
 #       endif
 
@@ -314,22 +350,33 @@ module XDMF_output_base
                     deallocate(htbl_alloc, stat = error); assert_eq(error, 0)
 #               endif
             end if
+        end if
 
-            ! Write the sections cell attribute buffers to the HDF5 file
-            if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .ne. 0) .or. write_cp) then
+        ! Write the sections cell attribute buffers to the HDF5 file
+        if (base%num_cells .gt. 0) then
+            if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells) .or. write_cp) then
                 call xdmf_write_data_buffers(base, base%root_desc%hdf5_ids_cells, sect_store_data_cells, &
                     hdf5_vals_offset_cells, hdf5_vals_length_cells, param_cells)
             end if
-#           if defined (_XDMF_PATCH)
-                if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .ne. 0) .or. write_cp) then
+        end if
+#       if defined (_XDMF_PATCH)
+            if (base%num_patches .gt. 0) then
+                if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .eq. xdmf_output_mode_patches) .or. write_cp) then
                     call xdmf_write_data_buffers(base, base%root_desc%hdf5_ids_patches, sect_store_data_patches, &
                         hdf5_vals_offset_patches, hdf5_vals_length_patches, param_patches)
                 end if
-#           endif
-        else
-            if (rank_MPI.eq.0) then
-                _log_write(1, '(A, I0)') " XDMF: WARNING: No output data at step: ", base%output_iteration
             end if
+#       endif
+        if (base%num_cells .eq. 0) then
+#           if defined (_XDMF_PATCH)
+                if (base%num_patches .eq. 0) then
+#           endif
+                    if (rank_MPI.eq.0) then
+                        _log_write(1, '(A, I0)') " XDMF: WARNING: No output data at step: ", base%output_iteration
+                    end if
+#           if defined (_XDMF_PATCH)
+                end if
+#           endif
         end if
 
         ! Deallocate per section arrays
@@ -339,21 +386,21 @@ module XDMF_output_base
         call base%root_layout_desc%deallocate()
 
         ! Free section buffers
-        if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .ne. 0) .or. write_cp) then
+        if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells) .or. write_cp) then
             call sect_store_data_cells%deallocate()
         end if
 #       if defined (_XDMF_PATCH)
-            if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .ne. 0) .or. write_cp) then
+            if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .eq. xdmf_output_mode_patches) .or. write_cp) then
                 call sect_store_data_patches%deallocate()
             end if
 #       endif
 
         ! Close hdf5 ids
-        if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .ne. 0) .or. write_cp) then
+        if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells) .or. write_cp) then
             call base%root_desc%hdf5_ids_cells%close(param_cells)
         end if
 #       if defined (_XDMF_PATCH)
-            if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .ne. 0) .or. write_cp) then
+            if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .eq. xdmf_output_mode_patches) .or. write_cp) then
                 call base%root_desc%hdf5_ids_patches%close(param_patches)
             end if
 #       endif
@@ -416,11 +463,19 @@ module XDMF_output_base
     end subroutine
 
     ! This routine computes how many cells the complete domain contains
-    subroutine xdmf_compute_num_cells(sections_size, grid, num_cells, from_filter)
+#   if defined(_XDMF_PATCH)
+        subroutine xdmf_compute_num_cells(sections_size, grid, num_cells, from_filter, count_patches)
+#   else
+        subroutine xdmf_compute_num_cells(sections_size, grid, num_cells, from_filter)
+#   endif
         integer(XDMF_GRID_SI), intent(in)                               :: sections_size 
         type(t_grid), intent(inout)							            :: grid
-        integer(XDMF_GRID_SI), intent(out)							    :: num_cells
+        integer(XDMF_GRID_SI), intent(inout)							:: num_cells
         logical, intent(in)                                             :: from_filter
+#       if defined(_XDMF_PATCH)
+            logical, intent(in)                                         :: count_patches
+#       endif
+
 
         integer                                                         :: i, error
         type(t_section_info)                                            :: section_info
@@ -432,13 +487,22 @@ module XDMF_output_base
         num_cells = 0
         ! Sum over the number of cells in each section
 #       if defined(_MPI)
-            allocate(section_sizes(sections_size), stat = error); assert_eq(error, 0)
+            allocate(section_sizes(1), stat = error); assert_eq(error, 0)
+            section_sizes = 0
             do i = 1, sections_size
                 if (.not. from_filter) then
                     section_info = grid%sections%elements(i)%get_info()
-                    section_sizes(i) = section_info%i_cells
+                    section_sizes(1) = section_sizes(1) + section_info%i_cells
                 else
-                    section_sizes(i) = grid%sections%elements(i)%xdmf_filter_count_cells
+#                   if defined(_XDMF_PATCH)
+                        if (count_patches) then
+                            section_sizes(1) = section_sizes(1) + grid%sections%elements(i)%xdmf_filter_count_patches
+                        else
+#                   endif
+                            section_sizes(1) = section_sizes(1) + grid%sections%elements(i)%xdmf_filter_count_cells
+#                   if defined(_XDMF_PATCH)
+                        end if
+#                   endif
                 end if
             end do
             ! Using MPI, gather the number of cells per rank and sum it
@@ -450,9 +514,23 @@ module XDMF_output_base
                     section_info = grid%sections%elements(i)%get_info()
                     num_cells = num_cells + section_info%i_cells
                 else
-                    num_cells = num_cells + grid%sections%elements(i)%xdmf_filter_count_cells
+#                   if defined(_XDMF_PATCH)
+                        if (count_patches) then
+                            num_cells = num_cells + grid%sections%elements(i)%xdmf_filter_count_patches
+                        else
+#                   else
+                            num_cells = num_cells + grid%sections%elements(i)%xdmf_filter_count_cells
+#                   endif
+#                   if defined(_XDMF_PATCH)
+                        end if
+#                   endif
                 end if
             end do
+#       endif
+#       if defined(_XDMF_PATCH)
+            if (.not. count_patches .and. .not. from_filter) then
+                num_cells = num_cells * _XDMF_PATCH_ORDER_SQUARE
+            end if
 #       endif
     end subroutine
 
@@ -505,10 +583,11 @@ module XDMF_output_base
             if (.not. from_filter) then
                 do j = 1, sections_size
                     section_info = grid%sections%elements(j)%get_info()
-                    num_cells_local(j) = section_info%i_cells
 #                   if defined(_XDMF_PATCH)
-                        num_cells_local(j) = num_cells_local(j) * _XDMF_PATCH_ORDER_SQUARE
+                        num_cells_local(j) = section_info%i_cells * _XDMF_PATCH_ORDER_SQUARE
                         num_patches_local(j) = section_info%i_cells
+#                   else
+                        num_cells_local(j) = section_info%i_cells
 #                   endif
                 end do
             else
@@ -619,10 +698,11 @@ module XDMF_output_base
                 section_index = grid%sections%elements(j)%index
                 if (.not. from_filter) then
                     section_info = grid%sections%elements(j)%get_info()
-                    num_cells_section = section_info%i_cells
 #                   if defined(_XDMF_PATCH)
-                        num_cells_section = num_cells_section * _XDMF_PATCH_ORDER_SQUARE
+                        num_cells_section = section_info%i_cells * _XDMF_PATCH_ORDER_SQUARE
                         num_patches_section = section_info%i_cells
+#                   else
+                        num_cells_section = section_info%i_cells
 #                   endif
                 else
                     num_cells_section = grid%sections%elements(j)%xdmf_filter_count_cells

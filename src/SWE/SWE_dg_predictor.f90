@@ -77,13 +77,13 @@ contains
          iteration=iteration+1
          
          if (any(q_i_st(:,:,1).le.0)) then
-#if defined(_DEBUG)  
-            print*,"PRED"
-            print*,q_i_st
-            print*,"FV"
-            print*,cell%data_pers%H
-            write(*,*), "ERROR: Waterheigth less than zero in predictor"
-#endif
+! #if defined(_DEBUG)  
+!             print*,"PRED"
+!             print*,q_i_st
+!             print*,"FV"
+!             print*,cell%data_pers%H
+!             write(*,*), "ERROR: Waterheight less than zero in predictor"
+! #endif
             exit
          end if
         

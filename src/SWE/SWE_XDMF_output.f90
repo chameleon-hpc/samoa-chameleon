@@ -446,7 +446,7 @@
 
             write(xml_file_id, "(A)", advance="no") '<Grid>'
 
-            write(xml_file_id, "(A, A, A)", advance="no") '<Information Name="Layer" Value="', subgroup_dname_nz//char(0), '" />'
+            write(xml_file_id, "(A, A, A)", advance="no") '<Information Name="Layer" Value="', subgroup_dname_nz, '" />'
 
             ! Topology
             xml_dims_string(:) = " "

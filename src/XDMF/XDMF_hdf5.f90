@@ -145,6 +145,8 @@ module XDMF_hdf5
             else
                 call h5pset_dxpl_mpio_f(this%access_dset_id, H5FD_MPIO_INDEPENDENT_F, hdf5_error)
             end if
+            ! Ensure all nodes are properly initialized
+            call mpi_barrier(MPI_COMM_WORLD, error); assert_eq(error, 0)
 #       endif
 
         result = 0
@@ -156,6 +158,8 @@ module XDMF_hdf5
                 call mpi_barrier(MPI_COMM_WORLD, error); assert_eq(error, 0)
                 ! Use parallel access for this file
                 call h5pset_fapl_mpio_f(hdf5_plist_access_id, MPI_COMM_WORLD, MPI_INFO_NULL, hdf5_error)
+                ! Ensure all nodes are properly initialized
+                call mpi_barrier(MPI_COMM_WORLD, error); assert_eq(error, 0)
 #           endif
 
             if (file_exist) then

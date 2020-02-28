@@ -313,7 +313,12 @@
                 !$omp end master
             end if
 #           if defined(_XDMF)
-                call h5open_f(hdf5_error)
+#               if defined(_MPI)
+					call mpi_barrier(MPI_COMM_WORLD, hdf5_error); assert_eq(hdf5_error, 0)
+#               endif
+				!$omp master
+				call h5open_f(hdf5_error)
+				!$omp end master
 #           endif
 
 			call update_stats(swe, grid)
@@ -720,7 +725,10 @@
 #           if defined(_XDMF)
                 if(swe%xdmf_output%base%root_desc%hdf5_meta_ids%file_id .ne. 0) then
                     call h5fclose_f(swe%xdmf_output%base%root_desc%hdf5_meta_ids%file_id, hdf5_error)
-                end if
+				end if
+#               if defined(_MPI)
+                    call mpi_barrier(MPI_COMM_WORLD, hdf5_error); assert_eq(hdf5_error, 0)
+#               endif
                 call h5close_f(hdf5_error)
 #           endif
 			!$omp end master

@@ -181,20 +181,20 @@
 #               endif
 
                 ! Check buffer overflows
-                ! if((((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells) .and. filter_result_cells) .or. write_cp) .and. &
-                !     ((traversal%base%sect_store_index_cells + offset_tree_buffer .gt. size(traversal%base%sect_store_cells%ptr%tree)) .or. &
-                !     (traversal%base%sect_store_index_cells + offset_cells_buffer .gt. size(traversal%base%sect_store_cells%ptr%valsi, 1)))) then
-                !         _log_write(1, '(A, I0, A, I0, A, I0, A, I0, A)') " XDMF: Warning: Writing ", &
-                !             traversal%base%sect_store_index_cells + offset_cells_buffer, &
-                !             " cells (tree: ", traversal%base%sect_store_index_cells + offset_tree_buffer, "), into buffer of size ", &
-                !             size(traversal%base%sect_store_cells%ptr%valsi, 1), ", (tree: ", size(traversal%base%sect_store_cells%ptr%tree), "). Skipping."
-                ! else if((((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .eq. xdmf_output_mode_patches) .and. filter_result_patches) .or. write_cp) .and. &
-                !     ((traversal%base%sect_store_index_patches + offset_patches_buffer .gt. size(traversal%base%sect_store_patches%ptr%valsi, 1)))) then
-                !         _log_write(1, '(A, I0, A, I0, A)') " XDMF: Warning: Writing ", &
-                !             traversal%base%sect_store_index_patches + offset_patches_buffer, &
-                !             " patches, into buffer of size ", &
-                !             size(traversal%base%sect_store_patches%ptr%valsi, 1), ". Skipping."
-                ! else
+                if((((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells) .and. filter_result_cells) .or. write_cp) .and. &
+                    ((traversal%base%sect_store_index_cells + offset_tree_buffer .gt. size(traversal%base%sect_store_cells%ptr%tree)) .or. &
+                    (traversal%base%sect_store_index_cells + offset_cells_buffer .gt. size(traversal%base%sect_store_cells%ptr%valsi, 1)))) then
+                        _log_write(1, '(A, I0, A, I0, A, I0, A, I0, A)') " XDMF: Warning: Writing ", &
+                            traversal%base%sect_store_index_cells + offset_cells_buffer, &
+                            " cells (tree: ", traversal%base%sect_store_index_cells + offset_tree_buffer, "), into buffer of size ", &
+                            size(traversal%base%sect_store_cells%ptr%valsi, 1), ", (tree: ", size(traversal%base%sect_store_cells%ptr%tree), "). Skipping."
+                else if((((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .eq. xdmf_output_mode_patches) .and. filter_result_patches) .or. write_cp) .and. &
+                    ((traversal%base%sect_store_index_patches + offset_patches_buffer .gt. size(traversal%base%sect_store_patches%ptr%valsi, 1)))) then
+                        _log_write(1, '(A, I0, A, I0, A)') " XDMF: Warning: Writing ", &
+                            traversal%base%sect_store_index_patches + offset_patches_buffer, &
+                            " patches, into buffer of size ", &
+                            size(traversal%base%sect_store_patches%ptr%valsi, 1), ". Skipping."
+                else
                     if (write_cp) then
                         ! Compute the cells offset in the topology tree
                         call xdmf_hash_element(element, int(traversal%base%grid_scale, INT64), element_hash)
@@ -252,15 +252,13 @@
 
                                 ! Store point data in traversal buffer
                                 new_bigh = real(element%cell%data_pers%H(patch_cell_id), XDMF_ISO_P)
-                                new_h = real(element%cell%data_pers%H(patch_cell_id) - element%cell%data_pers%B(patch_cell_id), XDMF_ISO_P)
-                                ! if (new_h.le.cfg%dry_tolerance) then
-                                !     new_h = 0
-                                ! end if
-    
-                                traversal%base%sect_store_cells%ptr%valsr(1, cell_offs, :) = (/ &
-                                    real(element%cell%data_pers%B(patch_cell_id), XDMF_ISO_P), new_h, new_bigh /)
-                                traversal%base%sect_store_cells%ptr%valsuv(:, 1, cell_offs, swe_hdf5_valsuv_f_offset) = &
-                                    real((/ element%cell%data_pers%HU(patch_cell_id), element%cell%data_pers%HV(patch_cell_id) /), XDMF_ISO_P)
+                                new_h = real(element%cell%data_pers%H(patch_cell_id) - element%cell%data_pers%B(patch_cell_id), XDMF_ISO_P) 
+                                do j=1, swe_xdmf_param_cells%hdf5_attr_width
+                                    traversal%base%sect_store_cells%ptr%valsr(j, cell_offs, :) = (/ &
+                                        real(element%cell%data_pers%B(patch_cell_id), XDMF_ISO_P), new_h, new_bigh /)
+                                    traversal%base%sect_store_cells%ptr%valsuv(:, j, cell_offs, swe_hdf5_valsuv_f_offset) = &
+                                        real((/ element%cell%data_pers%HU(patch_cell_id), element%cell%data_pers%HV(patch_cell_id) /), XDMF_ISO_P)
+                                end do
 
                                 ! Compute the subcells cartesian position
                                 do j = 1, swe_xdmf_param_cells%hdf5_valst_width
@@ -294,20 +292,18 @@
 #                               endif
                                 /)
                                 
-                            ! Store point data in traversal buffer
 #                           if defined(_SWE_DG)
-                                ! TODO store dg data for patch cell
-
-                                ! new_bigh = real(element%cell%data_pers%Q%h, XDMF_ISO_P)
-                                ! new_h = real(element%cell%data_pers%Q_DG%H + element%cell%data_pers%Q%b, XDMF_ISO_P)
-                                ! ! if (new_h.le.cfg%dry_tolerance) then
-                                ! !     new_h = 0
-                                ! ! end if
-
-                                ! traversal%base%sect_store_patches%ptr%valsr(1, cell_offs, :) = (/ &
-                                !     real(element%cell%data_pers%Q_DG%b, XDMF_ISO_P), new_h, new_bigh /)
-                                ! traversal%base%sect_store_patches%ptr%valsuv(:, 1, cell_offs, swe_hdf5_valsuv_f_offset) = &
-                                !     real(element%cell%data_pers%Q_DG%p(:), XDMF_ISO_P)
+                                ! Store point data in traversal buffer
+                                traversal%base%sect_store_patches%ptr%valsr(:, patch_offs, swe_hdf5_valsr_b_offset) = &
+                                    real(element%cell%data_pers%Q_DG%b, XDMF_ISO_P)
+                                traversal%base%sect_store_patches%ptr%valsr(:, patch_offs, swe_hdf5_valsr_h_offset) = &
+                                    real(element%cell%data_pers%Q_DG%H, XDMF_ISO_P)
+                                traversal%base%sect_store_patches%ptr%valsr(:, patch_offs, swe_hdf5_valsr_bh_offset) = &
+                                    real(element%cell%data_pers%Q_DG%H + element%cell%data_pers%Q_DG%b, XDMF_ISO_P)
+                                do i = 1, _SWE_DG_DOFS
+                                    traversal%base%sect_store_patches%ptr%valsuv(:, i, patch_offs, swe_hdf5_valsuv_f_offset) = &
+                                        real(element%cell%data_pers%Q_DG(i)%p(:), XDMF_ISO_P)
+                                end do
 #                           endif
 
                             ! Compute the patchs cartesian position
@@ -333,18 +329,16 @@
                                     , int(element%cell%data_pers%troubled, INT32) &
 #                               endif
                                 /)
-                                
-                            ! Store point data in traversal buffer
-                            new_bigh = real(element%cell%data_pers%Q%h, XDMF_ISO_P)
-                            new_h = real(element%cell%data_pers%Q%h + element%cell%data_pers%Q%b, XDMF_ISO_P)
-                            ! if (new_h.le.cfg%dry_tolerance) then
-                            !     new_h = 0
-                            ! end if
-                        
-                            traversal%base%sect_store_cells%ptr%valsr(1, cell_offs, :) = (/ &
-                                real(element%cell%data_pers%Q%b, XDMF_ISO_P), new_h, new_bigh /)
-                            traversal%base%sect_store_cells%ptr%valsuv(:, 1, cell_offs, swe_hdf5_valsuv_f_offset) = &
-                                real(element%cell%data_pers%Q%p(:), XDMF_ISO_P)
+
+#                           if defined(_SWE_DG)
+                                ! Store point data in traversal buffer
+                                new_bigh = real(element%cell%data_pers%Q%h, XDMF_ISO_P)
+                                new_h = real(element%cell%data_pers%Q%h + element%cell%data_pers%Q%b, XDMF_ISO_P)
+                                traversal%base%sect_store_cells%ptr%valsr(1, cell_offs, :) = (/ &
+                                    real(element%cell%data_pers%Q%b, XDMF_ISO_P), new_h, new_bigh /)
+                                traversal%base%sect_store_cells%ptr%valsuv(:, 1, cell_offs, swe_hdf5_valsuv_f_offset) = &
+                                    real(element%cell%data_pers%Q%p(:), XDMF_ISO_P)
+#                           endif
 
                             ! Compute the cells cartesian position
                             do i = 1, swe_xdmf_param_cells%hdf5_valst_width
@@ -357,7 +351,7 @@
                             traversal%base%sect_store_index_cells = traversal%base%sect_store_index_cells + 1
                         end if
 #                   endif
-                ! end if
+                end if
             end if
         end subroutine
 
@@ -421,11 +415,12 @@
                 grid%r_dt, '</DataItem></Attribute>'
 
             if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells) .or. write_cp .eq. 1) then
-                call write_xdmf_data(base, xml_file_id, int(base%num_cells, HSIZE_T), output_meta_iteration, hdf5_gr_cells_dname_nz)
+                call write_xdmf_data(base, swe_xdmf_param_cells, xml_file_id, int(base%num_cells, HSIZE_T), output_meta_iteration, hdf5_gr_cells_dname_nz)
             end if
 #           if defined(_SWE_PATCH)
                 if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .eq. xdmf_output_mode_patches) .or. write_cp .eq. 1) then
-                    call write_xdmf_data(base, xml_file_id, int(base%num_patches, HSIZE_T), output_meta_iteration, hdf5_gr_patches_dname_nz)
+                    call write_xdmf_data(base, swe_xdmf_param_patches, xml_file_id, int(base%num_patches, HSIZE_T), output_meta_iteration, &
+                        hdf5_gr_patches_dname_nz, swe_xdmf_param_patches%hdf5_valst_width)
                 end if
 #           endif
 
@@ -436,31 +431,31 @@
         end subroutine
 
         ! This routine generates the XMF attributes for a grid
-        subroutine write_xdmf_data(base, xml_file_id, num_cells, output_meta_iteration, subgroup_dname_nz, hdf5_attr_width_override_p)
+        subroutine write_xdmf_data(base, param, xml_file_id, num_cells, output_meta_iteration, subgroup_dname_nz, hdf5_attr_width_override)
             type(t_xdmf_base_output_traversal), intent(inout)				    :: base
+            type(t_xdmf_parameter), intent(in)                                  :: param
             integer, intent(in)                                                 :: xml_file_id
             integer(HSIZE_T), intent(in)                                        :: num_cells
             integer(GRID_SI), intent(in)                                        :: output_meta_iteration
             character(*), intent(in)                                            :: subgroup_dname_nz
-            integer (XDMF_GRID_DI), intent(in), optional	                    :: hdf5_attr_width_override_p
+            integer (XDMF_GRID_DI), intent(in), optional	                    :: hdf5_attr_width_override
 
-            integer (XDMF_GRID_DI)	                                            :: hdf5_attr_width_override
             character(len = 21)                                                 :: xml_dims_string
             character(len = 512)					                            :: xml_hdf5_path_string
+            integer (XDMF_GRID_DI)	                                            :: hdf5_attr_width_override_p
 
-            if (present(hdf5_attr_width_override_p)) then
-                hdf5_attr_width_override = hdf5_attr_width_override_p
+
+            if (present(hdf5_attr_width_override)) then
+                hdf5_attr_width_override_p = hdf5_attr_width_override
             else
-                hdf5_attr_width_override = swe_xdmf_param_cells%hdf5_attr_width
+                hdf5_attr_width_override_p =  param%hdf5_attr_width
             end if
 
-            write(xml_file_id, "(A)", advance="no") '<Grid>'
-
-            write(xml_file_id, "(A, A, A)", advance="no") '<Information Name="Layer" Value="', subgroup_dname_nz, '" />'
+            write(xml_file_id, "(A, A, A)", advance="no") '<Grid><Information Name="Layer" Value="', subgroup_dname_nz, '" />'
 
             ! Topology
             xml_dims_string(:) = " "
-            write (xml_dims_string, "(I0, A, I0)") num_cells, " ", swe_xdmf_param_cells%hdf5_valst_width
+            write (xml_dims_string, "(I0, A, I0)") num_cells, " ", param%hdf5_valst_width
             xml_hdf5_path_string(:) = " "
             write (xml_hdf5_path_string, "(A, A, I0, A, I0, A, A, A, A)") trim(base%s_file_stamp_base), "_", &
                 output_meta_iteration, "_xdmf.h5:/", base%output_iteration, "/", subgroup_dname_nz, "/", hdf5_valst_dname_nz
@@ -469,7 +464,7 @@
     
             ! Geometry
             xml_dims_string(:) = " "
-            write (xml_dims_string, "(I0, A, I0)") (num_cells * swe_xdmf_param_cells%hdf5_valst_width), " ", swe_xdmf_param_cells%hdf5_valsg_width
+            write (xml_dims_string, "(I0, A, I0)") (num_cells * param%hdf5_valst_width), " ", param%hdf5_valsg_width
             xml_hdf5_path_string(:) = " "
             write (xml_hdf5_path_string, "(A, A, I0, A, I0, A, A, A, A)") trim(base%s_file_stamp_base), "_", &
                 output_meta_iteration, "_xdmf.h5:/", base%output_iteration, "/", subgroup_dname_nz, "/", hdf5_valsg_dname_nz
@@ -489,14 +484,15 @@
                 call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
                     subgroup_dname_nz, num_cells, 0_HSIZE_T, 0_HSIZE_T, swe_hdf5_attr_troubled_dname_nz, "Troubled", .true., .true., xml_file_id)
 #           endif
+            ! Simulation values
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                subgroup_dname_nz, num_cells, hdf5_attr_width_override, 0_HSIZE_T, swe_hdf5_attr_b_dname_nz, "Bathymetry", .false., .true., xml_file_id)
+                subgroup_dname_nz, num_cells, hdf5_attr_width_override_p, 0_HSIZE_T, swe_hdf5_attr_b_dname_nz, "Bathymetry", .false., .false., xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                subgroup_dname_nz, num_cells, hdf5_attr_width_override, 0_HSIZE_T, swe_hdf5_attr_bh_dname_nz, "WaterHeight", .false., .true., xml_file_id)
+                subgroup_dname_nz, num_cells, hdf5_attr_width_override_p, 0_HSIZE_T, swe_hdf5_attr_bh_dname_nz, "WaterHeight", .false., .false., xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                subgroup_dname_nz, num_cells, hdf5_attr_width_override, 0_HSIZE_T, swe_hdf5_attr_h_dname_nz, "WaterLevel", .false., .true., xml_file_id)
+                subgroup_dname_nz, num_cells, hdf5_attr_width_override_p, 0_HSIZE_T, swe_hdf5_attr_h_dname_nz, "WaterLevel", .false., .false., xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                subgroup_dname_nz, num_cells, hdf5_attr_width_override, 2_HSIZE_T, swe_hdf5_attr_f_dname_nz, "Momentum", .false., .true., xml_file_id)
+                subgroup_dname_nz, num_cells, hdf5_attr_width_override_p, 2_HSIZE_T, swe_hdf5_attr_f_dname_nz, "Momentum", .false., .false., xml_file_id)
     
             write(xml_file_id, "(A)", advance="no") '</Grid>'
         end subroutine

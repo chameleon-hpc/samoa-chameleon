@@ -46,14 +46,14 @@
        
         ! Convenient offsets
         integer, parameter                      :: swe_hdf5_valsi_plotter_offset = 3
-        integer, parameter                      :: swe_hdf5_valsr_b_offset = 1, swe_hdf5_valsr_bh_offset = 3
+        integer, parameter                      :: swe_hdf5_valsr_b_offset = 1, swe_hdf5_valsr_h_offset = 2, swe_hdf5_valsr_bh_offset = 3
         integer, parameter                      :: swe_hdf5_valsuv_f_offset = 1
 
         ! Parameter for the XDMF core API
         type(t_xdmf_parameter), save            :: swe_xdmf_param_cells = t_xdmf_parameter( &
             hdf5_valsg_width = 2, &     ! 2 geometry data fields: dimensions X and Y
             hdf5_valst_width = 3, &     ! 3 geometry entries per triangle: corners
-            hdf5_attr_width = 1, &      ! 1 attribute structure instances per triangle: in the middle
+            hdf5_attr_width = 3, &      ! 1 attribute structure instances per triangle: in the middle. Duplicate to all corners for compatibility with dg elements
 #           if defined(_SWE_DG)
                 hdf5_valsi_width = 5, &     ! 5 int32 values per cell: d, o, l, s, t
 #           else

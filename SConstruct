@@ -441,6 +441,15 @@ if env['scenario'] == 'swe' and env['flux_solver'] in ['upwind']:
   print "Error: flux solver must be one of ", ['lf', 'lfbath', 'llf', 'llfbath', 'fwave', 'aug_riemann']
   Exit(-1)
 
+#Configure time-dependant boundary inflow condition
+if env['boundary'] != 'disabled':
+  env['F90FLAGS'] += ' -D_BOUNDARY'
+
+if env['boundary'] == 'file':
+  env['F90FLAGS'] += ' -D_BOUNDARY_FILE'
+elif env['boundary'] == 'function':
+  env['F90FLAGS'] += ' -D_BOUNDARY_FUNC'
+
 #Set the number of vertical layers for 2.5D
 env['F90FLAGS'] += ' -D_DARCY_LAYERS=' + str(env['layers'])
 

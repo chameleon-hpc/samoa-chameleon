@@ -144,7 +144,10 @@ end type num_cell_data_pers
 #endif
 #endif
 #     if defined(_XDMF)
-        integer (kind = GRID_SI)                               :: xdmf_filter_count !<amount of cells in this section after filtering
+        integer (kind = GRID_SI)                               :: xdmf_filter_count_cells !<amount of cells in this section after filtering
+#       if defined(_SWE_PATCH)
+          integer (kind = GRID_SI)                             :: xdmf_filter_count_patches !<amount of patches in this section after filtering
+#       endif
 #     endif   
 		end type
 

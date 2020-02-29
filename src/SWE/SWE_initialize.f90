@@ -268,6 +268,7 @@ MODULE SWE_Initialize_Bathymetry
     real (kind=GRID_SR)               :: inner_height=1.20_GRID_SR, outer_height=1.10_GRID_SR
     real (kind = GRID_SR), parameter  :: dam_radius=0.1
     real (kind=GRID_SR),Dimension(2)  :: dam_center=[0.5,0.5]
+    real(GRID_SR)                     :: x_clamp(2)
 
     xs(1:2) = real(cfg%scaling * x + cfg%offset, c_double)
 #if !defined(_ASAGI)
@@ -278,14 +279,14 @@ MODULE SWE_Initialize_Bathymetry
     call section%stats%start_time(asagi_time)
 #endif !_ASAGI_TIMING
 
-    if (asagi_grid_min(cfg%afh_bathymetry, 0) <= xs(1) .and. asagi_grid_min(cfg%afh_bathymetry, 1) <= xs(2) &
-         .and. xs(1) <= asagi_grid_max(cfg%afh_bathymetry, 0) .and. xs(2) <= asagi_grid_max(cfg%afh_bathymetry, 1)) then
 
-       xs(3) = 0.0
-       bathymetry = asagi_grid_get_float(cfg%afh_bathymetry, xs, 0)
-    else
-       bathymetry = -5000.0_SR
-    end if
+    ! Stretch out into undefined areas
+    x_clamp(1) = max(asagi_grid_min(cfg%afh_bathymetry, 0), &
+      min(xs(1), asagi_grid_max(cfg%afh_bathymetry, 0)))
+    x_clamp(2) = max(asagi_grid_min(cfg%afh_bathymetry, 1), &
+      min(xs(2), asagi_grid_max(cfg%afh_bathymetry, 1)))
+    bathymetry = asagi_grid_get_float(cfg%afh_bathymetry, x_clamp, 0)
+    xs(3) = 0.0
 
     if (asagi_grid_min(cfg%afh_displacement, 0) <= xs(1) .and. asagi_grid_min(cfg%afh_displacement, 1) <= xs(2) &
          .and. xs(1) <= asagi_grid_max(cfg%afh_displacement, 0) .and. xs(2) <= asagi_grid_max(cfg%afh_displacement, 1) &

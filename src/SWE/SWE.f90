@@ -256,7 +256,10 @@
                 call swe%xdmf_output_filter%destroy()
                 call swe%xdmf_adaption%destroy()
                 call swe%xdmf_init_dofs%destroy()
-                call swe_xdmf_param%deallocate()
+				call swe_xdmf_param_cells%deallocate()
+#				if defined(_SWE_PATCH)
+					call swe_xdmf_param_patches%deallocate()
+#				endif
 #           endif
 			call swe%euler%destroy()
 			call swe%adaption%destroy()
@@ -310,7 +313,12 @@
                 !$omp end master
             end if
 #           if defined(_XDMF)
-                call h5open_f(hdf5_error)
+#               if defined(_MPI)
+					call mpi_barrier(MPI_COMM_WORLD, hdf5_error); assert_eq(hdf5_error, 0)
+#               endif
+				!$omp master
+				call h5open_f(hdf5_error)
+				!$omp end master
 #           endif
 
 			call update_stats(swe, grid)
@@ -717,7 +725,10 @@
 #           if defined(_XDMF)
                 if(swe%xdmf_output%base%root_desc%hdf5_meta_ids%file_id .ne. 0) then
                     call h5fclose_f(swe%xdmf_output%base%root_desc%hdf5_meta_ids%file_id, hdf5_error)
-                end if
+				end if
+#               if defined(_MPI)
+                    call mpi_barrier(MPI_COMM_WORLD, hdf5_error); assert_eq(hdf5_error, 0)
+#               endif
                 call h5close_f(hdf5_error)
 #           endif
 			!$omp end master
@@ -772,7 +783,8 @@
 							end if
 							if(cfg%xdmf%l_xdmfoutput) then
 								_log_write(0, '(A, T34, A)') " XDMF Output: ", trim(swe%xdmf_output%stats%to_string())
-								if (cfg%xdmf%i_xdmffilter_index .ne. 0) then
+								if ((cfg%xdmf%i_xdmffilter_index .ne. 0) .or. &
+									(iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_all) .eq. xdmf_output_mode_all)) then
 									_log_write(0, '(A, T34, A)') " XDMF Output filter: ", trim(swe%xdmf_output_filter%stats%to_string())
 								end if
 							end if
@@ -842,7 +854,8 @@
 
                 swe%xdmf_output%base%i_sim_iteration = time_step
                 swe%xdmf_output_filter%base%i_sim_iteration = time_step
-                if (cfg%xdmf%i_xdmffilter_index .ne. 0) then
+                if ((cfg%xdmf%i_xdmffilter_index .ne. 0) .or. &
+					(iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_all) .eq. xdmf_output_mode_all)) then
                     call swe%xdmf_output_filter%traverse(grid)
                 end if
                 call swe%xdmf_output%traverse(grid)

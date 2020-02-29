@@ -65,9 +65,10 @@ class Step:
 class Reader:
     """This class represents a collection of steps contained in a XMF file, and provides methods to access them"""
 
-    def __init__(self, path, param):
+    def __init__(self, path, param, subgroup):
         self.path = path
         self.param = param
+        self.subgroup = subgroup
         self.steps = []
         self._parse()
 
@@ -83,29 +84,35 @@ class Reader:
         for grid in root.findall("./Domain/Grid[@GridType='Collection']/Grid"):
             time = float(grid.find("Time").attrib['Value'])
             if time >= 0:
-                # Extract needed data from step XML using Xpath
-                index = int(grid.find("Attribute[@Name='Step']/DataItem").text)
-                ncells, valstw = list(map(int, grid.find("Topology/DataItem").attrib['Dimensions'].split()))
-                h5path, h5g = grid.find("Geometry/DataItem").text.split(':')
-                valsgw = int(grid.find("Geometry/DataItem").attrib['Dimensions'].split()[1])
-                h5h = grid.find("Attribute[@Name='WaterHeight']/DataItem").text.split(':')[1]
-                h5hu = grid.find("Attribute[@Name='Momentum']/DataItem").text.split(':')[1]
-                h5b = grid.find("Attribute[@Name='Bathymetry']/DataItem").text.split(':')[1]
-                attrwsym = grid.find("Attribute[@Name='WaterHeight']").attrib['Center']
-                attrw = 0
-                if attrwsym == "Cell": attrw = 1
-                elif attrwsym == "Node": attrw = valstw
+                subgroup_found = False
+                for subgrid in root.findall("Grid"):
+                    if subgrid.find("Information[@Name='Layer']").attrib['Value'] == self.subgroup:
+                        subgroup_found = True
+                        # Extract needed data from step XML using Xpath
+                        index = int(subgrid.find("Attribute[@Name='Step']/DataItem").text)
+                        ncells, valstw = list(map(int, subgrid.find("Topology/DataItem").attrib['Dimensions'].split()))
+                        h5path, h5g = subgrid.find("Geometry/DataItem").text.split(':')
+                        valsgw = int(subgrid.find("Geometry/DataItem").attrib['Dimensions'].split()[1])
+                        h5h = subgrid.find("Attribute[@Name='WaterHeight']/DataItem").text.split(':')[1]
+                        h5hu = subgrid.find("Attribute[@Name='Momentum']/DataItem").text.split(':')[1]
+                        h5b = subgrid.find("Attribute[@Name='Bathymetry']/DataItem").text.split(':')[1]
+                        attrwsym = subgrid.find("Attribute[@Name='WaterHeight']").attrib['Center']
+                        attrw = 0
+                        if attrwsym == "Cell": attrw = 1
+                        elif attrwsym == "Node": attrw = valstw
 
-                # Sanity check layout
-                if self.param.valsg_width != valsgw:
-                    raise Exception("Layout parameter mismatch, geometry should have " + str(self.param.valsg_width) + " spatial dimensions, but has " + str(valsgw))
-                if self.param.valst_width != valstw:
-                    raise Exception("Layout parameter mismatch, cell should have " + str(self.param.valst_width) + " geometry entries, but has " + str(valstw))
-                if self.param.attr_width != attrw:
-                    raise Exception("Layout parameter mismatch, cell should have " + str(self.param.attr_width) + " attribute entries, but has " + str(attrw))
+                        # Sanity check layout
+                        if self.param.valsg_width != valsgw:
+                            raise Exception("Layout parameter mismatch, geometry should have " + str(self.param.valsg_width) + " spatial dimensions, but has " + str(valsgw))
+                        if self.param.valst_width != valstw:
+                            raise Exception("Layout parameter mismatch, cell should have " + str(self.param.valst_width) + " geometry entries, but has " + str(valstw))
+                        if self.param.attr_width != attrw:
+                            raise Exception("Layout parameter mismatch, cell should have " + str(self.param.attr_width) + " attribute entries, but has " + str(attrw))
 
-                # Add step object
-                self.steps.append(Step(index, time, os.path.join(os.path.dirname(self.path), h5path), h5g, h5h, h5hu, h5b))
+                        # Add step object
+                        self.steps.append(Step(index, time, os.path.join(os.path.dirname(self.path), h5path), h5g, h5h, h5hu, h5b))
+                if not subgroup_found:
+                    raise Exception("Could not find subgroup '" + self.subgroup + "')
 
     def step_near_time(self, t):
         # Find step closest to timestamp

@@ -12,27 +12,40 @@ module XDMF_output_base
     use XDMF_output_base_data_types
     use XDMF_math
     use XDMF_hdf5
+    use XDMF_config
 
     use, intrinsic :: iso_fortran_env
     use, intrinsic :: iso_c_binding
 
     implicit none
 
-    type(t_xdmf_section_buffer), save, target                           :: sect_store_data
+    type(t_xdmf_section_buffer), save, target                           :: sect_store_data_cells, sect_store_data_patches
 
     contains
 
-    subroutine xdmf_base_pre_traversal_grid_op(base, sections_ptr, grid, param)
+#   if defined (_XDMF_PATCH)    
+        subroutine xdmf_base_pre_traversal_grid_op(base, sections_ptr, grid, param_cells, param_patches)
+#   else
+        subroutine xdmf_base_pre_traversal_grid_op(base, sections_ptr, grid, param_cells)
+#   endif
         type(t_xdmf_base_output_traversal), intent(inout)				:: base
         type(t_xdmf_base_output_traversal_ptr), dimension(:)            :: sections_ptr 
         type(t_grid), intent(inout)							            :: grid
-        type(t_xdmf_parameter), intent(in)                              :: param
+        type(t_xdmf_parameter), intent(in)                              :: param_cells
+#       if defined (_XDMF_PATCH)
+            type(t_xdmf_parameter), intent(in)                          :: param_patches
+#       endif
 
         integer                                                         :: file_basename_index, i, j, sect_j
         logical                                                         :: write_cp, no_filter
         type(t_xdmf_layout_descriptor)                                  :: layout_desc_bku
-        integer(XDMF_GRID_SI)                                           :: num_cells_complete
-        real                                                            :: filter_amount
+        integer(XDMF_GRID_SI)                                           :: num_cells, num_cells_complete
+        real                                                            :: filter_amount_cells
+#       if defined(_XDMF_PATCH)
+            integer(XDMF_GRID_SI)                                       :: num_patches, num_patches_complete
+            real                                                        :: filter_amount_patches
+#       endif
+
 
         ! Compute several meta infos about the domain
         base%grid_scale = ishft(1_XDMF_GRID_SI, ishft(cfg%i_max_depth + 1, -1))
@@ -50,18 +63,35 @@ module XDMF_output_base
         else
             write_cp = mod(int(base%output_iteration, GRID_SI), int(cfg%xdmf%i_xdmfcpint, GRID_SI)).eq.0
         end if
-        no_filter = cfg%xdmf%i_xdmffilter_index .eq. 0 .or. write_cp
+        no_filter = (cfg%xdmf%i_xdmffilter_index .eq. 0 .or. write_cp) .and. .not. &
+            (iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_all) .eq. xdmf_output_mode_all)
 
         ! Compute number of cells
-        call xdmf_compute_num_cells(size(sections_ptr), grid, num_cells_complete, .false.)
-        if (no_filter) then
-            base%num_cells = num_cells_complete
-            filter_amount = 100
-        else
-            call xdmf_compute_num_cells(size(sections_ptr), grid, base%num_cells, .true.)
-            filter_amount = (real(base%num_cells) / real(num_cells_complete)) * 100
-        end if
-        
+#       if defined(_XDMF_PATCH)
+            call xdmf_compute_num_cells(size(sections_ptr), grid, num_cells_complete, .false., .false.)
+            call xdmf_compute_num_cells(size(sections_ptr), grid, num_patches_complete, .false., .true.)
+            if (no_filter) then
+                base%num_cells = num_cells_complete
+                base%num_patches = num_patches_complete
+                filter_amount_cells = 100
+                filter_amount_patches = 100
+            else
+                call xdmf_compute_num_cells(size(sections_ptr), grid, base%num_cells, .true., .false.)
+                call xdmf_compute_num_cells(size(sections_ptr), grid, base%num_patches, .true., .true.)
+                filter_amount_cells = (real(base%num_cells) / real(num_cells_complete)) * 100
+                filter_amount_patches = (real(base%num_patches) / real(num_patches_complete)) * 100
+            end if
+#       else
+            call xdmf_compute_num_cells(size(sections_ptr), grid, num_cells_complete, .false.)
+            if (no_filter) then
+                base%num_cells = num_cells_complete
+                filter_amount_cells = 100
+            else
+                call xdmf_compute_num_cells(size(sections_ptr), grid, base%num_cells, .true.)
+                filter_amount_cells = (real(base%num_cells) / real(num_cells_complete)) * 100
+            end if
+#       endif
+
         ! Calculate section offsets in file
         call xdmf_allocate_compute_sections_descs(base, size(sections_ptr), grid, .not. no_filter)
 
@@ -70,19 +100,46 @@ module XDMF_output_base
                 _log_write(1, '(A, I0, A, I0)') " XDMF: Output step: ", base%output_iteration, &
                     ", simulation step: ", base%i_sim_iteration
             else
-                _log_write(1, '(A, I0, A, I0, A, I0, A, I0, A, F0.2, A)') " XDMF: Output step: ", base%output_iteration, &
-                    ", simulation step: ", base%i_sim_iteration, ", filter: ", base%num_cells, &
-                    " of ", num_cells_complete, " cells (", filter_amount, "%)"
+#               if defined(_XDMF_PATCH)
+                    if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_all) .eq. xdmf_output_mode_all) .or. write_cp) then
+                        _log_write(1, '(A, I0, A, I0, A, I0, A, I0, A, F0.2, A, I0, A, I0, A, F0.2, A)') " XDMF: Output step: ", base%output_iteration, &
+                            ", simulation step: ", base%i_sim_iteration, ", filter: ", base%num_cells, &
+                            " of ", num_cells_complete, " cells (", filter_amount_cells, "%), ", base%num_patches, &
+                            " of ", num_patches_complete, " patches (", filter_amount_patches, "%)"
+                    else if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells)) then
+                        _log_write(1, '(A, I0, A, I0, A, I0, A, I0, A, F0.2, A)') " XDMF: Output step: ", base%output_iteration, &
+                            ", simulation step: ", base%i_sim_iteration, ", filter: ", base%num_cells, &
+                            " of ", num_cells_complete, " cells (", filter_amount_cells, "%)"
+                    else if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .eq. xdmf_output_mode_patches)) then
+                        _log_write(1, '(A, I0, A, I0, A, I0, A, I0, A, F0.2, A)') " XDMF: Output step: ", base%output_iteration, &
+                            ", simulation step: ", base%i_sim_iteration, ", filter: ", base%num_patches, &
+                            " of ", num_patches_complete, " patches (", filter_amount_patches, "%)"
+                    end if
+#               else
+                    if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells) .or. write_cp) then
+                        _log_write(1, '(A, I0, A, I0, A, I0, A, I0, A, F0.2, A)') " XDMF: Output step: ", base%output_iteration, &
+                            ", simulation step: ", base%i_sim_iteration, ", filter: ", base%num_cells, &
+                            " of ", num_cells_complete, " cells (", filter_amount_cells, "%)"
+                    end if
+#               endif
             end if
         end if
 
         ! Allocate buffers for cell data for the all sections of this rank
-        call sect_store_data%allocate(base%root_layout_desc%ranks(rank_MPI + 1)%num_cells, param)
+        if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells) .or. write_cp) then
+            call sect_store_data_cells%allocate(base%root_layout_desc%ranks(rank_MPI + 1)%num_cells, param_cells)
+        end if
+#       if defined (_XDMF_PATCH)
+            if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .eq. xdmf_output_mode_patches) .or. write_cp) then
+                call sect_store_data_patches%allocate(base%root_layout_desc%ranks(rank_MPI + 1)%num_patches, param_patches)
+            end if
+#       endif
         
         ! Scatter computated data across all sections
         do i = 1, size(sections_ptr)
             call base%root_layout_desc%scatter_to(sections_ptr(i)%ptr%root_layout_desc)
-            sections_ptr(i)%ptr%sect_store%ptr => sect_store_data
+            sections_ptr(i)%ptr%sect_store_cells%ptr => sect_store_data_cells
+            sections_ptr(i)%ptr%sect_store_patches%ptr => sect_store_data_patches
             sections_ptr(i)%ptr%s_file_stamp_base = base%s_file_stamp_base
             sections_ptr(i)%ptr%s_file_stamp = base%s_file_stamp
             sections_ptr(i)%ptr%grid_scale = base%grid_scale
@@ -92,17 +149,25 @@ module XDMF_output_base
         end do
     end subroutine
 
-    subroutine xdmf_base_post_traversal_grid_op(base, sections_ptr, grid, param)
+#   if defined (_XDMF_PATCH)
+        subroutine xdmf_base_post_traversal_grid_op(base, sections_ptr, grid, param_cells, param_patches)
+#   else
+        subroutine xdmf_base_post_traversal_grid_op(base, sections_ptr, grid, param_cells)
+#   endif
         type(t_xdmf_base_output_traversal), intent(inout)				:: base
         type(t_xdmf_base_output_traversal_ptr), dimension(:)            :: sections_ptr   
         type(t_grid), intent(inout)							            :: grid
-        type(t_xdmf_parameter), intent(in)                              :: param
+        type(t_xdmf_parameter), intent(in)                              :: param_cells
+#       if defined (_XDMF_PATCH)   
+            type(t_xdmf_parameter), intent(in)                          :: param_patches
+#       endif
 
         integer                                                         :: error, result, num_cells, r
-        integer (HSIZE_T)                                               :: hdf5_vals_length, hdf5_tree_length, hdf5_vals_offset
+        integer (HSIZE_T)                                               :: hdf5_vals_length_cells, hdf5_tree_length_cells, hdf5_vals_offset_cells
+#       if defined(_XDMF_PATCH)
+            integer (HSIZE_T)                                           :: hdf5_vals_length_patches, hdf5_vals_offset_patches
+#       endif
         integer (HSIZE_T)                                               :: i, j
-
-        integer (INT32), dimension(:, :), allocatable                   :: hdf5_sect_topo_buffer
 
         integer (XDMF_GRID_SI)                                          :: output_meta_iteration
         logical                                                         :: hdf5_step_exists, new_file, write_cp
@@ -146,11 +211,13 @@ module XDMF_output_base
         end if
 
         ! Get neccessary meta infos for this rank (how much data to write where)
-        hdf5_vals_length = base%root_layout_desc%ranks(rank_MPI + 1)%num_cells
-        hdf5_vals_offset = base%root_layout_desc%ranks(rank_MPI + 1)%offset_cells
-        hdf5_tree_length = hdf5_vals_length
+        hdf5_vals_length_cells = base%root_layout_desc%ranks(rank_MPI + 1)%num_cells
+        hdf5_vals_offset_cells = base%root_layout_desc%ranks(rank_MPI + 1)%offset_cells
+        hdf5_tree_length_cells = hdf5_vals_length_cells
 #       if defined (_XDMF_PATCH)  
-            hdf5_tree_length = hdf5_tree_length / _XDMF_PATCH_ORDER_SQUARE
+            hdf5_tree_length_cells = hdf5_tree_length_cells / _XDMF_PATCH_ORDER_SQUARE
+            hdf5_vals_length_patches = base%root_layout_desc%ranks(rank_MPI + 1)%num_patches
+            hdf5_vals_offset_patches = base%root_layout_desc%ranks(rank_MPI + 1)%offset_patches
 #       endif
 
         ! Compute tree hashtable parameters
@@ -160,12 +227,14 @@ module XDMF_output_base
         end if
 
         ! Create hdf5 datasets
+        if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells) .or. write_cp) then
+            call base%root_desc%hdf5_ids_cells%create(param_cells, base%root_desc%hdf5_meta_ids%step_group_cells_id, base%num_cells, htbl_size)
+        end if
 #       if defined (_XDMF_PATCH)
-            num_cells = base%num_cells * _XDMF_PATCH_ORDER_SQUARE
-#       else
-            num_cells = base%num_cells
+            if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .eq. xdmf_output_mode_patches) .or. write_cp) then
+                call base%root_desc%hdf5_ids_patches%create(param_patches, base%root_desc%hdf5_meta_ids%step_group_patches_id, base%num_patches, 0_XDMF_GRID_DI)
+            end if
 #       endif
-        call base%root_desc%hdf5_ids%create(param, base%root_desc%hdf5_meta_ids%step_group_id, num_cells, htbl_size)
 
         ! Check for empty domain, otherwise MPI-IO might fail
         if (base%num_cells .gt. 0) then
@@ -197,17 +266,17 @@ module XDMF_output_base
 #               endif
 
                 ! Generate, compress and store tree information into distributed hash table
-                if(hdf5_vals_length.gt.0) then
+                if(hdf5_vals_length_cells.gt.0) then
                     ! Build the offsets of tree data in hash table in memory
                     htbl_num_cells = 0
-                    do i = 1, hdf5_tree_length
+                    do i = 1, hdf5_tree_length_cells
 #                       if defined (_XDMF_PATCH)                    
-                            hdf5_tree_index = 1 + hdf5_vals_offset + ((i - 1) * _XDMF_PATCH_ORDER_SQUARE)
+                            hdf5_tree_index = 1 + hdf5_vals_offset_cells + ((i - 1) * _XDMF_PATCH_ORDER_SQUARE)
 #                       else
-                            hdf5_tree_index = 1 + hdf5_vals_offset + (i - 1)
+                            hdf5_tree_index = 1 + hdf5_vals_offset_cells + (i - 1)
 #                       endif
                         ! Hash the tree offset to compute hash table offset
-                        htbl_element = sect_store_data%tree(i)
+                        htbl_element = sect_store_data_cells%tree(i)
                         htbl_try = 0
                         do
                             ! Calculate hash table position
@@ -260,15 +329,15 @@ module XDMF_output_base
 
                 ! Write the hashtable chunk into the HDF5 dataset
                 if ((rank_MPI * htbl_size_local) .lt. htbl_size) then
-                    call hdf5_write_chunk_int(base%root_desc%hdf5_ids%tree%dset_id, &
-                        base%root_desc%hdf5_ids%tree%dspace_id, &
+                    call hdf5_write_chunk_int(base%root_desc%hdf5_ids_cells%tree%dset_id, &
+                        base%root_desc%hdf5_ids_cells%tree%dspace_id, &
                         (/ 0_HSIZE_T, (rank_MPI * htbl_size_local) /), &
                         (/ hdf5_tree_width, htbl_size_local_spec /), &
                         hdf5_rank, hdf5_subset_stride, hdf5_subset_block, &
                         htbl_alloc, base%root_desc%hdf5_meta_ids%access_dset_id)
                 else
-                    call hdf5_write_chunk_int(base%root_desc%hdf5_ids%tree%dset_id, &
-                        base%root_desc%hdf5_ids%tree%dspace_id, &
+                    call hdf5_write_chunk_int(base%root_desc%hdf5_ids_cells%tree%dset_id, &
+                        base%root_desc%hdf5_ids_cells%tree%dspace_id, &
                         (/ 0_HSIZE_T, 0_HSIZE_T /), (/ 0_HSIZE_T, 0_HSIZE_T /), &
                         hdf5_rank, hdf5_subset_stride, hdf5_subset_block, &
                         htbl_alloc, base%root_desc%hdf5_meta_ids%access_dset_id)
@@ -281,53 +350,33 @@ module XDMF_output_base
                     deallocate(htbl_alloc, stat = error); assert_eq(error, 0)
 #               endif
             end if
+        end if
 
-            ! Write the sections cell attribute buffers to the HDF5 file
-            do i = 1, param%hdf5_valsi_width
-                call hdf5_write_chunk_int(base%root_desc%hdf5_ids%batch_valsi(i)%dset_id, &
-                    base%root_desc%hdf5_ids%batch_valsi(i)%dspace_id, &
-                    (/ 0_HSIZE_T, hdf5_vals_offset /), (/ 1_HSIZE_T, hdf5_vals_length /), &
-                    hdf5_rank, hdf5_subset_stride, hdf5_subset_block, &
-                    sect_store_data%valsi(:, i), base%root_desc%hdf5_meta_ids%access_dset_id)
-            end do
-            do i = 1, param%hdf5_valsr_width
-                call hdf5_write_chunk_real(base%root_desc%hdf5_ids%batch_valsr(i)%dset_id, &
-                    base%root_desc%hdf5_ids%batch_valsr(i)%dspace_id, &
-                    (/ 0_HSIZE_T, hdf5_vals_offset /), (/ param%hdf5_attr_width, hdf5_vals_length /), &
-                    hdf5_rank, hdf5_subset_stride, hdf5_subset_block, &
-                    sect_store_data%valsr(:, :, i), base%root_desc%hdf5_meta_ids%access_dset_id)
-            end do
-            do i = 1, param%hdf5_valsuv_width
-                call hdf5_write_chunk_real(base%root_desc%hdf5_ids%batch_valsuv(i)%dset_id, &
-                    base%root_desc%hdf5_ids%batch_valsuv(i)%dspace_id, &
-                    (/ 0_HSIZE_T, 0_HSIZE_T, hdf5_vals_offset /), (/ hdf5_vector_width, param%hdf5_attr_width, &
-                    hdf5_vals_length /), hdf5_rank_v, hdf5_subset_stride_v, hdf5_subset_block_v, &
-                    sect_store_data%valsuv(:, :, :, i), base%root_desc%hdf5_meta_ids%access_dset_id)
-            end do
-            call hdf5_write_chunk_real(base%root_desc%hdf5_ids%valsg%dset_id, &
-                base%root_desc%hdf5_ids%valsg%dspace_id, &
-                (/ 0_HSIZE_T, hdf5_vals_offset * param%hdf5_valst_width /), &
-                (/ param%hdf5_valsg_width, hdf5_vals_length * param%hdf5_valst_width /), &
-                hdf5_rank, hdf5_subset_stride, hdf5_subset_block, &
-                sect_store_data%valsg, base%root_desc%hdf5_meta_ids%access_dset_id)
-
-            ! Generate and write topology indices for this section
-            allocate(hdf5_sect_topo_buffer(param%hdf5_valst_width, hdf5_vals_length), stat = error); assert_eq(error, 0)
-            do i = 0, hdf5_vals_length - 1
-                do j = 0, param%hdf5_valst_width - 1
-                    hdf5_sect_topo_buffer(j + 1 , i + 1) = ((hdf5_vals_offset + i) * param%hdf5_valst_width) + j
-                end do
-            end do
-            call hdf5_write_chunk_int(base%root_desc%hdf5_ids%valst%dset_id, &
-                base%root_desc%hdf5_ids%valst%dspace_id, &
-                (/ 0_HSIZE_T, hdf5_vals_offset /), (/ param%hdf5_valst_width, hdf5_vals_length /), &
-                hdf5_rank, hdf5_subset_stride, hdf5_subset_block, &
-                hdf5_sect_topo_buffer, base%root_desc%hdf5_meta_ids%access_dset_id)
-            deallocate(hdf5_sect_topo_buffer, stat = error); assert_eq(error, 0)
-        else
-            if (rank_MPI.eq.0) then
-                _log_write(1, '(A, I0)') " XDMF: WARNING: No output data at step: ", base%output_iteration
+        ! Write the sections cell attribute buffers to the HDF5 file
+        if (base%num_cells .gt. 0) then
+            if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells) .or. write_cp) then
+                call xdmf_write_data_buffers(base, base%root_desc%hdf5_ids_cells, sect_store_data_cells, &
+                    hdf5_vals_offset_cells, hdf5_vals_length_cells, param_cells)
             end if
+        end if
+#       if defined (_XDMF_PATCH)
+            if (base%num_patches .gt. 0) then
+                if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .eq. xdmf_output_mode_patches) .or. write_cp) then
+                    call xdmf_write_data_buffers(base, base%root_desc%hdf5_ids_patches, sect_store_data_patches, &
+                        hdf5_vals_offset_patches, hdf5_vals_length_patches, param_patches)
+                end if
+            end if
+#       endif
+        if (base%num_cells .eq. 0) then
+#           if defined (_XDMF_PATCH)
+                if (base%num_patches .eq. 0) then
+#           endif
+                    if (rank_MPI.eq.0) then
+                        _log_write(1, '(A, I0)') " XDMF: WARNING: No output data at step: ", base%output_iteration
+                    end if
+#           if defined (_XDMF_PATCH)
+                end if
+#           endif
         end if
 
         ! Deallocate per section arrays
@@ -337,19 +386,96 @@ module XDMF_output_base
         call base%root_layout_desc%deallocate()
 
         ! Free section buffers
-        call sect_store_data%deallocate()
+        if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells) .or. write_cp) then
+            call sect_store_data_cells%deallocate()
+        end if
+#       if defined (_XDMF_PATCH)
+            if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .eq. xdmf_output_mode_patches) .or. write_cp) then
+                call sect_store_data_patches%deallocate()
+            end if
+#       endif
 
         ! Close hdf5 ids
-        call base%root_desc%hdf5_ids%close(param)
+        if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells) .or. write_cp) then
+            call base%root_desc%hdf5_ids_cells%close(param_cells)
+        end if
+#       if defined (_XDMF_PATCH)
+            if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .eq. xdmf_output_mode_patches) .or. write_cp) then
+                call base%root_desc%hdf5_ids_patches%close(param_patches)
+            end if
+#       endif
         call base%root_desc%hdf5_meta_ids%close()
     end subroutine
 
+    ! This routine writes out the actual buffers into the hdf file
+    subroutine xdmf_write_data_buffers(base, hdf5_ids, sect_store_data, hdf5_vals_offset, hdf5_vals_length, param)
+        type(t_xdmf_base_output_traversal), intent(in)				    :: base
+        type(t_xdmf_hdf5), intent(in)				                    :: hdf5_ids
+        type(t_xdmf_section_buffer)                                     :: sect_store_data
+        integer (HSIZE_T)                                               :: hdf5_vals_length, hdf5_vals_offset
+        type(t_xdmf_parameter), intent(in)                              :: param
+
+        integer (HSIZE_T)                                               :: i, j
+        integer                                                         :: error
+        integer (INT32), dimension(:, :), allocatable                   :: hdf5_sect_topo_buffer
+
+        do i = 1, param%hdf5_valsi_width
+            call hdf5_write_chunk_int(hdf5_ids%batch_valsi(i)%dset_id, &
+                hdf5_ids%batch_valsi(i)%dspace_id, &
+                (/ 0_HSIZE_T, hdf5_vals_offset /), (/ 1_HSIZE_T, hdf5_vals_length /), &
+                hdf5_rank, hdf5_subset_stride, hdf5_subset_block, &
+                sect_store_data%valsi(:, i), base%root_desc%hdf5_meta_ids%access_dset_id)
+        end do
+        do i = 1, param%hdf5_valsr_width
+            call hdf5_write_chunk_real(hdf5_ids%batch_valsr(i)%dset_id, &
+                hdf5_ids%batch_valsr(i)%dspace_id, &
+                (/ 0_HSIZE_T, hdf5_vals_offset /), (/ param%hdf5_attr_width, hdf5_vals_length /), &
+                hdf5_rank, hdf5_subset_stride, hdf5_subset_block, &
+                sect_store_data%valsr(:, :, i), base%root_desc%hdf5_meta_ids%access_dset_id)
+        end do
+        do i = 1, param%hdf5_valsuv_width
+            call hdf5_write_chunk_real(hdf5_ids%batch_valsuv(i)%dset_id, &
+                hdf5_ids%batch_valsuv(i)%dspace_id, &
+                (/ 0_HSIZE_T, 0_HSIZE_T, hdf5_vals_offset /), (/ hdf5_vector_width, param%hdf5_attr_width, &
+                hdf5_vals_length /), hdf5_rank_v, hdf5_subset_stride_v, hdf5_subset_block_v, &
+                sect_store_data%valsuv(:, :, :, i), base%root_desc%hdf5_meta_ids%access_dset_id)
+        end do
+        call hdf5_write_chunk_real(hdf5_ids%valsg%dset_id, &
+            hdf5_ids%valsg%dspace_id, &
+            (/ 0_HSIZE_T, hdf5_vals_offset * param%hdf5_valst_width /), &
+            (/ param%hdf5_valsg_width, hdf5_vals_length * param%hdf5_valst_width /), &
+            hdf5_rank, hdf5_subset_stride, hdf5_subset_block, &
+            sect_store_data%valsg, base%root_desc%hdf5_meta_ids%access_dset_id)
+
+        ! Generate and write topology indices for this section
+        allocate(hdf5_sect_topo_buffer(param%hdf5_valst_width, hdf5_vals_length), stat = error); assert_eq(error, 0)
+        do i = 0, hdf5_vals_length - 1
+            do j = 0, param%hdf5_valst_width - 1
+                hdf5_sect_topo_buffer(j + 1 , i + 1) = ((hdf5_vals_offset + i) * param%hdf5_valst_width) + j
+            end do
+        end do
+        call hdf5_write_chunk_int(hdf5_ids%valst%dset_id, &
+            hdf5_ids%valst%dspace_id, &
+            (/ 0_HSIZE_T, hdf5_vals_offset /), (/ param%hdf5_valst_width, hdf5_vals_length /), &
+            hdf5_rank, hdf5_subset_stride, hdf5_subset_block, &
+            hdf5_sect_topo_buffer, base%root_desc%hdf5_meta_ids%access_dset_id)
+        deallocate(hdf5_sect_topo_buffer, stat = error); assert_eq(error, 0)
+    end subroutine
+
     ! This routine computes how many cells the complete domain contains
-    subroutine xdmf_compute_num_cells(sections_size, grid, num_cells, from_filter)
+#   if defined(_XDMF_PATCH)
+        subroutine xdmf_compute_num_cells(sections_size, grid, num_cells, from_filter, count_patches)
+#   else
+        subroutine xdmf_compute_num_cells(sections_size, grid, num_cells, from_filter)
+#   endif
         integer(XDMF_GRID_SI), intent(in)                               :: sections_size 
         type(t_grid), intent(inout)							            :: grid
-        integer(XDMF_GRID_SI), intent(out)							    :: num_cells
+        integer(XDMF_GRID_SI), intent(inout)							:: num_cells
         logical, intent(in)                                             :: from_filter
+#       if defined(_XDMF_PATCH)
+            logical, intent(in)                                         :: count_patches
+#       endif
+
 
         integer                                                         :: i, error
         type(t_section_info)                                            :: section_info
@@ -361,13 +487,22 @@ module XDMF_output_base
         num_cells = 0
         ! Sum over the number of cells in each section
 #       if defined(_MPI)
-            allocate(section_sizes(sections_size), stat = error); assert_eq(error, 0)
+            allocate(section_sizes(1), stat = error); assert_eq(error, 0)
+            section_sizes = 0
             do i = 1, sections_size
                 if (.not. from_filter) then
                     section_info = grid%sections%elements(i)%get_info()
-                    section_sizes(i) = section_info%i_cells
+                    section_sizes(1) = section_sizes(1) + section_info%i_cells
                 else
-                    section_sizes(i) = grid%sections%elements(i)%xdmf_filter_count
+#                   if defined(_XDMF_PATCH)
+                        if (count_patches) then
+                            section_sizes(1) = section_sizes(1) + grid%sections%elements(i)%xdmf_filter_count_patches
+                        else
+#                   endif
+                            section_sizes(1) = section_sizes(1) + grid%sections%elements(i)%xdmf_filter_count_cells
+#                   if defined(_XDMF_PATCH)
+                        end if
+#                   endif
                 end if
             end do
             ! Using MPI, gather the number of cells per rank and sum it
@@ -379,9 +514,22 @@ module XDMF_output_base
                     section_info = grid%sections%elements(i)%get_info()
                     num_cells = num_cells + section_info%i_cells
                 else
-                    num_cells = num_cells + grid%sections%elements(i)%xdmf_filter_count
+#                   if defined(_XDMF_PATCH)
+                        if (count_patches) then
+                            num_cells = num_cells + grid%sections%elements(i)%xdmf_filter_count_patches
+                        else
+#                   endif
+                            num_cells = num_cells + grid%sections%elements(i)%xdmf_filter_count_cells
+#                   if defined(_XDMF_PATCH)
+                        end if
+#                   endif
                 end if
             end do
+#       endif
+#       if defined(_XDMF_PATCH)
+            if (.not. count_patches .and. .not. from_filter) then
+                num_cells = num_cells * _XDMF_PATCH_ORDER_SQUARE
+            end if
 #       endif
     end subroutine
 
@@ -396,11 +544,19 @@ module XDMF_output_base
         type(t_section_info)                                            :: section_info
         integer(XDMF_GRID_SI)                                           :: offset_cells_current, offset_cells_current_buffer
         integer(XDMF_GRID_SI)                                           :: num_cells_section, num_cells_section_buffer
+#       if defined(_XDMF_PATCH)
+            integer(XDMF_GRID_SI)                                       :: offset_patches_current, offset_patches_current_buffer
+            integer(XDMF_GRID_SI)                                       :: num_patches_section, num_patches_section_buffer
+#       endif
 #       if defined(_MPI)
             integer(INT32), dimension(:), allocatable                   :: num_sections, num_cells_local, sect_index_local, sect_index_local_inv
             integer(INT32), dimension(:, :), allocatable                :: num_cells, sect_index
             integer(INT32), dimension(1)                                :: num_sections_local
             integer                                                     :: max_num_sections
+#           if defined(_XDMF_PATCH)
+                integer(INT32), dimension(:), allocatable               :: num_patches_local
+                integer(INT32), dimension(:, :), allocatable            :: num_patches
+#           endif
 #       else
             integer                                                     :: section_index
 #       endif
@@ -419,23 +575,36 @@ module XDMF_output_base
             ! If this rank has less sections than max_num_sections, the remaining fields will be -1
             allocate(num_cells_local(max_num_sections), stat = error); assert_eq(error, 0)
             num_cells_local = -1
+#           if defined(_XDMF_PATCH)
+                allocate(num_patches_local(max_num_sections), stat = error); assert_eq(error, 0)
+                num_patches_local = -1
+#           endif
             if (.not. from_filter) then
                 do j = 1, sections_size
                     section_info = grid%sections%elements(j)%get_info()
-                    num_cells_local(j) = section_info%i_cells
 #                   if defined(_XDMF_PATCH)
-                        num_cells_local(j) = num_cells_local(j) * _XDMF_PATCH_ORDER_SQUARE
+                        num_cells_local(j) = section_info%i_cells * _XDMF_PATCH_ORDER_SQUARE
+                        num_patches_local(j) = section_info%i_cells
+#                   else
+                        num_cells_local(j) = section_info%i_cells
 #                   endif
                 end do
             else
                 do j = 1, sections_size
-                    num_cells_local(j) = grid%sections%elements(j)%xdmf_filter_count
+                    num_cells_local(j) = grid%sections%elements(j)%xdmf_filter_count_cells
+#                   if defined(_XDMF_PATCH)
+                        num_patches_local(j) = grid%sections%elements(j)%xdmf_filter_count_patches
+#                   endif
                 end do
             end if
             ! Prepare for incoming data from other ranks
             allocate(num_cells(max_num_sections, size_MPI), stat = error); assert_eq(error, 0)
             ! And distribute this information across all ranks
             call mpi_allgather(num_cells_local, max_num_sections, MPI_INTEGER4, num_cells, max_num_sections, MPI_INTEGER4, MPI_COMM_WORLD, error); assert_eq(error, 0)
+#           if defined(_XDMF_PATCH)
+                allocate(num_patches(max_num_sections, size_MPI), stat = error); assert_eq(error, 0)
+                call mpi_allgather(num_patches_local, max_num_sections, MPI_INTEGER4, num_patches, max_num_sections, MPI_INTEGER4, MPI_COMM_WORLD, error); assert_eq(error, 0)
+#           endif
 
             ! Gather the index of each section of this rank
             ! Again, if this rank has less sections than max_num_sections, the remaining fields will be -1
@@ -457,15 +626,26 @@ module XDMF_output_base
                 call base%root_layout_desc%ranks(i)%allocate(num_sections(i))
                 do j = 1, num_sections(i)
                     base%root_layout_desc%ranks(i)%sections(sect_index(j, i))%num_cells = num_cells(j, i)
+#                   if defined(_XDMF_PATCH)
+                        base%root_layout_desc%ranks(i)%sections(sect_index(j, i))%num_patches = num_patches(j, i)
+#                   endif
                 end do
             end do
 
             ! Based on the section lengths, compute their offsets in the data set
             offset_cells_current = 0
+#           if defined(_XDMF_PATCH)
+                offset_patches_current = 0
+#           endif
             do i = 1, size_MPI
                 offset_cells_current_buffer = 0
                 num_cells_section_buffer = 0
                 base%root_layout_desc%ranks(i)%offset_cells = offset_cells_current
+#               if defined(_XDMF_PATCH)
+                    offset_patches_current_buffer = 0
+                    num_patches_section_buffer = 0
+                    base%root_layout_desc%ranks(i)%offset_patches = offset_patches_current
+#               endif
                 do j = 1, num_sections(i)
                     num_cells_section = base%root_layout_desc%ranks(i)%sections(j)%num_cells
                     num_cells_section_buffer = num_cells_section_buffer + num_cells_section
@@ -475,13 +655,30 @@ module XDMF_output_base
                         offset_cells_current = offset_cells_current + num_cells_section
                         offset_cells_current_buffer = offset_cells_current_buffer + num_cells_section
                     end if
+#                   if defined(_XDMF_PATCH)
+                        num_patches_section = base%root_layout_desc%ranks(i)%sections(j)%num_patches
+                        num_patches_section_buffer = num_patches_section_buffer + num_patches_section
+                        if (num_patches_section .ne. 0) then
+                            base%root_layout_desc%ranks(i)%sections(j)%offset_patches = offset_patches_current
+                            base%root_layout_desc%ranks(i)%sections(j)%offset_patches_buffer = offset_patches_current_buffer
+                            offset_patches_current = offset_patches_current + num_patches_section
+                            offset_patches_current_buffer = offset_patches_current_buffer + num_patches_section
+                        end if
+#                   endif
                 end do
                 base%root_layout_desc%ranks(i)%num_cells = num_cells_section_buffer
+#               if defined(_XDMF_PATCH)
+                    base%root_layout_desc%ranks(i)%num_patches = num_patches_section_buffer
+#               endif
             end do
 
             ! Free memory from local MPI exchange arrays
             deallocate(num_cells, stat = error); assert_eq(error, 0)
             deallocate(num_cells_local, stat = error); assert_eq(error, 0)
+#           if defined(_XDMF_PATCH)
+                deallocate(num_patches, stat = error); assert_eq(error, 0)
+                deallocate(num_patches_local, stat = error); assert_eq(error, 0)
+#           endif
             deallocate(sect_index_local, stat = error); assert_eq(error, 0)
             deallocate(sect_index, stat = error); assert_eq(error, 0)
             deallocate(num_sections, stat = error); assert_eq(error, 0)
@@ -491,26 +688,45 @@ module XDMF_output_base
             call base%root_layout_desc%ranks(1)%allocate(sections_size)
             offset_cells_current = 0
             num_cells_section_buffer = 0
+#           if defined(_XDMF_PATCH)
+                offset_patches_current = 0
+                num_patches_section_buffer = 0
+#           endif
             base%root_layout_desc%ranks(1)%offset_cells = offset_cells_current
             do j = 1, sections_size
                 section_index = grid%sections%elements(j)%index
                 if (.not. from_filter) then
                     section_info = grid%sections%elements(j)%get_info()
-                    num_cells_section = section_info%i_cells
 #                   if defined(_XDMF_PATCH)
-                        num_cells_section = num_cells_section * _XDMF_PATCH_ORDER_SQUARE
+                        num_cells_section = section_info%i_cells * _XDMF_PATCH_ORDER_SQUARE
+                        num_patches_section = section_info%i_cells
+#                   else
+                        num_cells_section = section_info%i_cells
 #                   endif
                 else
-                    num_cells_section = grid%sections%elements(j)%xdmf_filter_count
+                    num_cells_section = grid%sections%elements(j)%xdmf_filter_count_cells
+#                   if defined(_XDMF_PATCH)
+                        num_patches_section = grid%sections%elements(j)%xdmf_filter_count_patches
+#                   endif
                 end if
-                num_cells_section_buffer = num_cells_section_buffer + num_cells_section
                 ! Set section length and compute offset
+                num_cells_section_buffer = num_cells_section_buffer + num_cells_section
                 base%root_layout_desc%ranks(1)%sections(section_index)%num_cells = num_cells_section
                 base%root_layout_desc%ranks(1)%sections(section_index)%offset_cells = offset_cells_current
                 base%root_layout_desc%ranks(1)%sections(section_index)%offset_cells_buffer = offset_cells_current
                 offset_cells_current = offset_cells_current + num_cells_section
+#               if defined(_XDMF_PATCH)
+                    num_patches_section_buffer = num_patches_section_buffer + num_patches_section
+                    base%root_layout_desc%ranks(1)%sections(section_index)%num_patches = num_patches_section
+                    base%root_layout_desc%ranks(1)%sections(section_index)%offset_patches = offset_patches_current
+                    base%root_layout_desc%ranks(1)%sections(section_index)%offset_patches_buffer = offset_patches_current
+                    offset_patches_current = offset_patches_current + num_patches_section
+#               endif
             end do
             base%root_layout_desc%ranks(1)%num_cells = num_cells_section_buffer
+#           if defined(_XDMF_PATCH)
+                base%root_layout_desc%ranks(1)%num_patches = num_patches_section_buffer
+#           endif
 #       endif
     end subroutine
 

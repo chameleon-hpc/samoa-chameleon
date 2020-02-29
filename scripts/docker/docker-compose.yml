@@ -11,7 +11,7 @@ services:
       - "9000:9000"
 
   samoa_gnu:
-    image: registry.chrz.de:443/docker_samoa_gnu
+    image: registry.chrz.de/chonal/docker_samoa:gnu
     build: 
       context: ../..
       dockerfile: ./scripts/docker/Dockerfile.gnu
@@ -30,7 +30,7 @@ services:
       - seccomp:unconfined
 
   samoa_intel:
-    image: registry.chrz.de:443/docker_samoa_intel
+    image: registry.chrz.de/chonal/docker_samoa:intel
     build: 
       context: ../..
       dockerfile: ./scripts/docker/Dockerfile.intel

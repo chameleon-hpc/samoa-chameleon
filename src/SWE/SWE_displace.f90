@@ -14,6 +14,7 @@
 #       endif
 #       if defined(_SWE_DG)
            use SWE_DG_solver
+           use SWE_DG_Limiter
 #       endif            
 		use Samoa_swe
 

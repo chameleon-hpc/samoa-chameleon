@@ -21,9 +21,16 @@ module XDMF_config
     integer, parameter                      :: xdmf_filter_params_width = 16
     character(len = 1), parameter           :: xdmf_filter_params_delim = " "
 
+    ! Output mode flags
+    integer, parameter                      :: xdmf_output_mode_none = 0
+    integer, parameter                      :: xdmf_output_mode_cells = 1
+    integer, parameter                      :: xdmf_output_mode_patches = 2
+    integer, parameter                      :: xdmf_output_mode_all = 3
+
     ! This structure contains all XDMF-releated configuration variables
     type t_config_xdmf
         logical 				            :: l_xdmfoutput			                            !< xdmf output on/off
+        integer                             :: i_xdmfoutput_mode                                !< xdmf output mode flags
         character(256) 				        :: s_xdmfinput_file			                        !< xdmf input file
         integer                             :: i_xdmfcpint                                      !< write checkpoint data every n steps
         integer                             :: i_xdmfspf                                        !< amount of steps per file
@@ -48,7 +55,7 @@ module XDMF_config
     ! It reads the metadata of the last step found in the XDMF file
     subroutine xdmf_load_config(config, result)
         type(t_config_xdmf), intent(inout)  :: config
-        integer, intent(out)                :: result
+        integer, intent(inout)              :: result
 
         character (1024)                    :: fox_attribute_text
         integer                             :: i, j, k
@@ -218,6 +225,8 @@ module XDMF_config
         if (config%i_xdmffilter_index .ne. 0) then
             _log_write(0, '(" XDMF: output filter index: ", I0, ", ", I0, " parameters: ", A)'), &
                 config%i_xdmffilter_index, config%i_xmdffilter_params_count, trim(params_string)
+        else if(iand(config%i_xdmfoutput_mode, xdmf_output_mode_all) .eq. xdmf_output_mode_all) then
+            _log_write(0, '(" XDMF: output filter used only for hybrid layering")')
         else
             _log_write(0, '(" XDMF: output filter disabled")')
         end if

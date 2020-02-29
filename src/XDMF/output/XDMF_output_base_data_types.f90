@@ -43,13 +43,17 @@ module XDMF_output_base_data_types
     type, extends(t_xdmf_base_output_filter_traversal) :: t_xdmf_base_output_traversal
         integer (XDMF_GRID_SI)	                :: num_cells = 0
         integer (XDMF_GRID_SI)	                :: grid_scale
-        integer (XDMF_GRID_SI)	                :: sect_store_index = 1
+        integer (XDMF_GRID_SI)	                :: sect_store_index_cells = 1
+#       if defined(_XDMF_PATCH)
+            integer (XDMF_GRID_SI)	            :: num_patches = 0
+            integer (XDMF_GRID_SI)	            :: sect_store_index_patches = 1
+#       endif
         character(len = 256)					:: s_file_stamp, s_file_stamp_base
         integer                                 :: xdmf_remove_lines = 0
 
         type(t_xdmf_layout_descriptor)          :: root_layout_desc
         type(t_xdmf_file_descriptor)            :: root_desc
-        type(t_xdmf_section_buffer_ptr)         :: sect_store
+        type(t_xdmf_section_buffer_ptr)         :: sect_store_cells, sect_store_patches
     end type
 
     ! This pointer data structure is needed to pass the section arrays to the core XDMF library
@@ -69,24 +73,18 @@ module XDMF_output_base_data_types
         integer, intent(in)                     :: sect_cells        
         type(t_xdmf_parameter), intent(in)      :: param
 
-        integer(XDMF_GRID_SI)                   :: sect_cells_actual
         integer                                 :: error
 
-#       if defined (_XDMF_PATCH)
-            sect_cells_actual = sect_cells * _XDMF_PATCH_ORDER_SQUARE
-#       else
-            sect_cells_actual = sect_cells
-#       endif
 
         allocate(this%tree(sect_cells), stat = error); assert_eq(error, 0)
         this%tree = 0
-        allocate(this%valsi(sect_cells_actual, param%hdf5_valsi_width), stat = error); assert_eq(error, 0)
+        allocate(this%valsi(sect_cells, param%hdf5_valsi_width), stat = error); assert_eq(error, 0)
         this%valsi = 0
-        allocate(this%valsr(param%hdf5_attr_width, sect_cells_actual, param%hdf5_valsr_width), stat = error); assert_eq(error, 0)
+        allocate(this%valsr(param%hdf5_attr_width, sect_cells, param%hdf5_valsr_width), stat = error); assert_eq(error, 0)
         this%valsr = 0
-        allocate(this%valsuv(hdf5_vector_width, param%hdf5_attr_width, sect_cells_actual, param%hdf5_valsuv_width), stat = error); assert_eq(error, 0)
+        allocate(this%valsuv(hdf5_vector_width, param%hdf5_attr_width, sect_cells, param%hdf5_valsuv_width), stat = error); assert_eq(error, 0)
         this%valsuv = 0
-        allocate(this%valsg(param%hdf5_valsg_width, sect_cells_actual * param%hdf5_valst_width), stat = error); assert_eq(error, 0)
+        allocate(this%valsg(param%hdf5_valsg_width, sect_cells * param%hdf5_valst_width), stat = error); assert_eq(error, 0)
         this%valsg = 0
     end subroutine
 

@@ -19,15 +19,22 @@ module XDMF_initialize_dofs_base
 
     contains
 
-    subroutine xdmf_base_pre_traversal_grid_op(base, sections_ptr, grid, param)
-        type(t_xdmf_base_initialize_dofs_traversal), intent(inout)		:: base
+#   if defined (_XDMF_PATCH)    
+        subroutine xdmf_base_pre_traversal_grid_op(base, sections_ptr, grid, param_cells, param_patches)
+#   else
+        subroutine xdmf_base_pre_traversal_grid_op(base, sections_ptr, grid, param_cells)
+#   endif
+        type(t_xdmf_base_initialize_dofs_traversal), intent(inout)	:: base
         type(t_xdmf_base_initialize_dofs_traversal_ptr), dimension(:)   :: sections_ptr
-        type(t_grid), intent(inout)							            :: grid
-        type(t_xdmf_parameter), intent(in)                              :: param
+        type(t_grid), intent(inout)					:: grid
+        type(t_xdmf_parameter), intent(in)                              :: param_cells
+#       if defined (_XDMF_PATCH)
+            type(t_xdmf_parameter), intent(in)                          :: param_patches
+#       endif
 
         integer                                                         :: result, i, hdf5_error
         integer(GRID_SI)                                                :: output_meta_iteration
-        character(len = 256)					                        :: file_name_h5
+        character(len = 256)					        :: file_name_h5
         logical                                                         :: hdf5_step_exists
         integer(HSIZE_T), dimension(hdf5_rank)                          :: hdf5_tree_dims, hdf5_tree_maxdims
 
@@ -47,10 +54,12 @@ module XDMF_initialize_dofs_base
         end if
 
         ! Open datasets
-        call base%root_desc%hdf5_ids%open(param, base%root_desc%hdf5_meta_ids%step_group_id)
-
+        call base%root_desc%hdf5_ids_cells%open(param_cells, base%root_desc%hdf5_meta_ids%step_group_cells_id)
+#       if defined(_XDMF_PATCH)
+            call base%root_desc%hdf5_ids_patches%open(param_patches, base%root_desc%hdf5_meta_ids%step_group_patches_id)
+#       endif
         ! Read tree table size
-        call h5sget_simple_extent_dims_f(base%root_desc%hdf5_ids%tree%dspace_id, hdf5_tree_dims, hdf5_tree_maxdims, hdf5_error)
+        call h5sget_simple_extent_dims_f(base%root_desc%hdf5_ids_cells%tree%dspace_id, hdf5_tree_dims, hdf5_tree_maxdims, hdf5_error)
         base%htbl_size = hdf5_tree_dims(2)
         ! Compute hashtable secondary prime
         call close_prime(base%htbl_size - 1, .false., base%hash2_prime)
@@ -58,8 +67,12 @@ module XDMF_initialize_dofs_base
         ! Scatter computated data across all sections
         do i = 1, size(sections_ptr)
             call base%root_desc%hdf5_meta_ids%scatter_to(sections_ptr(i)%ptr%root_desc%hdf5_meta_ids)
-            call sections_ptr(i)%ptr%root_desc%hdf5_ids%allocate(param)
-            call base%root_desc%hdf5_ids%scatter_to(param, sections_ptr(i)%ptr%root_desc%hdf5_ids)
+            call sections_ptr(i)%ptr%root_desc%hdf5_ids_cells%allocate(param_cells)
+            call base%root_desc%hdf5_ids_cells%scatter_to(param_cells, sections_ptr(i)%ptr%root_desc%hdf5_ids_cells)
+#           if defined(_XDMF_PATCH)
+                call sections_ptr(i)%ptr%root_desc%hdf5_ids_patches%allocate(param_patches)
+                call base%root_desc%hdf5_ids_patches%scatter_to(param_patches, sections_ptr(i)%ptr%root_desc%hdf5_ids_patches)
+#           endif
             sections_ptr(i)%ptr%s_file_stamp = base%s_file_stamp
             sections_ptr(i)%ptr%grid_scale = base%grid_scale
             sections_ptr(i)%ptr%output_iteration = base%output_iteration
@@ -69,23 +82,36 @@ module XDMF_initialize_dofs_base
         end do
     end subroutine
 
-    subroutine xdmf_base_post_traversal_grid_op(base, sections_ptr, grid, param)
-        type(t_xdmf_base_initialize_dofs_traversal), intent(inout)		:: base
+#   if defined (_XDMF_PATCH)   
+        subroutine xdmf_base_post_traversal_grid_op(base, sections_ptr, grid, param_cells, param_patches)
+#   else
+        subroutine xdmf_base_post_traversal_grid_op(base, sections_ptr, grid, param_cells)
+#   endif
+        type(t_xdmf_base_initialize_dofs_traversal), intent(inout)	:: base
         type(t_xdmf_base_initialize_dofs_traversal_ptr), dimension(:)   :: sections_ptr
-        type(t_grid), intent(inout)							            :: grid
-        type(t_xdmf_parameter), intent(in)                              :: param
+        type(t_grid), intent(inout)					:: grid
+        type(t_xdmf_parameter), intent(in)                              :: param_cells
+#       if defined (_XDMF_PATCH)
+            type(t_xdmf_parameter), intent(in)                          :: param_patches
+#       endif
 
         integer                                                         :: i, error
         integer(INT32)                                                  :: refinements_issued_local
 
         ! Close hdf5 ids
-        call base%root_desc%hdf5_ids%close(param)
+        call base%root_desc%hdf5_ids_cells%close(param_cells)
+#       if defined(_XDMF_PATCH)
+            call base%root_desc%hdf5_ids_patches%close(param_patches)
+#       endif
         call base%root_desc%hdf5_meta_ids%close()
 
         ! Collect number of refinements issued
         refinements_issued_local = 0
         do i = 1, size(sections_ptr)
-            call sections_ptr(i)%ptr%root_desc%hdf5_ids%deallocate()
+            call sections_ptr(i)%ptr%root_desc%hdf5_ids_cells%deallocate()
+#       if defined(_XDMF_PATCH)
+            call sections_ptr(i)%ptr%root_desc%hdf5_ids_patches%deallocate()
+#       endif
             refinements_issued_local = refinements_issued_local + sections_ptr(i)%ptr%i_refinements_issued
         end do
 #       if defined(_MPI)

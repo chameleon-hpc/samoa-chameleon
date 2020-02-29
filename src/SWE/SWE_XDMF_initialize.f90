@@ -46,7 +46,7 @@
         subroutine ptr_wrap_sections(traversal, sections_ptr)
             type(t_swe_xdmf_init_dofs_traversal), intent(inout)			:: traversal
             type(t_xdmf_base_initialize_dofs_traversal_ptr), &
-                dimension(:), allocatable, intent(out)                      :: sections_ptr
+                dimension(:), allocatable, intent(inout)                      :: sections_ptr
 
             integer                                                         :: error, i
 
@@ -66,7 +66,11 @@
             
             ! Pass this call the the core API
             call ptr_wrap_sections(traversal, sections_ptr)
-            call xdmf_base_pre_traversal_grid_op(traversal%base, sections_ptr, grid, swe_xdmf_param)
+#           if defined(_SWE_PATCH)
+                call xdmf_base_pre_traversal_grid_op(traversal%base, sections_ptr, grid, swe_xdmf_param_cells, swe_xdmf_param_patches)
+#           else
+                call xdmf_base_pre_traversal_grid_op(traversal%base, sections_ptr, grid, swe_xdmf_param_cells)
+#           endif
             deallocate(sections_ptr, stat = error); assert_eq(error, 0)
         end subroutine
 
@@ -80,7 +84,11 @@
             
             ! Pass this call the the core API
             call ptr_wrap_sections(traversal, sections_ptr)
-            call xdmf_base_post_traversal_grid_op(traversal%base, sections_ptr, grid, swe_xdmf_param)
+#           if defined(_SWE_PATCH)
+                call xdmf_base_post_traversal_grid_op(traversal%base, sections_ptr, grid, swe_xdmf_param_cells, swe_xdmf_param_patches)
+#           else
+                call xdmf_base_post_traversal_grid_op(traversal%base, sections_ptr, grid, swe_xdmf_param_cells)
+#           endif
             deallocate(sections_ptr, stat = error); assert_eq(error, 0)
         end subroutine
 
@@ -100,14 +108,16 @@
             integer															:: hdf5_error, i, point_id
             integer(INT64)                                                  :: element_hash, htbl_key, htbl_try
             integer(HID_T)													:: memspace_id
-            integer (HSIZE_T), dimension(hdf5_rank)                    		:: hdf5_tree_offset, hdf5_tree_dims = (/ 2_HSIZE_T, 1_HSIZE_T /)
+            integer (HSIZE_T), dimension(hdf5_rank)                    		:: hdf5_tree_offset, hdf5_tree_dims
             integer (INT32), dimension(hdf5_tree_width)                     :: hdf5_tree_buffer
 
             type(t_state), dimension(_SWE_CELL_SIZE)            		    :: Q
 
-            real (XDMF_ISO_P), dimension(swe_xdmf_param%hdf5_attr_width, 1)   :: hdf5_bh_buffer, hdf5_b_buffer
+            real (XDMF_ISO_P), dimension(swe_xdmf_param_cells%hdf5_attr_width, 1)   :: hdf5_bh_buffer, hdf5_b_buffer
             integer(INT32), dimension(1) 									:: hdf5_l_buffer
-            real (XDMF_ISO_P), dimension(hdf5_vector_width, swe_xdmf_param%hdf5_attr_width, 1) :: hdf5_f_buffer, hdf5_g_buffer
+            real (XDMF_ISO_P), dimension(hdf5_vector_width, swe_xdmf_param_cells%hdf5_attr_width, 1) :: hdf5_f_buffer, hdf5_g_buffer
+
+            hdf5_tree_dims = (/ 2_HSIZE_T, 1_HSIZE_T /)
 
             ! Assume no refinement per default
             element%cell%geometry%refinement = 0
@@ -127,10 +137,10 @@
                 ! Even if it was (using threadsafe-hdf5), thread-local variables like memspace_id would become inconsistent in the HDF5 state
                 !$omp critical
                 call h5screate_simple_f(hdf5_rank, hdf5_tree_dims, memspace_id, hdf5_error)
-                call h5sselect_hyperslab_f(traversal%base%root_desc%hdf5_ids%tree%dspace_id, H5S_SELECT_SET_F, &
+                call h5sselect_hyperslab_f(traversal%base%root_desc%hdf5_ids_cells%tree%dspace_id, H5S_SELECT_SET_F, &
                     hdf5_tree_offset, hdf5_tree_dims, hdf5_error, hdf5_subset_stride, hdf5_subset_block)
-                call h5dread_f(traversal%base%root_desc%hdf5_ids%tree%dset_id, H5T_NATIVE_INTEGER, hdf5_tree_buffer, hdf5_tree_dims, &
-                    hdf5_error, memspace_id, traversal%base%root_desc%hdf5_ids%tree%dspace_id, &
+                call h5dread_f(traversal%base%root_desc%hdf5_ids_cells%tree%dset_id, H5T_NATIVE_INTEGER, hdf5_tree_buffer, hdf5_tree_dims, &
+                    hdf5_error, memspace_id, traversal%base%root_desc%hdf5_ids_cells%tree%dspace_id, &
                     xfer_prp = traversal%base%root_desc%hdf5_meta_ids%access_dset_id)
                 call h5sclose_f(memspace_id, hdf5_error)
                 !$omp end critical
@@ -162,35 +172,35 @@
                 ! TODO XDMF read values
                 ! Load actual cell values
                 ! !$omp critical
-                ! call hdf5_read_chunk_real(traversal%base%root_desc%hdf5_ids%batch_valsr(swe_hdf5_valsr_b_offset)%dset_id, &
-                !     traversal%base%root_desc%hdf5_ids%batch_valsr(swe_hdf5_valsr_b_offset)%dspace_id, &
-                !     (/ 0_HSIZE_T, int(hdf5_tree_buffer(2), HSIZE_T) /), (/ swe_xdmf_param%hdf5_attr_width, 1_HSIZE_T /), &
+                ! call hdf5_read_chunk_real(traversal%base%root_desc%hdf5_ids_cells%batch_valsr(swe_hdf5_valsr_b_offset)%dset_id, &
+                !     traversal%base%root_desc%hdf5_ids_cells%batch_valsr(swe_hdf5_valsr_b_offset)%dspace_id, &
+                !     (/ 0_HSIZE_T, int(hdf5_tree_buffer(2), HSIZE_T) /), (/ swe_xdmf_param_cells%hdf5_attr_width, 1_HSIZE_T /), &
                 !     hdf5_rank, hdf5_subset_stride, hdf5_subset_block, &
                 !     hdf5_b_buffer, traversal%base%root_desc%hdf5_meta_ids%access_dset_id)
-                ! call hdf5_read_chunk_real(traversal%base%root_desc%hdf5_ids%batch_valsr(swe_hdf5_valsr_bh_offset)%dset_id, &
-                !     traversal%base%root_desc%hdf5_ids%batch_valsr(swe_hdf5_valsr_bh_offset)%dspace_id, &
-                !     (/ 0_HSIZE_T, int(hdf5_tree_buffer(2), HSIZE_T) /), (/ swe_xdmf_param%hdf5_attr_width, 1_HSIZE_T /), &
+                ! call hdf5_read_chunk_real(traversal%base%root_desc%hdf5_ids_cells%batch_valsr(swe_hdf5_valsr_bh_offset)%dset_id, &
+                !     traversal%base%root_desc%hdf5_ids_cells%batch_valsr(swe_hdf5_valsr_bh_offset)%dspace_id, &
+                !     (/ 0_HSIZE_T, int(hdf5_tree_buffer(2), HSIZE_T) /), (/ swe_xdmf_param_cells%hdf5_attr_width, 1_HSIZE_T /), &
                 !     hdf5_rank, hdf5_subset_stride, hdf5_subset_block, &
                 !     hdf5_bh_buffer, traversal%base%root_desc%hdf5_meta_ids%access_dset_id)
-                ! call hdf5_read_chunk_real(traversal%base%root_desc%hdf5_ids%batch_valsuv(swe_hdf5_valsuv_f_offset)%dset_id, &
-                !     traversal%base%root_desc%hdf5_ids%batch_valsuv(swe_hdf5_valsuv_f_offset)%dspace_id, &
+                ! call hdf5_read_chunk_real(traversal%base%root_desc%hdf5_ids_cells%batch_valsuv(swe_hdf5_valsuv_f_offset)%dset_id, &
+                !     traversal%base%root_desc%hdf5_ids_cells%batch_valsuv(swe_hdf5_valsuv_f_offset)%dspace_id, &
                 !     (/ 0_HSIZE_T, 0_HSIZE_T, int(hdf5_tree_buffer(2), HSIZE_T) /), (/ hdf5_vector_width, &
-                !     swe_xdmf_param%hdf5_attr_width, 1_HSIZE_T /), hdf5_rank_v, hdf5_subset_stride_v, hdf5_subset_block_v, &
+                !     swe_xdmf_param_cells%hdf5_attr_width, 1_HSIZE_T /), hdf5_rank_v, hdf5_subset_stride_v, hdf5_subset_block_v, &
                 !     hdf5_f_buffer, traversal%base%root_desc%hdf5_meta_ids%access_dset_id)
-                ! call hdf5_read_chunk_real(traversal%base%root_desc%hdf5_ids%batch_valsuv(swe_hdf5_valsuv_g_offset)%dset_id, &
-                !     traversal%base%root_desc%hdf5_ids%batch_valsuv(swe_hdf5_valsuv_g_offset)%dspace_id, &
+                ! call hdf5_read_chunk_real(traversal%base%root_desc%hdf5_ids_cells%batch_valsuv(swe_hdf5_valsuv_g_offset)%dset_id, &
+                !     traversal%base%root_desc%hdf5_ids_cells%batch_valsuv(swe_hdf5_valsuv_g_offset)%dspace_id, &
                 !     (/ 0_HSIZE_T, 0_HSIZE_T, int(hdf5_tree_buffer(2), HSIZE_T) /), (/ hdf5_vector_width, &
-                !     swe_xdmf_param%hdf5_attr_width, 1_HSIZE_T /), hdf5_rank_v, hdf5_subset_stride_v, hdf5_subset_block_v, &
+                !     swe_xdmf_param_cells%hdf5_attr_width, 1_HSIZE_T /), hdf5_rank_v, hdf5_subset_stride_v, hdf5_subset_block_v, &
                 !     hdf5_g_buffer, traversal%base%root_desc%hdf5_meta_ids%access_dset_id)
-                ! call hdf5_read_chunk_int(traversal%base%root_desc%hdf5_ids%batch_valsi(swe_hdf5_valsi_plotter_offset)%dset_id, &
-                !     traversal%base%root_desc%hdf5_ids%batch_valsi(swe_hdf5_valsi_plotter_offset)%dspace_id, &
+                ! call hdf5_read_chunk_int(traversal%base%root_desc%hdf5_ids_cells%batch_valsi(swe_hdf5_valsi_plotter_offset)%dset_id, &
+                !     traversal%base%root_desc%hdf5_ids_cells%batch_valsi(swe_hdf5_valsi_plotter_offset)%dspace_id, &
                 !     (/ 0_HSIZE_T, int(hdf5_tree_buffer(2), HSIZE_T) /), (/ 1_HSIZE_T, 1_HSIZE_T /), &
                 !     hdf5_rank, hdf5_subset_stride, hdf5_subset_block, &
                 !     hdf5_l_buffer, traversal%base%root_desc%hdf5_meta_ids%access_dset_id)
                 ! !$omp end critical
 
                 !Write data into samoa data model
-                do i = 1, swe_xdmf_param%hdf5_attr_width
+                do i = 1, swe_xdmf_param_cells%hdf5_attr_width
                     ! if (hdf5_l_buffer(1) .le. 0) then
                     !     point_id = i
                     !     if (i .eq. 1) then

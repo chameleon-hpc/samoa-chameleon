@@ -22,6 +22,7 @@ module XDMF_config
     character(len = 1), parameter           :: xdmf_filter_params_delim = " "
 
     ! Output mode flags
+    integer, parameter                      :: xdmf_output_mode_none = 0
     integer, parameter                      :: xdmf_output_mode_cells = 1
     integer, parameter                      :: xdmf_output_mode_patches = 2
     integer, parameter                      :: xdmf_output_mode_all = 3
@@ -54,7 +55,7 @@ module XDMF_config
     ! It reads the metadata of the last step found in the XDMF file
     subroutine xdmf_load_config(config, result)
         type(t_config_xdmf), intent(inout)  :: config
-        integer, intent(out)                :: result
+        integer, intent(inout)              :: result
 
         character (1024)                    :: fox_attribute_text
         integer                             :: i, j, k

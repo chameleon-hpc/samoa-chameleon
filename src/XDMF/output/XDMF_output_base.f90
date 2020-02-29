@@ -518,9 +518,8 @@ module XDMF_output_base
                         if (count_patches) then
                             num_cells = num_cells + grid%sections%elements(i)%xdmf_filter_count_patches
                         else
-#                   else
-                            num_cells = num_cells + grid%sections%elements(i)%xdmf_filter_count_cells
 #                   endif
+                            num_cells = num_cells + grid%sections%elements(i)%xdmf_filter_count_cells
 #                   if defined(_XDMF_PATCH)
                         end if
 #                   endif

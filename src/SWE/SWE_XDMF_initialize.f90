@@ -46,7 +46,7 @@
         subroutine ptr_wrap_sections(traversal, sections_ptr)
             type(t_swe_xdmf_init_dofs_traversal), intent(inout)			:: traversal
             type(t_xdmf_base_initialize_dofs_traversal_ptr), &
-                dimension(:), allocatable, intent(out)                      :: sections_ptr
+                dimension(:), allocatable, intent(inout)                      :: sections_ptr
 
             integer                                                         :: error, i
 
@@ -108,7 +108,7 @@
             integer															:: hdf5_error, i, point_id
             integer(INT64)                                                  :: element_hash, htbl_key, htbl_try
             integer(HID_T)													:: memspace_id
-            integer (HSIZE_T), dimension(hdf5_rank)                    		:: hdf5_tree_offset, hdf5_tree_dims = (/ 2_HSIZE_T, 1_HSIZE_T /)
+            integer (HSIZE_T), dimension(hdf5_rank)                    		:: hdf5_tree_offset, hdf5_tree_dims
             integer (INT32), dimension(hdf5_tree_width)                     :: hdf5_tree_buffer
 
             type(t_state), dimension(_SWE_CELL_SIZE)            		    :: Q
@@ -116,6 +116,8 @@
             real (XDMF_ISO_P), dimension(swe_xdmf_param_cells%hdf5_attr_width, 1)   :: hdf5_bh_buffer, hdf5_b_buffer
             integer(INT32), dimension(1) 									:: hdf5_l_buffer
             real (XDMF_ISO_P), dimension(hdf5_vector_width, swe_xdmf_param_cells%hdf5_attr_width, 1) :: hdf5_f_buffer, hdf5_g_buffer
+
+            hdf5_tree_dims = (/ 2_HSIZE_T, 1_HSIZE_T /)
 
             ! Assume no refinement per default
             element%cell%geometry%refinement = 0

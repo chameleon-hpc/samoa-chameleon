@@ -48,7 +48,7 @@
         subroutine ptr_wrap_sections(traversal, sections_ptr)
             type(t_swe_xdmf_output_traversal), intent(inout)				:: traversal
             type(t_xdmf_base_output_traversal_ptr), &
-                dimension(:), allocatable, intent(out)                      :: sections_ptr
+                dimension(:), allocatable, intent(inout)                      :: sections_ptr
 
             integer                                                         :: error, i
 
@@ -134,10 +134,13 @@
 #           if defined (_SWE_PATCH)
                 integer(GRID_SI)                                            :: j, patch_cell_id, patch_cell_offs, row, col
 #           endif
-            logical                                                         :: write_cp, filter_result_cells = .true.
+            logical                                                         :: write_cp, filter_result_cells
 #           if defined(_SWE_PATCH)
-                logical                                                     :: filter_result_patches = .true.
+                logical                                                     :: filter_result_patches
 #           endif
+
+            filter_result_cells = .true.
+            filter_result_patches = .true.
 
             ! Compute whether to output tree (checkpoint) data
             if(cfg%xdmf%i_xdmfcpint.eq.0) then
@@ -149,19 +152,25 @@
             ! Evaluate filter if this step is not a checkpoint
             if ((.not. write_cp) .and. ((cfg%xdmf%i_xdmffilter_index .ne. 0) .or. &
                 (iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_all) .eq. xdmf_output_mode_all))) then
+                filter_result_cells = .false.
                 if (iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells) then
-                    call SWE_xdmf_filter(element, cfg%xdmf%i_xdmffilter_index, cfg%xdmf%i_xmdffilter_params_count, &
-                        cfg%xdmf%r_xdmffilter_params_vector, .true., filter_result_cells)
+                    filter_result_cells = SWE_xdmf_filter(element, cfg%xdmf%i_xdmffilter_index, cfg%xdmf%i_xmdffilter_params_count, &
+                        cfg%xdmf%r_xdmffilter_params_vector, .true.)
                 end if
 #               if defined(_SWE_PATCH)
+                    filter_result_patches = .false.
                     if (iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .eq. xdmf_output_mode_patches) then
-                        call SWE_xdmf_filter(element, cfg%xdmf%i_xdmffilter_index, cfg%xdmf%i_xmdffilter_params_count, &
-                            cfg%xdmf%r_xdmffilter_params_vector, .false., filter_result_patches)
+                        filter_result_patches = SWE_xdmf_filter(element, cfg%xdmf%i_xdmffilter_index, cfg%xdmf%i_xmdffilter_params_count, &
+                            cfg%xdmf%r_xdmffilter_params_vector, .false.)
                     end if
 #               endif
             end if
 
-            if (write_cp .or. filter_result_cells .or. filter_result_patches) then
+#           if defined (_SWE_PATCH)
+                if (write_cp .or. filter_result_cells .or. filter_result_patches) then
+#           else
+                if (write_cp .or. filter_result_cells) then
+#           endif
                 ! Get thread buffer offset
                 offset_cells_buffer = traversal%base%root_layout_desc%ranks(rank_MPI + 1)%sections(section%index)%offset_cells_buffer
 #               if defined (_SWE_PATCH)
@@ -172,31 +181,30 @@
 #               endif
 
                 ! Check buffer overflows
-                if((((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells) .and. filter_result_cells) .or. write_cp) .and. &
-                    ((traversal%base%sect_store_index_cells + offset_tree_buffer .gt. size(traversal%base%sect_store_cells%ptr%tree)) .or. &
-                    (traversal%base%sect_store_index_cells + offset_cells_buffer .gt. size(traversal%base%sect_store_cells%ptr%valsi, 1)))) then
-                        _log_write(1, '(A, I0, A, I0, A, I0, A, I0, A)') " XDMF: Warning: Writing ", &
-                            traversal%base%sect_store_index_cells + offset_cells_buffer, &
-                            " cells (tree: ", traversal%base%sect_store_index_cells + offset_tree_buffer, "), into buffer of size ", &
-                            size(traversal%base%sect_store_cells%ptr%valsi, 1), ", (tree: ", size(traversal%base%sect_store_cells%ptr%tree), "). Skipping."
-                else if((((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .eq. xdmf_output_mode_patches) .and. filter_result_patches) .or. write_cp) .and. &
-                    ((traversal%base%sect_store_index_patches + offset_patches_buffer .gt. size(traversal%base%sect_store_patches%ptr%valsi, 1)))) then
-                        _log_write(1, '(A, I0, A, I0, A)') " XDMF: Warning: Writing ", &
-                            traversal%base%sect_store_index_patches + offset_patches_buffer, &
-                            " patches, into buffer of size ", &
-                            size(traversal%base%sect_store_patches%ptr%valsi, 1), ". Skipping."
-                else
-                    ! Compute the cells offset in the topology tree
-                    call xdmf_hash_element(element, int(traversal%base%grid_scale, INT64), element_hash)
-
-                    ! Write the existence of this cell to the tree data buffer for this section
-                    if (element_hash .gt. (2_INT64**31 - 1)) then
-                        _log_write(1, *) " XDMF: Error: Cell hash does not fit into 32 bit signed integer.", &
-                            "This is not yet implemented. This cell will be corrupt. Reduce level of detail / depth."
-                        assert(.false.)
-                        element_hash = 0
-                    end if
-                    if ((filter_result_cells .and. (iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells)) .or. write_cp) then
+                ! if((((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells) .and. filter_result_cells) .or. write_cp) .and. &
+                !     ((traversal%base%sect_store_index_cells + offset_tree_buffer .gt. size(traversal%base%sect_store_cells%ptr%tree)) .or. &
+                !     (traversal%base%sect_store_index_cells + offset_cells_buffer .gt. size(traversal%base%sect_store_cells%ptr%valsi, 1)))) then
+                !         _log_write(1, '(A, I0, A, I0, A, I0, A, I0, A)') " XDMF: Warning: Writing ", &
+                !             traversal%base%sect_store_index_cells + offset_cells_buffer, &
+                !             " cells (tree: ", traversal%base%sect_store_index_cells + offset_tree_buffer, "), into buffer of size ", &
+                !             size(traversal%base%sect_store_cells%ptr%valsi, 1), ", (tree: ", size(traversal%base%sect_store_cells%ptr%tree), "). Skipping."
+                ! else if((((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .eq. xdmf_output_mode_patches) .and. filter_result_patches) .or. write_cp) .and. &
+                !     ((traversal%base%sect_store_index_patches + offset_patches_buffer .gt. size(traversal%base%sect_store_patches%ptr%valsi, 1)))) then
+                !         _log_write(1, '(A, I0, A, I0, A)') " XDMF: Warning: Writing ", &
+                !             traversal%base%sect_store_index_patches + offset_patches_buffer, &
+                !             " patches, into buffer of size ", &
+                !             size(traversal%base%sect_store_patches%ptr%valsi, 1), ". Skipping."
+                ! else
+                    if (write_cp) then
+                        ! Compute the cells offset in the topology tree
+                        call xdmf_hash_element(element, int(traversal%base%grid_scale, INT64), element_hash)
+                        ! Write the existence of this cell to the tree data buffer for this section
+                        if (element_hash .gt. (2_INT64**31 - 1)) then
+                            _log_write(1, *) " XDMF: Error: Cell hash does not fit into 32 bit signed integer.", &
+                                "This is not yet implemented. This cell will be corrupt. Reduce level of detail / depth."
+                            assert(.false.)
+                            element_hash = 0
+                        end if
                         traversal%base%sect_store_cells%ptr%tree(traversal%base%sect_store_index_cells + offset_tree_buffer) = int(element_hash, INT32)
                     end if
 #                   if defined (_SWE_PATCH)
@@ -313,7 +321,7 @@
                             traversal%base%sect_store_index_patches = traversal%base%sect_store_index_patches + 1
                         end if
 #                   else
-                        if ((filter_result_cells .or. (iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells)) .or. write_cp) then
+                        if ((filter_result_cells .and. (iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells)) .or. write_cp) then
                             cell_offs = traversal%base%sect_store_index_cells + offset_cells_buffer
                             ! Store cell values, see SWE implementation for details
                             traversal%base%sect_store_cells%ptr%valsi(cell_offs, :) = (/ &
@@ -349,7 +357,7 @@
                             traversal%base%sect_store_index_cells = traversal%base%sect_store_index_cells + 1
                         end if
 #                   endif
-                end if
+                ! end if
             end if
         end subroutine
 
@@ -359,12 +367,14 @@
             type(t_grid), intent(inout)							            :: grid
     
             character(len = 256)					                        :: file_name_h5, file_name_xmf
-            integer                                                         :: xml_file_id = 42
+            integer                                                         :: xml_file_id
             integer(GRID_SI)                                                :: output_meta_iteration
             character(len = 17)                                             :: xml_time_string
             logical                                                         :: file_xmf_exist
             integer                                                         :: write_cp, i
     
+            xml_file_id = 42
+
             write(file_name_xmf, "(A, A, A)") trim(base%s_file_stamp), "_xdmf.xmf"
     
             inquire(file=trim(file_name_xmf)//char(0), exist=file_xmf_exist)

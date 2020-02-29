@@ -92,6 +92,7 @@ module XDMF_data_types
 
         procedure, pass                     :: allocate => xdmf_file_descriptor_collection_allocate
         procedure, pass                     :: deallocate => xdmf_file_descriptor_collection_deallocate
+        procedure, pass                     :: print => xdmf_file_descriptor_collection_print
     end type
 
     ! This structure describes the layout of all sections in a HDF5 file
@@ -104,6 +105,7 @@ module XDMF_data_types
         procedure, pass                     :: allocate => xdmf_layout_descriptor_allocate
         procedure, pass                     :: deallocate => xdmf_layout_descriptor_deallocate
         procedure, pass                     :: scatter_to => xdmf_layout_descriptor_scatter_to
+        procedure, pass                     :: print => xdmf_layout_descriptor_print
     end type
 
     contains
@@ -147,6 +149,22 @@ module XDMF_data_types
         integer                              :: error
 
         deallocate(this%sections, stat = error); assert_eq(error, 0)
+    end subroutine
+
+    subroutine xdmf_file_descriptor_collection_print(this)
+        class(t_xdmf_section_descriptor_collection), &
+            intent(inout)                    :: this
+
+        integer                              :: n, error
+
+        write(*,'(A, I0, A, I0, A, I0, A, I0)') "   num_cells: ", this%num_cells, ", offset_cells: ", this%offset_cells, &
+            ", num_patches: ", this%num_patches, ", offset_patches: ", this%offset_patches
+        do n = 1, size(this%sections)
+            write(*,'(A, I0, A, I0, A, I0, A, I0, A, I0, A, I0, A, I0)') "     Section: ", n, ", num_cells: ", this%sections(n)%num_cells, &
+                ", offset_cells: ", this%sections(n)%offset_cells, ", offset_cells_buffer: ", this%sections(n)%offset_cells_buffer, &
+                ", num_patches: ", this%sections(n)%num_patches, ", offset_patches: ", this%sections(n)%offset_patches, &
+                ", offset_patches_buffer: ", this%sections(n)%offset_patches_buffer
+        end do
     end subroutine
 
     subroutine xdmf_layout_descriptor_scatter_to(this, child)
@@ -199,6 +217,18 @@ module XDMF_data_types
             call this%ranks(n)%deallocate()
         end do
         deallocate(this%ranks, stat = error); assert_eq(error, 0)
+    end subroutine
+
+    subroutine xdmf_layout_descriptor_print(this)
+        class(t_xdmf_layout_descriptor), &
+            intent(inout)                   :: this
+
+        integer                             :: n, error
+
+        do n = 1, size(this%ranks)
+            write(*,'(A, I0)') "Rank: ", n - 1
+            call this%ranks(n)%print()
+        end do
     end subroutine
 
 end module

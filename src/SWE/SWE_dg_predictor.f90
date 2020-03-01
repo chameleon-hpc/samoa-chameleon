@@ -18,7 +18,7 @@ MODULE SWE_dg_predictor
 contains
 
     subroutine dg_predictor(element,dt)
-    class(t_element_base), intent(in)          :: element
+    class(t_element_base), intent(inout)       :: element
     real(kind=GRID_SR) ,intent(in)             :: dt
     real(kind=GRID_SR)                         :: dx
     real(kind=GRID_SR)                         :: q_0(_SWE_DG_DOFS,3)

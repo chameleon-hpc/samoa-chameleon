@@ -112,19 +112,19 @@
 
 #if defined(_SWE_DG)
                 if( element%cell%data_pers%troubled .le. 0 .or. element%cell%data_pers%troubled .ge. 6) then
-                   db_dg = -element%cell%data_pers%Q_DG%B + get_bathymetry_at_dg_patch(section, element, section%r_time)
+                   db_dg = -element%cell%data_pers%Q%B + get_bathymetry_at_dg_patch(section, element, section%r_time)
 
-                   if(isWetDryInterface(element%cell%data_pers%Q_DG%H + db_dg))then
+                   if(isWetDryInterface(element%cell%data_pers%Q%H + db_dg))then
                       element%cell%data_pers%troubled = WET_DRY_INTERFACE
                       ! print*,db_dg
-                      ! print*,element%cell%data_pers%Q_DG%H
-                      ! print*,element%cell%data_pers%Q_DG%p(1)
-                      ! print*,element%cell%data_pers%Q_DG%p(2)
-                      ! print*,element%cell%data_pers%Q_DG%B
+                      ! print*,element%cell%data_pers%Q%H
+                      ! print*,element%cell%data_pers%Q%p(1)
+                      ! print*,element%cell%data_pers%Q%p(2)
+                      ! print*,element%cell%data_pers%Q%B
                       
-                      call apply_phi(element%cell%data_pers%Q_DG%H+element%cell%data_pers%Q_DG%B+db_dg,element%cell%data_pers%H)
-                      call apply_phi(element%cell%data_pers%Q_DG%p(1),element%cell%data_pers%HU)
-                      call apply_phi(element%cell%data_pers%Q_DG%p(2),element%cell%data_pers%HV)
+                      call apply_phi(element%cell%data_pers%Q%H+element%cell%data_pers%Q%B+db_dg,element%cell%data_pers%H)
+                      call apply_phi(element%cell%data_pers%Q%p(1),element%cell%data_pers%HU)
+                      call apply_phi(element%cell%data_pers%Q%p(2),element%cell%data_pers%HV)
                       element%cell%data_pers%B=get_bathymetry_at_patch(section, element, section%r_time)
                       ! print*
                       ! print*,element%cell%data_pers%H
@@ -134,8 +134,8 @@
 
 
                    else
-                      element%cell%data_pers%Q_DG%H = element%cell%data_pers%Q_DG%H + db_dg
-                      element%cell%data_pers%Q_DG%B = element%cell%data_pers%Q_DG%B + db_dg
+                      element%cell%data_pers%Q%H = element%cell%data_pers%Q%H + db_dg
+                      element%cell%data_pers%Q%B = element%cell%data_pers%Q%B + db_dg
                    end if
 
                 else

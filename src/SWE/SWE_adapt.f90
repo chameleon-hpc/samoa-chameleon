@@ -242,10 +242,10 @@
 #if defined (_SWE_DG)
           ! print*,"src"
           ! print*,src_element%cell%data_pers%troubled
-          ! print*,src_element%cell%data_pers%Q_DG%h
-          ! print*,src_element%cell%data_pers%Q_DG%p(1)
-          ! print*,src_element%cell%data_pers%Q_DG%p(2)
-          ! print*,src_element%cell%data_pers%Q_DG%b          
+          ! print*,src_element%cell%data_pers%Q%h
+          ! print*,src_element%cell%data_pers%Q%p(1)
+          ! print*,src_element%cell%data_pers%Q%p(2)
+          ! print*,src_element%cell%data_pers%Q%b          
           
           i_plotter_type = src_element%cell%geometry%i_plotter_type
           dest_element%cell%data_pers%troubled=src_element%cell%data_pers%troubled
@@ -405,10 +405,10 @@
           !          dest_element%cell%data_pers%troubled=src_element%cell%data_pers%troubled
           ! print*,"dest"
           ! print*,dest_element%cell%data_pers%troubled
-          ! print*,dest_element%cell%data_pers%Q_DG%h
-          ! print*,dest_element%cell%data_pers%Q_DG%p(1)
-          ! print*,dest_element%cell%data_pers%Q_DG%p(2)
-          ! print*,dest_element%cell%data_pers%Q_DG%b          
+          ! print*,dest_element%cell%data_pers%Q%h
+          ! print*,dest_element%cell%data_pers%Q%p(1)
+          ! print*,dest_element%cell%data_pers%Q%p(2)
+          ! print*,dest_element%cell%data_pers%Q%b          
 
 
 
@@ -489,9 +489,9 @@
 
                 if(.not.first)then
 
-                   ! call lusolve(s_m_lu, _SWE_DG_DOFS, s_m_lu_pivot,dest_element%cell%data_pers%Q_DG%H)
-                   ! call lusolve(s_m_lu, _SWE_DG_DOFS, s_m_lu_pivot,dest_element%cell%data_pers%Q_DG%p(1))
-                   ! call lusolve(s_m_lu, _SWE_DG_DOFS, s_m_lu_pivot,dest_element%cell%data_pers%Q_DG%p(2))
+                   ! call lusolve(s_m_lu, _SWE_DG_DOFS, s_m_lu_pivot,dest_element%cell%data_pers%Q%H)
+                   ! call lusolve(s_m_lu, _SWE_DG_DOFS, s_m_lu_pivot,dest_element%cell%data_pers%Q%p(1))
+                   ! call lusolve(s_m_lu, _SWE_DG_DOFS, s_m_lu_pivot,dest_element%cell%data_pers%Q%p(2))
 
                    dest_element%cell%data_pers%Q%H=matmul(s_m_inv,dest_element%cell%data_pers%Q%H)
                    dest_element%cell%data_pers%Q%p(1)=matmul(s_m_inv,dest_element%cell%data_pers%Q%p(1))

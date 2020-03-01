@@ -18,7 +18,7 @@ MODULE SWE_dg_predictor
 contains
 
     subroutine dg_predictor(element,dt)
-    class(t_element_base), intent(in)          :: element
+    class(t_element_base), intent(inout)       :: element
     real(kind=GRID_SR) ,intent(in)             :: dt
     real(kind=GRID_SR)                         :: dx
     real(kind=GRID_SR)                         :: q_0(_SWE_DG_DOFS,3)
@@ -240,7 +240,7 @@ contains
          do i = 1,_SWE_DG_ORDER+1
             select case(edge_type)
             case(-3 ,1) !right
-               indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i+1)*(_SWE_DG_ORDER-i+2)/2 +1
+               indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i+1)*(_SWE_DG_ORDER-i+2)/2
             case(-2, 2) !mid
                indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i)*(_SWE_DG_ORDER-i+1)/2
             case(-1 ,3) !left

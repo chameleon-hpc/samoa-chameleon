@@ -22,7 +22,7 @@ vars.AddVariables(
   PathVariable( 'config', 'build configuration file', None, PathVariable.PathIsFile),
 )
 
-env = Environment(variables=vars,tools=['f90','default'])
+env = Environment(variables=vars)
 
 #Set config variables from config file if it exists
 
@@ -103,7 +103,7 @@ vars.AddVariables(
               ),
 
   EnumVariable( 'mpi', 'MPI support', 'default',
-                allowed_values=('nompi', 'default', 'intel', 'mpich2', 'openmpi', 'ibm')
+                allowed_values=('nompi', 'default', 'intel', 'mpich', 'mpich2', 'openmpi', 'ibm')
               ),
 
   BoolVariable( 'standard', 'check for Fortran 2008 standard compatibility', False),
@@ -158,7 +158,8 @@ vars.Add('layers', 'number of vertical layers (0: 2D, >0: 3D)', 0)
 vars.Add('exe', 'name of the executable. Per default, some compilation options will be added as suffixes.', 'samoa')
 
 # set environment
-env = Environment(ENV = os.environ, variables=vars)
+env = Environment(variables=vars)
+env['ENV'] = os.environ
 
 # handle unknown, maybe misspelled variables
 unknownVariables = vars.UnknownVariables()
@@ -166,7 +167,7 @@ unknownVariables = vars.UnknownVariables()
 # exit in case of unknown variables
 if unknownVariables:
   print("****************************************************")
-  print("Error: unknown variable(s):", unknownVariables.keys())
+  print("Error: unknown variable(s):", list(unknownVariables.keys()))
   print("****************************************************")
   Exit(1)
 
@@ -182,7 +183,6 @@ if env['compiler'] == 'intel':
   fc = 'ifort'
   env['F90FLAGS'] = ' -implicitnone -nologo -fpp -allow nofpp-comments -align array64byte'
   env['LINKFLAGS'] += ' -Bdynamic -shared-libgcc -shared-intel'
-  env.Append(Tools = "ifort")
 elif  env['compiler'] == 'gnu':
   fc = 'gfortran'
   env['F90FLAGS'] = '-fimplicit-none -cpp -ffree-line-length-none'

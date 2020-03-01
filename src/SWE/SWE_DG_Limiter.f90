@@ -183,7 +183,7 @@ contains
        call getObservables(Q(i),observables)
        do j = 1,_DMP_NUM_OBSERVABLES
           troubled = troubled .or. observables(i) > maxNeighbour(i)+delta(i) &
-                              .or. observables(i) < minNeighbour(1)-delta(1)
+                              .or. observables(i) < minNeighbour(i)-delta(i)
        end do
     end do
   end function checkDMP

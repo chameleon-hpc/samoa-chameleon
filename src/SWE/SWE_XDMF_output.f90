@@ -212,10 +212,10 @@
                             ! Apply attribute size correction
 #                           if defined(_SWE_DG)    
                                 if (isDG(element%cell%data_pers%troubled)) then
-                                    call apply_phi(element%cell%data_pers%Q_DG%H + element%cell%data_pers%Q_DG%b, element%cell%data_pers%H)
-                                    call apply_phi(element%cell%data_pers%Q_DG%p(1), element%cell%data_pers%HU)
-                                    call apply_phi(element%cell%data_pers%Q_DG%p(2), element%cell%data_pers%HV)
-                                    call apply_phi(element%cell%data_pers%Q_DG%b, element%cell%data_pers%B)
+                                    call apply_phi(element%cell%data_pers%Q%H + element%cell%data_pers%Q%b, element%cell%data_pers%H)
+                                    call apply_phi(element%cell%data_pers%Q%p(1), element%cell%data_pers%HU)
+                                    call apply_phi(element%cell%data_pers%Q%p(2), element%cell%data_pers%HV)
+                                    call apply_phi(element%cell%data_pers%Q%b, element%cell%data_pers%B)
                                 end if
 #                           endif
                             ! Depending on the iteration direction (sign. plotter type), the order of the cells inside
@@ -295,14 +295,14 @@
 #                           if defined(_SWE_DG)
                                 ! Store point data in traversal buffer
                                 traversal%base%sect_store_patches%ptr%valsr(:, patch_offs, swe_hdf5_valsr_b_offset) = &
-                                    real(element%cell%data_pers%Q_DG%b, XDMF_ISO_P)
+                                    real(element%cell%data_pers%Q%b, XDMF_ISO_P)
                                 traversal%base%sect_store_patches%ptr%valsr(:, patch_offs, swe_hdf5_valsr_h_offset) = &
-                                    real(element%cell%data_pers%Q_DG%H, XDMF_ISO_P)
+                                    real(element%cell%data_pers%Q%H, XDMF_ISO_P)
                                 traversal%base%sect_store_patches%ptr%valsr(:, patch_offs, swe_hdf5_valsr_bh_offset) = &
-                                    real(element%cell%data_pers%Q_DG%H + element%cell%data_pers%Q_DG%b, XDMF_ISO_P)
+                                    real(element%cell%data_pers%Q%H + element%cell%data_pers%Q%b, XDMF_ISO_P)
                                 do i = 1, _SWE_DG_DOFS
                                     traversal%base%sect_store_patches%ptr%valsuv(:, i, patch_offs, swe_hdf5_valsuv_f_offset) = &
-                                        real(element%cell%data_pers%Q_DG(i)%p(:), XDMF_ISO_P)
+                                        real(element%cell%data_pers%Q(i)%p(:), XDMF_ISO_P)
                                 end do
 #                           endif
 

@@ -240,7 +240,7 @@ contains
          do i = 1,_SWE_DG_ORDER+1
             select case(edge_type)
             case(-3 ,1) !right
-               indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i+1)*(_SWE_DG_ORDER-i+2)/2
+               indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i+2)*(_SWE_DG_ORDER-i+3)/2 +1
             case(-2, 2) !mid
                indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i)*(_SWE_DG_ORDER-i+1)/2
             case(-1 ,3) !left

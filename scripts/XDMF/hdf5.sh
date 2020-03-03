@@ -2,7 +2,7 @@
 
 HDF5_URL=${HDF5_URL:="$GIT_PROTOCOL://bitbucket.hdfgroup.org/scm/hdffv/hdf5.git"}
 
-FLAGS="--prefix=$3 --enable-fortran --enable-unsupported --enable-threadsafe --enable-optimization=high --enable-trace --enable-build-mode=production --disable-tests --disable-tools --enable-hl"
+FLAGS="--prefix=$3 --enable-fortran --enable-optimization=high --enable-trace --enable-build-mode=production --disable-tests --disable-tools --enable-hl"
 if [ "$1" = "mpi" ]; then
     FLAGS="$FLAGS --enable-parallel"
 fi

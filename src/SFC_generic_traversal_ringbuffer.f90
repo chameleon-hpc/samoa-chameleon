@@ -328,9 +328,9 @@ subroutine traverse(traversal, grid)
 
     select type (traversal)
         type is (_GT)
-            !$omp single
+            !$omp master
             call pre_traversal_grid(traversal, grid)
-            !$omp end single nowait
+            !$omp end master
         class default
             assert(.false.)
     end select
@@ -603,9 +603,9 @@ subroutine traverse(traversal, grid)
 
     select type (traversal)
         type is (_GT)
-            !$omp single
+            !$omp master
             call post_traversal_grid(traversal, grid)
-            !$omp end single
+            !$omp end master
         class default
             assert(.false.)
     end select

@@ -144,9 +144,9 @@
             type(t_element_base), intent(in) :: element
             logical                             :: SWE_xdmf_filter_hybrid_selector
 
-            ! result = element%cell%data_pers%troubled .ne. TROUBLED
-            SWE_xdmf_filter_hybrid_selector = SWE_xdmf_filter_probes(element, 1.0, 1, &
-                reshape((/ 0.0, 2.0 /), (/ 2, xdmf_filter_max_probes /), (/ 0.0 /)))
+            SWE_xdmf_filter_hybrid_selector = element%cell%data_pers%troubled .eq. COAST
+            ! SWE_xdmf_filter_hybrid_selector = SWE_xdmf_filter_probes(element, 1.0, 1, &
+            !     reshape((/ 0.0, 2.0 /), (/ 2, xdmf_filter_max_probes /), (/ 0.0 /)))
         end function
 
         ! Rectangular selection filter

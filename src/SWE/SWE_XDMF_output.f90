@@ -124,7 +124,10 @@
             type(t_element_base), intent(inout)					            :: element
 
             real(XDMF_ISO_P), dimension(2, 3)			                    :: position
-            integer(GRID_SI)	                                            :: i, offset_cells_buffer, offset_tree_buffer, point_id
+            integer(GRID_SI)	                                            :: i, offset_cells_buffer, offset_tree_buffer
+#           if defined(_SWE_DG)
+                integer(GRID_SI)	                                        :: point_id
+#           endif
 #           if defined(_SWE_PATCH)
                 integer(GRID_SI)	                                        :: offset_patches_buffer, patch_offs
 #           endif
@@ -293,16 +296,44 @@
                                 /)
                                 
 #                           if defined(_SWE_DG)
-                                ! Store point data in traversal buffer
-                                traversal%base%sect_store_patches%ptr%valsr(:, patch_offs, swe_hdf5_valsr_b_offset) = &
-                                    real(element%cell%data_pers%Q%b, XDMF_ISO_P)
-                                traversal%base%sect_store_patches%ptr%valsr(:, patch_offs, swe_hdf5_valsr_h_offset) = &
-                                    real(element%cell%data_pers%Q%H, XDMF_ISO_P)
-                                traversal%base%sect_store_patches%ptr%valsr(:, patch_offs, swe_hdf5_valsr_bh_offset) = &
-                                    real(element%cell%data_pers%Q%H + element%cell%data_pers%Q%b, XDMF_ISO_P)
                                 do i = 1, _SWE_DG_DOFS
+                                    ! Pick corners (linear interpolation of dg cell) and flip if needed
+                                    if (element%cell%geometry%i_plotter_type .le. 0) then
+                                        point_id = i
+                                        if (i .eq. 1) then
+                                            point_id = _SWE_DG_DOFS
+                                        else if (i .eq. 2) then
+                                            point_id = 1
+                                        else if (i .eq. 3) then
+                                            point_id = _SWE_DG_ORDER+1
+                                        else if (i .eq. _SWE_DG_ORDER+1) then
+                                            point_id = 3
+                                        else if (i .eq. _SWE_DG_DOFS) then
+                                            point_id = 2
+                                        end if
+                                    else
+                                        point_id = i
+                                        if (i .eq. 1) then
+                                            point_id = _SWE_DG_ORDER+1
+                                        else if (i .eq. 2) then
+                                            point_id = 1
+                                        else if (i .eq. 3) then
+                                            point_id = _SWE_DG_DOFS
+                                        else if (i .eq. _SWE_DG_ORDER+1) then
+                                            point_id = 2
+                                        else if (i .eq. _SWE_DG_DOFS) then
+                                            point_id = 3
+                                        end if
+                                    end if
+                                    ! Store point data in traversal buffer
+                                    traversal%base%sect_store_patches%ptr%valsr(i, patch_offs, swe_hdf5_valsr_b_offset) = &
+                                        real(element%cell%data_pers%Q(point_id)%b, XDMF_ISO_P)
+                                    traversal%base%sect_store_patches%ptr%valsr(i, patch_offs, swe_hdf5_valsr_h_offset) = &
+                                        real(element%cell%data_pers%Q(point_id)%H, XDMF_ISO_P)
+                                    traversal%base%sect_store_patches%ptr%valsr(i, patch_offs, swe_hdf5_valsr_bh_offset) = &
+                                        real(element%cell%data_pers%Q(point_id)%H + element%cell%data_pers%Q(point_id)%b, XDMF_ISO_P)
                                     traversal%base%sect_store_patches%ptr%valsuv(:, i, patch_offs, swe_hdf5_valsuv_f_offset) = &
-                                        real(element%cell%data_pers%Q(i)%p(:), XDMF_ISO_P)
+                                        real(element%cell%data_pers%Q(point_id)%p(:), XDMF_ISO_P)
                                 end do
 #                           endif
 

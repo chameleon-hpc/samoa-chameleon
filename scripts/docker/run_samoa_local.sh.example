@@ -5,10 +5,10 @@ export OMP_NUM_THREADS=4
 
 #export HDF5_DEBUG=trace
 
-OUTP=output/output_longwave_basin_tout2P-dw10e-8
+OUTP=output/linear_dam_break
 
-STEPS="-dmin 15 -dmax 15 -tmax 3600 -tout 3546.0d0"
-DOMCFG="-drytolerance 0.00000001d0 -courant 0.2d0"
+STEPS="-dmin 5 -dmax 10 -tmax 40 -tout 1.0d0"
+DOMCFG="-drytolerance 0.00001d0 -courant 0.3d0"
 
 tasks=2
 
@@ -16,7 +16,7 @@ rm -rf $OUTP
 mkdir -p $OUTP
 #rsync -ah --progress output/output_${i_max}_cp/ output/output_$i_max/
 
-BINARY="bin/samoa_swe_xdmf"
+BINARY="bin/samoa_swe_intel_linear_dam_break"
 #PARAMS_FILTER="-xdmffilterindex 1 -xdmffilterparams -4000;4000;-50;50"
 #PARAMS="$STEPS -output_dir $OUTP -xdmfoutput $DOMCFG $PARAMS_FILTER"
 #PARAMS_CHECKPOINT="-xdmfinput output/output_${i_max}/swe_20190718_134601.089_xdmf.xmf"

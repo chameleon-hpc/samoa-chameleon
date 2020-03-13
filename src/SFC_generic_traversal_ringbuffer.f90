@@ -482,7 +482,7 @@ subroutine traverse(traversal, grid)
 #       if defined(_OPENMP_TASKS)
         !$omp task default(shared) firstprivate(i_section) mergeable
 #       endif
-        call traversal%sections(i_section)%stats%start_time(inner_compute_time)
+        !call traversal%sections(i_section)%stats%start_time(inner_compute_time)
         call traverse_section_wrapper_chameleon(traversal%sections(i_section),\
                                               section_metadata(i_section),\
                                               grid%sections%elements_alloc(i_section)%t_global_data,\
@@ -497,7 +497,7 @@ subroutine traverse(traversal, grid)
                                               c_loc(grid%sections%elements_alloc(i_section)%boundary_edges(GREEN)%get_c_pointer()),\
                                               c_loc(grid%sections%elements_alloc(i_section)%boundary_nodes(RED)%get_c_pointer()),\
                                               c_loc(grid%sections%elements_alloc(i_section)%boundary_nodes(GREEN)%get_c_pointer()))
-        call traversal%sections(i_section)%stats%stop_time(inner_compute_time)
+        !call traversal%sections(i_section)%stats%stop_time(inner_compute_time)
 #       if defined(_OPENMP_TASKS)
         !$omp end task
 #       endif
@@ -505,9 +505,9 @@ subroutine traverse(traversal, grid)
     end do
 
 #if defined _GT_USE_CHAMELEON_CALL
-    call thread_stats%start_time(inner_compute_time)
+    !call thread_stats%start_time(inner_compute_time)
     i_error = chameleon_distributed_taskwait(0)
-    call thread_stats%stop_time(inner_compute_time)
+    !call thread_stats%stop_time(inner_compute_time)
 #else
 #   if defined(_OPENMP_TASKS)
         !$omp taskwait
@@ -694,6 +694,8 @@ subroutine traverse_section_wrapper_chameleon( section_traversal,&
     !thread_local = thread
     section_local%t_global_data = global_data
 
+    call section_traversal_local%stats%start_time(inner_compute_time)
+    
     call c_f_pointer(cells, cells_ptr, [section_metadata%size_cells])
     if(forward) then  
       section_local%cells%elements => cells_ptr
@@ -780,6 +782,8 @@ subroutine traverse_section_wrapper_chameleon( section_traversal,&
 
     call thread_local%destroy()
 
+    call section_traversal_local%stats%stop_time(inner_compute_time)
+   
     section_traversal = section_traversal_local
     global_data = section_local%t_global_data
 

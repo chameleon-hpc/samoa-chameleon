@@ -29,7 +29,7 @@ MODULE SWE_DG_solver
    use SWE_HLLE
 #endif
 #if defined(_BOUNDARY_FUNC)
-   use FLASH_Scenario
+   use SWE_Scenario
 #endif
 #if defined(_BOUNDARY_FILE)
    use Tools_boundary_file
@@ -370,49 +370,69 @@ update%maxObservables = rep%maxObservables
 
 if(isDG(rep%troubled)) then
    update_bnd = update
+   rep_bnd%Q(:)%h = rep%Q(:)%h
+   rep_bnd%Q(:)%b = rep%Q(:)%b
 
-#if defined(_BOUNDARY)
-   if(get_edge_boundary_align(normal)) then
-      do i=1, _SWE_DG_DOFS
-         call get_edge_boundary_Q(grid%r_time, rep_bnd%Q(i))
-      end do
-   else
-#endif
-      rep_bnd%Q(:)%h = rep%Q(:)%h
-      rep_bnd%Q(:)%b = rep%Q(:)%b
-
-      do i=1,(_SWE_DG_ORDER+1)
-         length_flux = dot_product(rep%Q(i)%p, normal)
-         rep_bnd%Q(i)%p(1) = rep%Q(i)%p(1)-2.0_GRID_SR*length_flux*normal(1)
-         rep_bnd%Q(i)%p(2) = rep%Q(i)%p(2)-2.0_GRID_SR*length_flux*normal(2)
-      end do
-      normal = abs(normal)
-      do i=1+(_SWE_DG_ORDER+1)  ,2*(_SWE_DG_ORDER+1)
-         rep_bnd%Q(i)%h    = rep%Q(i)%h    - 2.0_GRID_SR * rep%Q(i-(_SWE_DG_ORDER+1))%p(1) * normal(1)
-         rep_bnd%Q(i)%p(1) = rep%Q(i)%p(1) - 2.0_GRID_SR * rep%Q(i)%p(1) * normal(2)
-         rep_bnd%Q(i)%p(2) = rep%Q(i)%p(2) - 2.0_GRID_SR * rep%Q(i)%p(2) * normal(1)
-      end do
-
-      do i=1+(_SWE_DG_ORDER+1)*2,3*(_SWE_DG_ORDER+1)
-         rep_bnd%Q(i)%h    = rep%Q(i)%h    - 2.0_GRID_SR * rep%Q(i-(_SWE_DG_ORDER+1)*2)%p(2) * normal(2)
-         rep_bnd%Q(i)%p(1) = rep%Q(i)%p(1) - 2.0_GRID_SR * rep%Q(i)%p(1) * normal(2)
-         rep_bnd%Q(i)%p(2) = rep%Q(i)%p(2) - 2.0_GRID_SR * rep%Q(i)%p(2) * normal(1)
-      end do
-#if defined(_BOUNDARY)
-   end if
-#endif
-
+#  if defined(_BOUNDARY)
+      if(get_edge_boundary_align(normal)) then
+         ! Time-dependent condition, generate virtual wave from data or function
+         do i=1, _SWE_DG_DOFS
+            call get_edge_boundary_Q(grid%r_time, rep_bnd%Q(i)%h, &
+               rep_bnd%Q(i)%p(1), rep_bnd%Q(i)%p(2), rep_bnd%Q(i)%b)
+         end do
+      else
+#  endif
+         if(cfg%i_boundary_cond .eq. 1) then
+            ! Reflecting condition todo
+         else
+            ! Outflow condition, generate reflected wave to cancel out incoming wave
+            do i=1,(_SWE_DG_ORDER+1)
+               length_flux = dot_product(rep%Q(i)%p, normal)
+               rep_bnd%Q(i)%p(1) = rep%Q(i)%p(1)-2.0_GRID_SR*length_flux*normal(1)
+               rep_bnd%Q(i)%p(2) = rep%Q(i)%p(2)-2.0_GRID_SR*length_flux*normal(2)
+            end do
+            normal = abs(normal)
+            do i=1+(_SWE_DG_ORDER+1)  ,2*(_SWE_DG_ORDER+1)
+               rep_bnd%Q(i)%h    = rep%Q(i)%h    - 2.0_GRID_SR * rep%Q(i-(_SWE_DG_ORDER+1))%p(1) * normal(1)
+               rep_bnd%Q(i)%p(1) = rep%Q(i)%p(1) - 2.0_GRID_SR * rep%Q(i)%p(1) * normal(2)
+               rep_bnd%Q(i)%p(2) = rep%Q(i)%p(2) - 2.0_GRID_SR * rep%Q(i)%p(2) * normal(1)
+            end do
+            do i=1+(_SWE_DG_ORDER+1)*2,3*(_SWE_DG_ORDER+1)
+               rep_bnd%Q(i)%h    = rep%Q(i)%h    - 2.0_GRID_SR * rep%Q(i-(_SWE_DG_ORDER+1)*2)%p(2) * normal(2)
+               rep_bnd%Q(i)%p(1) = rep%Q(i)%p(1) - 2.0_GRID_SR * rep%Q(i)%p(1) * normal(2)
+               rep_bnd%Q(i)%p(2) = rep%Q(i)%p(2) - 2.0_GRID_SR * rep%Q(i)%p(2) * normal(1)
+            end do
+         end if
+#  if defined(_BOUNDARY)
+      end if
+#  endif
    call general_dg_riemannsolver(edge,rep,rep_bnd,update,update_bnd)  
 else if(isFV(rep%troubled)) then
-   ! TODO reflecting and time-dep boundary for FV
+#  if defined(_BOUNDARY)
+      if(get_edge_boundary_align(normal)) then
+         ! Time-dependent condition, generate virtual wave from data or function
+         do i=1, _SWE_PATCH_ORDER
+            update%H(i) = rep%H(i)
+            update%B(i) = rep%B(i)
+            call get_edge_boundary_Q(grid%r_time, update%H(i), &
+               update%HU(i), update%HV(i), update%B(i))
+         end do
+      else
+#  endif
+         if(cfg%i_boundary_cond .eq. 1) then
+            ! Reflecting condition todo
+         else
+            ! Outflow condition, generate reflected wave to cancel out incoming wave
+            update%H=rep%H
+            update%HU=rep%HU
+            update%HV=rep%HV
+            update%B=rep%B
+         end if
+#  if defined(_BOUNDARY)
+      end if
+#  endif
 end if
 
-update%H=rep%H
-update%HU=rep%HU
-update%HV=rep%HV
-update%B=rep%B
-
-normal=(edge%transform_data%normal)/NORM2(edge%transform_data%normal)
 end subroutine bnd_skeleton_scalar_op_dg
 
 #if defined(_BOUNDARY)
@@ -432,31 +452,36 @@ end subroutine bnd_skeleton_scalar_op_dg
       end select
    end function get_edge_boundary_align
 
-   subroutine get_edge_boundary_Q(t, Q)
+   subroutine get_edge_boundary_Q(t, H, HU, HV, B)
       real(GRID_SR), intent(in)                 :: t
-      type(t_state), intent(inout)              :: Q
+      real(GRID_SR), intent(inout)              :: H, HU, HV, B
 
       real(GRID_SR)                             :: velocity, h_init
 
 #     if defined(_BOUNDARY_FUNC)
-         Q%h = max(0.0_GRID_SR, SWE_Scenario_get_boundary_height(Q%b, t))
-         h_init = max(0.0_GRID_SR, SWE_Scenario_get_boundary_height(Q%b, 0.0_GRID_SR))
+         H = max(0.0_GRID_SR, SWE_Scenario_get_boundary_height(B, t))
+         h_init = max(0.0_GRID_SR, SWE_Scenario_get_boundary_height(B, 0.0_GRID_SR))
 #     elif defined(_BOUNDARY_FILE)
-         Q%h = max(0.0_GRID_SR, boundary_file_get(t) - Q%b)
-         h_init = max(0.0_GRID_SR, boundary_file_get(0.0_GRID_SR) - Q%b)
+         H = max(0.0_GRID_SR, boundary_file_get(t) - B)
+         h_init = max(0.0_GRID_SR, boundary_file_get(0.0_GRID_SR) - B)
 #     endif
-      velocity = 2.0_GRID_SR * (sqrt(9.80665_GRID_SR * Q%h) - sqrt(9.80665_GRID_SR * h_init))
+      velocity = 2.0_GRID_SR * (sqrt(9.80665_GRID_SR * H) - sqrt(9.80665_GRID_SR * h_init))
       select case(cfg%i_boundary_side)
          case(0)
-            Q%p = [0.0_GRID_SR, -velocity]
+            HU = 0.0_GRID_SR
+            HV = -velocity
          case(1)
-            Q%p = [-velocity, 0.0_GRID_SR]
+            HU = -velocity
+            HV = 0.0_GRID_SR
          case(2)
-            Q%p = [0.0_GRID_SR, velocity]
+            HU = 0.0_GRID_SR
+            HV = velocity
          case(3)
-            Q%p = [velocity, 0.0_GRID_SR]
+            HU = velocity
+            HV = 0.0_GRID_SR
       end select
-      Q%p = Q%p * Q%h
+      HU = HU * H
+      HV = HV * H
    end subroutine
 #endif
 

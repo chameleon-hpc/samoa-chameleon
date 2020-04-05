@@ -230,6 +230,9 @@ END MODULE SWE_Scenario_resting_lake
 MODULE SWE_Scenario_radial_dam_break
     use Samoa_swe
     public SWE_Scenario_get_scaling, SWE_Scenario_get_offset, SWE_Scenario_get_bathymetry, SWE_Scenario_get_initial_Q
+#   if defined(_BOUNDARY_FUNC)
+        public SWE_Scenario_get_boundary_height
+#   endif
     contains
 
     function SWE_Scenario_get_scaling() result(scaling)
@@ -262,11 +265,21 @@ MODULE SWE_Scenario_radial_dam_break
         Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
         
         if (x(1)*x(1) + x(2)*x(2) < 4.5_GRID_SR) then
-            Q%h = 10.0_GRID_SR
+            Q%h = 20.0_GRID_SR
         else 
             Q%h = 0.0_GRID_SR
         end if
     end function
+
+#   if defined(_BOUNDARY_FUNC)
+        function SWE_Scenario_get_boundary_height(b, t) result(height)
+            real (kind = GRID_SR), intent(in)   :: b
+            real (kind = GRID_SR), intent(in)   :: t
+            real (kind = GRID_SR)               :: height
+
+            height = (sin(t * 10.0_GRID_SR) + 1.0_GRID_SR) * 7.0_GRID_SR
+        end function
+#   endif
 
 END MODULE SWE_Scenario_radial_dam_break
 #endif

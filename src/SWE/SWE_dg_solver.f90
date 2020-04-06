@@ -372,7 +372,6 @@ if(isDG(rep%troubled)) then
    update_bnd = update
    rep_bnd%Q(:)%h = rep%Q(:)%h
    rep_bnd%Q(:)%b = rep%Q(:)%b
-
 #  if defined(_BOUNDARY)
       if(get_edge_boundary_align(normal)) then
          ! Time-dependent condition, generate virtual wave from data or function
@@ -382,27 +381,23 @@ if(isDG(rep%troubled)) then
          end do
       else
 #  endif
-         if(cfg%i_boundary_cond .eq. 1) then
-            ! Reflecting condition todo
-         else
-            ! Outflow condition, generate reflected wave to cancel out incoming wave
-            do i=1,(_SWE_DG_ORDER+1)
-               length_flux = dot_product(rep%Q(i)%p, normal)
-               rep_bnd%Q(i)%p(1) = rep%Q(i)%p(1)-2.0_GRID_SR*length_flux*normal(1)
-               rep_bnd%Q(i)%p(2) = rep%Q(i)%p(2)-2.0_GRID_SR*length_flux*normal(2)
-            end do
-            normal = abs(normal)
-            do i=1+(_SWE_DG_ORDER+1)  ,2*(_SWE_DG_ORDER+1)
-               rep_bnd%Q(i)%h    = rep%Q(i)%h    - 2.0_GRID_SR * rep%Q(i-(_SWE_DG_ORDER+1))%p(1) * normal(1)
-               rep_bnd%Q(i)%p(1) = rep%Q(i)%p(1) - 2.0_GRID_SR * rep%Q(i)%p(1) * normal(2)
-               rep_bnd%Q(i)%p(2) = rep%Q(i)%p(2) - 2.0_GRID_SR * rep%Q(i)%p(2) * normal(1)
-            end do
-            do i=1+(_SWE_DG_ORDER+1)*2,3*(_SWE_DG_ORDER+1)
-               rep_bnd%Q(i)%h    = rep%Q(i)%h    - 2.0_GRID_SR * rep%Q(i-(_SWE_DG_ORDER+1)*2)%p(2) * normal(2)
-               rep_bnd%Q(i)%p(1) = rep%Q(i)%p(1) - 2.0_GRID_SR * rep%Q(i)%p(1) * normal(2)
-               rep_bnd%Q(i)%p(2) = rep%Q(i)%p(2) - 2.0_GRID_SR * rep%Q(i)%p(2) * normal(1)
-            end do
-         end if
+         ! Generate mirrored wave to reflect out incoming wave
+         do i=1,(_SWE_DG_ORDER+1)
+            length_flux = dot_product(rep%Q(i)%p, normal)
+            rep_bnd%Q(i)%p(1) = rep%Q(i)%p(1)-2.0_GRID_SR*length_flux*normal(1)
+            rep_bnd%Q(i)%p(2) = rep%Q(i)%p(2)-2.0_GRID_SR*length_flux*normal(2)
+         end do
+         normal = abs(normal)
+         do i=1+(_SWE_DG_ORDER+1)  ,2*(_SWE_DG_ORDER+1)
+            rep_bnd%Q(i)%h    = rep%Q(i)%h    - 2.0_GRID_SR * rep%Q(i-(_SWE_DG_ORDER+1))%p(1) * normal(1)
+            rep_bnd%Q(i)%p(1) = rep%Q(i)%p(1) - 2.0_GRID_SR * rep%Q(i)%p(1) * normal(2)
+            rep_bnd%Q(i)%p(2) = rep%Q(i)%p(2) - 2.0_GRID_SR * rep%Q(i)%p(2) * normal(1)
+         end do
+         do i=1+(_SWE_DG_ORDER+1)*2,3*(_SWE_DG_ORDER+1)
+            rep_bnd%Q(i)%h    = rep%Q(i)%h    - 2.0_GRID_SR * rep%Q(i-(_SWE_DG_ORDER+1)*2)%p(2) * normal(2)
+            rep_bnd%Q(i)%p(1) = rep%Q(i)%p(1) - 2.0_GRID_SR * rep%Q(i)%p(1) * normal(2)
+            rep_bnd%Q(i)%p(2) = rep%Q(i)%p(2) - 2.0_GRID_SR * rep%Q(i)%p(2) * normal(1)
+         end do
 #  if defined(_BOUNDARY)
       end if
 #  endif
@@ -419,15 +414,11 @@ else if(isFV(rep%troubled)) then
          end do
       else
 #  endif
-         if(cfg%i_boundary_cond .eq. 1) then
-            ! Reflecting condition todo
-         else
-            ! Outflow condition, generate reflected wave to cancel out incoming wave
-            update%H=rep%H
-            update%HU=rep%HU
-            update%HV=rep%HV
-            update%B=rep%B
-         end if
+         ! Generate mirrored wave to reflect out incoming wave
+         update%H=rep%H
+         update%HU=rep%HU
+         update%HV=rep%HV
+         update%B=rep%B
 #  if defined(_BOUNDARY)
       end if
 #  endif

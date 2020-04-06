@@ -23,7 +23,7 @@ services:
       - ../../bin/docker/gnu:/app/samoa/bin/:rw
       - ../../output:/app/samoa/output/:rw
       - ./run_samoa_local.sh:/app/samoa/run_samoa_local.sh:ro
-      - ../../scripts/FlashAnalysis/verfication/data:/app/samoa/scripts/FlashAnalysis/verfication/data:ro
+      - ../../scripts/FlashAnalysis/verification/data:/app/samoa/scripts/FlashAnalysis/verification/data:ro
     cap_add:
       - SYS_PTRACE
     security_opt:
@@ -42,4 +42,4 @@ services:
       - ../../bin/docker/intel:/app/samoa/bin/:rw
       - ../../output:/app/samoa/output/:rw
       - ./run_samoa_local.sh:/app/samoa/run_samoa_local.sh:ro
-      - ../../scripts/FlashAnalysis/verfication/data:/app/samoa/scripts/FlashAnalysis/verfication/data:ro
+      - ../../scripts/FlashAnalysis/verification/data:/app/samoa/scripts/FlashAnalysis/verification/data:ro

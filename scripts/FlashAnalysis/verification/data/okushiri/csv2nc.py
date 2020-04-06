@@ -9,14 +9,15 @@ def args(argv):
     inputfile = ''
     outputfile = ''
     scale = 1.0
+    sample = 0
     try:
-        opts, args = getopt.getopt(argv, 'hi:o:s:', ['ifile=', 'ofile=', 'scale='])
+        opts, args = getopt.getopt(argv, 'hi:o:s:a', ['ifile=', 'ofile=', 'scale=', 'sample='])
     except getopt.GetoptError:
-        print(sys.argv[0] + ' -i <inputfile> -o <outputfile> -s <scale>')
+        print(sys.argv[0] + ' -i <inputfile> -o <outputfile> -s <scale> -a <sample>')
         sys.exit(2)
     for opt, arg in opts:
         if opt == '-h':
-            print(sys.argv[0] + ' -i <inputfile> -o <outputfile> -s <scale>')
+            print(sys.argv[0] + ' -i <inputfile> -o <outputfile> -s <scale> -a <sample>')
             sys.exit(0)
         elif opt in ('-i', '--ifile'):
             inputfile = arg
@@ -24,7 +25,9 @@ def args(argv):
             outputfile = arg
         elif opt in ('-s', '--scale'):
             scale = float(arg)
-    return (inputfile, outputfile, scale)
+        elif opt in ('-a', '--sample'):
+            sample = int(arg)
+    return (inputfile, outputfile, scale, sample)
 
 def info(dp):
     yext = (dp.index[0], dp.index[-1])
@@ -49,7 +52,7 @@ def doublesample(dp):
     return dfp2
 
 if __name__ == '__main__':
-    inputfile, outputfile, scale = args(sys.argv[1:])
+    inputfile, outputfile, scale, sample = args(sys.argv[1:])
     print("Z Scale: " + str(scale))
 
     # read csv
@@ -59,7 +62,7 @@ if __name__ == '__main__':
     info(dfp)
 
     # interpolate two times
-    for i in range(0, 2):
+    for i in range(0, sample):
         dfp = doublesample(dfp)
         print("Interpolation done "+str(i+1)+" times")
         info(dfp)

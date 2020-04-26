@@ -202,10 +202,10 @@ module config
 #           endif
 
 #           if defined(_ASAGI)
-                write(arguments, '(A, A)') trim(arguments), " -nmax -1 -tmax 172.8d6 -g_x 0.0d0 -g_y 0.0d0 -g_z -9.80665d0 " // &
+                write(arguments, '(A, A)') trim(arguments), " -nmax -1 -tmax 172.8d6 -g_x 0.0d0 -g_y 0.0d0 -g_z -9.80616d0 " // &
                 "-inflow 5000.0d0 -well_radius 5.0d0 -S_wr 0.2 -S_nr 0.2"
 #           else
-                write(arguments, '(A, A)') trim(arguments), " -nmax -1 -tmax 2.0d1 -g_x 9.80665d0 -g_y 0.0d0 -g_z 0.0d0 " // &
+                write(arguments, '(A, A)') trim(arguments), " -nmax -1 -tmax 2.0d1 -g_x 9.80616d0 -g_y 0.0d0 -g_z 0.0d0 " // &
                 "-inflow 0.5434396505 -well_radius 5.0d0  -S_wr 0.0 -S_nr 0.0"
 #           endif
 #    	elif defined(_HEAT_EQ)

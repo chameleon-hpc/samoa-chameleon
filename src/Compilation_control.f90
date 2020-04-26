@@ -61,6 +61,8 @@
 #define _HEAT_EQ_EDGE_SIZE 			(_HEAT_EQ_ORDER - 1)
 #define _HEAT_EQ_NODE_SIZE			1
 
+#define _GRAV_CONSTANT 9.80616_GRID_SR
+
 #define _FLASH_ORDER 				0
 #define _FLASH_CELL_SIZE			((_FLASH_ORDER + 1) * (_FLASH_ORDER + 2)) / 2
 #define _FLASH_EDGE_SIZE 			_FLASH_CELL_SIZE
@@ -198,7 +200,7 @@
 !Physical constants:
 
 !> Standard gravitational field (exact)
-#define _G      9.80665_GRID_SR * _M / (_S ** 2)
+#define _G      _GRAV_CONSTANT * _M / (_S ** 2)
 
 
 !> DG specific

@@ -21,7 +21,7 @@ MODULE SWE_data_types
   integer, PARAMETER :: SI = GRID_SI
   integer, PARAMETER :: DI = GRID_DI
   
-  real (kind = GRID_SR), parameter					:: g = 9.80665_GRID_SR		!< gravitational constant
+  real (kind = GRID_SR), parameter					:: g = _GRAV_CONSTANT		!< gravitational constant
   
   
   !***********************

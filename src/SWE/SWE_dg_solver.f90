@@ -456,7 +456,7 @@ end subroutine bnd_skeleton_scalar_op_dg
          H = max(0.0_GRID_SR, boundary_file_get(t) - B)
          h_init = max(0.0_GRID_SR, boundary_file_get(0.0_GRID_SR) - B)
 #     endif
-      velocity = 2.0_GRID_SR * (sqrt(9.80665_GRID_SR * H) - sqrt(9.80665_GRID_SR * h_init))
+      velocity = 2.0_GRID_SR * (sqrt(_GRAV_CONSTANT * H) - sqrt(_GRAV_CONSTANT * h_init))
       select case(cfg%i_boundary_side)
          case(0)
             HU = 0.0_GRID_SR

@@ -59,12 +59,12 @@ vars.AddVariables(
                                 'radial_dam_break',
                                 'linear_dam_break',
                                 'oscillating_lake',
-                                'resting_lake',
                                 'parabolic_isle',
-                                'linear_beach',
                                 'convergence',
                                 'all_rarefaction',
-                                'smooth_wave')),
+                                'smooth_wave',
+                                'single_wave',
+                                'resting_lake','resting_lake2','linear_beach','longwave_basin','conical_island_a','conical_island_c', 'asagi')),
 
   EnumVariable( 'dg_limiter', '', "unlimited",
                 allowed_values=('all',
@@ -383,13 +383,23 @@ elif env['swe_scenario'] == 'oscillating_lake':
   env['F90FLAGS'] += ' -D_SWE_SCENARIO_OSCILLATING_LAKE'
 elif env['swe_scenario'] == 'resting_lake':
   env['F90FLAGS'] += ' -D_SWE_SCENARIO_RESTING_LAKE'
+elif env['swe_scenario'] == 'resting_lake2':
+  env['F90FLAGS'] += ' -D_SWE_SCENARIO_RESTING_LAKE2'
+elif env['swe_scenario'] == 'linear_beach':
+  env['F90FLAGS'] += ' -D_SWE_SCENARIO_LINEAR_BEACH'
+elif env['swe_scenario'] == 'longwave_basin':
+  env['F90FLAGS'] += ' -D_SWE_SCENARIO_LONGWAVE_BASIN'
+elif env['swe_scenario'] == 'conical_island_a':
+  env['F90FLAGS'] += ' -D_SWE_SCENARIO_CONICAL_ISLAND_A'
+elif env['swe_scenario'] == 'conical_island_c':
+  env['F90FLAGS'] += ' -D_SWE_SCENARIO_CONICAL_ISLAND_C'
 elif env['swe_scenario'] == 'gaussian_curve':
   env['F90FLAGS'] += ' -D_SWE_SCENARIO_GAUSSIAN_CURVE'
 elif env['swe_scenario'] == 'splashing_pool':
   env['F90FLAGS'] += ' -D_SWE_SCENARIO_SPLASHING_POOL'
 elif env['swe_scenario'] == 'parabolic_isle':
   env['F90FLAGS'] += ' -D_SWE_SCENARIO_PARABOLIC_ISLE'
-elif env['swe_scenario'] == 'linear_beach':
+elif env['swe_scenario'] == 'single_wave':
   env['F90FLAGS'] += ' -D_SWE_SCENARIO_SINGLE_WAVE'
 elif env['swe_scenario'] == 'convergence':
   env['F90FLAGS'] += ' -D_SWE_SCENARIO_CONVERGENCE_TEST'
@@ -397,7 +407,8 @@ elif env['swe_scenario'] == 'all_rarefaction':
   env['F90FLAGS'] += ' -D_SWE_SCENARIO_ALL_RAREFACTION'
 elif env['swe_scenario'] == 'smooth_wave':
   env['F90FLAGS'] += ' -D_SWE_SCENARIO_SMOOTH_WAVE'
-  
+elif env['swe_scenario'] == 'asagi':
+  env['F90FLAGS'] += ' -D_SWE_SCENARIO_ASAGI'
   
 
 

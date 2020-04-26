@@ -1,15 +1,6 @@
 version: '3'
 
 services:
-  portainer:
-    image: "portainer/portainer:latest"
-    command: -H unix:///var/run/docker.sock --no-auth
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:rw
-    restart: always
-    ports:
-      - "9000:9000"
-
   samoa_gnu:
     image: registry.chrz.de/chonal/docker_samoa:gnu
     build: 
@@ -24,7 +15,7 @@ services:
       - ../../output:/app/samoa/output:rw
       - ./run_samoa_local.sh:/app/samoa/run_samoa_local.sh:ro
       - ../../scripts/FlashAnalysis/verification/data:/app/samoa/scripts/FlashAnalysis/verification/data:ro
-      - /c:/c:ro
+      - /opt/samoa:/opt/samoa:rw
     cap_add:
       - SYS_PTRACE
     security_opt:
@@ -44,4 +35,4 @@ services:
       - ../../output:/app/samoa/output:rw
       - ./run_samoa_local.sh:/app/samoa/run_samoa_local.sh:ro
       - ../../scripts/FlashAnalysis/verification/data:/app/samoa/scripts/FlashAnalysis/verification/data:ro
-      - /c:/c:ro
+      - /opt/samoa:/opt/samoa:rw

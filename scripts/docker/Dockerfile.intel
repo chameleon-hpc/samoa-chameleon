@@ -34,4 +34,4 @@ RUN /bin/bash -c "source /app/intel/intelrc.sh && ./install_all.sh mpi intel /ap
 
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/app/samoa_xdmf_libs/intel/parallel/lib
 WORKDIR /app/samoa
-CMD /bin/bash -c "source /app/intel/intelrc.sh && scons -j 8 config=my_conf_intel.py"
+CMD /bin/bash -c "source /app/intel/intelrc.sh && scons -j $(nproc) config=my_conf_intel.py"

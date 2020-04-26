@@ -23,4 +23,4 @@ RUN ./install_all.sh mpi gnu /app/samoa_xdmf_libs && \
 
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/app/samoa_xdmf_libs/gnu/parallel/lib
 WORKDIR /app/samoa
-CMD scons -j 8 config=my_conf_gnu.py
+CMD scons -j $(nproc) config=my_conf_gnu.py

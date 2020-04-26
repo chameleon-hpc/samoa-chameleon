@@ -13,12 +13,12 @@ RUN apt-get -y update && apt-get -y upgrade && \
 
 # Intel compiler
 
-COPY scripts/docker/intel_compiler/parallel_studio_xe_2019_update4_cluster_edition_online.tgz /app/intel.tgz
+COPY scripts/docker/intel_compiler/parallel_studio_xe_2019_update4_cluster_edition.tgz /app/intel.tgz
 COPY scripts/docker/intel_compiler/silent.cfg scripts/docker/intel_compiler/license.lic scripts/docker/intel_compiler/intelrc.sh /app/intel/
 WORKDIR /app
 RUN mkdir -p intel && \
     tar -zxvf intel.tgz -C intel
-WORKDIR /app/intel/parallel_studio_xe_2019_update4_cluster_edition_online
+WORKDIR /app/intel/parallel_studio_xe_2019_update4_cluster_edition
 RUN ./install.sh --silent=../silent.cfg && \
     rm -rf /tmp/root && rm -rf /tmp/install*
 

@@ -16,14 +16,15 @@ services:
       context: ../..
       dockerfile: ./scripts/docker/Dockerfile.gnu
     volumes:
-      - ../../src:/app/samoa/src/:rw
+      - ../../src:/app/samoa/src:rw
       - ../../SConstruct:/app/samoa/SConstruct:ro
       - ../../site_scons:/app/samoa/site_scons:ro
       - ./my_conf_gnu.py:/app/samoa/my_conf_gnu.py:ro
-      - ../../bin/docker/gnu:/app/samoa/bin/:rw
-      - ../../output:/app/samoa/output/:rw
+      - ../../bin:/app/samoa/bin:rw
+      - ../../output:/app/samoa/output:rw
       - ./run_samoa_local.sh:/app/samoa/run_samoa_local.sh:ro
       - ../../scripts/FlashAnalysis/verification/data:/app/samoa/scripts/FlashAnalysis/verification/data:ro
+      - /c:/c:ro
     cap_add:
       - SYS_PTRACE
     security_opt:
@@ -39,7 +40,8 @@ services:
       - ../../SConstruct:/app/samoa/SConstruct:ro
       - ../../site_scons:/app/samoa/site_scons:ro
       - ./my_conf_intel.py:/app/samoa/my_conf_intel.py:ro
-      - ../../bin/docker/intel:/app/samoa/bin/:rw
-      - ../../output:/app/samoa/output/:rw
+      - ../../bin:/app/samoa/bin:rw
+      - ../../output:/app/samoa/output:rw
       - ./run_samoa_local.sh:/app/samoa/run_samoa_local.sh:ro
       - ../../scripts/FlashAnalysis/verification/data:/app/samoa/scripts/FlashAnalysis/verification/data:ro
+      - /c:/c:ro

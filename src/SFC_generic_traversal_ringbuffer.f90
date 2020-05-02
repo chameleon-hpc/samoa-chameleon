@@ -47,7 +47,7 @@ PUBLIC _GT
 !Module types:
 
 #ifdef _GT_USE_CHAMELEON
-type   :: t_section_metadata
+type, bind(C)   :: t_section_metadata 
      logical :: forward
      integer(kind=c_int) :: size_cells
      integer(kind=c_int) :: size_crossed_edges_in
@@ -277,8 +277,10 @@ subroutine traverse(traversal, grid)
 	type(t_statistics)                                  :: thread_stats
 
 #ifdef _GT_USE_CHAMELEON
-       type(t_section_metadata), dimension(:), allocatable    :: section_metadata
+       type(t_section_metadata), dimension(:), allocatable,target    :: section_metadata
        type(map_entry), dimension(:,:), allocatable, target :: map_entries
+       
+       !procedure(traverse_section_wrapper_chameleon), pointer:: funPointer => traverse_section_wrapper_chameleon
 
        type(c_ptr) :: anno_ptr, task_c_ptr
        integer :: result_val
@@ -469,7 +471,8 @@ subroutine traverse(traversal, grid)
 
 #if defined _GT_USE_CHAMELEON_CALL
     !    write(*,*)  'Executing Chameleon Tasks'
-        task_c_ptr = chameleon_create_task(traverse_section_wrapper_chameleon, 14, map_entries(:,i_section))
+
+        task_c_ptr = chameleon_create_task(c_funloc(traverse_section_wrapper_chameleon), 14, map_entries(:,i_section))
         i_error = chameleon_add_task_fortran(task_c_ptr)
         ! anno_ptr    = chameleon_create_annotation_container_fortran()
         ! i_error     = chameleon_set_annotation_int_fortran(anno_ptr, grid%sections%elements_alloc(i_section)%cells%get_size())
@@ -653,7 +656,7 @@ subroutine traverse_section_wrapper_chameleon( section_traversal,&
                                                boundary_edges_red,&
                                                boundary_edges_green,&
                                                boundary_nodes_red,&
-                                               boundary_nodes_green) bind(C)
+                                               boundary_nodes_green) bind(C) !required? leads to problems with gnu
     use SFC_data_types
     use Grid_section
     use Cell_stream
@@ -665,7 +668,7 @@ subroutine traverse_section_wrapper_chameleon( section_traversal,&
     use Boundary_node_stream
 
     type(t_section_traversal), intent(inout)        :: section_traversal
-    type(t_section_metadata), intent(inout)         :: section_metadata
+    type(t_section_metadata), intent(inout), target         :: section_metadata
     type(t_global_data), intent(inout)              :: global_data
     type(c_ptr),value,  intent(in)                     :: cells, crossed_edges_in, crossed_edges_out, color_edges_in, color_edges_out, nodes_in, nodes_out, boundary_edges_red, boundary_edges_green, boundary_nodes_red, boundary_nodes_green
 

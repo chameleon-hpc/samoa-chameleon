@@ -139,9 +139,9 @@ unknownVariables = vars.UnknownVariables()
 
 # exit in case of unknown variables
 if unknownVariables:
-  print "****************************************************"
-  print "Error: unknown variable(s):", unknownVariables.keys()
-  print "****************************************************"
+  print ("****************************************************")
+  print ("Error: unknown variable(s):", unknownVariables.keys())
+  print ("****************************************************")
   Exit(1)
 
 #
@@ -202,10 +202,10 @@ elif env['scenario'] == 'swe2l':
   
   # restrictions to swe2l:
   if env['asagi']:
-    print "Error: asagi is still not supported for swe2l scenario."
+    print ("Error: asagi is still not supported for swe2l scenario.")
     Exit(-1)
   if env['flux_solver'] not in ['fwave','aug_riemann']:
-    print "Error: for swe2l scenario, flux_solver must be 'fwave' or 'aug_riemann'."
+    print ("Error: for swe2l scenario, flux_solver must be 'fwave' or 'aug_riemann'.")
     Exit(-1)
     
 elif env['scenario'] == 'generic':
@@ -279,7 +279,7 @@ if env['asagi_timing']:
   env['F90FLAGS'] += ' -D_ASAGI_TIMING'
 
   if not env['asagi']:
-    print "Error: asagi_timing must not be set if asagi is not active"
+    print ("Error: asagi_timing must not be set if asagi is not active")
     Exit(-1)
 
 #Choose a flux solver
@@ -305,7 +305,7 @@ if (int(env['swe_patch_order'])) > 1:
   
 #Vectorization options for SWE patches
 if env['swe_patch_vec'] != 'off' and int(env['swe_patch_order']) <= 1 :
-  print "Error: vectorization is only available when using patches. Set swe_patch_vec=off or swe_patch_order=2 or higher"
+  print ("Error: vectorization is only available when using patches. Set swe_patch_vec=off or swe_patch_order=2 or higher")
   Exit(-1)
 if env['swe_patch_vec'] == 'simd_procedures':
   env['F90FLAGS'] += ' -D_SWE_PATCH_VEC_SIMD'
@@ -347,11 +347,11 @@ elif env['perm_averaging'] == 'harmonic':
   env['F90FLAGS'] += ' -D_PERM_MEAN_HARMONIC'
 
 if env['scenario'] == 'darcy' and not env['flux_solver'] in ['upwind']:
-  print "Error: flux solver must be one of ", ['upwind']
+  print ("Error: flux solver must be one of ", ['upwind'])
   Exit(-1)
 
 if env['scenario'] == 'swe' and env['flux_solver'] in ['upwind']:
-  print "Error: flux solver must be one of ", ['lf', 'lfbath', 'llf', 'llfbath', 'fwave', 'aug_riemann']
+  print ("Error: flux solver must be one of ", ['lf', 'lfbath', 'llf', 'llfbath', 'fwave', 'aug_riemann'])
   Exit(-1)
 
 #Set the number of vertical layers for 2.5D
@@ -419,7 +419,7 @@ if env['compiler'] == 'intel':
     env['LINK'] += ' -xMIC-AVX512'      
     if env['netcdf_dir'] != '.' and env['asagi']:
       env['LINKFLAGS'] += ' -L' + env['netcdf_dir']  + '/lib -lnetcdf'
-      print "Is this even working?"
+      print ("Is this even working?")
   elif env['machine'] == 'SSE4.2':
     env['F90FLAGS'] += ' -xSSE4.2'
   elif env['machine'] == 'AVX':
@@ -432,10 +432,10 @@ elif env['compiler'] == 'gnu':
   elif env['machine'] == 'AVX':
     env['F90FLAGS'] += ' -mavx'
   elif env['machine'] == 'knc':
-      print "Error: machine=knc requires compiler=intel"
+      print ("Error: machine=knc requires compiler=intel")
       Exit(-1)
   elif env['machine'] == 'knl':
-      print "Error: machine=knl requires compiler=intel"
+      print ("Error: machine=knl requires compiler=intel")
       Exit(-1)
 
 #Enable or disable assertions

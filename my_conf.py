@@ -21,4 +21,4 @@ target='release'
 #target='debug'
 data_refinement='sample'
 #debug_level=6
-chameleon=0
+chameleon=1

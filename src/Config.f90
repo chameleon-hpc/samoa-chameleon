@@ -494,6 +494,14 @@ module config
             _log_write(0, '(" Debug Level: ", I0)') _DEBUG_LEVEL
 #		endif
 
+#		if defined(CHAMELEON_CALL)
+            _log_write(0, '(" Chameleon Version: 1")')
+#       else
+#		if defined(CHAMELEON)
+            _log_write(0, '(" Chameleon Version: 2")')
+#		endif
+#		endif
+
 #		if defined(_ASSERT)
             _log_write(0, '(" Assertions: Yes")')
 #		else

@@ -106,7 +106,7 @@
           type(t_element_base), intent(inout)						:: element
           type(num_cell_update), intent(inout)						:: update1, update2, update3
           integer :: i
-        
+          call updateCellStatus(element%cell%data_pers)
           if(isDG(element%cell%data_pers%troubled)) then
              call dg_predictor(element,section%r_dt)
 #if defined (_DEBUG)             
@@ -125,7 +125,8 @@
           type(t_state),Allocatable          ::rep_temp(:)
           integer                            ::i,j
           local_edge%rep%troubled=neighbor_edge%rep%troubled
-          local_edge%rep%Q = neighbor_edge%rep%Q
+          local_edge%rep%QP = neighbor_edge%rep%QP
+          local_edge%rep%FP = neighbor_edge%rep%FP
         end subroutine edge_merge_op_dg
 
 #endif
@@ -209,6 +210,8 @@
              dest_element%edges(i)%ptr%data_pers = src_element%edges(i)%ptr%data_pers
           end do
 
+          dest_element%cell%data_pers%QP = src_element%cell%data_pers%QP
+          dest_element%cell%data_pers%FP = src_element%cell%data_pers%FP
           dest_element%cell%data_pers%Q = src_element%cell%data_pers%Q
           dest_element%cell%data_pers%troubled=src_element%cell%data_pers%troubled
 #endif
@@ -248,9 +251,9 @@
           ! print*,src_element%cell%data_pers%Q%b          
           
           i_plotter_type = src_element%cell%geometry%i_plotter_type
-          dest_element%cell%data_pers%troubled=src_element%cell%data_pers%troubled
+!          dest_element%cell%data_pers%troubled=src_element%cell%data_pers%troubled
           
-          if(dest_element%cell%data_pers%troubled .le. 0) then
+          if(.not.isCoast(src_element%cell%data_pers%troubled)) then
              do i=1, size(refinement_path)
                 ! decide which child is being computed (first = left to hypot, second = right to hypot.)
                 if ( (refinement_path(i) == 1 .and. i_plotter_type>0) .or. (refinement_path(i) == 2 .and. i_plotter_type<0)) then
@@ -271,19 +274,14 @@
                 dest_element%cell%data_pers%Q%H=dest_element%cell%data_pers%Q%H-dest_element%cell%data_pers%Q%B
              end do
              
-             if(isWetDryInterface(dest_element%cell%data_pers%Q%H))then
-                call apply_phi(src_element%cell%data_pers%Q%H,src_element%cell%data_pers%H)
-                call apply_phi(src_element%cell%data_pers%Q%p(1),src_element%cell%data_pers%HU)
-                call apply_phi(src_element%cell%data_pers%Q%p(2),src_element%cell%data_pers%HV)
-                call apply_phi(src_element%cell%data_pers%Q%b,src_element%cell%data_pers%B)
-                src_element%cell%data_pers%H=src_element%cell%data_pers%H+src_element%cell%data_pers%B
-                dest_element%cell%data_pers%troubled=WET_DRY_INTERFACE
-             end if
-          
-             if(dest_element%cell%data_pers%troubled.le.0) then
-                call dg_predictor(dest_element,section%r_dt)
-             end if
           end if
+          
+          call updateCellStatus(dest_element%cell%data_pers)
+          if(isDG(dest_element%cell%data_pers%troubled)) then
+             call dg_predictor(dest_element,section%r_dt)
+          end if
+          
+
 #endif
              
        if(dest_element%cell%data_pers%troubled.ge.1) then

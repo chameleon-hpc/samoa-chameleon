@@ -192,8 +192,8 @@ elif  env['compiler'] == 'gnu':
 fc_env_vars = ''
 if env['mpi'] == 'default':
   fc_env_vars = 'MPICH_F90=' + fc + ' OMPI_FC=' + fc + ' I_MPI_F90=' + fc
-  env['F90'] = 'mpif90'
-  env['LINK'] = 'mpif90'
+  env['F90'] = 'mpiifort'
+  env['LINK'] = 'mpiifort'
 elif env['mpi'] == 'ibm':
   fc_env_vars = 'MPICH_F90=' + fc + ' OMPI_FC=' + fc + ' I_MPI_F90=' + fc
   env['F90'] = 'mpif90'

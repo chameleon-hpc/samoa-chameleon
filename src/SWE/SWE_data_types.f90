@@ -68,28 +68,33 @@ MODULE SWE_data_types
 
 		!> persistent scenario data on an edge
   type num_edge_data_pers
-     real(kind=GRID_SR)   ,DIMENSION(_SWE_DG_ORDER+1,4)   :: QP
-     real(kind=GRID_SR)   ,DIMENSION(2,_SWE_DG_ORDER+1,3) :: FP
-     real (kind = GRID_SR),DIMENSION(_SWE_PATCH_ORDER)    :: H, HU, HV, B
+     integer (kind = BYTE), dimension(0) :: dummy !< no data
+     ! real(kind=GRID_SR)   ,DIMENSION(_SWE_DG_ORDER+1,4)   :: QP
+     ! real(kind=GRID_SR)   ,DIMENSION(2,_SWE_DG_ORDER+1,3) :: FP
+     real(kind = GRID_SR),DIMENSION(_SWE_PATCH_ORDER)    :: H, HU, HV, B
   end type num_edge_data_pers
 
 !> persistent scenario data on a cell
 type num_cell_data_pers
   real (kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER_SQUARE) :: H, HU, HV, B
-  type(t_state)     , DIMENSION(_SWE_DG_DOFS)     :: Q
+  type(t_state)        , DIMENSION(_SWE_DG_DOFS)            :: Q  !DG degrees of freedom
+  real(kind=GRID_SR)   , DIMENSION(3,  _SWE_DG_ORDER+1,4)   :: QP !Predictor projections on edges
+  real(kind=GRID_SR)   , DIMENSION(3,2,_SWE_DG_ORDER+1,3)   :: FP !Predictor projections on edges
 
   integer :: troubled
 #if defined(_DEBUG)
   integer :: debug_flag = 0
 #endif                        
   contains
-                          procedure :: get_dofs_dg => get_dofs_dg
-                          procedure :: set_dofs_dg => set_dofs_dg
+    procedure :: get_dofs_dg => get_dofs_dg
+    procedure :: set_dofs_dg => set_dofs_dg
 end type num_cell_data_pers
 
   !> Cell representation on an edge, this would typically be everything required from a cell to compute the flux function on an edge
   type num_cell_rep
-    type(t_state), DIMENSION((_SWE_DG_ORDER+1)*3)           :: Q
+     !type(t_state), DIMENSION((_SWE_DG_ORDER+1)*3)           :: Q
+    real(kind=GRID_SR), DIMENSION(_SWE_DG_ORDER+1,4)        :: QP
+    real(kind=GRID_SR), DIMENSION(2,_SWE_DG_ORDER+1,3)      :: FP
     real (kind = GRID_SR), dimension (_SWE_PATCH_ORDER)     :: H, HU, HV, B
     real (kind = GRID_SR), dimension (_DMP_NUM_OBSERVABLES) :: minObservables
     real (kind = GRID_SR), dimension (_DMP_NUM_OBSERVABLES) :: maxObservables

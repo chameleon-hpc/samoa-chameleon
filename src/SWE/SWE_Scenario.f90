@@ -1,4 +1,3 @@
-
 ! Artificial scenario selector for the SWE scenario. 
 ! To add a new scenario:
 ! 1) create a new module according to the template below
@@ -213,8 +212,8 @@ MODULE SWE_Scenario_resting_lake
         real (kind = GRID_SR), intent(in) :: x(2)
         real (kind = GRID_SR) :: bathymetry
         
-        bathymetry = max(0.0_GRID_SR, 0.25_GRID_SR - (5.0_GRID_SR * &
-            ( ((x(1) - 0.5_GRID_SR) ** 2) + ((x(2) - 0.5_GRID_SR) ** 2) )))
+        bathymetry = x(1) *4 + 16 * x(2) - 20.0_GRID_SR
+            
     end function
     
     function SWE_Scenario_get_initial_Q(x) result(Q)
@@ -222,7 +221,7 @@ MODULE SWE_Scenario_resting_lake
         type(t_dof_state) :: Q
         
         Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
-        Q%h = max(0.0_GRID_SR, 0.1_GRID_SR - SWE_Scenario_get_bathymetry(x))
+        Q%h = max(0.0_GRID_SR, 0.0_GRID_SR)
     end function
 
 #   if defined(_BOUNDARY_FUNC)
@@ -283,7 +282,9 @@ MODULE SWE_Scenario_resting_lake2
           bathymetry = 0.03_GRID_SR
         else
           bathymetry = 0.0_GRID_SR
-        end if
+       end if
+
+       bathymetry = bathymetry - 0.1_GRID_SR
     end function
     
     function SWE_Scenario_get_initial_Q(x) result(Q)
@@ -291,7 +292,8 @@ MODULE SWE_Scenario_resting_lake2
         type(t_dof_state) :: Q
         
         Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
-        Q%h = max(0.0_GRID_SR, 0.1_GRID_SR - SWE_Scenario_get_bathymetry(x))
+        !        Q%h = max(0.0_GRID_SR, - SWE_Scenario_get_bathymetry(x))
+        Q%h = 0.0_GRID_SR
     end function
 
   END MODULE SWE_Scenario_resting_lake2

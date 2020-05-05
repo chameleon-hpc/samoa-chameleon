@@ -421,7 +421,7 @@ MODULE SWE_Initialize_Dofs
 #endif
 
     call alpha_volume_op_dg(traversal, section, element, Q_DG)
-    element%cell%data_pers%Q%H    = Q_DG(:)%h-Q_DG(:)%b    
+    element%cell%data_pers%Q%H    = Q_DG(:)%h-Q_DG(:)%b
     element%cell%data_pers%Q%p(1) = Q_DG(:)%p(1)
     element%cell%data_pers%Q%p(2) = Q_DG(:)%p(2)
 

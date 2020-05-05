@@ -27,7 +27,7 @@
             use SWE_XDMF_initialize_dofs
             use SWE_XDMF_adapt
 #       endif
-		use SWE_euler_timestep
+!		use SWE_euler_timestep
 #       if defined(_SWE_PATCH)
 			use SWE_PATCH
 #       endif
@@ -64,7 +64,7 @@
                 type(t_swe_xdmf_init_dofs_traversal) :: xdmf_init_dofs
 #           endif
 			
-			type(t_swe_euler_timestep_traversal)    :: euler
+!			type(t_swe_euler_timestep_traversal)    :: euler
 			type(t_swe_adaption_traversal)          :: adaption
 	 
 #			if defined(_SWE_DG)
@@ -146,7 +146,7 @@
                 call swe%xdmf_adaption%create()
                 call swe%xdmf_init_dofs%create()
 #           endif
-			call swe%euler%create()
+!			call swe%euler%create()
 			call swe%adaption%create()
 #			if defined(_SWE_DG)
 				!call swe%dg_predictor%create()
@@ -261,7 +261,7 @@
 					call swe_xdmf_param_patches%deallocate()
 #				endif
 #           endif
-			call swe%euler%destroy()
+!			call swe%euler%destroy()
 			call swe%adaption%destroy()
 
 #			if defined(_SWE_DG)
@@ -545,10 +545,10 @@
 #					endif
 
 #					if defined(_SWE_DG)
-						!print*,"timestep"
+						print*,"DGtimestep"
 						call swe%dg_timestep%traverse(grid)
 #					elif defined(_SWE_PATCH)
-						call swe%euler%traverse(grid)
+!						call swe%euler%traverse(grid)
 #					endif
 					!print*,"displace"
 					!displace time-dependent bathymetry
@@ -661,6 +661,7 @@
 #					endif
 
       !$omp barrier
+      print*,"DGtimestep"
       call swe%dg_timestep%traverse(grid)
 
       grid_info%i_cells = grid%get_cells(MPI_SUM, .true.)
@@ -750,7 +751,7 @@
 #					if defined(_SWE_DG)                    
 						call swe%dg_timestep%reduce_stats(MPI_SUM, .true.)       
 #					else
-						call swe%euler%reduce_stats(MPI_SUM, .true.)
+!						call swe%euler%reduce_stats(MPI_SUM, .true.)
 #					endif                    
 					call swe%adaption%reduce_stats(MPI_SUM, .true.)
 #                   if defined(_XDMF)
@@ -769,7 +770,7 @@
 #						if defined(_SWE_DG)
 							_log_write(0, '(A, T34, A)') " Time steps solver: ", trim(swe%dg_timestep%stats%to_string())
 #						else                        
-							_log_write(0, '(A, T34, A)') " Time steps: ", trim(swe%euler%stats%to_string())
+!							_log_write(0, '(A, T34, A)') " Time steps: ", trim(swe%euler%stats%to_string())
 #						endif                        
 
 #						if defined(_SWE_DG)

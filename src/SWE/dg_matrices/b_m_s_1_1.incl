@@ -1,1 +1,0 @@
-real(kind=GRID_SR), Parameter :: b_m_s_1(_SWE_DG_DOFS,_SWE_DG_DOFS)=reshape((/&

@@ -106,7 +106,7 @@
           type(t_element_base), intent(inout)						:: element
           type(num_cell_update), intent(inout)						:: update1, update2, update3
           integer :: i
-          call updateCellStatus(element%cell%data_pers)
+          !call updateCellStatus(element%cell%data_pers)
           if(isDG(element%cell%data_pers%troubled)) then
              call dg_predictor(element,section%r_dt)
 #if defined (_DEBUG)             

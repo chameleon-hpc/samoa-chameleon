@@ -545,7 +545,6 @@
 #					endif
 
 #					if defined(_SWE_DG)
-						print*,"DGtimestep"
 						call swe%dg_timestep%traverse(grid)
 #					elif defined(_SWE_PATCH)
 !						call swe%euler%traverse(grid)
@@ -661,7 +660,6 @@
 #					endif
 
       !$omp barrier
-      print*,"DGtimestep"
       call swe%dg_timestep%traverse(grid)
 
       grid_info%i_cells = grid%get_cells(MPI_SUM, .true.)

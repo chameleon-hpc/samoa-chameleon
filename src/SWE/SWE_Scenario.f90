@@ -273,7 +273,7 @@ MODULE SWE_Scenario_resting_lake2
         om_4 = norm2(x - (/ 0.5_GRID_SR, 0.5_GRID_SR /)) .lt. 0.45_GRID_SR
 
         if (om_1) then
-          bathymetry = 0.15_GRID_SR
+          bathymetry = 0.12_GRID_SR
         else if (om_2) then
           bathymetry = 0.05_GRID_SR
         else if (om_3 .and. .not. (om_1 .or. om_2)) then

@@ -20,29 +20,21 @@ MODULE SWE_dg_matrices
 ! #else
 ! #define _SWE_DG_BND_INTEGRATION_POINTS _SWE_DG_ORDER+1
 ! #endif
-
 ! #define 
 
-!Conversion matrices
-#include "dg_matrices/phi_SWE_DG_ORDER_TAG.incl"
-#include "dg_matrices/ref1_SWE_DG_ORDER_TAG.incl"
-#include "dg_matrices/ref2_SWE_DG_ORDER_TAG.incl"
-#include "dg_matrices/coarsen_SWE_DG_ORDER_TAG.incl"
-#include "dg_matrices/mue_inv_SWE_DG_ORDER_TAG.incl"
-#include "dg_matrices/nodes_SWE_DG_ORDER_TAG.incl"
-!#include "dg_matrices/mue_lu_SWE_DG_ORDER_TAG.incl"
-!#include "dg_matrices/mue_lu_pivot_SWE_DG_ORDER_TAG.incl"
-
-!New and refactored
+!Time matrices
+#include "dg_matrices/t_m_1_SWE_DG_ORDER_TAG.incl"
+#include "dg_matrices/t_a_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/t_k_t_10_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/t_k_t_11_inv_SWE_DG_ORDER_TAG.incl"
+    	    
+!Space matrices
+#include "dg_matrices/s_m_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/s_m_inv_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/s_k_x_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/s_k_y_SWE_DG_ORDER_TAG.incl"
-#include "dg_matrices/s_m_SWE_DG_ORDER_TAG.incl"
-#include "dg_matrices/t_m_1_SWE_DG_ORDER_TAG.incl"
-#include "dg_matrices/t_a_SWE_DG_ORDER_TAG.incl"
 
+!Boundary matrices
 #include "dg_matrices/s_b_1_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/s_b_2_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/s_b_3_SWE_DG_ORDER_TAG.incl"
@@ -51,60 +43,25 @@ MODULE SWE_dg_matrices
 #include "dg_matrices/s_b_2_m_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/s_b_3_r_SWE_DG_ORDER_TAG.incl"
 
-!New FV projection
+!FV projection
 #include "dg_matrices/phi_l_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/phi_m_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/phi_r_SWE_DG_ORDER_TAG.incl"
+#include "dg_matrices/phi_SWE_DG_ORDER_TAG.incl"
+#include "dg_matrices/mue_inv_SWE_DG_ORDER_TAG.incl"
 
+!Coordinates	    
+#include "dg_matrices/nodes_SWE_DG_ORDER_TAG.incl"
+#include "dg_matrices/mirrored_coords_SWE_DG_ORDER_TAG.incl"
 
-
-!old only for debugging
-#include "dg_matrices/s_k_x_o_SWE_DG_ORDER_TAG.incl"
-#include "dg_matrices/s_k_y_o_SWE_DG_ORDER_TAG.incl"
-#include "dg_matrices/s_m_o_SWE_DG_ORDER_TAG.incl"
-
-!DG_Solver matrices
-#include "dg_matrices/t_m_SWE_DG_ORDER_TAG.incl"
-#include "dg_matrices/b_m_1_SWE_DG_ORDER_TAG.incl"
-#include "dg_matrices/b_m_2_SWE_DG_ORDER_TAG.incl"
-#include "dg_matrices/b_m_3_SWE_DG_ORDER_TAG.incl"
-
-!#include "dg_matrices/s_m_lu_SWE_DG_ORDER_TAG.incl"
-!#include "dg_matrices/s_m_lu_pivot_SWE_DG_ORDER_TAG.incl"
-
+!Basis derivatives
 #include "dg_matrices/basis_der_x_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/basis_der_y_SWE_DG_ORDER_TAG.incl"
-
-!DG_Predictor matrices
-#include "dg_matrices/st_k_x_SWE_DG_ORDER_TAG.incl"
-#include "dg_matrices/st_k_y_SWE_DG_ORDER_TAG.incl"
-
-#include "dg_matrices/st_m_SWE_DG_ORDER_TAG.incl"
-
-#include "dg_matrices/st_w_k_t_1_0_SWE_DG_ORDER_TAG.incl"
-#include "dg_matrices/st_w_k_t_1_1_inv_SWE_DG_ORDER_TAG.incl"
-! #include "dg_matrices/st_w_k_t_1_1_lu_SWE_DG_ORDER_TAG.incl"
-! #include "dg_matrices/st_w_k_t_1_1_lu_pivot_SWE_DG_ORDER_TAG.incl"
-
-!#include "dg_matrices/basis_der_st_x_SWE_DG_ORDER_TAG.incl"
-!#include "dg_matrices/basis_der_st_y_SWE_DG_ORDER_TAG.incl"
-
-
-!L2 projection
-! #include "dg_matrices/st_gl_node_vals_SWE_DG_ORDER_TAG.incl"
-! #include "dg_matrices/st_gl_weights_SWE_DG_ORDER_TAG.incl"
-! #include "dg_matrices/st_der_x_gl_node_vals_SWE_DG_ORDER_TAG.incl"
-! #include "dg_matrices/st_der_y_gl_node_vals_SWE_DG_ORDER_TAG.incl"
-
-! #include "dg_matrices/s_der_x_gl_node_vals_SWE_DG_ORDER_TAG.incl"
-! #include "dg_matrices/s_der_y_gl_node_vals_SWE_DG_ORDER_TAG.incl"
-
-! #include "dg_matrices/st_m_lu_SWE_DG_ORDER_TAG.incl"
-! #include "dg_matrices/st_m_lu_pivot_SWE_DG_ORDER_TAG.incl"
-
-
-! #include "dg_matrices/bnd_gl_node_vals_SWE_DG_ORDER_TAG.incl"
-! #include "dg_matrices/bnd_gl_weights_SWE_DG_ORDER_TAG.incl"
+	    
+!Refinement matrices
+#include "dg_matrices/ref1_SWE_DG_ORDER_TAG.incl"
+#include "dg_matrices/ref2_SWE_DG_ORDER_TAG.incl"
+#include "dg_matrices/coarsen_SWE_DG_ORDER_TAG.incl"
 
 real(kind=GRID_SR), Parameter :: s_m_inv_s_k_x_t   (_SWE_DG_DOFS,_SWE_DG_DOFS)     = matmul(s_m_inv,transpose(s_k_x))
 real(kind=GRID_SR), Parameter :: s_m_inv_s_k_y_t   (_SWE_DG_DOFS,_SWE_DG_DOFS)     = matmul(s_m_inv,transpose(s_k_y))

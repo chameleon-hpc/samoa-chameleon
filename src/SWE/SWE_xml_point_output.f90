@@ -327,32 +327,13 @@ MODULE SWE_xml_point_output
     ! We need a different number of cells and points for different orders.
     ! The array mirrored_coords maps non-mirrored coordinates to mirrored coordinates.
     integer, parameter :: num_cells = _SWE_DG_ORDER * _SWE_DG_ORDER
-# if (_SWE_DG_ORDER == 1)
-!    real (kind = GRID_SR), parameter, dimension(2, _SWE_DG_DOFS) :: coords = reshape([0.0, 0.0, 1.0, 0.0, 0.0, 1.0], [2, _SWE_DG_DOFS ])
-    integer (kind = GRID_SI), parameter, dimension(_SWE_DG_DOFS) :: mirrored_coords = [1, 3, 2]
-# elif (_SWE_DG_ORDER == 2)
-!    real (kind = GRID_SR), parameter, dimension(2, _SWE_DG_DOFS) :: coords = reshape([0.0, 0.0, 0.5, 0.0, 1.0, 0.0, &
-!         0.0, 0.5, 0.5, 0.5, 0.0, 1.0], [2, _SWE_DG_DOFS ])
-    integer (kind = GRID_SI), parameter, dimension(_SWE_DG_DOFS) :: mirrored_coords = [1, 4, 6, 2, 5, 3]
-# elif (_SWE_DG_ORDER == 3)
-    ! real (kind = GRID_SR), parameter, dimension(2, _SWE_DG_DOFS) :: coords = reshape([0.0, 0.0, 1.0/3.0, 0.0, 2.0/3.0, 0.0, 1.0, 0.0, &
-    !      0.0, 1.0/3.0, 1.0/3.0, 1.0/3.0, 2.0/3.0, 1.0/3.0, &
-    !      0.0, 2.0/3.0, 1.0/3.0, 2.0/3.0, &
-    !      0.0, 1.0], [2, _SWE_DG_DOFS ])
-    integer (kind = GRID_SI), parameter, dimension(_SWE_DG_DOFS) :: mirrored_coords = [1, 5, 8, 10, 2, 6, 9, 3, 7, 4]
-# elif (_SWE_DG_ORDER == 4)
-    ! real (kind = GRID_SR), parameter, dimension(2, 15)	:: coords = reshape([0.0, 0.0, 0.25, 0.0, 0.5, 0.0, 0.75, 0.0, 1.0, 0.0, &
-    !      0.0, 0.25, 0.25, 0.25, 0.5, 0.25, 0.75, 0.25, &
-    !      0.0, 0.5, 0.25, 0.5, 0.5, 0.5, &
-    !      0.0, 0.75, 0.25, 0.75, 0.0, 1.0], [2, _SWE_DG_DOFS])
-    integer (kind = GRID_SI), parameter, dimension(_SWE_DG_DOFS) :: mirrored_coords = [ 1, 6, 10, 13, 15, 2, 7, 11, 14, 3, 8, 12, 4, 9, 5]
-#endif
     real (kind = GRID_SR), parameter, dimension(2, _SWE_DG_DOFS)	:: coords = nodes
-
+    
     ! Only implemented for patches and _SWE_DG!
 # if defined(_SWE_PATCH)
     type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE):: Q
     integer	:: i, j, row, col, cell_id
+    integer :: column_l, column_u, offset_row, triangle
 
     ! We need this to count the number of valid cells in the post-traversal op.
     traversal%troubled(traversal%i_element_data_index) = element%cell%data_pers%troubled
@@ -364,42 +345,58 @@ MODULE SWE_xml_point_output
        traversal%cell_data(traversal%i_cell_data_index : traversal%i_cell_data_index + num_cells - 1)%troubled = element%cell%data_pers%troubled
        ! The number of cells per element depends on the order of the dg method. This is needed for a pleasing output!
        ! Beware of off-by-one errors: the connectivity data needs the offset of -2 because vtk counts cells from indices and we count both triangle vertices and points
-       ! starting with 1! 
-# if (_SWE_DG_ORDER == 1)
-          traversal%cell_data(traversal%i_cell_data_index +  0)%connectivity(:) = [ 1, 2, 3] + traversal%i_point_data_index - 2
-# elif (_SWE_DG_ORDER == 2)
-          traversal%cell_data(traversal%i_cell_data_index +  0)%connectivity(:) = [ 1, 2, 4] + traversal%i_point_data_index - 2
-          traversal%cell_data(traversal%i_cell_data_index +  1)%connectivity(:) = [ 2, 3, 5] + traversal%i_point_data_index - 2
-          traversal%cell_data(traversal%i_cell_data_index +  2)%connectivity(:) = [ 4, 5, 2] + traversal%i_point_data_index - 2
-          traversal%cell_data(traversal%i_cell_data_index +  3)%connectivity(:) = [ 4, 5, 6] + traversal%i_point_data_index - 2
-# elif (_SWE_DG_ORDER == 3)
-          traversal%cell_data(traversal%i_cell_data_index +  0)%connectivity(:) = [ 1, 2, 5] + traversal%i_point_data_index - 2
-          traversal%cell_data(traversal%i_cell_data_index +  1)%connectivity(:) = [ 2, 3, 6] + traversal%i_point_data_index - 2
-          traversal%cell_data(traversal%i_cell_data_index +  2)%connectivity(:) = [ 3, 4, 7] + traversal%i_point_data_index - 2
-          traversal%cell_data(traversal%i_cell_data_index +  3)%connectivity(:) = [ 5, 6, 2] + traversal%i_point_data_index - 2
-          traversal%cell_data(traversal%i_cell_data_index +  4)%connectivity(:) = [ 5, 6, 8] + traversal%i_point_data_index - 2
-          traversal%cell_data(traversal%i_cell_data_index +  5)%connectivity(:) = [ 6, 7, 3] + traversal%i_point_data_index - 2
-          traversal%cell_data(traversal%i_cell_data_index +  6)%connectivity(:) = [ 6, 7, 9] + traversal%i_point_data_index - 2
-          traversal%cell_data(traversal%i_cell_data_index +  7)%connectivity(:) = [ 8, 9, 6] + traversal%i_point_data_index - 2
-          traversal%cell_data(traversal%i_cell_data_index +  8)%connectivity(:) = [ 8, 9,10] + traversal%i_point_data_index - 2
-# elif (_SWE_DG_ORDER == 4)
-          traversal%cell_data(traversal%i_cell_data_index +  0)%connectivity(:) = [ 1, 2, 6] + traversal%i_point_data_index - 2
-          traversal%cell_data(traversal%i_cell_data_index +  1)%connectivity(:) = [ 2, 3, 7] + traversal%i_point_data_index - 2
-          traversal%cell_data(traversal%i_cell_data_index +  2)%connectivity(:) = [ 3, 4, 8] + traversal%i_point_data_index - 2
-          traversal%cell_data(traversal%i_cell_data_index +  3)%connectivity(:) = [ 4, 5, 9] + traversal%i_point_data_index - 2
-          traversal%cell_data(traversal%i_cell_data_index +  4)%connectivity(:) = [ 6, 7, 2] + traversal%i_point_data_index - 2
-          traversal%cell_data(traversal%i_cell_data_index +  5)%connectivity(:) = [ 7, 8, 3] + traversal%i_point_data_index - 2
-          traversal%cell_data(traversal%i_cell_data_index +  6)%connectivity(:) = [ 8, 9, 4] + traversal%i_point_data_index - 2
-          traversal%cell_data(traversal%i_cell_data_index +  7)%connectivity(:) = [ 6, 7,10] + traversal%i_point_data_index - 2
-          traversal%cell_data(traversal%i_cell_data_index +  8)%connectivity(:) = [ 7, 8,11] + traversal%i_point_data_index - 2
-          traversal%cell_data(traversal%i_cell_data_index +  9)%connectivity(:) = [ 8, 9,12] + traversal%i_point_data_index - 2
-          traversal%cell_data(traversal%i_cell_data_index + 10)%connectivity(:) = [10,11, 7] + traversal%i_point_data_index - 2
-          traversal%cell_data(traversal%i_cell_data_index + 11)%connectivity(:) = [11,12, 8] + traversal%i_point_data_index - 2
-          traversal%cell_data(traversal%i_cell_data_index + 12)%connectivity(:) = [10,11,13] + traversal%i_point_data_index - 2
-          traversal%cell_data(traversal%i_cell_data_index + 13)%connectivity(:) = [11,12,14] + traversal%i_point_data_index - 2
-          traversal%cell_data(traversal%i_cell_data_index + 14)%connectivity(:) = [13,14,11] + traversal%i_point_data_index - 2
-          traversal%cell_data(traversal%i_cell_data_index + 15)%connectivity(:) = [13,14,15] + traversal%i_point_data_index - 2
-# endif
+       ! starting with 1!
+       triangle = 0
+       do row = 1,_SWE_DG_ORDER
+          offset_row = _SWE_DG_DOFS - (_SWE_DG_ORDER+2-row)*(_SWE_DG_ORDER+3-row)/2
+          do column_l = 1,_SWE_DG_ORDER+1-row
+             traversal%cell_data(traversal%i_cell_data_index +  triangle)%connectivity(:) =&
+                  [ offset_row+column_l,offset_row+column_l+1,offset_row+column_l+_SWE_DG_ORDER+2-row ] + traversal%i_point_data_index - 2
+             triangle = triangle + 1
+          end do
+          do column_u = 1,_SWE_DG_ORDER-row
+             traversal%cell_data(traversal%i_cell_data_index +  triangle)%connectivity(:) =&
+                  [ offset_row+column_u+_SWE_DG_ORDER+2-row,offset_row+column_u+_SWE_DG_ORDER+3-row, offset_row+column_u+1 ] + traversal%i_point_data_index - 2
+             triangle = triangle + 1
+          end do
+       end do
+
+!        traversal%cell_data(traversal%i_cell_data_index +  0)%connectivity(:) = [ 1, 2, 3] + traversal%i_point_data_index - 2
+! # if (_SWE_DG_ORDER == 1)
+!           traversal%cell_data(traversal%i_cell_data_index +  0)%connectivity(:) = [ 1, 2, 3] + traversal%i_point_data_index - 2
+! # elif (_SWE_DG_ORDER == 2)
+!           traversal%cell_data(traversal%i_cell_data_index +  0)%connectivity(:) = [ 1, 2, 4] + traversal%i_point_data_index - 2
+!           traversal%cell_data(traversal%i_cell_data_index +  1)%connectivity(:) = [ 2, 3, 5] + traversal%i_point_data_index - 2
+!           traversal%cell_data(traversal%i_cell_data_index +  2)%connectivity(:) = [ 4, 5, 2] + traversal%i_point_data_index - 2
+!           traversal%cell_data(traversal%i_cell_data_index +  3)%connectivity(:) = [ 4, 5, 6] + traversal%i_point_data_index - 2
+! # elif (_SWE_DG_ORDER == 3)
+!           traversal%cell_data(traversal%i_cell_data_index +  0)%connectivity(:) = [ 1, 2, 5] + traversal%i_point_data_index - 2
+!           traversal%cell_data(traversal%i_cell_data_index +  1)%connectivity(:) = [ 2, 3, 6] + traversal%i_point_data_index - 2
+!           traversal%cell_data(traversal%i_cell_data_index +  2)%connectivity(:) = [ 3, 4, 7] + traversal%i_point_data_index - 2
+!           traversal%cell_data(traversal%i_cell_data_index +  3)%connectivity(:) = [ 5, 6, 2] + traversal%i_point_data_index - 2
+!           traversal%cell_data(traversal%i_cell_data_index +  4)%connectivity(:) = [ 5, 6, 8] + traversal%i_point_data_index - 2
+!           traversal%cell_data(traversal%i_cell_data_index +  5)%connectivity(:) = [ 6, 7, 3] + traversal%i_point_data_index - 2
+!           traversal%cell_data(traversal%i_cell_data_index +  6)%connectivity(:) = [ 6, 7, 9] + traversal%i_point_data_index - 2
+!           traversal%cell_data(traversal%i_cell_data_index +  7)%connectivity(:) = [ 8, 9, 6] + traversal%i_point_data_index - 2
+!           traversal%cell_data(traversal%i_cell_data_index +  8)%connectivity(:) = [ 8, 9,10] + traversal%i_point_data_index - 2
+! # elif (_SWE_DG_ORDER == 4)
+!           traversal%cell_data(traversal%i_cell_data_index +  0)%connectivity(:) = [ 1, 2, 6] + traversal%i_point_data_index - 2
+!           traversal%cell_data(traversal%i_cell_data_index +  1)%connectivity(:) = [ 2, 3, 7] + traversal%i_point_data_index - 2
+!           traversal%cell_data(traversal%i_cell_data_index +  2)%connectivity(:) = [ 3, 4, 8] + traversal%i_point_data_index - 2
+!           traversal%cell_data(traversal%i_cell_data_index +  3)%connectivity(:) = [ 4, 5, 9] + traversal%i_point_data_index - 2
+!           traversal%cell_data(traversal%i_cell_data_index +  4)%connectivity(:) = [ 6, 7, 2] + traversal%i_point_data_index - 2
+!           traversal%cell_data(traversal%i_cell_data_index +  5)%connectivity(:) = [ 7, 8, 3] + traversal%i_point_data_index - 2
+!           traversal%cell_data(traversal%i_cell_data_index +  6)%connectivity(:) = [ 8, 9, 4] + traversal%i_point_data_index - 2
+!           traversal%cell_data(traversal%i_cell_data_index +  7)%connectivity(:) = [ 6, 7,10] + traversal%i_point_data_index - 2
+!           traversal%cell_data(traversal%i_cell_data_index +  8)%connectivity(:) = [ 7, 8,11] + traversal%i_point_data_index - 2
+!           traversal%cell_data(traversal%i_cell_data_index +  9)%connectivity(:) = [ 8, 9,12] + traversal%i_point_data_index - 2
+!           traversal%cell_data(traversal%i_cell_data_index + 10)%connectivity(:) = [10,11, 7] + traversal%i_point_data_index - 2
+!           traversal%cell_data(traversal%i_cell_data_index + 11)%connectivity(:) = [11,12, 8] + traversal%i_point_data_index - 2
+!           traversal%cell_data(traversal%i_cell_data_index + 12)%connectivity(:) = [10,11,13] + traversal%i_point_data_index - 2
+!           traversal%cell_data(traversal%i_cell_data_index + 13)%connectivity(:) = [11,12,14] + traversal%i_point_data_index - 2
+!           traversal%cell_data(traversal%i_cell_data_index + 14)%connectivity(:) = [13,14,11] + traversal%i_point_data_index - 2
+!           traversal%cell_data(traversal%i_cell_data_index + 15)%connectivity(:) = [13,14,15] + traversal%i_point_data_index - 2
+! # endif
           do i=1, _SWE_DG_DOFS
              ! Ever second output all cells are mirrored, this fixes it.
              if (element%cell%geometry%i_plotter_type > 0) then 

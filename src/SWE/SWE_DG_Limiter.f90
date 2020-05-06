@@ -70,8 +70,13 @@ contains
        return
     end if
     !---------------------------!
+
+    if (data%troubled == DG) then
+       data%troubled = DG
+    else
+       data%troubled = -data%troubled
+    end if
     
-    data%troubled = DG    
     if(isWetDryInterface(data%Q%H))then
        data%troubled = WET_DRY_INTERFACE
     end if
@@ -160,6 +165,8 @@ contains
     real(kind=GRID_SR)                 :: observables(_DMP_NUM_OBSERVABLES)
     integer                            :: i,j
     logical                            :: troubled
+
+    troubled = .FALSE.
     
     do i = 1,_DMP_NUM_OBSERVABLES
        maxNeighbour(i) = maxVals(i)
@@ -177,8 +184,6 @@ contains
        delta(i) = max(0.1_GRID_SR,maxNeighbour(i)-minNeighbour(i))
     end do
 
-    troubled = .FALSE.
-
     do i = 1,_SWE_DG_DOFS
        call getObservables(Q(i),observables)
        do j = 1,_DMP_NUM_OBSERVABLES
@@ -186,6 +191,9 @@ contains
                               .or. observables(i) < minNeighbour(i)-delta(i)
        end do
     end do
+    if(troubled) then
+       print*,troubled
+    endif
   end function checkDMP
 
 

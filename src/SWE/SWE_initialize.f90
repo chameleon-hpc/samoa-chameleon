@@ -408,9 +408,9 @@ MODULE SWE_Initialize_Dofs
     type(t_dof_state) :: QS
     type(t_state), dimension(_SWE_DG_DOFS)   :: Q_DG
 
-    if(element%cell%data_pers%troubled .ge.1)then
-       element%cell%data_pers%Q%B = get_bathymetry_at_dg_patch(section, element, section%r_time)
-    end if
+!    if(element%cell%data_pers%troubled .ge.1)then
+    element%cell%data_pers%Q%B = get_bathymetry_at_dg_patch(section, element, section%r_time)
+!    end if
 
     Q_DG(:)%b = element%cell%data_pers%Q%B
     Q(:)%b = element%cell%data_pers%B    

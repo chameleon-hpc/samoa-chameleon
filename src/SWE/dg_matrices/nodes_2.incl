@@ -1,7 +1,7 @@
 real(kind=GRID_SR),Parameter :: nodes(2,6) = reshape((/ &
-0.0,0.0,&
-0.5,0.0,&
-1.0,0.0,&
-0.0,0.5,&
-0.5,0.5,&
-0.0,1.0  /),(/2,6/))
+0.0_GRID_SR ,0.0_GRID_SR ,&
+0.5_GRID_SR ,0.0_GRID_SR ,&
+1.0_GRID_SR ,0.0_GRID_SR ,&
+0.0_GRID_SR ,0.5_GRID_SR ,&
+0.5_GRID_SR ,0.5_GRID_SR ,&
+0.0_GRID_SR ,1.0_GRID_SR   /),(/2,6/))

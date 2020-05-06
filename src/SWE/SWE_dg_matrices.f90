@@ -23,45 +23,45 @@ MODULE SWE_dg_matrices
 ! #define 
 
 !Time matrices
-#include "dg_matrices/t_m_1_5.incl"
-#include "dg_matrices/t_a_5.incl"
-#include "dg_matrices/t_k_t_10_5.incl"
-#include "dg_matrices/t_k_t_11_inv_5.incl"
+#include "dg_matrices/t_m_1_2.incl"
+#include "dg_matrices/t_a_2.incl"
+#include "dg_matrices/t_k_t_10_2.incl"
+#include "dg_matrices/t_k_t_11_inv_2.incl"
     	    
 !Space matrices
-#include "dg_matrices/s_m_5.incl"
-#include "dg_matrices/s_m_inv_5.incl"
-#include "dg_matrices/s_k_x_5.incl"
-#include "dg_matrices/s_k_y_5.incl"
+#include "dg_matrices/s_m_2.incl"
+#include "dg_matrices/s_m_inv_2.incl"
+#include "dg_matrices/s_k_x_2.incl"
+#include "dg_matrices/s_k_y_2.incl"
 
 !Boundary matrices
-#include "dg_matrices/s_b_1_5.incl"
-#include "dg_matrices/s_b_2_5.incl"
-#include "dg_matrices/s_b_3_5.incl"
+#include "dg_matrices/s_b_1_2.incl"
+#include "dg_matrices/s_b_2_2.incl"
+#include "dg_matrices/s_b_3_2.incl"
 
-#include "dg_matrices/s_b_1_l_5.incl"
-#include "dg_matrices/s_b_2_m_5.incl"
-#include "dg_matrices/s_b_3_r_5.incl"
+#include "dg_matrices/s_b_1_l_2.incl"
+#include "dg_matrices/s_b_2_m_2.incl"
+#include "dg_matrices/s_b_3_r_2.incl"
 
 !FV projection
-#include "dg_matrices/phi_l_5.incl"
-#include "dg_matrices/phi_m_5.incl"
-#include "dg_matrices/phi_r_5.incl"
-#include "dg_matrices/phi_5.incl"
-#include "dg_matrices/mue_inv_5.incl"
+#include "dg_matrices/phi_l_2.incl"
+#include "dg_matrices/phi_m_2.incl"
+#include "dg_matrices/phi_r_2.incl"
+#include "dg_matrices/phi_2.incl"
+#include "dg_matrices/mue_inv_2.incl"
 
 !Coordinates	    
-#include "dg_matrices/nodes_5.incl"
-#include "dg_matrices/mirrored_coords_5.incl"
+#include "dg_matrices/nodes_2.incl"
+#include "dg_matrices/mirrored_coords_2.incl"
 
 !Basis derivatives
-#include "dg_matrices/basis_der_x_5.incl"
-#include "dg_matrices/basis_der_y_5.incl"
+#include "dg_matrices/basis_der_x_2.incl"
+#include "dg_matrices/basis_der_y_2.incl"
 	    
 !Refinement matrices
-#include "dg_matrices/ref1_5.incl"
-#include "dg_matrices/ref2_5.incl"
-#include "dg_matrices/coarsen_5.incl"
+#include "dg_matrices/ref1_2.incl"
+#include "dg_matrices/ref2_2.incl"
+#include "dg_matrices/coarsen_2.incl"
 
 real(kind=GRID_SR), Parameter :: s_m_inv_s_k_x_t   (_SWE_DG_DOFS,_SWE_DG_DOFS)     = matmul(s_m_inv,transpose(s_k_x))
 real(kind=GRID_SR), Parameter :: s_m_inv_s_k_y_t   (_SWE_DG_DOFS,_SWE_DG_DOFS)     = matmul(s_m_inv,transpose(s_k_y))

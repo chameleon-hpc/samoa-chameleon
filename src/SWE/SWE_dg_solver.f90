@@ -469,7 +469,7 @@ real (kind=GRID_SR) :: max_wave_speed, wave_speed=0,dQ_norm,b_min,b_max
 real (kind=GRID_SR) :: refinement_threshold = 0.25_GRID_SR/_SWE_DG_ORDER
 real (kind = GRID_SR), dimension (_SWE_DG_DOFS) :: H_old, HU_old, HV_old, B_old
 real (kind = GRID_SR), dimension (_SWE_PATCH_ORDER_SQUARE) :: H, HU, HV
-logical :: drying,troubled,neighbours_troubled,refine,coarsen
+logical :: refine,coarsen
 integer :: i_depth,bathy_depth
 real(kind=GRID_SR),Dimension(3) :: edge_sizes
 
@@ -524,7 +524,8 @@ if(isDG(data%troubled)) then
    if(isWetDryInterface(data%Q%H)) then
       data%troubled = WET_DRY_INTERFACE
    else if(checkDMP(element%cell%data_pers%Q,minVals,maxVals,update1,update2,update3)) then
-      !data%troubled = TROUBLED
+      data%troubled = TROUBLED
+      !print*,"troubled"
    end if
 
    if(isFV(data%troubled)) then
@@ -535,9 +536,9 @@ if(isDG(data%troubled)) then
       data%Q%B   = B_old
 
       call apply_phi(data%Q(:)%h+data%Q(:)%b,data%h)
-      call apply_phi(data%Q(:)%p(1)            ,data%hu)
-      call apply_phi(data%Q(:)%p(2)            ,data%hv)
-      call apply_phi(data%Q(:)%b               ,data%b)
+      call apply_phi(data%Q(:)%p(1)         ,data%hu)
+      call apply_phi(data%Q(:)%p(2)         ,data%hv)
+      call apply_phi(data%Q(:)%b            ,data%b)
 
    else
       i_depth = element%cell%geometry%i_depth
@@ -596,12 +597,36 @@ end if
 
 if(isFV(data%troubled)) then
    !-----Call FV patch solver----!
+   ! print*,"update1"
+   ! print*,update1%troubled
+   ! print*,update1%H
+   ! print*,update1%HU
+   ! print*,update1%HV
+   ! print*,update1%B
+   ! print*,"update2"
+   ! print*,update2%troubled
+   ! print*,update2%H
+   ! print*,update2%HU
+   ! print*,update2%HV
+   ! print*,update2%B
+   ! print*,"update3"
+   ! print*,update3%troubled
+   ! print*,update3%H
+   ! print*,update3%HU
+   ! print*,update3%HV
+   ! print*,update3%B
+   ! print*,"Cell"
+   ! print*,element%cell%data_pers%H
+   ! print*,element%cell%data_pers%HU
+   ! print*,element%cell%data_pers%HV
+   ! print*,element%cell%data_pers%B
    call fv_patch_solver(traversal, section, element, update1, update2, update3)
 end if
 
 
 !------- Update cell status and compute next timestep size --------!
 call updateCellStatus(data)
+
 dx = cfg%scaling *  edge_sizes(1)
 if(isDG(data%troubled)) then
    do i=1,_SWE_DG_DOFS
@@ -971,7 +996,7 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
 #if defined (_ASAGI)                  
                   data%H = min(0.0_GRID_SR,data%B)
 #else
-!                  data%H = data%B + cfg%dry_tolerance
+!                 data%H = data%B + cfg%dry_tolerance
                   data%H = data%B
 
 #endif                  

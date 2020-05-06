@@ -122,7 +122,8 @@ module config
                 !< cells below this threshold are solved with a fv scheme by default
                 double precision                :: dry_dg_guard
 
-                integer                         :: max_picard_iterations = 4
+                integer                         :: max_picard_iterations = 20
+                double precision                :: max_picard_error      = 10.0d-12
 #           endif            
 
             logical                             :: l_ascii_output                                   !< ascii output on/off
@@ -211,7 +212,7 @@ module config
 #    	elif defined(_HEAT_EQ)
             write(arguments, '(A, A)') trim(arguments), " -dmin 0 -dmax 16 -dstart 0 -nmax -1 -tmax 1.0d0 -nout -1 -tout -1.0d0"
 #    	elif defined(_SWE)
-            write(arguments, '(A, A)') trim(arguments), " -dmin 0 -dmax 14 -dstart 0 -courant 0.45d0 -nmax -1 -tmax 3600.0d0 -nout -1 -tout -1.0d0 -drytolerance 0.01d0 -coastheight 1.0d0 -dry_dg_guard 0.1d0 -fbath data/tohoku_static/bath.nc -fdispl data/tohoku_static/displ.nc"
+            write(arguments, '(A, A)') trim(arguments), " -dmin 0 -dmax 14 -dstart 0 -courant 0.45d0 -nmax -1 -tmax 3600.0d0 -nout -1 -tout -1.0d0 -drytolerance 0.01d0 -coastheight 1.0d0 -dry_dg_guard 0.1d0 -fbath data/tohoku_static/bath.nc -fdispl data/tohoku_static/displ.nc -max_picard_iterations 4 -max_picard_error 10.0d-12"
 #	    elif defined(_FLASH)
             write(arguments, '(A, A)') trim(arguments), " -dmin 0 -dmax 14 -dstart 0 -courant 0.45d0 -nmax -1 -tmax 3600.0d0 -nout -1 -tout -1.0d0 -drytolerance 0.01d0 -fbath data/tohoku_static/bath.nc -fdispl data/tohoku_static/displ.nc"
 #    	elif defined(_NUMA)
@@ -346,6 +347,8 @@ module config
 #           if defined(_SWE_DG)                
                 config%coast_height = rget('samoa_coastheight')
                 config%dry_dg_guard = rget('samoa_dry_dg_guard')
+                config%max_picard_iterations = rget('samoa_max_picard_iterations')
+                config%max_picard_error      = rget('samoa_max_picard_error')
 #           endif
 
 #           if defined(_BOUNDARY)

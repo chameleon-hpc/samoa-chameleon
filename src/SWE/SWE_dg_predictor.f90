@@ -79,7 +79,7 @@ contains
       ! print*,cell%data_pers%troubled
 
       !!---------------------------!!
-      do while(epsilon > 1.0e-14_GRID_SR)
+      do while(epsilon > cfg%max_picard_error)
          iteration=iteration+1
          
          if (any(q_i_st(:,:,1).le.0)) then
@@ -98,10 +98,10 @@ contains
          do i=1,_SWE_DG_ORDER+1
             s_ref(i,:,2,1) = ( g * q_i_st(i,:,1)    * matmul(basis_der_x,q_i_st(i,:,1) + Q_DG(:)%B) )
             s_ref(i,:,3,1) = ( g * q_i_st(i,:,1)    * matmul(basis_der_y,q_i_st(i,:,1) + Q_DG(:)%B) )
-            !s_ref(i,:,2,2) = ( g * q_i_st(i,:,1)**2 * 0.5_GRID_SR )
-            !s_ref(i,:,3,2) = ( g * q_i_st(i,:,1)**2 * 0.5_GRID_SR )
-            s_ref(i,:,2,2) = 0.0_GRID_SR
-            s_ref(i,:,3,2) = 0.0_GRID_SR
+            s_ref(i,:,2,2) = ( g * q_i_st(i,:,1)**2 * 0.5_GRID_SR )
+            s_ref(i,:,3,2) = ( g * q_i_st(i,:,1)**2 * 0.5_GRID_SR )
+            !s_ref(i,:,2,2) = 0.0_GRID_SR
+            !s_ref(i,:,3,2) = 0.0_GRID_SR
 
          end do
 
@@ -117,7 +117,8 @@ contains
          
          f_ref = 0
          do i=1,_SWE_DG_ORDER+1
-            f_ref(:,i,:,:) = flux_no_grav(q_i_st(i,:,:),_SWE_DG_DOFS)
+            f_ref(:,i,:,:) = flux(q_i_st(i,:,:),_SWE_DG_DOFS)
+            !f_ref(:,i,:,:) = flux_no_grav(q_i_st(i,:,:),_SWE_DG_DOFS)
          end do
         
          !!--------Run kernels-------!!
@@ -292,34 +293,21 @@ contains
       
       do j = 1,3
          edge_type =  j
-         ! if(cell%geometry%i_plotter_type < 0)then
-         !    edge_type = -j
-         ! else
-         !    edge_type =  j
-         ! end if
          do i = 1,_SWE_DG_ORDER+1
             select case(edge_type)
-            case(-1 ,1) !right
+            case(1) !right
                indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i+2)*(_SWE_DG_ORDER-i+3)/2 +1
-            case(-2, 2) !mid
+            case(2) !mid
                indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i+2)*(_SWE_DG_ORDER-i+1)/2
-            case(-3 ,3) !left
+            case(3) !left
                indx=i
             case default
                stop
             end select
-
+            
             cell%data_pers%QP(j,  i,:) = QP(indx,:)
             cell%data_pers%FP(j,1,i,:) = FP(1,indx,:)
             cell%data_pers%FP(j,2,i,:) = FP(2,indx,:)
-            
-            ! edges(j)%ptr%data_pers%QP(i,1)     = Q_DG(indx)%h
-            ! edges(j)%ptr%data_pers%QP(i,2:3)   = Q_DG(indx)%p(:)
-            ! edges(j)%ptr%data_pers%QP(i,4)     = Q_DG(indx)%B
-            ! !edges(j)%ptr%data_pers%QP(i,:)     = QP(indx,:)
-            ! edges(j)%ptr%data_pers%FP(1,i,:)   = FP(1,indx,:)
-            ! edges(j)%ptr%data_pers%FP(2,i,:)   = FP(2,indx,:)        
-
          end do
          select case(edge_type)
          case (-1,3) !cells with id i*i+1 (left leg)

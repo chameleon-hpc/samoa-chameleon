@@ -144,49 +144,22 @@ MODULE SWE_DG_solver
 
     if(element%cell%data_pers%troubled.le.0) then
        !------------------read edge data---------------------!
-       !rep%QP = edge%data_pers%QP
-       !rep%FP = edge%data_pers%FP
        rep%QP(:,:)   = element%cell%data_pers%QP(edge_type  ,:,:)
        rep%FP(:,:,:) = element%cell%data_pers%FP(edge_type,:,:,:)
-       ! print*,"cte"
-       ! print*,element%cell%data_pers%QP(1,:,:)
-       ! print*,element%cell%data_pers%QP(2,:,:)
-       ! print*,element%cell%data_pers%QP(3,:,:)
-       ! print*
-       ! print*,edge_type
-       ! print*,edge%transform_data%index
-       ! print*,edge%transform_data%normal
-       ! print*,edge%transform_data%orientation
-       ! print*,rep%QP(:,:)
-
-    ! rep%Q(                    1:1*(_SWE_DG_ORDER+1))%h    = edge%data_pers%QP(:,1)
-    ! rep%Q(                    1:1*(_SWE_DG_ORDER+1))%p(1) = edge%data_pers%QP(:,2)
-    ! rep%Q(                    1:1*(_SWE_DG_ORDER+1))%p(2) = edge%data_pers%QP(:,3)
-    ! rep%Q(                    1:1*(_SWE_DG_ORDER+1))%b    = edge%data_pers%QP(:,4)
-    
-    ! rep%Q(  (_SWE_DG_ORDER+1)+1:2*(_SWE_DG_ORDER+1))%h    = edge%data_pers%FP(1,:,1)
-    ! rep%Q(  (_SWE_DG_ORDER+1)+1:2*(_SWE_DG_ORDER+1))%p(1) = edge%data_pers%FP(1,:,2)
-    ! rep%Q(  (_SWE_DG_ORDER+1)+1:2*(_SWE_DG_ORDER+1))%p(2) = edge%data_pers%FP(1,:,3)
-    ! rep%Q(  (_SWE_DG_ORDER+1)+1:2*(_SWE_DG_ORDER+1))%b    = 0.0_GRID_SR
-    
-    ! rep%Q(2*(_SWE_DG_ORDER+1)+1:3*(_SWE_DG_ORDER+1))%h    = edge%data_pers%FP(2,:,1)
-    ! rep%Q(2*(_SWE_DG_ORDER+1)+1:3*(_SWE_DG_ORDER+1))%p(1) = edge%data_pers%FP(2,:,2)
-    ! rep%Q(2*(_SWE_DG_ORDER+1)+1:3*(_SWE_DG_ORDER+1))%p(2) = edge%data_pers%FP(2,:,3)
-    ! rep%Q(2*(_SWE_DG_ORDER+1)+1:3*(_SWE_DG_ORDER+1))%b    = 0.0_GRID_SR
-   
-    rep%H  = edge%data_pers%H
-    rep%HU = edge%data_pers%HU
-    rep%HV = edge%data_pers%HV
-    rep%B  = edge%data_pers%B
-    !-----------------------------------------------------!
-    !---scale by element size---!
-    rep%H = (rep%H + rep%B) * _REF_TRIANGLE_SIZE_INV
-    rep%HU = rep%HU * _REF_TRIANGLE_SIZE_INV
-    rep%HV = rep%HV * _REF_TRIANGLE_SIZE_INV
-    rep%B  = rep%B  * _REF_TRIANGLE_SIZE_INV
-    !-----------------------------------------------------!
- else
-
+       
+       rep%H  = edge%data_pers%H
+       rep%HU = edge%data_pers%HU
+       rep%HV = edge%data_pers%HV
+       rep%B  = edge%data_pers%B
+       !-----------------------------------------------------!
+       !---scale by element size---!
+       rep%H = (rep%H + rep%B) * _REF_TRIANGLE_SIZE_INV
+       rep%HU = rep%HU * _REF_TRIANGLE_SIZE_INV
+       rep%HV = rep%HV * _REF_TRIANGLE_SIZE_INV
+       rep%B  = rep%B  * _REF_TRIANGLE_SIZE_INV
+       !-----------------------------------------------------!
+    else
+       
     associate(cell_edge => ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%edges, normal => edge%transform_data%normal)
       do i=1,3
          if ( normal(1) == cell_edge(i)%normal(1) .and. normal(2) == cell_edge(i)%normal(2) )   then
@@ -402,16 +375,15 @@ if(isDG(rep%troubled)) then
             rep_bnd%QP(i,3) = rep%QP(i,3)-2.0_GRID_SR*length_flux*normal(2)
          end do
          normal = abs(normal)
-         do i=1,(_SWE_DG_ORDER+1)
-            rep_bnd%FP(1,i,1) = rep%FP(1,i,1) - 2.0_GRID_SR * rep%QP(  i,2) * normal(1)
-            rep_bnd%FP(1,i,2) = rep%FP(1,i,2) - 2.0_GRID_SR * rep%FP(1,i,2) * normal(2)
-            rep_bnd%FP(1,i,3) = rep%FP(1,i,3) - 2.0_GRID_SR * rep%FP(1,i,3) * normal(1)
-         end do
-         do i=1,(_SWE_DG_ORDER+1)
-            rep_bnd%FP(2,i,1) = rep%FP(2,i,1) - 2.0_GRID_SR * rep%QP(  i,3) * normal(2)
-            rep_bnd%FP(2,i,2) = rep%FP(2,i,2) - 2.0_GRID_SR * rep%FP(2,i,2) * normal(2)
-            rep_bnd%FP(2,i,3) = rep%FP(2,i,3) - 2.0_GRID_SR * rep%FP(2,i,3) * normal(1)
-         end do
+
+         rep_bnd%FP(1,:,1) = -rep%FP(1,:,1) 
+         rep_bnd%FP(1,:,2) =  rep%FP(1,:,2) 
+         rep_bnd%FP(1,:,3) = -rep%FP(1,:,3) 
+
+         rep_bnd%FP(2,:,1) = -rep%FP(2,:,1) 
+         rep_bnd%FP(2,:,2) = -rep%FP(2,:,2) 
+         rep_bnd%FP(2,:,3) =  rep%FP(2,:,3) 
+
 #  if defined(_BOUNDARY)
       end if
 #  endif
@@ -430,9 +402,13 @@ else if(isFV(rep%troubled)) then
 #  endif
          ! Generate mirrored wave to reflect out incoming wave
          update%H=rep%H
-         update%HU=rep%HU
-         update%HV=rep%HV
+         do i=1, _SWE_PATCH_ORDER
+            length_flux = dot_product([ rep%HU(i), rep%HV(i) ], normal)
+            update%HU(i)=rep%HU(i) - 2.0_GRID_SR*length_flux*normal(1)
+            update%HV(i)=rep%HV(i) - 2.0_GRID_SR*length_flux*normal(2)
+         end do
          update%B=rep%B
+         print*,"tbd"
 #  if defined(_BOUNDARY)
       end if
 #  endif

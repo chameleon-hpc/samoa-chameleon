@@ -147,7 +147,7 @@ contains
        call getObservables(Q(i),observables)
        do j = 1,_DMP_NUM_OBSERVABLES
           minVals(j) = min(minVals(j),observables(j))
-          maxVals(j) = max(minVals(j),observables(j))
+          maxVals(j) = max(maxVals(j),observables(j))
        end do
     end do
   end subroutine getObservableLimits
@@ -181,19 +181,17 @@ contains
     end do
 
     do i = 1,_DMP_NUM_OBSERVABLES
-       delta(i) = max(0.1_GRID_SR,maxNeighbour(i)-minNeighbour(i))
+       delta(i) = max(0.01_GRID_SR,maxNeighbour(i)-minNeighbour(i))*cfg%limiter_buffer
     end do
 
     do i = 1,_SWE_DG_DOFS
        call getObservables(Q(i),observables)
        do j = 1,_DMP_NUM_OBSERVABLES
-          troubled = troubled .or. observables(i) > maxNeighbour(i)+delta(i) &
-                              .or. observables(i) < minNeighbour(i)-delta(i)
+          troubled = troubled .or. observables(j) > maxNeighbour(j)+delta(j) &
+                              .or. observables(j) < minNeighbour(j)-delta(j)
        end do
     end do
-    if(troubled) then
-       print*,troubled
-    endif
+
   end function checkDMP
 
 

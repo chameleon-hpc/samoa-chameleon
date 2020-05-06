@@ -1,2 +1,2 @@
 real(kind=GRID_SR),Parameter :: mirrored_coords(6) = (/ &
-1_GRID_SR ,4_GRID_SR ,6_GRID_SR ,2_GRID_SR ,5_GRID_SR ,3_GRID_SR   /)
+1,4,6,2,5,3  /)

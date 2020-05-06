@@ -98,10 +98,10 @@ contains
          do i=1,_SWE_DG_ORDER+1
             s_ref(i,:,2,1) = ( g * q_i_st(i,:,1)    * matmul(basis_der_x,q_i_st(i,:,1) + Q_DG(:)%B) )
             s_ref(i,:,3,1) = ( g * q_i_st(i,:,1)    * matmul(basis_der_y,q_i_st(i,:,1) + Q_DG(:)%B) )
-            !s_ref(i,:,2,2) = ( g * q_i_st(i,:,1)**2 * 0.5_GRID_SR )
-            !s_ref(i,:,3,2) = ( g * q_i_st(i,:,1)**2 * 0.5_GRID_SR )
-            s_ref(i,:,2,2) = 0.0_GRID_SR
-            s_ref(i,:,3,2) = 0.0_GRID_SR
+            s_ref(i,:,2,2) = ( g * q_i_st(i,:,1)**2 * 0.5_GRID_SR )
+            s_ref(i,:,3,2) = ( g * q_i_st(i,:,1)**2 * 0.5_GRID_SR )
+            !s_ref(i,:,2,2) = 0.0_GRID_SR
+            !s_ref(i,:,3,2) = 0.0_GRID_SR
 
          end do
 
@@ -117,8 +117,8 @@ contains
          
          f_ref = 0
          do i=1,_SWE_DG_ORDER+1
-            !f_ref(:,i,:,:) = flux(q_i_st(i,:,:),_SWE_DG_DOFS)
-            f_ref(:,i,:,:) = flux_no_grav(q_i_st(i,:,:),_SWE_DG_DOFS)
+            f_ref(:,i,:,:) = flux(q_i_st(i,:,:),_SWE_DG_DOFS)
+            !f_ref(:,i,:,:) = flux_no_grav(q_i_st(i,:,:),_SWE_DG_DOFS)
          end do
         
          !!--------Run kernels-------!!
@@ -279,9 +279,9 @@ contains
       !!------------------------------!!
       
       !!---- set values for riemannsolve and project on edges----!!
-      do i=1,_SWE_DG_ORDER+1
-         f_ref(:,i,:,:) = flux(q_i_st(i,:,:),_SWE_DG_DOFS)
-      end do
+      ! do i=1,_SWE_DG_ORDER+1
+      !    f_ref(:,i,:,:) = flux(q_i_st(i,:,:),_SWE_DG_DOFS)
+      ! end do
       
       do i = 1,_SWE_DG_DOFS
          QP(  i,1:3) = reshape( matmul(t_a,q_i_st(:,i,:)) ,(/ 3 /))

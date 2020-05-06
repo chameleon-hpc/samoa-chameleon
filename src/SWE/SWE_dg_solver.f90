@@ -364,7 +364,6 @@ if(isDG(rep%troubled)) then
             rep_bnd%QP(i,2) = rep%QP(i,2)-2.0_GRID_SR*length_flux*normal(1)
             rep_bnd%QP(i,3) = rep%QP(i,3)-2.0_GRID_SR*length_flux*normal(2)
          end do
-         normal = abs(normal)
 
          rep_bnd%FP(1,:,1) = -rep%FP(1,:,1) 
          rep_bnd%FP(1,:,2) =  rep%FP(1,:,2) 
@@ -525,7 +524,6 @@ if(isDG(data%troubled)) then
       data%troubled = WET_DRY_INTERFACE
    else if(checkDMP(element%cell%data_pers%Q,minVals,maxVals,update1,update2,update3)) then
       data%troubled = TROUBLED
-      !print*,"troubled"
    end if
 
    if(isFV(data%troubled)) then

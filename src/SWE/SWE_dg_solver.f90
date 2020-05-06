@@ -147,10 +147,10 @@ MODULE SWE_DG_solver
        rep%QP(:,:)   = element%cell%data_pers%QP(edge_type  ,:,:)
        rep%FP(:,:,:) = element%cell%data_pers%FP(edge_type,:,:,:)
        
-       rep%H  = edge%data_pers%H
-       rep%HU = edge%data_pers%HU
-       rep%HV = edge%data_pers%HV
-       rep%B  = edge%data_pers%B
+       rep%H  = element%cell%data_pers%QFV(edge_type  ,:,1)
+       rep%HU = element%cell%data_pers%QFV(edge_type  ,:,2)
+       rep%HV = element%cell%data_pers%QFV(edge_type  ,:,3)
+       rep%B  = element%cell%data_pers%QFV(edge_type  ,:,4)
        !-----------------------------------------------------!
        !---scale by element size---!
        rep%H = (rep%H + rep%B) * _REF_TRIANGLE_SIZE_INV
@@ -160,18 +160,8 @@ MODULE SWE_DG_solver
        !-----------------------------------------------------!
     else
        
-    associate(cell_edge => ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%edges, normal => edge%transform_data%normal)
-      do i=1,3
-         if ( normal(1) == cell_edge(i)%normal(1) .and. normal(2) == cell_edge(i)%normal(2) )   then
-            edge_type = i
-         else if( normal(1) == -cell_edge(i)%normal(1) .and. normal(2) == -cell_edge(i)%normal(2) ) then
-            edge_type = -i
-         endif
-      end do
-    end associate
-    
     select case (edge_type)       
-    case (-3,3) !cells with id i*i+1 (left leg)
+    case (3) !cells with id i*i+1 (left leg)
        do i=0, _SWE_PATCH_ORDER - 1
           j=_SWE_PATCH_ORDER-1-i
           rep%H(i+1) = element%cell%data_pers%H(j*j + 1)
@@ -179,7 +169,7 @@ MODULE SWE_DG_solver
           rep%HV(i+1)= element%cell%data_pers%HV(j*j + 1)
           rep%B(i+1) = element%cell%data_pers%B(j*j + 1)
        end do
-    case (-2,2) ! hypotenuse
+    case (2) ! hypotenuse
        do i=1, _SWE_PATCH_ORDER
           j=_SWE_PATCH_ORDER+1-i
           rep%H(i) = element%cell%data_pers%H ((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
@@ -187,7 +177,7 @@ MODULE SWE_DG_solver
           rep%HV(i)= element%cell%data_pers%HV((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
           rep%B(i) = element%cell%data_pers%B ((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
        end do
-    case (-1,1) !cells with id i*i (right leg)
+    case (1) !cells with id i*i (right leg)
        do i=1, _SWE_PATCH_ORDER
           rep%H(i)  = element%cell%data_pers%H(i*i)
           rep%HU(i) = element%cell%data_pers%HU(i*i)
@@ -408,7 +398,6 @@ else if(isFV(rep%troubled)) then
             update%HV(i)=rep%HV(i) - 2.0_GRID_SR*length_flux*normal(2)
          end do
          update%B=rep%B
-         print*,"tbd"
 #  if defined(_BOUNDARY)
       end if
 #  endif

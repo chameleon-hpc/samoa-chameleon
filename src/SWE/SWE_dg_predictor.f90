@@ -310,21 +310,21 @@ contains
             cell%data_pers%FP(j,2,i,:) = FP(2,indx,:)
          end do
          select case(edge_type)
-         case (-1,3) !cells with id i*i+1 (left leg)
-            edges(j)%ptr%data_pers%H  = matmul(phi_l,Q_DG%h) 
-            edges(j)%ptr%data_pers%HU = matmul(phi_l,Q_DG%p(1))
-            edges(j)%ptr%data_pers%HV = matmul(phi_l,Q_DG%p(2)) 
-            edges(j)%ptr%data_pers%B  = matmul(phi_l,Q_DG%b)
-         case (-2,2) ! hypotenuse
-            edges(j)%ptr%data_pers%H  = matmul(phi_m,Q_DG%h)
-            edges(j)%ptr%data_pers%HU = matmul(phi_m,Q_DG%p(1))
-            edges(j)%ptr%data_pers%HV = matmul(phi_m,Q_DG%p(2))
-            edges(j)%ptr%data_pers%B  = matmul(phi_m,Q_DG%b)
-         case (-3,1) !cells with id i*i (right leg)
-            edges(j)%ptr%data_pers%H  = matmul(phi_r,Q_DG%h)
-            edges(j)%ptr%data_pers%HU = matmul(phi_r,Q_DG%p(1))
-            edges(j)%ptr%data_pers%HV = matmul(phi_r,Q_DG%p(2))
-            edges(j)%ptr%data_pers%B  = matmul(phi_r,Q_DG%b)
+         case (1) !right
+            cell%data_pers%QFV(j,:,1) = matmul(phi_r,Q_DG%h)
+            cell%data_pers%QFV(j,:,2) = matmul(phi_r,Q_DG%p(1))
+            cell%data_pers%QFV(j,:,3) = matmul(phi_r,Q_DG%p(2))
+            cell%data_pers%QFV(j,:,4) = matmul(phi_r,Q_DG%b)
+         case (2) !mid
+            cell%data_pers%QFV(j,:,1) = matmul(phi_m,Q_DG%h)
+            cell%data_pers%QFV(j,:,2) = matmul(phi_m,Q_DG%p(1))
+            cell%data_pers%QFV(j,:,3) = matmul(phi_m,Q_DG%p(2))
+            cell%data_pers%QFV(j,:,4) = matmul(phi_m,Q_DG%b)
+         case (3) !left
+            cell%data_pers%QFV(j,:,1) = matmul(phi_l,Q_DG%h) 
+            cell%data_pers%QFV(j,:,2) = matmul(phi_l,Q_DG%p(1))
+            cell%data_pers%QFV(j,:,3) = matmul(phi_l,Q_DG%p(2)) 
+            cell%data_pers%QFV(j,:,4) = matmul(phi_l,Q_DG%b)
          end select
 
          ! print*,"Proj"

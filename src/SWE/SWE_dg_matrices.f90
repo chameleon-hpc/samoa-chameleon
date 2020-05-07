@@ -61,7 +61,8 @@ MODULE SWE_dg_matrices
 !Refinement matrices
 #include "dg_matrices/ref1_2.incl"
 #include "dg_matrices/ref2_2.incl"
-#include "dg_matrices/coarsen_2.incl"
+#include "dg_matrices/coarsen1_2.incl"
+#include "dg_matrices/coarsen2_2.incl"
 
 real(kind=GRID_SR), Parameter :: s_m_inv_s_k_x_t   (_SWE_DG_DOFS,_SWE_DG_DOFS)     = matmul(s_m_inv,transpose(s_k_x))
 real(kind=GRID_SR), Parameter :: s_m_inv_s_k_y_t   (_SWE_DG_DOFS,_SWE_DG_DOFS)     = matmul(s_m_inv,transpose(s_k_y))
@@ -69,6 +70,14 @@ real(kind=GRID_SR), Parameter :: t_k_t_11_inv_t_m_1(_SWE_DG_ORDER,_SWE_DG_ORDER+
 real(kind=GRID_SR), Parameter :: s_k_x_s_b_3_s_b_2 (_SWE_DG_DOFS,_SWE_DG_DOFS)     = s_k_x + s_b_3 - s_b_2
 real(kind=GRID_SR), Parameter :: s_k_y_s_b_1_s_b_2 (_SWE_DG_DOFS,_SWE_DG_DOFS)     = s_k_y + s_b_1 - s_b_2
 real(kind=GRID_SR), Parameter :: t_k_t_11_inv_x_t_k_t_10(_SWE_DG_ORDER,1)          = matmul(t_k_t_11_inv,t_k_t_10)
+
+real(kind=GRID_SR),Parameter :: s_m_inv_ref1(_SWE_DG_DOFS,_SWE_DG_DOFS)  = matmul(s_m_inv,ref1)
+real(kind=GRID_SR),Parameter :: s_m_inv_ref2(_SWE_DG_DOFS,_SWE_DG_DOFS)  = matmul(s_m_inv,ref2)
+real(kind=GRID_SR),Parameter :: s_m_inv_coarsen1(_SWE_DG_DOFS,_SWE_DG_DOFS) =&
+			     matmul(s_m_inv,coarsen1)
+real(kind=GRID_SR),Parameter :: s_m_inv_coarsen2(_SWE_DG_DOFS,_SWE_DG_DOFS) =&
+			     matmul(s_m_inv,coarsen2)
+
 
 contains 
 

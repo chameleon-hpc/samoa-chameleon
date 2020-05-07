@@ -1,3 +1,3 @@
 real(kind=GRID_SR),Parameter :: t_k_t_11_inv(2,2) = reshape((/ &
-1.125,1.5,&
--1.5,0.0  /),(/2,2/))
+1.125_GRID_SR ,1.5_GRID_SR ,&
+-1.5_GRID_SR ,0.0_GRID_SR   /),(/2,2/))

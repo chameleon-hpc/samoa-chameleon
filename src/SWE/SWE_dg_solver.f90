@@ -54,6 +54,7 @@ MODULE SWE_DG_solver
 #		define _GT_NAME	           		t_swe_dg_timestep_traversal
 
 #		define _GT_EDGES
+#               define _GT_EDGE_MPI_TYPE
 
 #		define _GT_PRE_TRAVERSAL_OP      	pre_traversal_op_dg
 #		define _GT_PRE_TRAVERSAL_GRID_OP	pre_traversal_grid_op_dg
@@ -69,6 +70,34 @@ MODULE SWE_DG_solver
   public cell_to_edge_op_dg
 
 #		include "SFC_generic_traversal_ringbuffer.f90"
+
+    subroutine create_edge_mpi_type(mpi_edge_type)
+    integer, intent(out)  ::mpi_edge_type
+#if defined(_MPI)
+    type(t_edge_data)     :: edge
+    integer                                 :: blocklengths(2), types(2), disps(2), type_size, i_error
+    integer (kind = MPI_ADDRESS_KIND)       :: lb, ub
+
+    blocklengths(1) = 1
+    blocklengths(2) = 1
+
+    disps(1) = 0
+    disps(2) = sizeof(edge)
+
+    types(1) = MPI_LB
+    types(2) = MPI_UB
+
+
+    call MPI_Type_struct(2, blocklengths, disps, types, mpi_edge_type, i_error); assert_eq(i_error, 0)
+    call MPI_Type_commit(mpi_edge_type, i_error); assert_eq(i_error, 0)
+    call MPI_Type_size(mpi_edge_type, type_size, i_error); assert_eq(i_error, 0)
+    call MPI_Type_get_extent(mpi_edge_type, lb, ub, i_error); assert_eq(i_error,0)
+
+    assert_eq(0, lb)
+    assert_eq(0, type_size)
+    assert_eq(sizeof(edge), ub)
+#endif !_MPI   
+  end subroutine create_edge_mpi_type
 
 
   subroutine post_traversal_grid_op_dg(traversal, grid)

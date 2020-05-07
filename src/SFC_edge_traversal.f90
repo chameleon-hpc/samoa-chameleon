@@ -1536,7 +1536,14 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
                             do i_edge = 1, comm%i_edges
                                 update%flux(:) = comm%p_local_edges(i_edge)%update%flux(:)
                                 rep = transfer(update, rep)
-                                comm%p_neighbor_edges(i_edge)%rep = rep
+                                comm%p_neighbor_edges(i_edge)%rep%QP(:,:) = rep%QP(:,:)
+                                comm%p_neighbor_edges(i_edge)%rep%FP(:,:,:) = rep%FP(:,:,:)
+                                comm%p_neighbor_edges(i_edge)%rep%H(:) = rep%H(:)
+                                comm%p_neighbor_edges(i_edge)%rep%HU(:) = rep%HU(:)
+                                comm%p_neighbor_edges(i_edge)%rep%HV(:) = rep%HV(:)
+                                comm%p_neighbor_edges(i_edge)%rep%B(:) = rep%B(:)
+                                comm%p_neighbor_edges(i_edge)%rep%minObservables(:) = rep%minObservables(:)
+                                comm%p_neighbor_edges(i_edge)%rep%maxObservables(:) = rep%maxObservables(:)
                             end do
                         end if
                     end do
@@ -1559,7 +1566,14 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
 
                         if (comm%neighbor_rank .ge. 0) then
                             do i_edge = 1, comm%i_edges
-                                rep = comm%p_neighbor_edges(i_edge)%rep
+                                rep%QP(:,:) = comm%p_neighbor_edges(i_edge)%rep%QP(:,:)
+                                rep%FP(:,:,:) = comm%p_neighbor_edges(i_edge)%rep%FP(:,:,:)
+                                rep%H(:) = comm%p_neighbor_edges(i_edge)%rep%H(:)
+                                rep%HU(:) = comm%p_neighbor_edges(i_edge)%rep%HU(:)
+                                rep%HV(:) = comm%p_neighbor_edges(i_edge)%rep%HV(:)
+                                rep%B(:) = comm%p_neighbor_edges(i_edge)%rep%B(:)
+                                rep%minObservables(:) = comm%p_neighbor_edges(i_edge)%rep%minObservables(:)
+                                rep%maxObservables(:) = comm%p_neighbor_edges(i_edge)%rep%maxObservables(:)
                                 update = transfer(rep, update)
                                 comm%p_local_edges(i_edge)%update%flux(:) = update%flux(:)
                             end do

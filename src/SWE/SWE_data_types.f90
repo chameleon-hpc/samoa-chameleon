@@ -31,8 +31,8 @@ MODULE SWE_data_types
   !> state vector of DoFs, either as absoulte values or updates
   
   type t_dof_state
-     real (kind = GRID_SR)													:: h						!< water change
-     real (kind = GRID_SR), dimension(2)										:: p						!< momentum change
+     real (kind = GRID_SR) :: h			!< water change
+     real (kind = GRID_SR), dimension(2) :: p   !< momentum change
      
    contains
      
@@ -142,12 +142,17 @@ end type num_cell_data_pers
      real (kind = GRID_SR)							:: r_dt						!< time step
      real (kind = GRID_SR)							:: r_dt_new					!< new time step for the next iteration
      
+     !For Refinment
+     real (kind = GRID_SR) :: min_error
+     real (kind = GRID_SR) :: max_error
+     real (kind = GRID_SR) :: min_error_new
+     real (kind = GRID_SR) :: max_error_new
+
+     
 #if defined(_ASAGI)
-#if defined(_SWE_DG)
      real (kind = GRID_SR)							:: b_max=TINY(1.0_GRID_SR),b_min=HUGE(1.0_GRID_SR)
      real (kind = GRID_SR)							:: b_max_new=TINY(1.0_GRID_SR),b_min_new=HUGE(1.0_GRID_SR)     
 
-#endif
 #endif
 #     if defined(_XDMF)
         integer (kind = GRID_SI)                               :: xdmf_filter_count_cells !<amount of cells in this section after filtering

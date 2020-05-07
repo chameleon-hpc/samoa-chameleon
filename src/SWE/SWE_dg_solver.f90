@@ -91,6 +91,14 @@ MODULE SWE_DG_solver
     grid%r_dt = grid%r_dt_new
     grid%r_dt = min(cfg%r_max_time-grid%r_time, grid%r_dt)    
     call scatter(grid%r_time, grid%sections%elements_alloc%r_time)
+
+    ! reduce and scatter refinement errors
+    call reduce(grid%min_error, grid%sections%elements_alloc%min_error_new, MPI_MIN, .true.)
+    call reduce(grid%max_error, grid%sections%elements_alloc%max_error_new, MPI_MAX, .true.)
+    
+    call scatter(grid%min_error, grid%sections%elements_alloc%min_error)
+    call scatter(grid%max_error, grid%sections%elements_alloc%max_error)
+    
   end subroutine post_traversal_grid_op_dg
 
   subroutine pre_traversal_grid_op_dg(traversal, grid)
@@ -104,7 +112,9 @@ MODULE SWE_DG_solver
     type(t_grid_section), intent(inout)							:: section
     !this variable will be incremented for each cell with a refinement request
     traversal%i_refinements_issued = 0_GRID_DI
-    section%r_dt_new = huge(1.0_SR)
+    section%r_dt_new      =  huge(1.0_GRID_SR)
+    section%min_error_new =  huge(1.0_GRID_SR)
+    section%max_error_new = -huge(1.0_GRID_SR)
 
   end subroutine pre_traversal_op_dg
 
@@ -465,12 +475,14 @@ type(t_state), dimension((_SWE_DG_ORDER+1)**2)             :: edge_l, edge_m,edg
 real(kind= GRID_SR) :: dt,dx,delta(3),max_neighbour(3),min_neighbour(3),data_max_val(3),data_min_val(3)
 integer :: indx,indx_mir,k,i,j
 real (kind=GRID_SR) :: max_wave_speed, wave_speed=0,dQ_norm,b_min,b_max
-real (kind=GRID_SR) :: refinement_threshold = 0.25_GRID_SR/_SWE_DG_ORDER
+real (kind=GRID_SR) :: refinement_threshold = 10.25_GRID_SR/_SWE_DG_ORDER
 real (kind = GRID_SR), dimension (_SWE_DG_DOFS) :: H_old, HU_old, HV_old, B_old
 real (kind = GRID_SR), dimension (_SWE_PATCH_ORDER_SQUARE) :: H, HU, HV
 logical :: refine,coarsen
 integer :: i_depth,bathy_depth
 real(kind=GRID_SR),Dimension(3) :: edge_sizes
+real(kind=GRID_SR) :: error
+real(kind=GRID_SR) :: refine_factor = 0.8, coarsen_factor=4.0
 
 !> For DMP
   real(kind=GRID_SR) :: minVals(_DMP_NUM_OBSERVABLES)
@@ -542,21 +554,20 @@ if(isDG(data%troubled)) then
       i_depth = element%cell%geometry%i_depth
       
       dQ_norm = maxval(abs(data%Q%H-H_old))
-      
 
       !refine      
       !consider wave
-      refine = (dQ_norm/section%r_dt  * edge_sizes(1) * edge_sizes(1)) > refinement_threshold *get_edge_size(cfg%i_max_depth)**2
+      error = get_error_estimate(data%Q)
       
-      !coarsen
-      !consider wave
-      
-#if defined (_SWE_SCENARIO_OSCILLATING_LAKE)
-      coarsen=.false.
-#else      
-      coarsen=(( dQ_norm/section%r_dt  * edge_sizes(1) * edge_sizes(1)) < refinement_threshold/8_GRID_SR *get_edge_size(cfg%i_max_depth)**2)
-#endif
-      
+      if(error > section%max_error * refine_factor) then
+         refine = .true.
+      endif
+      if(error < section%min_error * coarsen_factor) then
+         coarsen = .true.
+      endif
+
+      section%min_error_new = min(error,section%min_error_new)
+      section%max_error_new = max(error,section%max_error_new)
 
 #if defined(_ASAGI)
       ! consider bathymetry
@@ -581,7 +592,8 @@ if(isDG(data%troubled)) then
          bathy_depth = max(min(bathy_depth,cfg%i_max_depth),cfg%i_min_depth)
       end if
       coarsen=coarsen.and. (i_depth > bathy_depth)
-#endif      
+#endif
+      element%cell%geometry%refinement = 0
       if (i_depth < cfg%i_max_depth .and. refine) then
          element%cell%geometry%refinement = 1
          traversal%i_refinements_issued = traversal%i_refinements_issued + 1_GRID_DI
@@ -595,29 +607,6 @@ end if
 
 if(isFV(data%troubled)) then
    !-----Call FV patch solver----!
-   ! print*,"update1"
-   ! print*,update1%troubled
-   ! print*,update1%H
-   ! print*,update1%HU
-   ! print*,update1%HV
-   ! print*,update1%B
-   ! print*,"update2"
-   ! print*,update2%troubled
-   ! print*,update2%H
-   ! print*,update2%HU
-   ! print*,update2%HV
-   ! print*,update2%B
-   ! print*,"update3"
-   ! print*,update3%troubled
-   ! print*,update3%H
-   ! print*,update3%HU
-   ! print*,update3%HV
-   ! print*,update3%B
-   ! print*,"Cell"
-   ! print*,element%cell%data_pers%H
-   ! print*,element%cell%data_pers%HU
-   ! print*,element%cell%data_pers%HV
-   ! print*,element%cell%data_pers%B
    call fv_patch_solver(traversal, section, element, update1, update2, update3)
 end if
 
@@ -1007,23 +996,6 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                call apply_mue(data%hv,data%Q%p(2))
                call apply_mue(data%b ,data%Q%b)
                data%Q%h=data%Q%h-data%Q%b
-               
-               coarsen = all(data%H - data%B < cfg%dry_tolerance)
-               refine  = .not.all(data%H - data%B < cfg%dry_tolerance)
-
-#if defined(_ASAGI)
-               coarsen=.false.
-               refine =.false.
-#endif               
-               
-               if(data%troubled.eq.1) then
-                  if ( element%cell%geometry%i_depth < cfg%i_max_depth .and. refine) then
-                     element%cell%geometry%refinement = cfg%i_max_depth - element%cell%geometry%i_depth
-                     traversal%i_refinements_issued = traversal%i_refinements_issued+ cfg%i_max_depth - element%cell%geometry%i_depth
-                  else if ( element%cell%geometry%i_depth > cfg%i_min_depth .and. coarsen) then
-                     element%cell%geometry%refinement = -1
-                  endif
-               end if               
           end associate
 
         end subroutine fv_patch_solver
@@ -1073,12 +1045,24 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
           
           fluxL%h = net_updatesL(1)
           fluxL%p = matmul(net_updatesL(2:3), transform_matrix)
-          !			fluxL%max_wave_speed = max_wave_speed
-          
           fluxR%h = net_updatesR(1)
           fluxR%p = matmul(net_updatesR(2:3), transform_matrix)
-          !			fluxR%max_wave_speed = max_wave_speed
         end subroutine compute_geoclaw_flux
+
+        function get_error_estimate(Q) result(error)
+          type(t_state)        , DIMENSION(_SWE_DG_DOFS) :: Q
+          real(kind=GRID_SR) :: error
+          real(kind=GRID_SR) :: min_h
+          real(kind=GRID_SR) :: max_h
+          integer :: i
+          max_h= -huge(1.0_GRID_SR)
+          min_h=  huge(1.0_GRID_SR)
+          do i=1,_SWE_DG_DOFS
+             min_h = min(Q(i)%h,min_h)
+             max_h = max(Q(i)%h,max_h)
+          end do
+          error = abs(max_h-min_h)
+        end function get_error_estimate
         
 END MODULE SWE_DG_solver
 !_SWE_DG

@@ -92,8 +92,8 @@ type num_cell_data_pers
 end type num_cell_data_pers
 
   !> Cell representation on an edge, this would typically be everything required from a cell to compute the flux function on an edge
-  type num_cell_rep
-     !type(t_state), DIMENSION((_SWE_DG_ORDER+1)*3)           :: Q
+type num_cell_rep
+    !type(t_state), DIMENSION((_SWE_DG_ORDER+1)*3)           :: Q
     real(kind=GRID_SR), DIMENSION(_SWE_DG_ORDER+1,4)        :: QP
     real(kind=GRID_SR), DIMENSION(2,_SWE_DG_ORDER+1,3)      :: FP
     real (kind = GRID_SR), dimension (_SWE_PATCH_ORDER)     :: H, HU, HV, B

@@ -14,11 +14,7 @@ MODULE SWE_Initialize_Bathymetry
   use Samoa_swe
   use SWE_PATCH
   use SWE_DG_Limiter
-  
-  ! No ASAGI -> Artificial scenario selector 
-#       if !defined(_ASAGI)
   use SWE_Scenario
-#       endif 
 
   implicit none
 
@@ -271,35 +267,26 @@ MODULE SWE_Initialize_Bathymetry
     real(GRID_SR)                     :: x_clamp(2)
 
     xs(1:2) = real(cfg%scaling * x + cfg%offset, c_double)
-#if !defined(_ASAGI)
-    bathymetry = SWE_Scenario_get_bathymetry(real(xs, GRID_SR))
-#else !_ASAGI
     
 #if defined(_ASAGI_TIMING)
     call section%stats%start_time(asagi_time)
 #endif !_ASAGI_TIMING
+    
+    bathymetry = SWE_Scenario_get_bathymetry(real(xs, GRID_SR))
 
-
-    ! Stretch out into undefined areas
-    x_clamp(1) = max(asagi_grid_min(cfg%afh_bathymetry, 0), &
-      min(xs(1), asagi_grid_max(cfg%afh_bathymetry, 0)))
-    x_clamp(2) = max(asagi_grid_min(cfg%afh_bathymetry, 1), &
-      min(xs(2), asagi_grid_max(cfg%afh_bathymetry, 1)))
-    bathymetry = asagi_grid_get_float(cfg%afh_bathymetry, x_clamp, 0)
-    xs(3) = 0.0
-
-    if (asagi_grid_min(cfg%afh_displacement, 0) <= xs(1) .and. asagi_grid_min(cfg%afh_displacement, 1) <= xs(2) &
-         .and. xs(1) <= asagi_grid_max(cfg%afh_displacement, 0) .and. xs(2) <= asagi_grid_max(cfg%afh_displacement, 1) &
-         .and. t > cfg%t_min_eq) then
-
-       xs(3) = real(min(t, cfg%t_max_eq), c_double)
-       bathymetry = bathymetry + asagi_grid_get_float(cfg%afh_displacement, xs, 0)
-    end if
-
-#if defined(_ASAGI_TIMING)
+#if defined(_ASAGI)
+       if (asagi_grid_min(cfg%afh_displacement, 0) <= x(1) .and. asagi_grid_min(cfg%afh_displacement, 1) <= x(2) &
+            .and. xs(1) <= asagi_grid_max(cfg%afh_displacement, 0) .and. xs(2) <= asagi_grid_max(cfg%afh_displacement, 1) &
+            .and. t > cfg%t_min_eq) then
+          
+          xs(3) = real(min(t, cfg%t_max_eq), c_double)
+          bathymetry = bathymetry + asagi_grid_get_float(cfg%afh_displacement, xs, 0)
+       end if
+#endif !_ASAGI
+    
+#if defined(_ASAGI_TIMING)    
     call section%stats%stop_time(asagi_time)
 #endif !_ASAGI_TIMING
-#endif !_ASAGI
   end function get_bathymetry_at_position
 END MODULE SWE_Initialize_Bathymetry
 
@@ -310,18 +297,9 @@ MODULE SWE_Initialize_Dofs
   use SFC_edge_traversal
   use SWE_Initialize_Bathymetry
   use Samoa_swe
-#       if defined(_SWE_PATCH)
   use SWE_PATCH
-#       endif
-
-# if defined(_SWE_DG)           
   use SWE_DG_predictor
-# endif          
-
-  ! No ASAGI -> Artificial scenario selector 
-#       if !defined(_ASAGI)
   use SWE_Scenario
-#       endif 
 
   implicit none
 
@@ -657,48 +635,34 @@ MODULE SWE_Initialize_Dofs
 
     !This will cause a division by zero if the wave speeds are 0.
     !Bue to the min operator, the error will not affect the time step.
-#           if defined _SWE_PATCH
+#if defined _SWE_PATCH
     if(maxval(max_wave_speed) > 0.0_GRID_SR)then
     section%r_dt_new = min(section%r_dt_new, element%cell%geometry%get_volume() / (sum(element%cell%geometry%get_edge_sizes()) * maxval(max_wave_speed) * _SWE_PATCH_ORDER))
-#           else
+#else
     section%r_dt_new = min(section%r_dt_new, element%cell%geometry%get_volume() / (sum(element%cell%geometry%get_edge_sizes()) * maxval(max_wave_speed)))
-#           endif
+# endif
+ end if
 
-    end if
+end subroutine alpha_volume_op
 
-  end subroutine alpha_volume_op
+function get_initial_dof_state_at_element(section, element) result(Q)
+  type(t_grid_section), intent(inout)		:: section
+  type(t_element_base), intent(inout)     :: element
+  type(t_dof_state)						:: Q
+  real (kind = GRID_SR)		            :: x(2)
+  
+  x = samoa_barycentric_to_world_point(element%transform_data, [1.0_SR / 3.0_SR, 1.0_SR / 3.0_SR])
+  Q = get_initial_dof_state_at_position(section, x)
+end function get_initial_dof_state_at_element
 
-  function get_initial_dof_state_at_element(section, element) result(Q)
-    type(t_grid_section), intent(inout)		:: section
-    type(t_element_base), intent(inout)     :: element
-    type(t_dof_state)						:: Q
-    real (kind = GRID_SR)		            :: x(2)
-
-    x = samoa_barycentric_to_world_point(element%transform_data, [1.0_SR / 3.0_SR, 1.0_SR / 3.0_SR])
-    Q = get_initial_dof_state_at_position(section, x)
-  end function get_initial_dof_state_at_element
-
-
-  function get_initial_dof_state_at_position(section, x) result(Q)
-    type(t_grid_section), intent(inout)					:: section
-    real (kind = GRID_SR), intent(in)		            :: x(:)            !< position in world coordinates
-    type(t_dof_state)							        :: Q
-    real (kind = GRID_SR), parameter		            :: hL = 1.20_GRID_SR, hR = 1.30_GRID_SR
-    real (kind = GRID_SR), parameter		            :: dam_radius=0.2
-    real(kind=GRID_SR),Dimension(2)                             :: dam_center=[0.5,0.5]
-    real (kind = GRID_SR)                                       :: xs(2)
-
+function get_initial_dof_state_at_position(section, x) result(Q)
+  type(t_grid_section), intent(inout)		:: section
+  real (kind = GRID_SR), intent(in)		  :: x(:)            !< position in world coordinates
+  type(t_dof_state)							        :: Q
+  real (kind = GRID_SR)                 :: xs(2)
+  
     xs = cfg%scaling * x + cfg%offset
-
-
-#			if defined(_ASAGI)
-    Q%h = 0.0_GRID_SR                                    
-    Q%p = 0.0_GRID_SR            
-#			else
-
     Q = SWE_Scenario_get_initial_Q(xs)
-#			endif
-
   end function get_initial_dof_state_at_position
 
 

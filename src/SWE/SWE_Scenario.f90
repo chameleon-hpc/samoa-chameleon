@@ -11,6 +11,7 @@
 !*******************
 !* MODULE TEMPLATE *
 !*******************
+
 #if 0
 MODULE SWE_Scenario_template
     use Samoa_swe
@@ -874,7 +875,69 @@ END MODULE SWE_Scenario_smooth_wave
 #endif
 
 
+#if defined (_SWE_SCENARIO_ASAGI)
+MODULE SWE_Scenario_asagi
+    use Samoa_swe
+    public SWE_Scenario_get_scaling, SWE_Scenario_get_offset, SWE_Scenario_get_bathymetry, SWE_Scenario_get_initial_Q
+    contains
 
+    function SWE_Scenario_get_scaling() result(scaling)
+      real (kind = GRID_SR) :: scaling
+      associate(afh_d => cfg%afh_displacement, afh_b => cfg%afh_bathymetry)
+        scaling = max(asagi_grid_max(afh_b, 0) - asagi_grid_min(afh_b, 0), asagi_grid_max(afh_b, 1) - asagi_grid_min(afh_b, 1))
+        
+        if (rank_MPI == 0) then
+           _log_write(1, '(" SWE: loaded ", A, ", domain: [", F0.2, ", ", F0.2, "] x [", F0.2, ", ", F0.2, "]")') &
+                trim(cfg%s_bathymetry_file), asagi_grid_min(afh_b, 0), asagi_grid_max(afh_b, 0),  asagi_grid_min(afh_b, 1), asagi_grid_max(afh_b, 1)
+           _log_write(1, '(" SWE:  dx: ", F0.2, " dy: ", F0.2)') asagi_grid_delta(afh_b, 0), asagi_grid_delta(afh_b, 1)
+        end if
+      end associate
+    end function SWE_Scenario_get_scaling
+
+    function SWE_Scenario_get_offset() result(offset)
+      real (kind = GRID_SR) :: offset(2)
+      associate(afh_d => cfg%afh_displacement, afh_b => cfg%afh_bathymetry)
+        offset = [0.5_GRID_SR * (asagi_grid_min(afh_d, 0) + asagi_grid_max(afh_d, 0)), 0.5_GRID_SR * (asagi_grid_min(afh_d, 1) + asagi_grid_max(afh_d, 1))] - 0.5_GRID_SR * cfg%scaling
+        offset = min(max(cfg%offset, [asagi_grid_min(afh_b, 0), asagi_grid_min(afh_b, 1)]), [asagi_grid_max(afh_b, 0), asagi_grid_max(afh_b, 1)] - cfg%scaling)
+        
+        !if the data file has more than two dimensions, we assume that it contains time-dependent displacements
+        if (asagi_grid_dimensions(afh_d) > 2) then
+           _log_write(1, '(" SWE: loaded ", A, ", domain: [", F0.2, ", ", F0.2, "] x [", F0.2, ", ", F0.2, "], time: [", F0.2, ", ", F0.2, "]")') &
+                trim(cfg%s_displacement_file), asagi_grid_min(afh_d, 0), asagi_grid_max(afh_d, 0),  asagi_grid_min(afh_d, 1), asagi_grid_max(afh_d, 1), asagi_grid_min(afh_d, 2), asagi_grid_max(afh_d, 2)
+           _log_write(1, '(" SWE:  dx: ", F0.2, " dy: ", F0.2, " dt: ", F0.2)') asagi_grid_delta(afh_d, 0), asagi_grid_delta(afh_d, 1), asagi_grid_delta(afh_d, 2)
+        else
+           _log_write(1, '(" SWE: loaded ", A, ", domain: [", F0.2,g ", ", F0.2, "] x [", F0.2, ", ", F0.2, "]")') &
+                trim(cfg%s_displacement_file), asagi_grid_min(afh_d, 0), asagi_grid_max(afh_d, 0),  asagi_grid_min(afh_d, 1), asagi_grid_max(afh_d, 1)
+           _log_write(1, '(" SWE:  dx: ", F0.2, " dy: ", F0.2)') asagi_grid_delta(afh_d, 0), asagi_grid_delta(afh_d, 1)
+        end if
+      end associate
+    end function SWE_Scenario_get_offset
+  
+  function SWE_Scenario_get_bathymetry(x) result(bathymetry)
+    real (kind = GRID_SR), intent(in) :: x(2)
+    real (kind = GRID_SR) :: bathymetry
+    real(GRID_SR)         :: x_clamp(2)
+    
+    ! Stretch out into undefined areas
+    associate(afh_d => cfg%afh_displacement, afh_b => cfg%afh_bathymetry)    
+      x_clamp(1) = max(asagi_grid_min(cfg%afh_bathymetry, 0), &
+           min(x(1), asagi_grid_max(cfg%afh_bathymetry, 0)))
+      x_clamp(2) = max(asagi_grid_min(cfg%afh_bathymetry, 1), &
+           min(x(2), asagi_grid_max(cfg%afh_bathymetry, 1)))
+      bathymetry = asagi_grid_get_float(cfg%afh_bathymetry, x_clamp, 0)
+    end associate
+  end function SWE_Scenario_get_bathymetry
+ 
+    
+  function SWE_Scenario_get_initial_Q(x) result(Q)
+    real (kind = GRID_SR), intent(in) :: x(2)
+    type(t_dof_state) :: Q
+    Q%h = 0.0_GRID_SR                                    
+    Q%p = 0.0_GRID_SR            
+  end function SWE_Scenario_get_initial_Q
+  
+END MODULE SWE_Scenario_asagi
+#endif
 
 MODULE SWE_Scenario
 
@@ -909,7 +972,7 @@ MODULE SWE_Scenario
 #   elif defined(_SWE_SCENARIO_SMOOTH_WAVE)
         USE SWE_Scenario_smooth_wave
 #   elif defined(_SWE_SCENARIO_ASAGI)
-        ! USE SWE_Scenario_asagi
+        USE SWE_Scenario_asagi
 #   endif
 
 END MODULE SWE_Scenario

@@ -30,8 +30,9 @@
 #		define _GT_NAME					t_swe_adaption_traversal
     
 #		define _GT_EDGES
+#   define _GT_EDGE_MPI_TYPE
 
-#               undef _GT_SKELETON_OP  
+#   undef _GT_SKELETON_OP  
 #		define _GT_PRE_TRAVERSAL_GRID_OP		pre_traversal_grid_op
 #		define _GT_PRE_TRAVERSAL_OP			pre_traversal_op
 #		define _GT_POST_TRAVERSAL_OP			post_traversal_op
@@ -43,35 +44,6 @@
 #		define _GT_CELL_UPDATE_OP		        cell_update_op_adapt
 #		include "SFC_generic_adaptive_traversal.f90"
 
-
-  subroutine create_node_mpi_type(mpi_node_type)
-          integer, intent(out)            :: mpi_node_type
-
-#if defined(_MPI)
-          type(t_node_data)                       :: node
-          integer                                 :: blocklengths(2), types(2), disps(2), type_size, i_error
-          integer (kind = MPI_ADDRESS_KIND)       :: lb, ub
-          
-          blocklengths(1) = 1
-          blocklengths(2) = 1
-          
-          disps(1) = 0
-          disps(2) = sizeof(node)
-          
-          types(1) = MPI_LB
-          types(2) = MPI_UB
-          
-          call MPI_Type_struct(2, blocklengths, disps, types, mpi_node_type, i_error); assert_eq(i_error, 0)
-          call MPI_Type_commit(mpi_node_type, i_error); assert_eq(i_error, 0)
-          
-          call MPI_Type_size(mpi_node_type, type_size, i_error); assert_eq(i_error, 0)
-          call MPI_Type_get_extent(mpi_node_type, lb, ub, i_error); assert_eq(i_error, 0)
-          
-          assert_eq(0, lb)
-          assert_eq(0, type_size)
-          assert_eq(sizeof(node), ub)
-#endif
-        end subroutine
 
         subroutine cell_update_op_adapt(traversal, section, element, update1, update2, update3)
           type(t_swe_adaption_traversal), intent(inout)				:: traversal

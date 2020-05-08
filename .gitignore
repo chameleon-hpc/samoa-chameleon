@@ -20,3 +20,7 @@ output/*
 *.mod
 *.o
 .vscode
+scripts/DG/Sage/*.incl
+fort*
+*.ipynb*
+scripts/DG/Sage/alpha_nodes/*

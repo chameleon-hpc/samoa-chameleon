@@ -9,7 +9,7 @@
 MODULE SWE
   use SFC_edge_traversal
   use SWE_data_types
-
+  
   use SWE_adapt
   use SWE_initialize_bathymetry
   use SWE_initialize_dofs
@@ -24,7 +24,7 @@ MODULE SWE
   use SWE_Scenario
   use SWE_dg_solver
 
-#       if defined(_XDMF)
+#if defined(_XDMF)
   use HDF5
   use XDMF_output_base_data_types
   use SWE_XDMF_config
@@ -32,7 +32,8 @@ MODULE SWE
   use SWE_XDMF_output_filter
   use SWE_XDMF_initialize_dofs
   use SWE_XDMF_adapt
-#       endif
+#endif
+  
   implicit none
   PRIVATE
   PUBLIC t_swe
@@ -44,20 +45,18 @@ MODULE SWE
      type(t_swe_output_traversal)            :: output
      type(t_swe_xml_point_output_traversal)  :: xml_point_output
      type(t_swe_xml_output_traversal)        :: xml_output
-     type(t_swe_point_output_traversal)	    :: point_output
+     type(t_swe_point_output_traversal)	     :: point_output
      type(t_swe_adaption_traversal)          :: adaption
-     type(t_swe_dg_timestep_traversal)   :: dg_timestep
+     type(t_swe_dg_timestep_traversal)       :: dg_timestep
 
-#           if defined(_XDMF)
-     type(t_swe_xdmf_output_traversal)   :: xdmf_output
+#if defined(_XDMF)
+     type(t_swe_xdmf_output_traversal)        :: xdmf_output
      type(t_swe_xdmf_output_filter_traversal) :: xdmf_output_filter
-     type(t_swe_xdmf_adaption_traversal)  :: xdmf_adaption
-     type(t_swe_xdmf_init_dofs_traversal) :: xdmf_init_dofs
-#           endif
-
+     type(t_swe_xdmf_adaption_traversal)      :: xdmf_adaption
+     type(t_swe_xdmf_init_dofs_traversal)     :: xdmf_init_dofs
+#endif
 
    contains
-
      procedure, pass :: create => swe_create
      procedure, pass :: run => swe_run
      procedure, pass :: destroy => swe_destroy
@@ -78,19 +77,16 @@ contains
     integer                      							:: i_xdmffile_stamp_bn_index
 #endif
 
-#if defined (_SWE_PATCH)
     call SWE_PATCH_geometry%init(_SWE_PATCH_ORDER)
-#endif
-
     call date_and_time(s_date, s_time)
 
-#           if defined(_MPI)
+#if defined(_MPI)
     call mpi_bcast(s_date, len(s_date), MPI_CHARACTER, 0, MPI_COMM_WORLD, i_error); assert_eq(i_error, 0)
     call mpi_bcast(s_time, len(s_time), MPI_CHARACTER, 0, MPI_COMM_WORLD, i_error); assert_eq(i_error, 0)
-#           endif
+#endif
 
     swe%output%s_file_stamp = trim(cfg%output_dir) // "/swe_" // trim(s_date) // "_" // trim(s_time)
-#           if defined(_XDMF)
+#if defined(_XDMF)
     call SWE_xdmf_config_load()
     if(cfg%xdmf%l_xdmfcheckpoint) then
        swe%output%s_file_stamp = cfg%xdmf%s_xdmffile_stamp
@@ -110,47 +106,44 @@ contains
     swe%xml_point_output%s_file_stamp = swe%output%s_file_stamp
     swe%point_output%s_file_stamp = swe%output%s_file_stamp
     s_log_name = trim(swe%output%s_file_stamp) // ".log"
-
+    
     if (l_log) then
        _log_open_file(s_log_name)
     endif
-
+    
     call load_scenario(grid)
-
+    
     call swe%init_b%create()
     call swe%init_dofs%create()
     call swe%displace%create()
     call swe%output%create()
     call swe%xml_output%create()
     call swe%xml_point_output%create()
-#           if defined(_XDMF)
+    call swe%adaption%create()
+    call swe%dg_timestep%create()
+
+#if defined(_XDMF)
     call swe%xdmf_output%create()
     call swe%xdmf_output_filter%create()
     call swe%xdmf_adaption%create()
     call swe%xdmf_init_dofs%create()
-#           endif
-    !			call swe%euler%create()
-    call swe%adaption%create()
-#			if defined(_SWE_DG)
-    !call swe%dg_predictor%create()
-    call swe%dg_timestep%create()
-#			endif
+#endif
+
   end subroutine swe_create
 
   subroutine load_scenario(grid)
     type(t_grid), intent(inout)             :: grid
-
     integer                                 :: i_error
 
-#			if defined(_ASAGI)
-    cfg%afh_bathymetry = asagi_grid_create(ASAGI_FLOAT)
+#if defined(_ASAGI)
+    cfg%afh_bathymetry   = asagi_grid_create(ASAGI_FLOAT)
     cfg%afh_displacement = asagi_grid_create(ASAGI_FLOAT)
 
-#               if defined(_MPI)
+#if defined(_MPI)
     call asagi_grid_set_comm(cfg%afh_bathymetry, MPI_COMM_WORLD)
     call asagi_grid_set_comm(cfg%afh_displacement, MPI_COMM_WORLD)
-#               endif
-
+#endif
+    
     call asagi_grid_set_threads(cfg%afh_bathymetry, cfg%i_threads)
     call asagi_grid_set_threads(cfg%afh_displacement, cfg%i_threads)
 
@@ -181,11 +174,6 @@ contains
     !$omp end parallel
 
     associate(afh_d => cfg%afh_displacement, afh_b => cfg%afh_bathymetry)
-      cfg%scaling = max(asagi_grid_max(afh_b, 0) - asagi_grid_min(afh_b, 0), asagi_grid_max(afh_b, 1) - asagi_grid_min(afh_b, 1))
-
-      cfg%offset = [0.5_GRID_SR * (asagi_grid_min(afh_d, 0) + asagi_grid_max(afh_d, 0)), 0.5_GRID_SR * (asagi_grid_min(afh_d, 1) + asagi_grid_max(afh_d, 1))] - 0.5_GRID_SR * cfg%scaling
-      cfg%offset = min(max(cfg%offset, [asagi_grid_min(afh_b, 0), asagi_grid_min(afh_b, 1)]), [asagi_grid_max(afh_b, 0), asagi_grid_max(afh_b, 1)] - cfg%scaling)
-
       if (asagi_grid_dimensions(afh_d) > 2) then
          cfg%dt_eq = asagi_grid_delta(afh_d, 2)
          cfg%t_min_eq = asagi_grid_min(afh_d, 2)
@@ -195,30 +183,13 @@ contains
          cfg%t_min_eq = 0.0_SR
          cfg%t_max_eq = 0.0_SR
       end if
-
-      if (rank_MPI == 0) then
-         _log_write(1, '(" SWE: loaded ", A, ", domain: [", F0.2, ", ", F0.2, "] x [", F0.2, ", ", F0.2, "]")') &
-              trim(cfg%s_bathymetry_file), asagi_grid_min(afh_b, 0), asagi_grid_max(afh_b, 0),  asagi_grid_min(afh_b, 1), asagi_grid_max(afh_b, 1)
-         _log_write(1, '(" SWE:  dx: ", F0.2, " dy: ", F0.2)') asagi_grid_delta(afh_b, 0), asagi_grid_delta(afh_b, 1)
-
-         !if the data file has more than two dimensions, we assume that it contains time-dependent displacements
-         if (asagi_grid_dimensions(afh_d) > 2) then
-            _log_write(1, '(" SWE: loaded ", A, ", domain: [", F0.2, ", ", F0.2, "] x [", F0.2, ", ", F0.2, "], time: [", F0.2, ", ", F0.2, "]")') &
-                 trim(cfg%s_displacement_file), asagi_grid_min(afh_d, 0), asagi_grid_max(afh_d, 0),  asagi_grid_min(afh_d, 1), asagi_grid_max(afh_d, 1), asagi_grid_min(afh_d, 2), asagi_grid_max(afh_d, 2)
-            _log_write(1, '(" SWE:  dx: ", F0.2, " dy: ", F0.2, " dt: ", F0.2)') asagi_grid_delta(afh_d, 0), asagi_grid_delta(afh_d, 1), asagi_grid_delta(afh_d, 2)
-         else
-            _log_write(1, '(" SWE: loaded ", A, ", domain: [", F0.2, ", ", F0.2, "] x [", F0.2, ", ", F0.2, "]")') &
-                 trim(cfg%s_displacement_file), asagi_grid_min(afh_d, 0), asagi_grid_max(afh_d, 0),  asagi_grid_min(afh_d, 1), asagi_grid_max(afh_d, 1)
-            _log_write(1, '(" SWE:  dx: ", F0.2, " dy: ", F0.2)') asagi_grid_delta(afh_d, 0), asagi_grid_delta(afh_d, 1)
-         end if
-
-         _log_write(1, '(" SWE: computational domain: [", F0.2, ", ", F0.2, "] x [", F0.2, ", ", F0.2, "]")'), cfg%offset(1), cfg%offset(1) + cfg%scaling, cfg%offset(2), cfg%offset(2) + cfg%scaling
-      end if
     end associate
-#           else
+#endif
+    
     cfg%scaling = SWE_Scenario_get_scaling()
     cfg%offset = SWE_Scenario_get_offset()
-#			endif
+    _log_write(1, '(" SWE: computational domain: [", F0.2, ", ", F0.2, "] x [", F0.2, ", ", F0.2, "]")'), cfg%offset(1), cfg%offset(1) + cfg%scaling, cfg%offset(2), cfg%offset(2) + cfg%scaling
+
   end subroutine load_scenario
 
   !> Destroys all required runtime objects for the scenario

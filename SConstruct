@@ -282,6 +282,8 @@ if env['asagi']:
   env.Append(LIBPATH = env['asagi_dir'] + '/lib')
   if env['machine'] == 'mic':
     env.Append(LIBS = ['asagi_mic'])
+  if env['mpi'] == 'nompi':
+    env.Append(LIBS = ['asagi_nompi'])
   else:
     env.Append(LIBS = ['asagi', 'numa'])
 

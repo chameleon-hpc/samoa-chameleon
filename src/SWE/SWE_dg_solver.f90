@@ -514,8 +514,8 @@ real(kind=GRID_SR) :: error
 real(kind=GRID_SR) :: refine_factor = 0.8, coarsen_factor=4.0
 
 !> For DMP
-  real(kind=GRID_SR) :: minVals(_DMP_NUM_OBSERVABLES)
-  real(kind=GRID_SR) :: maxVals(_DMP_NUM_OBSERVABLES)
+real(kind=GRID_SR) :: minVals(_DMP_NUM_OBSERVABLES)
+real(kind=GRID_SR) :: maxVals(_DMP_NUM_OBSERVABLES)
 
 associate(data => element%cell%data_pers)
 

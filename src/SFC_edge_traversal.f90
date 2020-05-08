@@ -1536,6 +1536,7 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
                             do i_edge = 1, comm%i_edges
                                 update%flux(:) = comm%p_local_edges(i_edge)%update%flux(:)
                                 rep = transfer(update, rep)
+                                comm%p_neighbor_edges(i_edge)%rep%troubled = rep%troubled
                                 comm%p_neighbor_edges(i_edge)%rep%QP(:,:) = rep%QP(:,:)
                                 comm%p_neighbor_edges(i_edge)%rep%FP(:,:,:) = rep%FP(:,:,:)
                                 comm%p_neighbor_edges(i_edge)%rep%H(:) = rep%H(:)
@@ -1565,7 +1566,8 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
                         comm => section%comms(i_color)%elements(i_comm)
 
                         if (comm%neighbor_rank .ge. 0) then
-                            do i_edge = 1, comm%i_edges
+                           do i_edge = 1, comm%i_edges
+                              rep%troubled = comm%p_neighbor_edges(i_edge)%rep%troubled
                                 rep%QP(:,:) = comm%p_neighbor_edges(i_edge)%rep%QP(:,:)
                                 rep%FP(:,:,:) = comm%p_neighbor_edges(i_edge)%rep%FP(:,:,:)
                                 rep%H(:) = comm%p_neighbor_edges(i_edge)%rep%H(:)

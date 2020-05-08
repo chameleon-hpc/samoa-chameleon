@@ -89,7 +89,12 @@ contains
 !             print*,"FV"
 !             print*,cell%data_pers%H
 !             write(*,*), "ERROR: Waterheight less than zero in predictor"
-! #endif
+            ! #endif
+            call apply_phi(Q_DG(:)%h+Q_DG(:)%b     ,cell%data_pers%H)
+            call apply_phi(Q_DG(:)%p(1)            ,cell%data_pers%HU)
+            call apply_phi(Q_DG(:)%p(2)            ,cell%data_pers%HV)
+            call apply_phi(Q_DG(:)%b               ,cell%data_pers%B)
+            cell%data_pers%troubled=PREDICTOR_DIVERGED
             exit
          end if
 
@@ -254,24 +259,25 @@ contains
       
       !!--- compute volume update----!!
       !-- Question: is it better to recompte the flux then to store it --!
+     
       
       f(1,:,:,:) = jacobian_inv(1,1) * f_ref(1,:,:,:) + jacobian_inv(1,2) * f_ref(2,:,:,:)
       f(2,:,:,:) = jacobian_inv(2,1) * f_ref(1,:,:,:) + jacobian_inv(2,2) * f_ref(2,:,:,:)
-
+      
       do i=1,_SWE_DG_ORDER+1
          volume_flux(i,:,:) = matmul(s_m_inv, &
-                              matmul(s_k_x_s_b_3_s_b_2, f(1,i,:,:)) + &
-                              matmul(s_k_y_s_b_1_s_b_2, f(2,i,:,:)))
+              matmul(s_k_x_s_b_3_s_b_2, f(1,i,:,:)) + &
+              matmul(s_k_y_s_b_1_s_b_2, f(2,i,:,:)))
       end do
       
       do i=1,_SWE_DG_ORDER+1
          source_ref_st(i,:,2) = matmul(s_m_inv, -matmul(s_m, s_ref(i,:,2,1))  - matmul(s_k_x_s_b_3_s_b_2, s_ref(i,:,2,2)))
          source_ref_st(i,:,3) = matmul(s_m_inv, -matmul(s_m, s_ref(i,:,3,1))  - matmul(s_k_y_s_b_1_s_b_2, s_ref(i,:,3,2)))
       end do
-
+      
       source_st(:,:,2) = source_ref_st(:,:,2) * jacobian(1,1) + source_ref_st(:,:,3) * jacobian(1,2)
       source_st(:,:,3) = source_ref_st(:,:,2) * jacobian(2,1) + source_ref_st(:,:,3) * jacobian(2,2)
-
+      
       volume_flux = volume_flux + source_st
       
       Q_DG_UPDATE(:,1) = reshape(matmul(t_a,volume_flux(:,:,1)),(/_SWE_DG_DOFS/))
@@ -280,17 +286,19 @@ contains
       !!------------------------------!!
       
       !!---- set values for riemannsolve and project on edges----!!
-      do i=1,_SWE_DG_ORDER+1
-         f_ref(:,i,:,:) = flux(q_i_st(i,:,:),_SWE_DG_DOFS)
-      end do
-      
+      if(isDG(cell%data_pers%troubled)) then
+         do i=1,_SWE_DG_ORDER+1
+            f_ref(:,i,:,:) = flux(q_i_st(i,:,:),_SWE_DG_DOFS)
+         end do
+      endif
+         
       do i = 1,_SWE_DG_DOFS
          QP(  i,1:3) = reshape( matmul(t_a,q_i_st(:,i,:)) ,(/ 3 /))
          FP(1,i, : ) = reshape( matmul(t_a,f_ref(1,:,i,:)),(/ 3 /))
          FP(2,i, : ) = reshape( matmul(t_a,f_ref(2,:,i,:)),(/ 3 /))
       end do
       QP(:,4) = Q_DG(:)%B
-
+      
       do j = 1,3
          edge_type =  j
          do i = 1,_SWE_DG_ORDER+1
@@ -327,7 +335,7 @@ contains
             cell%data_pers%QFV(j,:,4) = matmul(phi_l,Q_DG%b)
          end select
       end do
-
+      
       !!---- updateQ ----!!
       Q_DG%h    = Q_DG%h    + Q_DG_UPDATE(:,1) * dt/dx
       Q_DG%p(1) = Q_DG%p(1) + Q_DG_UPDATE(:,2) * dt/dx

@@ -67,7 +67,7 @@ MODULE SWE_DG_solver
 #		define _GT_CELL_UPDATE_OP		cell_update_op_dg
 #		define _GT_CELL_TO_EDGE_OP		cell_to_edge_op_dg
 
-  public cell_to_edge_op_dg
+  public cell_to_edge_op_dg, create_edge_mpi_type
 
 #		include "SFC_generic_traversal_ringbuffer.f90"
 

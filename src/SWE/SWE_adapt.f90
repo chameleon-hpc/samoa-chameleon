@@ -30,39 +30,17 @@
 #		define _GT_NAME					t_swe_adaption_traversal
     
 #		define _GT_EDGES
-#   define _GT_EDGE_MPI_TYPE
-
-#   undef _GT_SKELETON_OP  
+    
 #		define _GT_PRE_TRAVERSAL_GRID_OP		pre_traversal_grid_op
 #		define _GT_PRE_TRAVERSAL_OP			pre_traversal_op
 #		define _GT_POST_TRAVERSAL_OP			post_traversal_op
 
 #		define _GT_TRANSFER_OP				transfer_op
-#		define _GT_REFINE_OP				refine_op
-#		define _GT_COARSEN_OP				coarsen_op
+#		define _GT_REFINE_OP				  refine_op
+#		define _GT_COARSEN_OP				   coarsen_op
 #		define _GT_CELL_TO_EDGE_OP			cell_to_edge_op_dg
-#		define _GT_CELL_UPDATE_OP		        cell_update_op_adapt
+
 #		include "SFC_generic_adaptive_traversal.f90"
-
-
-        subroutine cell_update_op_adapt(traversal, section, element, update1, update2, update3)
-          type(t_swe_adaption_traversal), intent(inout)				:: traversal
-          type(t_grid_section), intent(inout)							:: section
-          type(t_element_base), intent(inout)						:: element
-          type(num_cell_update), intent(inout)						:: update1, update2, update3
-          integer :: i
-          !call updateCellStatus(element%cell%data_pers)
-          if(isDG(element%cell%data_pers%troubled)) then
-             call dg_predictor(element,section%r_dt)
-#if defined (_DEBUG)             
-             element%cell%data_pers%debug_flag = -1
-          else
-             element%cell%data_pers%debug_flag = element%cell%data_pers%troubled
-#endif                          
-          end if
-          
-        end subroutine cell_update_op_adapt
-
 
         subroutine edge_merge_op_dg(local_edge,neighbor_edge)
           type(t_edge_data), intent(inout)   ::local_edge
@@ -195,17 +173,14 @@
                
                dest%Q%B = get_bathymetry_at_dg_patch(section, dest_element%t_element_base, section%r_time)
                dest%Q%H   = dest%Q%H-dest%Q%B
-               dest%troubled=src%troubled
+               dest%troubled = src%troubled
                call updateCellStatus(dest)
                
-               if(isDG(dest%troubled)) then
-                  call dg_predictor(dest_element,section%r_dt)
-               else
+               if(isFV(dest%troubled)) then
                   call apply_phi(dest%Q(:)%h+dest%Q(:)%b ,dest%h)
                   call apply_phi(dest%Q(:)%p(1)          ,dest%hu)
                   call apply_phi(dest%Q(:)%p(2)          ,dest%hv)
                   call apply_phi(dest%Q(:)%b             ,dest%b)
-                  
                end if
              end associate
              
@@ -326,11 +301,10 @@
                        get_bathymetry_at_dg_patch(section, dest_element%t_element_base, section%r_time)
 
                   dest%Q%H = dest%Q%H-dest%Q%B
+                  dest%troubled = src%troubled
                   call updateCellStatus(dest)
                   
-                  if(isDG(dest%troubled)) then
-                     call dg_predictor(dest_element,section%r_dt)
-                  else
+                  if(isFV(dest%troubled)) then
                      call apply_phi(dest%Q(:)%h+dest%Q(:)%b ,dest%h)
                      call apply_phi(dest%Q(:)%p(1)          ,dest%hu)
                      call apply_phi(dest%Q(:)%p(2)          ,dest%hv)

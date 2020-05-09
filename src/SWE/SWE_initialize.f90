@@ -298,8 +298,8 @@ MODULE SWE_Initialize_Dofs
   use SWE_Initialize_Bathymetry
   use Samoa_swe
   use SWE_PATCH
-  use SWE_DG_predictor
   use SWE_Scenario
+  use SWE_DG_Limiter
 
   implicit none
 
@@ -431,9 +431,7 @@ MODULE SWE_Initialize_Dofs
        element%cell%data_pers%H    = Q(:)%h
        element%cell%data_pers%HU   = Q(:)%p(1)
        element%cell%data_pers%HV   = Q(:)%p(2)
-
     end if
-    
   end subroutine element_op
 
 

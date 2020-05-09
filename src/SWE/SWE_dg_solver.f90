@@ -21,7 +21,7 @@ MODULE SWE_DG_solver
 #  define _GT_USE_CHAMELEON_CALL
 #endif
   use SWE_DG_Matrices
-  use SWE_DG_Predictor
+  !use SWE_DG_Predictor
   use SWE_DG_Limiter  
   use SWE_initialize_bathymetry
   use SWE_PATCH
@@ -54,15 +54,15 @@ MODULE SWE_DG_solver
 #		define _GT_NAME	           		t_swe_dg_timestep_traversal
 
 #		define _GT_EDGES
-#               define _GT_EDGE_MPI_TYPE
+#   define _GT_EDGE_MPI_TYPE
 
 #		define _GT_PRE_TRAVERSAL_OP      	pre_traversal_op_dg
 #		define _GT_PRE_TRAVERSAL_GRID_OP	pre_traversal_grid_op_dg
 #		define _GT_POST_TRAVERSAL_GRID_OP	post_traversal_grid_op_dg
 
-#		define _GT_SKELETON_OP			skeleton_op_dg
-#		define _GT_BND_SKELETON_OP		bnd_skeleton_op_dg
-#		define _GT_ELEMENT_OP                   element_op_dg
+#		define _GT_SKELETON_OP		       	skeleton_op_dg
+#		define _GT_BND_SKELETON_OP		    bnd_skeleton_op_dg
+#		define _GT_ELEMENT_OP             element_op_dg
 
 #		define _GT_CELL_UPDATE_OP		cell_update_op_dg
 #		define _GT_CELL_TO_EDGE_OP		cell_to_edge_op_dg
@@ -181,7 +181,7 @@ MODULE SWE_DG_solver
      end associate
     endif
 
-    if(element%cell%data_pers%troubled.le.0) then
+    if(.not.isCoast(element%cell%data_pers%troubled)) then
        !------------------read edge data---------------------!
        rep%QP(:,:)   = element%cell%data_pers%QP(edge_type  ,:,:)
        rep%FP(:,:,:) = element%cell%data_pers%FP(edge_type,:,:,:)
@@ -191,12 +191,12 @@ MODULE SWE_DG_solver
        rep%HV = element%cell%data_pers%QFV(edge_type  ,:,3)
        rep%B  = element%cell%data_pers%QFV(edge_type  ,:,4)
        !-----------------------------------------------------!
-       !---scale by element size---!
-       rep%H = (rep%H + rep%B) * _REF_TRIANGLE_SIZE_INV
-       rep%HU = rep%HU * _REF_TRIANGLE_SIZE_INV
-       rep%HV = rep%HV * _REF_TRIANGLE_SIZE_INV
-       rep%B  = rep%B  * _REF_TRIANGLE_SIZE_INV
-       !-----------------------------------------------------!
+       ! !---scale by element size---!
+       ! rep%H = (rep%H + rep%B) * _REF_TRIANGLE_SIZE_INV
+       ! rep%HU = rep%HU * _REF_TRIANGLE_SIZE_INV
+       ! rep%HV = rep%HV * _REF_TRIANGLE_SIZE_INV
+       ! rep%B  = rep%B  * _REF_TRIANGLE_SIZE_INV
+       ! !-----------------------------------------------------!
     else
        
     select case (edge_type)       
@@ -428,19 +428,20 @@ else if(isFV(rep%troubled)) then
          end do
       else
 #  endif
-         ! Generate mirrored wave to reflect out incoming wave
-         update%H=rep%H
-         do i=1, _SWE_PATCH_ORDER
-            length_flux = dot_product([ rep%HU(i), rep%HV(i) ], normal)
-            update%HU(i)=rep%HU(i) - 2.0_GRID_SR*length_flux*normal(1)
-            update%HV(i)=rep%HV(i) - 2.0_GRID_SR*length_flux*normal(2)
-         end do
-         update%B=rep%B
 #  if defined(_BOUNDARY)
       end if
 #  endif
-end if
-
+   end if
+   
+   ! Generate mirrored wave to reflect out incoming wave
+   update%H=rep%H
+   do i=1, _SWE_PATCH_ORDER
+      length_flux = dot_product([ rep%HU(i), rep%HV(i) ], normal)
+      update%HU(i)=rep%HU(i) - 2.0_GRID_SR*length_flux*normal(1)
+      update%HV(i)=rep%HV(i) - 2.0_GRID_SR*length_flux*normal(2)
+   end do
+   update%B=rep%B
+   
 end subroutine bnd_skeleton_scalar_op_dg
 
 #if defined(_BOUNDARY)
@@ -578,7 +579,6 @@ if(isDG(data%troubled)) then
       call apply_phi(data%Q(:)%p(1)         ,data%hu)
       call apply_phi(data%Q(:)%p(2)         ,data%hv)
       call apply_phi(data%Q(:)%b            ,data%b)
-
    else
       i_depth = element%cell%geometry%i_depth
       
@@ -632,7 +632,8 @@ if(isDG(data%troubled)) then
       
    end if
 
-end if   
+end if
+
 
 if(isFV(data%troubled)) then
    !-----Call FV patch solver----!
@@ -654,7 +655,6 @@ else
    end do
 endif
 !------------------------------------------------------------------!
-
 end associate
 
 end subroutine cell_update_op_dg
@@ -771,6 +771,28 @@ subroutine dg_solver(element,update1,update2,update3,dt)
     bnd_flux_r(:,2) = matmul(s_m_inv,matmul(s_b_3_r,update3(:)%p(1)))
     bnd_flux_r(:,3) = matmul(s_m_inv,matmul(s_b_3_r,update3(:)%p(2)))
     !-----------------------------------------------------!
+
+#if defined(_DEBUG)
+    do i=1,_SWE_DG_DOFS
+       if(isnan(bnd_flux_l(i,1)).or.isnan(bnd_flux_m(i,1)).or.isnan(bnd_flux_r(i,1)))then
+          print*,"nan bnd"
+          print*,bnd_flux_l(:,:)
+          print*,bnd_flux_m(:,:)
+          print*,bnd_flux_r(:,:)
+          exit
+       endif
+    end do
+
+    do i=1,_SWE_DG_DOFS
+       if(isnan(q(i,1))) then
+          print*,"nan q"
+          print*,q
+       end if
+    end do
+#endif
+
+
+    
     !!----update dofs----!!
     q=q-(bnd_flux_l + bnd_flux_m + bnd_flux_r)* dt/dx
     !!-------------------!!

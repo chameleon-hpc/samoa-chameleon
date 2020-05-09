@@ -1577,7 +1577,16 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
                                 rep%minObservables(:) = comm%p_neighbor_edges(i_edge)%rep%minObservables(:)
                                 rep%maxObservables(:) = comm%p_neighbor_edges(i_edge)%rep%maxObservables(:)
                                 update = transfer(rep, update)
-                                comm%p_local_edges(i_edge)%update%flux(:) = update%flux(:)
+                                comm%p_local_edges(i_edge)%update%flux(:)  = update%flux(:)
+                                comm%p_local_edges(i_edge)%update%H(:)     = update%H(:)
+                                comm%p_local_edges(i_edge)%update%HU(:)    = update%HU(:)
+                                comm%p_local_edges(i_edge)%update%HV(:)    = update%HV(:)
+                                comm%p_local_edges(i_edge)%update%B(:)     = update%B(:)
+                                comm%p_local_edges(i_edge)%update%troubled = update%troubled
+                                comm%p_local_edges(i_edge)%update%minObservables = &
+                                     update%minObservables
+                                comm%p_local_edges(i_edge)%update%maxObservables = &
+                                     update%maxObservables
                             end do
                         end if
                     end do

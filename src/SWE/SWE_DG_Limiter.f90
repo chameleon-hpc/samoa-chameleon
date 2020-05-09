@@ -71,7 +71,7 @@ contains
     end if
     !---------------------------!
 
-    if (data%troubled == DG) then
+    if (data%troubled .le. DG) then
        data%troubled = DG
     else
        data%troubled = -data%troubled

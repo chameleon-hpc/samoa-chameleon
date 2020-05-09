@@ -23,6 +23,7 @@ MODULE SWE
   use Samoa_swe
   use SWE_Scenario
   use SWE_dg_solver
+  use SWE_dg_predictor
 
 #if defined(_XDMF)
   use HDF5
@@ -48,6 +49,7 @@ MODULE SWE
      type(t_swe_point_output_traversal)	     :: point_output
      type(t_swe_adaption_traversal)          :: adaption
      type(t_swe_dg_timestep_traversal)       :: dg_timestep
+     type(t_swe_dg_predictor_traversal)      :: dg_predictor
 
 #if defined(_XDMF)
      type(t_swe_xdmf_output_traversal)        :: xdmf_output
@@ -484,27 +486,13 @@ contains
        i_time_step = i_time_step + 1
 
 
-
-#					if defined(_SWE_DG)
-       !call swe%dg_predictor%traverse(grid)
-#					endif
-#					if defined(_SWE_DG)
-       !call swe%dg_predictor%traverse(grid)
-       !print*,"predictor"
-       call swe%adaption%traverse(grid)
-#					else
        if (cfg%i_adapt_time_steps > 0 .and. mod(i_time_step, cfg%i_adapt_time_steps) == 0) then
           call swe%adaption%traverse(grid)
        end if
-#					endif
+      
+       call swe%dg_predictor%traverse(grid)
 
-#					if defined(_SWE_DG)
        call swe%dg_timestep%traverse(grid)
-#					elif defined(_SWE_PATCH)
-       !						call swe%euler%traverse(grid)
-#					endif
-       !print*,"displace"
-       !displace time-dependent bathymetry
 
        call swe%displace%traverse(grid)
 
@@ -581,37 +569,13 @@ contains
           exit
        end if
 
-       ! if ((cfg%r_max_time >= 0.0 .and. grid%r_time >= cfg%r_max_time) .or. (cfg%i_max_time_steps >= 0 .and. i_time_step >= cfg%i_max_time_steps)) then
-       !    !print final solution
-
-       !      if(cfg%l_gridoutput) then
-       !          call swe%xml_output%traverse(grid)
-       !      end if
-
-       !      if(cfg%l_xml_pointoutput) then
-       !         call swe%xml_point_output%traverse(grid)
-       !      end if
-
-       !      if (cfg%l_pointoutput) then
-       !          call swe%point_output%traverse(grid)
-       !      end if
-
-       !    exit
-
-
-       ! end if
-
        i_time_step = i_time_step + 1
 
-
-#					if defined(_SWE_DG)
-       !call swe%dg_predictor%traverse(grid)
-       call swe%adaption%traverse(grid)
-#					else
        if (cfg%i_adapt_time_steps > 0 .and. mod(i_time_step, cfg%i_adapt_time_steps) == 0) then
           call swe%adaption%traverse(grid)
        end if
-#					endif
+
+       call swe%dg_predictor%traverse(grid)
 
        !$omp barrier
        call swe%dg_timestep%traverse(grid)

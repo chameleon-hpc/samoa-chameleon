@@ -19,7 +19,7 @@ MODULE SWE_DG_predictor
 
 # define _GT_NAME	              		t_swe_dg_predictor_traversal
 #	define _GT_EDGES
-# define _GT_EDGE_MPI_TYPE
+!# define _GT_EDGE_MPI_TYPE
 
 #	define _GT_ELEMENT_OP             element_op
 # define _GT_CELL_TO_EDGE_OP        cell_to_edge_op_dg  

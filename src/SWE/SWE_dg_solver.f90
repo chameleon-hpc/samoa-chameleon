@@ -54,7 +54,7 @@ MODULE SWE_DG_solver
 #		define _GT_NAME	           		t_swe_dg_timestep_traversal
 
 #		define _GT_EDGES
-#   define _GT_EDGE_MPI_TYPE
+!#   define _GT_EDGE_MPI_TYPE
 
 #		define _GT_PRE_TRAVERSAL_OP      	pre_traversal_op_dg
 #		define _GT_PRE_TRAVERSAL_GRID_OP	pre_traversal_grid_op_dg

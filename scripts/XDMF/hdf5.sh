@@ -18,3 +18,4 @@ echo "$3 HDF5: MPI: $1, Compiler: $2"
 mkdir -p "build_$1_$2"
 cd "build_$1_$2"
 ../configure $FLAGS && make -j 8 install
+

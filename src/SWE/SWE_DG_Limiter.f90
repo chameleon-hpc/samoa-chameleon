@@ -194,5 +194,19 @@ contains
 
   end function checkDMP
 
+  function get_error_estimate(Q) result(error)
+    type(t_state)        , DIMENSION(_SWE_DG_DOFS) :: Q
+    real(kind=GRID_SR) :: error
+    real(kind=GRID_SR) :: min_h
+    real(kind=GRID_SR) :: max_h
+    integer :: i
+    max_h= -huge(1.0_GRID_SR)
+    min_h=  huge(1.0_GRID_SR)
+    do i=1,_SWE_DG_DOFS
+       min_h = min(Q(i)%h+Q(i)%b,min_h)
+       max_h = max(Q(i)%h+Q(i)%b,max_h)
+    end do
+    error = abs(max_h-min_h)
+  end function get_error_estimate
 
 END MODULE SWE_DG_Limiter

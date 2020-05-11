@@ -883,6 +883,7 @@ MODULE SWE_Scenario_asagi
 
     function SWE_Scenario_get_scaling() result(scaling)
       real (kind = GRID_SR) :: scaling
+      
       associate(afh_d => cfg%afh_displacement, afh_b => cfg%afh_bathymetry)
         scaling = max(asagi_grid_max(afh_b, 0) - asagi_grid_min(afh_b, 0), asagi_grid_max(afh_b, 1) - asagi_grid_min(afh_b, 1))
         
@@ -906,7 +907,7 @@ MODULE SWE_Scenario_asagi
                 trim(cfg%s_displacement_file), asagi_grid_min(afh_d, 0), asagi_grid_max(afh_d, 0),  asagi_grid_min(afh_d, 1), asagi_grid_max(afh_d, 1), asagi_grid_min(afh_d, 2), asagi_grid_max(afh_d, 2)
            _log_write(1, '(" SWE:  dx: ", F0.2, " dy: ", F0.2, " dt: ", F0.2)') asagi_grid_delta(afh_d, 0), asagi_grid_delta(afh_d, 1), asagi_grid_delta(afh_d, 2)
         else
-           _log_write(1, '(" SWE: loaded ", A, ", domain: [", F0.2,g ", ", F0.2, "] x [", F0.2, ", ", F0.2, "]")') &
+           _log_write(1, '(" SWE: loaded ", A, ", domain: [", F0.2, ", ", F0.2, "] x [", F0.2, ", ", F0.2, "]")') &
                 trim(cfg%s_displacement_file), asagi_grid_min(afh_d, 0), asagi_grid_max(afh_d, 0),  asagi_grid_min(afh_d, 1), asagi_grid_max(afh_d, 1)
            _log_write(1, '(" SWE:  dx: ", F0.2, " dy: ", F0.2)') asagi_grid_delta(afh_d, 0), asagi_grid_delta(afh_d, 1)
         end if
@@ -919,11 +920,17 @@ MODULE SWE_Scenario_asagi
     real(GRID_SR)         :: x_clamp(2)
     
     ! Stretch out into undefined areas
-    associate(afh_d => cfg%afh_displacement, afh_b => cfg%afh_bathymetry)    
-      x_clamp(1) = max(asagi_grid_min(cfg%afh_bathymetry, 0), &
-           min(x(1), asagi_grid_max(cfg%afh_bathymetry, 0)))
-      x_clamp(2) = max(asagi_grid_min(cfg%afh_bathymetry, 1), &
-           min(x(2), asagi_grid_max(cfg%afh_bathymetry, 1)))
+    associate(afh_d => cfg%afh_displacement, afh_b => cfg%afh_bathymetry)
+      
+      x_clamp(1) = &
+           max(asagi_grid_min(cfg%afh_bathymetry, 0), &
+           min(asagi_grid_max(cfg%afh_bathymetry, 0), &
+           x(1)))
+      x_clamp(2) = &
+           max(asagi_grid_min(cfg%afh_bathymetry, 1), &
+           min(asagi_grid_max(cfg%afh_bathymetry, 1), &
+           x(2)))
+      
       bathymetry = asagi_grid_get_float(cfg%afh_bathymetry, x_clamp, 0)
     end associate
   end function SWE_Scenario_get_bathymetry

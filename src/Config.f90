@@ -125,6 +125,10 @@ module config
                 integer                         :: max_picard_iterations = 20
                 double precision                :: max_picard_error      = 10.0d-12
                 double precision                :: limiter_buffer        = 10.0d-3
+
+                character(:),allocatable     	 :: s_domain			                            !< test points input string
+                logical     	                 :: l_domain			                            !< test points input string
+
 #           endif            
 
             logical                             :: l_ascii_output                                   !< ascii output on/off
@@ -213,7 +217,7 @@ module config
 #    	elif defined(_HEAT_EQ)
             write(arguments, '(A, A)') trim(arguments), " -dmin 0 -dmax 16 -dstart 0 -nmax -1 -tmax 1.0d0 -nout -1 -tout -1.0d0"
 #    	elif defined(_SWE)
-            write(arguments, '(A, A)') trim(arguments), " -dmin 0 -dmax 14 -dstart 0 -courant 0.45d0 -nmax -1 -tmax 3600.0d0 -nout -1 -tout -1.0d0 -drytolerance 0.01d0 -coastheight 1.0d0 -dry_dg_guard 0.1d0 -fbath data/tohoku_static/bath.nc -fdispl data/tohoku_static/displ.nc -max_picard_iterations 4 -max_picard_error 10.0d-12 -limiter_buffer 10.0d-3"
+            write(arguments, '(A, A)') trim(arguments), " -dmin 0 -dmax 14 -dstart 0 -courant 0.45d0 -nmax -1 -tmax 3600.0d0 -nout -1 -tout -1.0d0 -drytolerance 0.01d0 -coastheight 1.0d0 -dry_dg_guard 0.1d0 -fbath data/tohoku_static/bath.nc -fdispl data/tohoku_static/displ.nc -max_picard_iterations 4 -max_picard_error 10.0d-12 -limiter_buffer 10.0d-3 -domain '' "
 #	    elif defined(_FLASH)
             write(arguments, '(A, A)') trim(arguments), " -dmin 0 -dmax 14 -dstart 0 -courant 0.45d0 -nmax -1 -tmax 3600.0d0 -nout -1 -tout -1.0d0 -drytolerance 0.01d0 -fbath data/tohoku_static/bath.nc -fdispl data/tohoku_static/displ.nc"
 #    	elif defined(_NUMA)
@@ -363,6 +367,16 @@ module config
 
             config%l_ascii_output = lget('samoa_asciioutput')
             config%i_ascii_width = iget('samoa_asciioutput_width')
+
+
+            config%s_domain = sget('samoa_domain', 512)
+
+            if(len(trim(config%s_domain)) .ne. 2 ) then
+               config%l_domain=.true.
+               call set_domain(config)
+            end if
+
+            
             config%s_testpoints = sget('samoa_stestpoints', 262144)
 
             if (len(trim(config%s_testpoints)) .ne. 2) then
@@ -890,6 +904,22 @@ module config
                     read(unit=config%s_testpoints(coordstart(j,2):), fmt=*) config%r_testpoints(j,2)
                  end do
             end if
-        end subroutine
+          end subroutine parse_testpoints
+
+          
+          subroutine set_domain(config)
+            class(t_config), intent(inout)         :: config
+            real(kind=8), dimension(4)             :: boundaries
+            
+            
+            read(config%s_domain,*) boundaries
+            cfg%scaling = min(boundaries(4)-boundaries(2),boundaries(3)-boundaries(1))
+
+            !place domain in center of defined domain
+            cfg%offset(1) = ((boundaries(3)-boundaries(1))-cfg%scaling)/2.0 + boundaries(1)
+            cfg%offset(2) = ((boundaries(4)-boundaries(2))-cfg%scaling)/2.0 + boundaries(2)
+
+         end subroutine set_domain
+
 #   endif
 end module

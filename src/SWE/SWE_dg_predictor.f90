@@ -36,6 +36,7 @@ MODULE SWE_DG_predictor
     if(isDG(element%cell%data_pers%troubled)) then
        call dg_predictor(element,section%r_dt)
     end if
+    call writeFVBoundaryFields(element)
     !---------------------------------!
   end subroutine element_op
 
@@ -66,13 +67,12 @@ MODULE SWE_DG_predictor
     real(kind=GRID_SR),Dimension(3)            :: edge_sizes
     real(kind=GRID_SR)                         :: epsilon
 
-
-    real(kind=GRID_SR), DIMENSION(_SWE_DG_DOFS,3)    :: Q_DG_UPDATE
     real(kind=GRID_SR), DIMENSION(2,_SWE_DG_DOFS,3)  :: FP
     real(kind=GRID_SR), DIMENSION(  _SWE_DG_DOFS,4)  :: QP
 
 
     associate(Q_DG        => element%cell%data_pers%Q,&
+              Q_DG_UPDATE => element%cell%data_pers%Q_DG_UPDATE,&
               cell  => element%cell,&
               edges => element%edges)
       
@@ -337,37 +337,77 @@ MODULE SWE_DG_predictor
             end if
          end do
 #endif
-
          !!---- updateQ ----!!
-         Q_DG%h    = Q_DG%h    + Q_DG_UPDATE(:,1) * dt/dx
-         Q_DG%p(1) = Q_DG%p(1) + Q_DG_UPDATE(:,2) * dt/dx
-         Q_DG%p(2) = Q_DG%p(2) + Q_DG_UPDATE(:,3) * dt/dx
+!         Q_DG%h    = Q_DG%h    + Q_DG_UPDATE(:,1) * dt/dx
+!         Q_DG%p(1) = Q_DG%p(1) + Q_DG_UPDATE(:,2) * dt/dx
+!         Q_DG%p(2) = Q_DG%p(2) + Q_DG_UPDATE(:,3) * dt/dx
       end if
-
-      do j = 1,3
-         select case(edge_type)
-         case (1) !right
-            cell%data_pers%QFV(j,:,1) = matmul(phi_r,Q_DG%h+Q_DG%b)
-            cell%data_pers%QFV(j,:,2) = matmul(phi_r,Q_DG%p(1))
-            cell%data_pers%QFV(j,:,3) = matmul(phi_r,Q_DG%p(2))
-            cell%data_pers%QFV(j,:,4) = matmul(phi_r,Q_DG%b)
-         case (2) !mid
-            cell%data_pers%QFV(j,:,1) = matmul(phi_m,Q_DG%h+Q_DG%b)
-            cell%data_pers%QFV(j,:,2) = matmul(phi_m,Q_DG%p(1))
-            cell%data_pers%QFV(j,:,3) = matmul(phi_m,Q_DG%p(2))
-            cell%data_pers%QFV(j,:,4) = matmul(phi_m,Q_DG%b)
-         case (3) !left
-            cell%data_pers%QFV(j,:,1) = matmul(phi_l,Q_DG%h+Q_DG%b) 
-            cell%data_pers%QFV(j,:,2) = matmul(phi_l,Q_DG%p(1))
-            cell%data_pers%QFV(j,:,3) = matmul(phi_l,Q_DG%p(2)) 
-            cell%data_pers%QFV(j,:,4) = matmul(phi_l,Q_DG%b)
-         end select
-      end do
-      !---scale by element size---!
-      cell%data_pers%QFV = cell%data_pers%QFV * _REF_TRIANGLE_SIZE_INV
-      !---------------------------!
     end associate
   end subroutine dg_predictor
+
+  subroutine writeFVBoundaryFields(element)
+    class(t_element_base), intent(inout)       :: element
+    integer                                    :: i,j,edge
+    if(.not.isCoast(element%cell%data_pers%troubled)) then
+       associate(Q_DG => element%cell%data_pers%Q,&
+                 QFV  => element%cell%data_pers%QFV)
+         do edge = 1,3
+            select case(edge)
+            case (1) !right
+               QFV(edge,:,1) = matmul(phi_r,Q_DG%h+Q_DG%b)
+               QFV(edge,:,2) = matmul(phi_r,Q_DG%p(1))
+               QFV(edge,:,3) = matmul(phi_r,Q_DG%p(2))
+               QFV(edge,:,4) = matmul(phi_r,Q_DG%b)
+            case (2) !mid
+               QFV(edge,:,1) = matmul(phi_m,Q_DG%h+Q_DG%b)
+               QFV(edge,:,2) = matmul(phi_m,Q_DG%p(1))
+               QFV(edge,:,3) = matmul(phi_m,Q_DG%p(2))
+               QFV(edge,:,4) = matmul(phi_m,Q_DG%b)
+            case (3) !left
+               QFV(edge,:,1) = matmul(phi_l,Q_DG%h+Q_DG%b) 
+               QFV(edge,:,2) = matmul(phi_l,Q_DG%p(1))    
+               QFV(edge,:,3) = matmul(phi_l,Q_DG%p(2))    
+               QFV(edge,:,4) = matmul(phi_l,Q_DG%b)       
+            end select
+         end do
+         !---scale by element size---!
+         QFV = QFV * _REF_TRIANGLE_SIZE_INV
+         !---------------------------!
+       end associate
+
+    else
+       associate(data => element%cell%data_pers,&
+                 QFV  => element%cell%data_pers%QFV)
+         do edge = 1,3
+            select case (edge)       
+            case (3) !cells with id i*i+1 (left leg)
+               do i=0, _SWE_PATCH_ORDER - 1
+                  j=_SWE_PATCH_ORDER-1-i
+                  QFV(edge,i+1,1) = data%H(j*j + 1)
+                  QFV(edge,i+1,2) = data%HU(j*j + 1)
+                  QFV(edge,i+1,3) = data%HV(j*j + 1)
+                  QFV(edge,i+1,4) = data%B(j*j + 1)
+               end do
+            case (2) ! hypotenuse
+               do i=1, _SWE_PATCH_ORDER
+                  j=_SWE_PATCH_ORDER+1-i
+                  QFV(edge,i,1) = data%H ((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
+                  QFV(edge,i,2) = data%HU((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
+                  QFV(edge,i,3) = data%HV((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
+                  QFV(edge,i,4) = data%B ((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
+               end do
+            case (1) !cells with id i*i (right leg)
+               do i=1, _SWE_PATCH_ORDER
+                  QFV(edge,i,1) = data%H(i*i)
+                  QFV(edge,i,2) = data%HU(i*i)
+                  QFV(edge,i,3) = data%HV(i*i)
+                  QFV(edge,i,4) = data%B(i*i)
+               end do
+            end select
+         end do
+       end associate
+    end if
+  end subroutine writeFVBoundaryFields
 
 function flux(q,N)
   real(kind=GRID_SR)             :: flux(2,N,3)

@@ -188,8 +188,13 @@ contains
     end associate
 #endif
     
-    cfg%scaling = SWE_Scenario_get_scaling()
-    cfg%offset = SWE_Scenario_get_offset()
+    if(cfg%l_domain) then
+       _log_write(1, '("FLASH: domain manually set ")')
+    else
+       cfg%scaling = SWE_Scenario_get_scaling()
+       cfg%offset = SWE_Scenario_get_offset()
+    end if
+    
     _log_write(1, '(" SWE: computational domain: [", F0.2, ", ", F0.2, "] x [", F0.2, ", ", F0.2, "]")'), cfg%offset(1), cfg%offset(1) + cfg%scaling, cfg%offset(2), cfg%offset(2) + cfg%scaling
 
   end subroutine load_scenario

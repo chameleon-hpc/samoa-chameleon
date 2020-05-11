@@ -275,12 +275,14 @@ MODULE SWE_Initialize_Bathymetry
     bathymetry = SWE_Scenario_get_bathymetry(real(xs, GRID_SR))
 
 #if defined(_ASAGI)
-       if (asagi_grid_min(cfg%afh_displacement, 0) <= x(1) .and. asagi_grid_min(cfg%afh_displacement, 1) <= x(2) &
-            .and. xs(1) <= asagi_grid_max(cfg%afh_displacement, 0) .and. xs(2) <= asagi_grid_max(cfg%afh_displacement, 1) &
-            .and. t > cfg%t_min_eq) then
+    if ( asagi_grid_min(cfg%afh_displacement, 0) < x(1) .and.&
+         xs(1) < asagi_grid_max(cfg%afh_displacement, 0).and.&
+         asagi_grid_min(cfg%afh_displacement, 1) < x(2) .and.&
+         xs(2) < asagi_grid_max(cfg%afh_displacement, 1).and.&
+         t > cfg%t_min_eq) then
           
-          xs(3) = real(min(t, cfg%t_max_eq), c_double)
-          bathymetry = bathymetry + asagi_grid_get_float(cfg%afh_displacement, xs, 0)
+       xs(3) = real(min(t, cfg%t_max_eq), c_double)
+       bathymetry = bathymetry + asagi_grid_get_float(cfg%afh_displacement, xs, 0)
        end if
 #endif !_ASAGI
     
@@ -343,6 +345,13 @@ MODULE SWE_Initialize_Dofs
 
     grid%r_dt = cfg%courant_number * grid%r_dt_new
 
+    ! reduce and scatter refinement errors
+    call reduce(grid%min_error, grid%sections%elements_alloc%min_error_new, MPI_MIN, .true.)
+    call reduce(grid%max_error, grid%sections%elements_alloc%max_error_new, MPI_MAX, .true.)
+    
+    call scatter(grid%min_error, grid%sections%elements_alloc%min_error)
+    call scatter(grid%max_error, grid%sections%elements_alloc%max_error)
+
 #if defined(_ASAGI)    
 #if defined(_SWE_DG)
     ! get new minimal an maximal bathymetry
@@ -366,6 +375,9 @@ MODULE SWE_Initialize_Dofs
     !this variable will be incremented for each cell with a refinement request
     traversal%i_refinements_issued = 0
     section%r_dt_new  = huge(1.0_GRID_SR)
+    section%min_error_new =  huge(1.0_GRID_SR)
+    section%max_error_new = -huge(1.0_GRID_SR)
+
 #if defined(_ASAGI)    
     section%b_min_new = huge(1.0_GRID_SR)
     section%b_max_new = tiny(1.0_GRID_SR)
@@ -380,11 +392,12 @@ MODULE SWE_Initialize_Dofs
     type(t_swe_init_dofs_traversal), intent(inout)    :: traversal
     type(t_grid_section), intent(inout)               :: section
     type(t_element_base), intent(inout)               :: element
-    type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE)   :: Q
+    type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE) :: Q
     integer :: i,j,count
     real (kind = GRID_SR)   :: x(2)
     type(t_dof_state) :: QS
     type(t_state), dimension(_SWE_DG_DOFS)   :: Q_DG
+    real(kind = GRID_SR) :: error
 
 !    if(element%cell%data_pers%troubled .ge.1)then
     element%cell%data_pers%Q%B = get_bathymetry_at_dg_patch(section, element, section%r_time)
@@ -432,6 +445,17 @@ MODULE SWE_Initialize_Dofs
        element%cell%data_pers%HU   = Q(:)%p(1)
        element%cell%data_pers%HV   = Q(:)%p(2)
     end if
+
+    call check_initial_refinement(traversal,section,element)
+    
+    if(isDG(element%cell%data_pers%troubled))then
+       !----- Compute and update error estimate -----!
+       error = get_error_estimate(element%cell%data_pers%Q)      
+       section%min_error_new = min(error,section%min_error_new)
+       section%max_error_new = max(error,section%max_error_new)
+       !---------------------------------------------!
+    end if
+    
   end subroutine element_op
 
 
@@ -444,25 +468,13 @@ MODULE SWE_Initialize_Dofs
     type(t_element_base), intent(inout)						    :: element
     type(t_state), dimension(_SWE_DG_DOFS), intent(out)  :: Q
     real (kind = GRID_SR), dimension(_SWE_DG_DOFS)       :: max_wave_speed
-# if (_SWE_DG_ORDER == 1)
-    integer (kind = GRID_SI), parameter, dimension(_SWE_DG_DOFS) :: mirrored_coords = [1, 3, 2]
-# elif (_SWE_DG_ORDER == 2)
-    integer (kind = GRID_SI), parameter, dimension(_SWE_DG_DOFS) :: mirrored_coords = [1, 4, 6, 2, 5, 3]
-# elif (_SWE_DG_ORDER == 3)
-    integer (kind = GRID_SI), parameter, dimension(_SWE_DG_DOFS) :: mirrored_coords = [1, 5, 8, 10, 2, 6, 9, 3, 7, 4]
-# elif (_SWE_DG_ORDER == 4)
-    integer (kind = GRID_SI), parameter, dimension(_SWE_DG_DOFS) :: mirrored_coords = [ 1, 6, 10, 13, 15, 2, 7, 11, 14, 3, 8, 12, 4, 9, 5]
-#endif
     real (kind = GRID_SR), parameter, dimension(2, _SWE_DG_DOFS)	:: coords = nodes
     real (kind = GRID_SR), dimension(2)	:: x
     integer                             :: i, index
     integer                             :: bathy_depth
     real (kind = GRID_SR)               :: dQ_norm
-
     
     !evaluate initial DoFs (not the bathymetry!)
-    element%cell%geometry%refinement = 0
-
     do i=1,_SWE_DG_DOFS
        if (element%cell%geometry%i_plotter_type > 0) then 
           index = i
@@ -472,26 +484,7 @@ MODULE SWE_Initialize_Dofs
        x = samoa_barycentric_to_world_point(element%transform_data, coords(:,index))
        Q(i)%t_dof_state = get_initial_dof_state_at_position(section,x)
     end do
-
-    if (element%cell%geometry%i_depth < cfg%i_min_depth) then
-       !refine if the minimum depth is not met
-       element%cell%geometry%refinement = 1
-       traversal%i_refinements_issued = traversal%i_refinements_issued + 1
-    end if
-
-#if defined (_ASAGI)
-    if (element%cell%geometry%i_depth < cfg%i_max_depth) then
-
-       dQ_norm = maxval(abs(get_bathymetry_at_dg_patch(section, element, real(cfg%t_max_eq + 1.0, GRID_SR) ) - element%cell%data_pers%Q%B))
-
-       if (dQ_norm > 2.0_SR) then
-          element%cell%data_pers%troubled = WET_DRY_INTERFACE
-       end if
-    end if
     
-#endif !_ASAGI
-    
-
     !estimate initial time step
     where (Q%h - Q%b > 0.0_GRID_SR)
        max_wave_speed = sqrt(g * (Q%h - Q%b)) + sqrt((Q%p(1) * Q%p(1) + Q%p(2) * Q%p(2)) / ((Q%h - Q%b) * (Q%h - Q%b)))
@@ -518,32 +511,22 @@ MODULE SWE_Initialize_Dofs
     type(t_swe_init_dofs_traversal), intent(inout)				    :: traversal
     type(t_grid_section), intent(inout)							:: section
     type(t_element_base), intent(inout)						    :: element
-#           if defined(_SWE_PATCH)
     type(t_state), dimension(_SWE_PATCH_ORDER_SQUARE), intent(out)  :: Q
     real (kind = GRID_SR), dimension(_SWE_PATCH_ORDER_SQUARE)       :: max_wave_speed
     real (kind = GRID_SR), DIMENSION(2)                             :: r_coords     !< cell coords within patch
     integer (kind = GRID_SI)                                        :: j, row, col, cell_id
     real (kind = GRID_SR)       :: b_min,b_max                
-#           else
-    type(t_state), dimension(_SWE_CELL_SIZE), intent(out)   :: Q
-    real (kind = GRID_SR)               :: max_wave_speed(_SWE_CELL_SIZE)
-#           endif
-
     real (kind = GRID_SR)               :: x(2)
-    real (kind = GRID_SR)               :: dQ_norm
     real (kind = GRID_SR), parameter    :: probes(2, 3) = reshape([1.0, 0.0, 0.0, 0.0, 0.0, 1.0], [2, 3])
     type(t_dof_state)	                :: Q_test(3)
     integer                             :: i,bathy_depth
 
 
-
     !evaluate initial DoFs (not the bathymetry!)
-
-#           if defined(_SWE_PATCH)
     row = 1
     col = 1
     do i=1, _SWE_PATCH_ORDER_SQUARE
-
+       
        ! if orientation is backwards, the plotter uses a transformation that mirrors the cell...
        ! this simple change solves the problem :)
        if (element%cell%geometry%i_plotter_type > 0) then 
@@ -551,114 +534,89 @@ MODULE SWE_Initialize_Dofs
        else
           cell_id = (row-1)*(row-1) + 2 * row - col
        end if
-
+       
        r_coords = [0_GRID_SR, 0_GRID_SR]
        do j=1,3
           r_coords(:) = r_coords(:) + SWE_PATCH_geometry%coords(:,j,cell_id) 
        end do
        r_coords = r_coords / 3
        Q(i)%t_dof_state = get_initial_dof_state_at_position(section, samoa_barycentric_to_world_point(element%transform_data, r_coords))
-
+       
        col = col + 1
        if (col == 2*row) then
           col = 1
           row = row + 1
        end if
     end do
-
-#           else			
-    Q%t_dof_state = get_initial_dof_state_at_element(section, element)
-
-    ! dry cells
-    if (Q(1)%h < Q(1)%b + cfg%dry_tolerance) then
-       Q%h  = Q%b
-       Q(1)%p(:) = [0.0_GRID_SR, 0.0_GRID_SR]
-    end if
-#           endif
-
-#if defined(_SWE_DG)
-    traversal%i_refinements_issued = traversal%i_refinements_issued - element%cell%geometry%refinement
-#endif
-
-    element%cell%geometry%refinement = 0
-!    print*,traversal%i_refinements_issued
-
-    if (element%cell%geometry%i_depth < cfg%i_min_depth) then
-       !refine if the minimum depth is not met
-       element%cell%geometry%refinement = 1
-       traversal%i_refinements_issued = traversal%i_refinements_issued + 1
-    else if (element%cell%geometry%i_depth < cfg%i_max_depth) then
-#               if defined (_ASAGI)
-       !refine the displacements
-
-       x = samoa_barycentric_to_world_point(element%transform_data, [1.0_SR/3.0_SR, 1.0_SR/3.0_SR])
-
-
-# if defined(_SWE_DG)
-
-
-# if defined (_SWE_PATCH)
-       dQ_norm = maxval(abs(get_bathymetry_at_patch(section, element, real(cfg%t_max_eq + 1.0, GRID_SR) ) - element%cell%data_pers%B))
-#                   else
-       dQ_norm = abs(get_bathymetry_at_element(section, element, real(cfg%t_max_eq + 1.0, GRID_SR) ) - Q(1)%b)
-#                   endif
-       
-       if (dQ_norm > 2.0_SR) then
-          element%cell%geometry%refinement = 1
-          traversal%i_refinements_issued = traversal%i_refinements_issued + 1
-       end if
-#endif
-#               else
-       !refine any slopes in the initial state
-       do i = 1, 3
-          x = samoa_barycentric_to_world_point(element%transform_data, probes(:, i))
-          Q_test(i) = get_initial_dof_state_at_position(section, x)
-       end do
-
-       if (maxval(Q_test%h) > minval(Q_test%h)) then
-          element%cell%geometry%refinement = 1
-          traversal%i_refinements_issued = traversal%i_refinements_issued + 1
-       end if
-#               endif
-
-    end if
-
+    
     !estimate initial time step
-
     where (Q%h - Q%b > 0.0_GRID_SR)
        max_wave_speed = sqrt(g * (Q%h - Q%b)) + sqrt((Q%p(1) * Q%p(1) + Q%p(2) * Q%p(2)) / ((Q%h - Q%b) * (Q%h - Q%b)))
     elsewhere
        max_wave_speed = 0.0_GRID_SR
     end where
-
+    
     !This will cause a division by zero if the wave speeds are 0.
     !Bue to the min operator, the error will not affect the time step.
-#if defined _SWE_PATCH
     if(maxval(max_wave_speed) > 0.0_GRID_SR)then
-    section%r_dt_new = min(section%r_dt_new, element%cell%geometry%get_volume() / (sum(element%cell%geometry%get_edge_sizes()) * maxval(max_wave_speed) * _SWE_PATCH_ORDER))
-#else
-    section%r_dt_new = min(section%r_dt_new, element%cell%geometry%get_volume() / (sum(element%cell%geometry%get_edge_sizes()) * maxval(max_wave_speed)))
-# endif
- end if
-
-end subroutine alpha_volume_op
-
-function get_initial_dof_state_at_element(section, element) result(Q)
-  type(t_grid_section), intent(inout)		:: section
-  type(t_element_base), intent(inout)     :: element
-  type(t_dof_state)						:: Q
-  real (kind = GRID_SR)		            :: x(2)
+       section%r_dt_new = min(section%r_dt_new, element%cell%geometry%get_volume() / (sum(element%cell%geometry%get_edge_sizes()) * maxval(max_wave_speed) * _SWE_PATCH_ORDER))
+    end if
+  end subroutine alpha_volume_op
   
-  x = samoa_barycentric_to_world_point(element%transform_data, [1.0_SR / 3.0_SR, 1.0_SR / 3.0_SR])
-  Q = get_initial_dof_state_at_position(section, x)
-end function get_initial_dof_state_at_element
 
-function get_initial_dof_state_at_position(section, x) result(Q)
-  type(t_grid_section), intent(inout)		:: section
-  real (kind = GRID_SR), intent(in)		  :: x(:)            !< position in world coordinates
-  type(t_dof_state)							        :: Q
-  real (kind = GRID_SR)                 :: xs(2)
+  subroutine check_initial_refinement(traversal,section,element)
+    type(t_swe_init_dofs_traversal), intent(inout) :: traversal
+    type(t_grid_section), intent(inout)						 :: section
+    type(t_element_base), intent(inout)            :: element
+    logical                                        :: refine
+    real (kind = GRID_SR)                          :: dQ_norm
+    
+    refine=.False.
+    element%cell%geometry%refinement = 0
+    
+    if (element%cell%geometry%i_depth < cfg%i_min_depth) then
+       !refine if the minimum depth is not met
+       refine=.True.
+    end if
+    
+    if (element%cell%geometry%i_depth < cfg%i_max_depth) then
+       if(isCoast(element%cell%data_pers%troubled))then
+          refine=.True.
+       end if
+    end if
+    
+#if defined (_ASAGI)
+    if (element%cell%geometry%i_depth < cfg%i_max_depth) then
+       dQ_norm = maxval(abs(get_bathymetry_at_dg_patch(section, element, real(cfg%t_max_eq + 1.0, GRID_SR) ) - element%cell%data_pers%Q%B))
+       if (dQ_norm > 2.0_SR) then
+          refine = .True.
+       end if
+    end if
+#endif !_ASAGI
+    
+    
+    if(refine) then
+       element%cell%geometry%refinement = 1
+       traversal%i_refinements_issued = traversal%i_refinements_issued + 1
+    end if
+  end subroutine check_initial_refinement
   
+  function get_initial_dof_state_at_element(section, element) result(Q)
+    type(t_grid_section), intent(inout)		:: section
+    type(t_element_base), intent(inout)     :: element
+    type(t_dof_state)						:: Q
+    real (kind = GRID_SR)		            :: x(2)
+    
+    x = samoa_barycentric_to_world_point(element%transform_data, [1.0_SR / 3.0_SR, 1.0_SR / 3.0_SR])
+    Q = get_initial_dof_state_at_position(section, x)
+  end function get_initial_dof_state_at_element
+  
+  function get_initial_dof_state_at_position(section, x) result(Q)
+    type(t_grid_section), intent(inout)		:: section
+    real (kind = GRID_SR), intent(in)		  :: x(:)            !< position in world coordinates
+    type(t_dof_state)							        :: Q
+    real (kind = GRID_SR)                 :: xs(2)
+    
     xs = cfg%scaling * x + cfg%offset
     Q = SWE_Scenario_get_initial_Q(xs)
   end function get_initial_dof_state_at_position

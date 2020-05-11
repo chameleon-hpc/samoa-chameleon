@@ -115,10 +115,11 @@
              dest_element%edges(i)%ptr%data_pers = src_element%edges(i)%ptr%data_pers
           end do
 
-          dest_element%cell%data_pers%QFV= src_element%cell%data_pers%QFV
-          dest_element%cell%data_pers%QP = src_element%cell%data_pers%QP
-          dest_element%cell%data_pers%FP = src_element%cell%data_pers%FP
-          dest_element%cell%data_pers%Q  = src_element%cell%data_pers%Q
+          dest_element%cell%data_pers%QFV          = src_element%cell%data_pers%QFV
+          dest_element%cell%data_pers%QP           = src_element%cell%data_pers%QP
+          dest_element%cell%data_pers%FP           = src_element%cell%data_pers%FP
+          dest_element%cell%data_pers%Q            = src_element%cell%data_pers%Q
+          dest_element%cell%data_pers%Q_DG_UPDATE  = src_element%cell%data_pers%Q_DG_UPDATE
           
           dest_element%cell%data_pers%troubled=src_element%cell%data_pers%troubled
         end subroutine transfer_op

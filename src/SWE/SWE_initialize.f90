@@ -226,29 +226,14 @@ MODULE SWE_Initialize_Bathymetry
     integer (kind = GRID_SI)                       :: i,index
     real (kind = GRID_SR)                          :: x(2)
 
-
-    !------- TODO: refactor me -------!    
-# if (_SWE_DG_ORDER == 1)
-    integer (kind = GRID_SI), parameter, dimension(_SWE_DG_DOFS) :: mirrored_coords = [1, 3, 2]
-# elif (_SWE_DG_ORDER == 2)
-    integer (kind = GRID_SI), parameter, dimension(_SWE_DG_DOFS) :: mirrored_coords = [1, 4, 6, 2, 5, 3]
-# elif (_SWE_DG_ORDER == 3)
-    integer (kind = GRID_SI), parameter, dimension(_SWE_DG_DOFS) :: mirrored_coords = [1, 5, 8, 10, 2, 6, 9, 3, 7, 4]
-# elif (_SWE_DG_ORDER == 4)
-    integer (kind = GRID_SI), parameter, dimension(_SWE_DG_DOFS) :: mirrored_coords = [ 1, 6, 10, 13, 15, 2, 7, 11, 14, 3, 8, 12, 4, 9, 5]
-#endif
-    real (kind = GRID_SR), parameter, dimension(2, _SWE_DG_DOFS) :: coords = nodes
-    !------------------------- -------!    
-
     !iterate through cells in patch
-    
     do i=1, _SWE_DG_DOFS
        if (element%cell%geometry%i_plotter_type > 0) then 
           index = i
        else
           index = mirrored_coords(i)
        end if
-       x = samoa_barycentric_to_world_point(element%transform_data, coords(:,index))
+       x = samoa_barycentric_to_world_point(element%transform_data, nodes(:,index))
        bathymetry(i) = get_bathymetry_at_position(section, x, t)
    end do
 

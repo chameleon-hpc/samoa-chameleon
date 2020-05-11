@@ -279,7 +279,10 @@ if env['asagi']:
   env.Append(F90PATH = os.path.abspath(env['asagi_dir'] + '/include'))
   env['F90FLAGS'] += ' -D_ASAGI'
   env['LINKFLAGS'] += ' -Wl,--rpath,' + os.path.abspath(env['asagi_dir']) + '/lib'
-  env.Append(LIBPATH = env['asagi_dir'] + '/lib')
+  env['LINKFLAGS'] += ' -L'+os.path.abspath(env['asagi_dir']) + '/lib'
+  #print ('asagi dir', env['asagi_dir'])
+  #env.AppendUnique(LIBPATH = env['asagi_dir'] + '/lib')
+  
   if env['machine'] == 'mic':
     env.Append(LIBS = ['asagi_mic'])
   if env['mpi'] == 'nompi':

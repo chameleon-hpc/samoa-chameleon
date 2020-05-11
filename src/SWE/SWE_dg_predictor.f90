@@ -12,16 +12,25 @@ MODULE SWE_DG_predictor
   use Samoa_swe
   use SWE_DG_Limiter
   use SWE_dg_solver
+
+#if defined(CHAMELEON)
+   use Chameleon_lib
+#define _GT_USE_CHAMELEON
+#endif
+#if defined(CHAMELEON_CALL)
+#  define _GT_USE_CHAMELEON_CALL
+#endif
+
   implicit none
   
   type num_traversal_data     
   end type num_traversal_data
 
 # define _GT_NAME	              		t_swe_dg_predictor_traversal
-#	define _GT_EDGES
+# define _GT_EDGES
 !# define _GT_EDGE_MPI_TYPE
 
-#	define _GT_ELEMENT_OP             element_op
+# define _GT_ELEMENT_OP             element_op
 # define _GT_CELL_TO_EDGE_OP        cell_to_edge_op_dg  
   
   public dg_predictor,flux_1,flux_2

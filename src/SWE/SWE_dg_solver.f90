@@ -61,13 +61,14 @@ MODULE SWE_DG_solver
 #		define _GT_POST_TRAVERSAL_GRID_OP	post_traversal_grid_op_dg
 
 #		define _GT_SKELETON_OP		       	skeleton_op_dg
-#		define _GT_BND_SKELETON_OP		    bnd_skeleton_op_dg
-#		define _GT_ELEMENT_OP             element_op_dg
+#		define _GT_BND_SKELETON_OP	        bnd_skeleton_op_dg
+#		define _GT_ELEMENT_OP                   element_op_dg
 
 #		define _GT_CELL_UPDATE_OP		cell_update_op_dg
 #		define _GT_CELL_TO_EDGE_OP		cell_to_edge_op_dg
 
-  public cell_to_edge_op_dg, create_edge_mpi_type
+  public cell_to_edge_op_dg
+  public create_edge_mpi_type
 
 #		include "SFC_generic_traversal_ringbuffer.f90"
 
@@ -87,8 +88,9 @@ MODULE SWE_DG_solver
     types(1) = MPI_LB
     types(2) = MPI_UB
 
-
-    call MPI_Type_struct(2, blocklengths, disps, types, mpi_edge_type, i_error); assert_eq(i_error, 0)
+    print*,"create_edge"
+    call MPI_Type_create_struct(2, blocklengths, disps, types, mpi_edge_type, i_error); assert_eq(i_error, 0)
+    print*,i_error
     call MPI_Type_commit(mpi_edge_type, i_error); assert_eq(i_error, 0)
     call MPI_Type_size(mpi_edge_type, type_size, i_error); assert_eq(i_error, 0)
     call MPI_Type_get_extent(mpi_edge_type, lb, ub, i_error); assert_eq(i_error,0)

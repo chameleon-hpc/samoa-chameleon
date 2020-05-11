@@ -20,8 +20,8 @@ MODULE SWE_DG_solver
 #if defined(CHAMELEON_CALL)
 #  define _GT_USE_CHAMELEON_CALL
 #endif
+   
   use SWE_DG_Matrices
-  !use SWE_DG_Predictor
   use SWE_DG_Limiter  
   use SWE_initialize_bathymetry
   use SWE_PATCH
@@ -68,39 +68,8 @@ MODULE SWE_DG_solver
 #		define _GT_CELL_TO_EDGE_OP		cell_to_edge_op_dg
 
   public cell_to_edge_op_dg
-  public create_edge_mpi_type
 
 #		include "SFC_generic_traversal_ringbuffer.f90"
-
-    subroutine create_edge_mpi_type(mpi_edge_type)
-    integer, intent(out)  ::mpi_edge_type
-#if defined(_MPI)
-    type(t_edge_data)     :: edge
-    integer                                 :: blocklengths(2), types(2), disps(2), type_size, i_error
-    integer (kind = MPI_ADDRESS_KIND)       :: lb, ub
-
-    blocklengths(1) = 1
-    blocklengths(2) = 1
-
-    disps(1) = 0
-    disps(2) = sizeof(edge)
-
-    types(1) = MPI_LB
-    types(2) = MPI_UB
-
-    print*,"create_edge"
-    call MPI_Type_create_struct(2, blocklengths, disps, types, mpi_edge_type, i_error); assert_eq(i_error, 0)
-    print*,i_error
-    call MPI_Type_commit(mpi_edge_type, i_error); assert_eq(i_error, 0)
-    call MPI_Type_size(mpi_edge_type, type_size, i_error); assert_eq(i_error, 0)
-    call MPI_Type_get_extent(mpi_edge_type, lb, ub, i_error); assert_eq(i_error,0)
-
-    assert_eq(0, lb)
-    assert_eq(0, type_size)
-    assert_eq(sizeof(edge), ub)
-#endif !_MPI   
-  end subroutine create_edge_mpi_type
-
 
   subroutine post_traversal_grid_op_dg(traversal, grid)
     type(t_swe_dg_timestep_traversal), intent(inout)		:: traversal
@@ -183,53 +152,17 @@ MODULE SWE_DG_solver
      end associate
     endif
 
-    if(.not.isCoast(element%cell%data_pers%troubled)) then
-       !------------------read edge data---------------------!
-       rep%QP(:,:)   = element%cell%data_pers%QP(edge_type  ,:,:)
-       rep%FP(:,:,:) = element%cell%data_pers%FP(edge_type,:,:,:)
-       
-       rep%H  = element%cell%data_pers%QFV(edge_type  ,:,1)
-       rep%HU = element%cell%data_pers%QFV(edge_type  ,:,2)
-       rep%HV = element%cell%data_pers%QFV(edge_type  ,:,3)
-       rep%B  = element%cell%data_pers%QFV(edge_type  ,:,4)
-       !-----------------------------------------------------!
-       ! !---scale by element size---!
-       ! rep%H = (rep%H + rep%B) * _REF_TRIANGLE_SIZE_INV
-       ! rep%HU = rep%HU * _REF_TRIANGLE_SIZE_INV
-       ! rep%HV = rep%HV * _REF_TRIANGLE_SIZE_INV
-       ! rep%B  = rep%B  * _REF_TRIANGLE_SIZE_INV
-       ! !-----------------------------------------------------!
-    else
-       
-    select case (edge_type)       
-    case (3) !cells with id i*i+1 (left leg)
-       do i=0, _SWE_PATCH_ORDER - 1
-          j=_SWE_PATCH_ORDER-1-i
-          rep%H(i+1) = element%cell%data_pers%H(j*j + 1)
-          rep%HU(i+1)= element%cell%data_pers%HU(j*j + 1)
-          rep%HV(i+1)= element%cell%data_pers%HV(j*j + 1)
-          rep%B(i+1) = element%cell%data_pers%B(j*j + 1)
-       end do
-    case (2) ! hypotenuse
-       do i=1, _SWE_PATCH_ORDER
-          j=_SWE_PATCH_ORDER+1-i
-          rep%H(i) = element%cell%data_pers%H ((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
-          rep%HU(i)= element%cell%data_pers%HU((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
-          rep%HV(i)= element%cell%data_pers%HV((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
-          rep%B(i) = element%cell%data_pers%B ((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
-       end do
-    case (1) !cells with id i*i (right leg)
-       do i=1, _SWE_PATCH_ORDER
-          rep%H(i)  = element%cell%data_pers%H(i*i)
-          rep%HU(i) = element%cell%data_pers%HU(i*i)
-          rep%HV(i) = element%cell%data_pers%HV(i*i)
-          rep%B(i)  = element%cell%data_pers%B(i*i)
-       end do
-    end select
- end if
 
- rep%troubled=element%cell%data_pers%troubled
- call getObservableLimits(element%cell%data_pers%Q,rep%minObservables,rep%maxObservables)
+    rep%QP(:,:)   = element%cell%data_pers%QP(edge_type  ,:,:)
+    rep%FP(:,:,:) = element%cell%data_pers%FP(edge_type,:,:,:)
+    
+    rep%H  = element%cell%data_pers%QFV(edge_type  ,:,1)
+    rep%HU = element%cell%data_pers%QFV(edge_type  ,:,2)
+    rep%HV = element%cell%data_pers%QFV(edge_type  ,:,3)
+    rep%B  = element%cell%data_pers%QFV(edge_type  ,:,4)
+    
+    rep%troubled=element%cell%data_pers%troubled
+    call getObservableLimits(element%cell%data_pers%Q,rep%minObservables,rep%maxObservables)
     
 end function cell_to_edge_op_dg
   
@@ -514,7 +447,7 @@ logical :: refine,coarsen
 integer :: i_depth,bathy_depth
 real(kind=GRID_SR),Dimension(3) :: edge_sizes
 real(kind=GRID_SR) :: error
-real(kind=GRID_SR) :: refine_factor = 0.8, coarsen_factor=4.0
+real(kind=GRID_SR) :: refine_factor = 0.0001, coarsen_factor=0.0000001
 
 !> For DMP
 real(kind=GRID_SR) :: minVals(_DMP_NUM_OBSERVABLES)
@@ -569,7 +502,7 @@ if(isDG(data%troubled)) then
    else if(checkDMP(element%cell%data_pers%Q,minVals,maxVals,update1,update2,update3)) then
       data%troubled = TROUBLED
    end if
-
+   
    if(isFV(data%troubled)) then
       !--if troubled or drying perform rollback--!
       data%Q%H   = H_old
@@ -581,64 +514,12 @@ if(isDG(data%troubled)) then
       call apply_phi(data%Q(:)%p(1)         ,data%hu)
       call apply_phi(data%Q(:)%p(2)         ,data%hv)
       call apply_phi(data%Q(:)%b            ,data%b)
-   else
-      i_depth = element%cell%geometry%i_depth
-      
-      dQ_norm = maxval(abs(data%Q%H-H_old))
-
-      !refine      
-      !consider wave
-      error = get_error_estimate(data%Q)
-      
-      if(error > section%max_error * refine_factor) then
-         refine = .true.
-      endif
-      if(error < section%min_error * coarsen_factor) then
-         coarsen = .true.
-      endif
-
-      section%min_error_new = min(error,section%min_error_new)
-      section%max_error_new = max(error,section%max_error_new)
-
-#if defined(_ASAGI)
-      ! consider bathymetry
-      if(coarsen) then
-         section%b_min=-0.1_GRID_SR
-         section%b_max=0.1_GRID_SR
-
-         if((minval(element%cell%data_pers%Q%B) * section%b_min) > 0) then
-            
-            bathy_depth= cfg%i_max_depth &
-            -floor(abs(minval(element%cell%data_pers%Q%B)/abs(section%b_min)) &
-            *(cfg%i_max_depth-cfg%i_min_depth))
-            
-         else if((maxval(element%cell%data_pers%Q%B) * section%b_max) > 0) then
-
-            bathy_depth= cfg%i_max_depth &
-            -floor(abs(maxval(element%cell%data_pers%Q%B)/abs(section%b_max)) &
-            *(cfg%i_max_depth-cfg%i_min_depth))
-            
-         end if
-         
-         bathy_depth = max(min(bathy_depth,cfg%i_max_depth),cfg%i_min_depth)
-      end if
-      coarsen=coarsen.and. (i_depth > bathy_depth)
-#endif
-      element%cell%geometry%refinement = 0
-      if (i_depth < cfg%i_max_depth .and. refine) then
-         element%cell%geometry%refinement = 1
-         traversal%i_refinements_issued = traversal%i_refinements_issued + 1_GRID_DI
-      else if (i_depth > cfg%i_min_depth .and. coarsen) then
-         element%cell%geometry%refinement = -1         
-      endif
-      
    end if
-
 end if
 
 
 if(isFV(data%troubled)) then
-   !-----Call FV patch solver----!
+   !-----Call FV patch solver----!    
    call fv_patch_solver(traversal, section, element, update1, update2, update3)
 end if
 
@@ -657,6 +538,36 @@ else
    end do
 endif
 !------------------------------------------------------------------!
+
+!----------- Refinement ------------!
+element%cell%geometry%refinement = 0
+
+!refine      
+!consider wave
+if(error > section%max_error * refine_factor) then
+   refine = .true.
+endif
+if(error < section%max_error * coarsen_factor) then
+   coarsen = .true.
+endif
+   
+i_depth = element%cell%geometry%i_depth
+
+!----- Compute and update error estimate -----!
+error = get_error_estimate(data%Q)      
+section%min_error_new = min(error,section%min_error_new)
+section%max_error_new = max(error,section%max_error_new)
+!---------------------------------------------!
+if (.not.isCoast(element%cell%data_pers%troubled))then
+   if (i_depth < cfg%i_max_depth .and. refine) then
+      element%cell%geometry%refinement = 1
+      traversal%i_refinements_issued = traversal%i_refinements_issued + 1_GRID_DI
+   else if (i_depth > cfg%i_min_depth .and. coarsen) then
+      !element%cell%geometry%refinement = -1         
+   end if
+end if
+!-----------------------------------!
+
 end associate
 
 end subroutine cell_update_op_dg
@@ -792,11 +703,9 @@ subroutine dg_solver(element,update1,update2,update3,dt)
        end if
     end do
 #endif
-
-
     
     !!----update dofs----!!
-    q=q-(bnd_flux_l + bnd_flux_m + bnd_flux_r)* dt/dx
+    q=q+(data%Q_DG_UPDATE - bnd_flux_l - bnd_flux_m - bnd_flux_r)* dt/dx
     !!-------------------!!
 
     call data%set_dofs_dg(q)
@@ -833,8 +742,52 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
             real (kind = GRID_SR), dimension (_SWE_PATCH_ORDER_SQUARE):: H_old, HU_old, HV_old
             logical :: drying,troubled,coarsen,refine
             real (kind=GRID_SR) :: refinement_threshold = 0.50_GRID_SR
+#endif
 
+#if defined(_DEBUG)
+            do i=1,_SWE_PATCH_ORDER_SQUARE
+               if(isnan(element%cell%data_pers%H(i)))then
+                  print*,"fv_nan"
+                  print*,element%cell%data_pers%H(:)
+                  print*,element%cell%data_pers%HU(:)
+                  print*,element%cell%data_pers%HV(:)
+                  print*,element%cell%data_pers%B(:)
+                  exit
+               end if
+            end do
 
+            do i=1,_SWE_PATCH_ORDER
+               if(isnan(update1%H(i)))then
+                  print*,"update1"
+                  print*,update1%H(:)
+                  print*,update1%HU(:)
+                  print*,update1%HV(:)
+                  print*,update1%B(:)
+                  exit
+               end if
+            end do
+
+            do i=1,_SWE_PATCH_ORDER
+               if(isnan(update2%H(i)))then
+                  print*,"update2"
+                  print*,update2%H(:)
+                  print*,update2%HU(:)
+                  print*,update2%HV(:)
+                  print*,update2%B(:)
+                  exit
+               end if
+            end do
+
+            do i=1,_SWE_PATCH_ORDER
+               if(isnan(update3%H(i)))then
+                  print*,"update3"
+                  print*,update3%H(:)
+                  print*,update3%HU(:)
+                  print*,update3%HV(:)
+                  print*,update3%B(:)
+                  exit
+               end if
+            end do
 #endif
 
             
@@ -1043,12 +996,15 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                   data%HU = 0.0_GRID_SR
                   data%HV = 0.0_GRID_SR
                end where
-
-               call apply_mue(data%h ,data%Q%h)
-               call apply_mue(data%hu,data%Q%p(1))
-               call apply_mue(data%hv,data%Q%p(2))
-               call apply_mue(data%b ,data%Q%b)
-               data%Q%h=data%Q%h-data%Q%b
+               
+               if(.not.isCoast(element%cell%data_pers%troubled)) then
+                  call apply_mue(data%h ,data%Q%h)
+                  call apply_mue(data%hu,data%Q%p(1))
+                  call apply_mue(data%hv,data%Q%p(2))
+                  call apply_mue(data%b ,data%Q%b)
+                  data%Q%h=data%Q%h-data%Q%b
+               end if
+               
           end associate
 
         end subroutine fv_patch_solver
@@ -1101,21 +1057,6 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
           fluxR%h = net_updatesR(1)
           fluxR%p = matmul(net_updatesR(2:3), transform_matrix)
         end subroutine compute_geoclaw_flux
-
-        function get_error_estimate(Q) result(error)
-          type(t_state)        , DIMENSION(_SWE_DG_DOFS) :: Q
-          real(kind=GRID_SR) :: error
-          real(kind=GRID_SR) :: min_h
-          real(kind=GRID_SR) :: max_h
-          integer :: i
-          max_h= -huge(1.0_GRID_SR)
-          min_h=  huge(1.0_GRID_SR)
-          do i=1,_SWE_DG_DOFS
-             min_h = min(Q(i)%h,min_h)
-             max_h = max(Q(i)%h,max_h)
-          end do
-          error = abs(max_h-min_h)
-        end function get_error_estimate
         
 END MODULE SWE_DG_solver
 !_SWE_DG

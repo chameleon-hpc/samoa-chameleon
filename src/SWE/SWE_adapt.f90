@@ -32,13 +32,13 @@
 #		define _GT_EDGES
     
 #		define _GT_PRE_TRAVERSAL_GRID_OP		pre_traversal_grid_op
-#		define _GT_PRE_TRAVERSAL_OP			pre_traversal_op
-#		define _GT_POST_TRAVERSAL_OP			post_traversal_op
+#		define _GT_PRE_TRAVERSAL_OP			    pre_traversal_op
+#		define _GT_POST_TRAVERSAL_OP			  post_traversal_op
 
-#		define _GT_TRANSFER_OP				transfer_op
-#		define _GT_REFINE_OP				  refine_op
-#		define _GT_COARSEN_OP				   coarsen_op
-#		define _GT_CELL_TO_EDGE_OP			cell_to_edge_op_dg
+#		define _GT_TRANSFER_OP				      transfer_op
+#		define _GT_REFINE_OP				        refine_op
+#		define _GT_COARSEN_OP				        coarsen_op
+#		define _GT_CELL_TO_EDGE_OP			    cell_to_edge_op_dg
 
 #		include "SFC_generic_adaptive_traversal.f90"
 
@@ -176,6 +176,9 @@
                dest%Q%H   = dest%Q%H-dest%Q%B
                dest%troubled = src%troubled
                call updateCellStatus(dest)
+               if(isDG(dest%troubled))then
+                  call dg_predictor(dest_element,section%r_dt)
+               end if
                
                if(isFV(dest%troubled)) then
                   call apply_phi(dest%Q(:)%h+dest%Q(:)%b ,dest%h)
@@ -256,8 +259,11 @@
              dest_element%cell%data_pers%HV = 0.0_GRID_SR
           end where
 !!#endif
-
-          end if
+          
+       end if
+       
+       call writeFVBoundaryFields(dest_element)
+       
 #if defined (_DEBUG)                        
            dest_element%cell%data_pers%debug_flag=-4
 #endif           

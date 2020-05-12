@@ -181,7 +181,7 @@ contains
     end do
 
     do i = 1,_DMP_NUM_OBSERVABLES
-       delta(i) = max(0.1_GRID_SR,maxNeighbour(i)-minNeighbour(i))*cfg%limiter_buffer
+       delta(i) = max(0.0000001_GRID_SR,maxNeighbour(i)-minNeighbour(i))*cfg%limiter_buffer
     end do
 
     do i = 1,_SWE_DG_DOFS

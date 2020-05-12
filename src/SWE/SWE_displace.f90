@@ -65,9 +65,10 @@ MODULE SWE_Displace
        element%cell%data_pers%B   =  b_new
     end if
 #endif
+    
     !no coarsening while the earthquake takes place
-    !element%cell%geometry%refinement = max(0, element%cell%geometry%refinement)
-
+    element%cell%geometry%refinement = max(0, element%cell%geometry%refinement)
+    
   end subroutine alpha_volume_op
 END MODULE SWE_Displace
 #endif

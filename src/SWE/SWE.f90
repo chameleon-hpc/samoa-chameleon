@@ -494,6 +494,18 @@ contains
        if (cfg%i_adapt_time_steps > 0 .and. mod(i_time_step, cfg%i_adapt_time_steps) == 0) then
           call swe%adaption%traverse(grid)
        end if
+       
+       if (cfg%l_pointoutput) then
+          call swe%point_output%traverse(grid)
+       end if
+       
+       if(cfg%l_gridoutput) then
+          call swe%xml_output%traverse(grid)
+       end if
+       
+       if(cfg%l_xml_pointoutput) then
+          call swe%xml_point_output%traverse(grid)
+       end if       
       
        call swe%dg_predictor%traverse(grid)
 

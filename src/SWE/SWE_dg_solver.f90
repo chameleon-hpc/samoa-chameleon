@@ -136,23 +136,23 @@ MODULE SWE_DG_solver
 
 #if defined (_DEBUG)
     rep%debug_flag = element%cell%data_pers%debug_flag
-#endif    
-    if(edge%transform_data%index == 2) then   
-       edge_type = edge%transform_data%index
-    else
-       associate(cell_edge => ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%edges)
-       if(((edge%transform_data%normal(1) ==  cell_edge(1)%normal(1)) .and.&
-           (edge%transform_data%normal(2) ==  cell_edge(1)%normal(2))).or.&
-          ((edge%transform_data%normal(1) == -cell_edge(1)%normal(1)) .and.&
-           (edge%transform_data%normal(2) == -cell_edge(1)%normal(2)))) then
-          edge_type = 1
-       else
-          edge_type = 3
-       endif
-     end associate
-    endif
-
-
+#endif
+    associate(cell_edge => ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%edges)
+      if(((edge%transform_data%normal(1) ==  cell_edge(2)%normal(1)) .and.&
+          (edge%transform_data%normal(2) ==  cell_edge(2)%normal(2))).or.&
+         ((edge%transform_data%normal(1) == -cell_edge(2)%normal(1)) .and.&
+          (edge%transform_data%normal(2) == -cell_edge(2)%normal(2)))) then
+         edge_type = 2
+      else if(((edge%transform_data%normal(1) ==  cell_edge(1)%normal(1)) .and.&
+               (edge%transform_data%normal(2) ==  cell_edge(1)%normal(2))).or.&
+              ((edge%transform_data%normal(1) == -cell_edge(1)%normal(1)) .and.&
+               (edge%transform_data%normal(2) == -cell_edge(1)%normal(2)))) then
+         edge_type = 1
+      else
+         edge_type = 3
+      endif
+    end associate
+ 
     rep%QP(:,:)   = element%cell%data_pers%QP(edge_type  ,:,:)
     rep%FP(:,:,:) = element%cell%data_pers%FP(edge_type,:,:,:)
     
@@ -209,52 +209,52 @@ subroutine general_dg_riemannsolver(edge,rep1,rep2,update1,update2)
    
   QL = rep1%QP
   FL = rep1%FP
+  
+  QR = rep2%QP
+  FR = rep2%FP
+
 
   ! print*,"general riemann"
   ! print*,rep1%QP
   ! print*,rep2%QP
   
   !---- Dofs for hypothenuse need to be permuted ----!
-  if(edge%transform_data%index.eq.2) then
-     do j=0,_SWE_DG_ORDER
-        QR(  j+1,:) = rep2%QP(  (_SWE_DG_ORDER+1)-j,:)
-        FR(1,j+1,:) = rep2%FP(1,(_SWE_DG_ORDER+1)-j,:)
-        FR(2,j+1,:) = rep2%FP(2,(_SWE_DG_ORDER+1)-j,:)
-     end do
-  else
-     QR = rep2%QP
-     FR = rep2%FP
-  end if
+  ! if(edge%transform_data%index.eq.2) then
+  !    do j=0,_SWE_DG_ORDER
+  !       QR(  j+1,:) = rep2%QP(  (_SWE_DG_ORDER+1)-j,:)
+  !       FR(1,j+1,:) = rep2%FP(1,(_SWE_DG_ORDER+1)-j,:)
+  !       FR(2,j+1,:) = rep2%FP(2,(_SWE_DG_ORDER+1)-j,:)
+  !    end do
+  ! else
+  !    QR = rep2%QP
+  !    FR = rep2%FP
+  ! end if
 
   FLn = FL(1,:,:) * normal(1) + FL(2,:,:) * normal(2)
   FRn = FR(1,:,:) * normal(1) + FR(2,:,:) * normal(2)
-
-  ! print*,"riemann"
-  ! print*,"norm"
-  ! print*,edge%transform_data%index
-  ! print*,normal
-  ! print*,QL(1,1),QL(2,1)
-  ! print*,QR(1,1),QR(2,1)
-  ! print*,FL(1,1,1),FL(1,2,1)
-  ! print*,FR(1,1,1),FR(1,2,1)
   
   call compute_flux_pred(normal,QL,QR,FLn,FRn)
 
    !---- Result for hypothenuse needs to be permuted back----!
-   if(edge%transform_data%index.eq.2) then
-         do j=1,_SWE_DG_ORDER+1
-            FRn_temp(j,:) = FRn((_SWE_DG_ORDER+1)-j+1,:)
-         end do
-   else
-      FRn_temp = FRn
-   end if
+   ! if(edge%transform_data%index.eq.2) then
+   !       do j=0,_SWE_DG_ORDER
+   !          FRn_temp(j+1,:) = FRn((_SWE_DG_ORDER+1)-j,:)
+   !       end do
+   ! else
+   !    FRn_temp = FRn
+   ! end if
 
    update1%flux%h    = FLn(:,1)
    update1%flux%p(1) = FLn(:,2)
    update1%flux%p(2) = FLn(:,3)
-   update2%flux%h    = FRn_temp(:,1)
-   update2%flux%p(1) = FRn_temp(:,2)
-   update2%flux%p(2) = FRn_temp(:,3)
+   ! update2%flux%h    = FRn_temp(:,1)
+   ! update2%flux%p(1) = FRn_temp(:,2)
+   ! update2%flux%p(2) = FRn_temp(:,3)
+
+   update2%flux%h    = FRn(:,1)
+   update2%flux%p(1) = FRn(:,2)
+   update2%flux%p(2) = FRn(:,3)
+
 end subroutine
 
 subroutine skeleton_scalar_op_dg(traversal, grid, edge, rep1, rep2, update1, update2)
@@ -265,14 +265,71 @@ type(num_cell_rep), intent(in)				:: rep1, rep2
 type(num_cell_update), intent(out)			:: update1, update2
 integer                                                 :: i,j, edge_type
 real(kind = GRID_SR)	          :: normal(2)
+type(num_cell_rep)				:: rep2_rev
+type(num_cell_update)			:: update2_rev
+
 
 
 update1%troubled      =rep2%troubled
 update2%troubled      =rep1%troubled
 
 if(isDG(rep1%troubled) .and. isDG(rep2%troubled)) then
-   call general_dg_riemannsolver(edge,rep1,rep2,update1,update2)
+   
+   do i = 1,_SWE_DG_ORDER+1
+      rep2_rev%QP(  i,:) = rep2%QP(  _SWE_DG_ORDER+2-i,:)
+      rep2_rev%FP(1,i,:) = rep2%FP(1,_SWE_DG_ORDER+2-i,:)
+      rep2_rev%FP(2,i,:) = rep2%FP(2,_SWE_DG_ORDER+2-i,:)
+   end do
+   
+   call general_dg_riemannsolver(edge,rep1,rep2_rev,update1,update2_rev)
+   ! print*
+   ! print*,edge%transform_data%normal
+   ! print*,"Q1"
+   ! print*,rep1%troubled
+   ! print*,rep1%QP(:,1)
+   ! print*,rep1%QP(:,2)
+   ! print*,rep1%QP(:,3)
+   ! print*,rep1%QP(:,4)
+   ! print*,"F1"
+   ! print*,rep1%FP(1,:,1)
+   ! print*,rep1%FP(1,:,2)
+   ! print*,rep1%FP(1,:,3)
+   ! print*,"F2"
+   ! print*,rep1%FP(2,:,1)
+   ! print*,rep1%FP(2,:,2)
+   ! print*,rep1%FP(2,:,3)
+
+   ! print*,"Q2"
+   ! print*,rep2%troubled
+   ! print*,rep2%QP(:,1)
+   ! print*,rep2%QP(:,2)
+   ! print*,rep2%QP(:,3)
+   ! print*,rep2%QP(:,4)
+   ! print*,"F1"
+   ! print*,rep2%FP(1,:,1)
+   ! print*,rep2%FP(1,:,2)
+   ! print*,rep2%FP(1,:,3)
+   ! print*,"F2"
+   ! print*,rep2%FP(2,:,1)
+   ! print*,rep2%FP(2,:,2)
+   ! print*,rep2%FP(2,:,3)
+   ! print*,"update1"
+   ! print*,update1%flux(:)%h
+   ! print*,update1%flux(:)%p(1)
+   ! print*,update1%flux(:)%p(2)
+   ! print*,"update2"
+   ! print*,update2%flux(:)%h
+   ! print*,update2%flux(:)%p(1)
+   ! print*,update2%flux(:)%p(2)
+
+
+   do i = 1,_SWE_DG_ORDER+1
+      update2%flux(i) = update2_rev%flux(_SWE_DG_ORDER+2-i)
+   end do
+
+   
 end if
+
 
 update2%H  = rep1%H
 update2%HU = rep1%HU
@@ -495,6 +552,29 @@ if(isDG(data%troubled)) then
 
    call getObservableLimits(element%cell%data_pers%Q,minVals,maxVals)
 
+   ! print*,"update1"
+   ! print*,update1%flux(:)%h
+   ! print*,update1%flux(:)%p(1)
+   ! print*,update1%flux(:)%p(2)
+   ! print*,"update2"
+   ! print*,update2%flux(:)%h
+   ! print*,update2%flux(:)%p(1)
+   ! print*,update2%flux(:)%p(2)
+   ! print*,"update3"
+   ! print*,update3%flux(:)%h
+   ! print*,update3%flux(:)%p(1)
+   ! print*,update3%flux(:)%p(2)
+   
+   ! if(any(abs(update1%flux%p(1)+update2%flux%p(1)+update3%flux%p(1)) > 1.5d-4))then
+   !    stop
+   ! endif
+
+   do i = 1,_SWE_DG_ORDER+1
+      tmp%flux(i) = update3%flux(_SWE_DG_ORDER+2-i)
+   end do
+   update3 = tmp
+
+
    call dg_solver(element,update1%flux,update2%flux,update3%flux,section%r_dt)
 
    if(isWetDryInterface(data%Q%H)) then
@@ -715,13 +795,13 @@ subroutine dg_solver(element,update1,update2,update3,dt)
 end subroutine dg_solver
 
 subroutine fv_patch_solver(traversal, section, element, update1, update2, update3)
-            class(t_traversal), intent(inout)		                            :: traversal
-            type(t_grid_section), intent(inout)				            :: section
-            type(t_element_base), intent(inout)				            :: element
-            type(num_cell_update), intent(inout)			            :: update1, update2, update3
-            integer                                                                 :: i, j, ind
-            type(num_cell_update)                                                   :: tmp !> ghost cells in correct order 
-            real(kind = GRID_SR)                                                    :: volume, edge_lengths(3), maxWaveSpeed, dQ_max_norm, dt_div_volume
+            class(t_traversal), intent(inout)		  :: traversal
+            type(t_grid_section), intent(inout)	  :: section
+            type(t_element_base), intent(inout)	  :: element
+            type(num_cell_update), intent(inout)  :: update1, update2, update3
+            integer                               :: i, j, ind
+            type(num_cell_update)                 :: tmp !> ghost cells in correct order 
+            real(kind = GRID_SR)                  :: volume, edge_lengths(3), maxWaveSpeed, dQ_max_norm, dt_div_volume
 
             real(kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER_SQUARE)                :: dQ_H, dQ_HU, dQ_HV !> deltaQ, used to compute cell updates
             real(kind = GRID_SR), DIMENSION(_SWE_PATCH_SOLVER_CHUNK_SIZE)           :: hL, huL, hvL, bL

@@ -34,6 +34,7 @@ MODULE SWE_DG_predictor
 # define _GT_CELL_TO_EDGE_OP        cell_to_edge_op_dg  
   
   public dg_predictor,flux_1,flux_2
+  public writeFVBoundaryFields
 #		include "SFC_generic_traversal_ringbuffer.f90"
   
   subroutine element_op(traversal, section, element)
@@ -321,7 +322,8 @@ MODULE SWE_DG_predictor
             do i = 1,_SWE_DG_ORDER+1
                select case(edge_type)
                case(1) !right
-                  indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i+2)*(_SWE_DG_ORDER-i+3)/2 +1
+                  !                  indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i+2)*(_SWE_DG_ORDER-i+3)/2 +1
+                  indx=_SWE_DG_DOFS-(i+1)*(i)/2 +1
                case(2) !mid
                   indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i+2)*(_SWE_DG_ORDER-i+1)/2
                case(3) !left

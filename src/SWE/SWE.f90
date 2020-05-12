@@ -495,18 +495,6 @@ contains
           call swe%adaption%traverse(grid)
        end if
        
-       if (cfg%l_pointoutput) then
-          call swe%point_output%traverse(grid)
-       end if
-       
-       if(cfg%l_gridoutput) then
-          call swe%xml_output%traverse(grid)
-       end if
-       
-       if(cfg%l_xml_pointoutput) then
-          call swe%xml_point_output%traverse(grid)
-       end if       
-      
        call swe%dg_predictor%traverse(grid)
 
        call swe%dg_timestep%traverse(grid)

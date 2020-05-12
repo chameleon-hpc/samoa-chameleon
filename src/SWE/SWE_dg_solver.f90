@@ -504,7 +504,7 @@ logical :: refine,coarsen
 integer :: i_depth,bathy_depth
 real(kind=GRID_SR),Dimension(3) :: edge_sizes
 real(kind=GRID_SR) :: error
-real(kind=GRID_SR) :: refine_factor = 0.0001, coarsen_factor=0.0000001
+real(kind=GRID_SR) :: refine_factor = 10.0d-1, coarsen_factor=10.0d-4
 
 !> For DMP
 real(kind=GRID_SR) :: minVals(_DMP_NUM_OBSERVABLES)
@@ -624,21 +624,27 @@ element%cell%geometry%refinement = 0
 
 !refine      
 !consider wave
-if(error > section%max_error * refine_factor) then
-   refine = .true.
-endif
-if(error < section%max_error * coarsen_factor) then
-   coarsen = .true.
-endif
-   
-i_depth = element%cell%geometry%i_depth
-
-!----- Compute and update error estimate -----!
-error = get_error_estimate(data%Q)      
-section%min_error_new = min(error,section%min_error_new)
-section%max_error_new = max(error,section%max_error_new)
-!---------------------------------------------!
 if (.not.isCoast(element%cell%data_pers%troubled))then
+   error = get_error_estimate(data%Q)      
+   if(error > section%max_error * refine_factor) then
+      refine = .true.
+   endif
+   if(error < section%max_error * coarsen_factor) then
+      coarsen = .true.
+   endif
+   ! if(error > 10.d-8) then
+   !    print*,"error"
+   !    print*,error
+   !    print*,section%max_error
+   ! end if
+   
+   i_depth = element%cell%geometry%i_depth
+   
+   !----- Compute and update error estimate -----!
+   section%min_error_new = min(error,section%min_error_new)
+   section%max_error_new = max(error,section%max_error_new)
+   !---------------------------------------------!
+   
    if (i_depth < cfg%i_max_depth .and. refine) then
       element%cell%geometry%refinement = 1
       traversal%i_refinements_issued = traversal%i_refinements_issued + 1_GRID_DI

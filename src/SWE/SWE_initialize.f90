@@ -260,9 +260,9 @@ MODULE SWE_Initialize_Bathymetry
     bathymetry = SWE_Scenario_get_bathymetry(real(xs, GRID_SR))
 
 #if defined(_ASAGI)
-    if ( asagi_grid_min(cfg%afh_displacement, 0) < x(1) .and.&
+    if ( asagi_grid_min(cfg%afh_displacement, 0) < xs(1) .and.&
          xs(1) < asagi_grid_max(cfg%afh_displacement, 0).and.&
-         asagi_grid_min(cfg%afh_displacement, 1) < x(2) .and.&
+         asagi_grid_min(cfg%afh_displacement, 1) < xs(2) .and.&
          xs(2) < asagi_grid_max(cfg%afh_displacement, 1).and.&
          t > cfg%t_min_eq) then
           

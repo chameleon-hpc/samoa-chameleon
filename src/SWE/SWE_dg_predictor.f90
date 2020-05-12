@@ -12,6 +12,15 @@ MODULE SWE_DG_predictor
   use Samoa_swe
   use SWE_DG_Limiter
   use SWE_dg_solver
+
+#if defined(CHAMELEON)
+   use Chameleon_lib
+#define _GT_USE_CHAMELEON
+#endif
+#if defined(CHAMELEON_CALL)
+#  define _GT_USE_CHAMELEON_CALL
+#endif
+
   implicit none
   
   type num_traversal_data     

@@ -41,6 +41,15 @@
 #	define _GT_INNER_NODE_REDUCE_OP		    _GT_NODE_REDUCE_OP
 #endif
 
+#if defined(_GT_USE_CHAMELEON)
+!https://stackoverflow.com/questions/5256313/c-c-macro-string-concatenation
+#define PPCAT_NX(A, B) A ## B
+#define PPCAT(A, B) PPCAT_NX(A, B)
+#   define _GT_CHAMELEON_WRAPPER  PPCAT(_GT_NAME,_traverse_section_wrapper_chameleon)
+!_traverse_section_wrapper_chameleon
+!#pragma error(_GT_CHAMELEON_WRAPPER)
+#endif
+
 PRIVATE
 PUBLIC _GT
 
@@ -469,7 +478,7 @@ subroutine traverse(traversal, grid)
 
 #if defined _GT_USE_CHAMELEON_CALL
     !    write(*,*)  'Executing Chameleon Tasks'
-        task_c_ptr = chameleon_create_task(c_funloc(traverse_section_wrapper_chameleon), 14, map_entries(:,i_section))
+        task_c_ptr = chameleon_create_task(c_funloc(_GT_CHAMELEON_WRAPPER), 14, map_entries(:,i_section))
         i_error = chameleon_add_task_fortran(task_c_ptr)
         ! anno_ptr    = chameleon_create_annotation_container_fortran()
         ! i_error     = chameleon_set_annotation_int_fortran(anno_ptr, grid%sections%elements_alloc(i_section)%cells%get_size())
@@ -483,7 +492,7 @@ subroutine traverse(traversal, grid)
         !$omp task default(shared) firstprivate(i_section) mergeable
 #       endif
         call traversal%sections(i_section)%stats%start_time(inner_compute_time)
-        call traverse_section_wrapper_chameleon(traversal%sections(i_section),\
+        call _GT_CHAMELEON_WRAPPER(traversal%sections(i_section),\
                                               section_metadata(i_section),\
                                               grid%sections%elements_alloc(i_section)%t_global_data,\
                                               c_loc(grid%sections%elements_alloc(i_section)%cells%get_c_pointer()),\
@@ -631,7 +640,8 @@ subroutine traverse(traversal, grid)
 end subroutine
 
 #if defined(_GT_USE_CHAMELEON)
-subroutine traverse_section_wrapper_chameleon( section_traversal,&
+!subroutine traverse_section_wrapper_chameleon( section_traversal,&
+subroutine _GT_CHAMELEON_WRAPPER( section_traversal,&
                                                section_metadata,&
                                                global_data,&
                                                cells,&
@@ -644,7 +654,7 @@ subroutine traverse_section_wrapper_chameleon( section_traversal,&
                                                boundary_edges_red,&
                                                boundary_edges_green,&
                                                boundary_nodes_red,&
-                                               boundary_nodes_green) bind(C)
+                                               boundary_nodes_green)  bind(C)
     use SFC_data_types
     use Grid_section
     use Cell_stream

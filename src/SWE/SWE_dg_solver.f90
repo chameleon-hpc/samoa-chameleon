@@ -649,7 +649,7 @@ if (.not.isCoast(element%cell%data_pers%troubled))then
       element%cell%geometry%refinement = 1
       traversal%i_refinements_issued = traversal%i_refinements_issued + 1_GRID_DI
    else if (i_depth > cfg%i_min_depth .and. coarsen) then
-      !element%cell%geometry%refinement = -1         
+      element%cell%geometry%refinement = -1         
    end if
 end if
 !-----------------------------------!

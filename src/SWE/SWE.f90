@@ -464,6 +464,10 @@ contains
     end if
     !$omp end master
 
+    if(cfg%static_displacement)then
+       grid%r_time = cfg%t_max_eq
+    endif
+
 #           if defined(_XDMF)
     if (.not. cfg%xdmf%l_xdmfcheckpoint) then
 #           endif

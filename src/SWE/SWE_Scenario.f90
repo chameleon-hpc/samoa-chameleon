@@ -939,8 +939,22 @@ MODULE SWE_Scenario_asagi
   function SWE_Scenario_get_initial_Q(x) result(Q)
     real (kind = GRID_SR), intent(in) :: x(2)
     type(t_dof_state) :: Q
+    real (kind = GRID_SR)             :: xs_time(3)
+    
     Q%h = 0.0_GRID_SR                                    
-    Q%p = 0.0_GRID_SR            
+    Q%p = 0.0_GRID_SR
+
+    if(cfg%static_displacement)then
+       xs_time(1:2) = x
+       xs_time(3)   = real(cfg%t_max_eq, GRID_SR)
+       if (asagi_grid_min(cfg%afh_displacement, 0) <= x(1) .and.&
+            asagi_grid_min(cfg%afh_displacement, 1) <= x(2) .and.&
+            x(1) <= asagi_grid_max(cfg%afh_displacement, 0) .and.&
+            x(2) <= asagi_grid_max(cfg%afh_displacement, 1))then
+          Q%h = Q%h + asagi_grid_get_float(cfg%afh_displacement, xs_time, 0)
+       end if
+    end if
+    
   end function SWE_Scenario_get_initial_Q
   
 END MODULE SWE_Scenario_asagi

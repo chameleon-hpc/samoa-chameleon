@@ -125,6 +125,7 @@ module config
                 integer                         :: max_picard_iterations = 20
                 double precision                :: max_picard_error      = 10.0d-12
                 double precision                :: limiter_buffer        = 10.0d-3
+                logical                         :: static_displacement   = .false.
 
                 character(:),allocatable     	 :: s_domain			                            !< test points input string
                 logical     	                 :: l_domain			                            !< test points input string
@@ -217,7 +218,7 @@ module config
 #    	elif defined(_HEAT_EQ)
             write(arguments, '(A, A)') trim(arguments), " -dmin 0 -dmax 16 -dstart 0 -nmax -1 -tmax 1.0d0 -nout -1 -tout -1.0d0"
 #    	elif defined(_SWE)
-            write(arguments, '(A, A)') trim(arguments), " -dmin 0 -dmax 14 -dstart 0 -courant 0.45d0 -nmax -1 -tmax 3600.0d0 -nout -1 -tout -1.0d0 -drytolerance 0.01d0 -coastheight 1.0d0 -dry_dg_guard 0.1d0 -fbath data/tohoku_static/bath.nc -fdispl data/tohoku_static/displ.nc -max_picard_iterations 4 -max_picard_error 10.0d-12 -limiter_buffer 10.0d-3 -domain '' "
+            write(arguments, '(A, A)') trim(arguments), " -dmin 0 -dmax 14 -dstart 0 -courant 0.45d0 -nmax -1 -tmax 3600.0d0 -nout -1 -tout -1.0d0 -drytolerance 0.01d0 -coastheight 1.0d0 -dry_dg_guard 0.1d0 -fbath data/tohoku_static/bath.nc -fdispl data/tohoku_static/displ.nc -max_picard_iterations 4 -max_picard_error 10.0d-12 -limiter_buffer 10.0d-3 -domain '' -static_displacement .false."
 #	    elif defined(_FLASH)
             write(arguments, '(A, A)') trim(arguments), " -dmin 0 -dmax 14 -dstart 0 -courant 0.45d0 -nmax -1 -tmax 3600.0d0 -nout -1 -tout -1.0d0 -drytolerance 0.01d0 -fbath data/tohoku_static/bath.nc -fdispl data/tohoku_static/displ.nc"
 #    	elif defined(_NUMA)
@@ -355,6 +356,7 @@ module config
                 config%max_picard_iterations = rget('samoa_max_picard_iterations')
                 config%max_picard_error      = rget('samoa_max_picard_error')
                 config%limiter_buffer        = rget('samoa_limiter_buffer')
+                config%static_displacement   = lget('samoa_static_displacement')
 #           endif
 
 #           if defined(_BOUNDARY)

@@ -326,7 +326,6 @@ if(isDG(rep1%troubled) .and. isDG(rep2%troubled)) then
    do i = 1,_SWE_DG_ORDER+1
       update2%flux(i) = update2_rev%flux(_SWE_DG_ORDER+2-i)
    end do
-
    
 end if
 
@@ -572,11 +571,11 @@ if(isDG(data%troubled)) then
    do i = 1,_SWE_DG_ORDER+1
       tmp%flux(i) = update3%flux(_SWE_DG_ORDER+2-i)
    end do
-   update3 = tmp
+   update3%flux = tmp%flux
 
 
    call dg_solver(element,update1%flux,update2%flux,update3%flux,section%r_dt)
-
+   
    if(isWetDryInterface(data%Q%H)) then
       data%troubled = WET_DRY_INTERFACE
    else if(checkDMP(element%cell%data_pers%Q,minVals,maxVals,update1,update2,update3)) then
@@ -597,12 +596,38 @@ if(isDG(data%troubled)) then
    end if
 end if
 
+! print*,"before"
+! print*,element%cell%data_pers%H
+! print*,element%cell%data_pers%HU
+! print*,element%cell%data_pers%HV
+! print*,element%cell%data_pers%B
 
 if(isFV(data%troubled)) then
    !-----Call FV patch solver----!    
    call fv_patch_solver(traversal, section, element, update1, update2, update3)
 end if
 
+! print*,"after"
+! print*,element%cell%data_pers%H
+! print*,element%cell%data_pers%HU
+! print*,element%cell%data_pers%HV
+! print*,element%cell%data_pers%B
+!  print*,"update1"
+!  print*,update1%H
+!  print*,update1%HU
+!  print*,update1%HV
+!  print*,update1%B
+!  print*,"update2"
+!  print*,update2%H
+!  print*,update2%HU
+!  print*,update2%HV
+!  print*,update2%B
+!  print*,"update3"
+!  print*,update3%H
+!  print*,update3%HU
+!  print*,update3%HV
+!  print*,update3%B
+ 
 
 !------- Update cell status and compute next timestep size --------!
 call updateCellStatus(data)

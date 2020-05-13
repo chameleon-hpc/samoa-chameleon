@@ -484,7 +484,9 @@ contains
     ! during the earthquake, do small time steps that include a displacement
 
     do
-       if ((cfg%r_max_time >= 0.0 .and. grid%r_time >= cfg%r_max_time) .or. (cfg%i_max_time_steps >= 0 .and. i_time_step >= cfg%i_max_time_steps)) then
+       if ( (cfg%r_max_time >= 0.0     .and. grid%r_time >= cfg%r_max_time) .or.&
+            (cfg%i_max_time_steps >= 0 .and. i_time_step >= cfg%i_max_time_steps) .or.&
+             cfg%static_displacement ) then
           exit
        end if
 

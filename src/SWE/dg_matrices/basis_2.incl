@@ -1,0 +1,55 @@
+function basis_1(x,y)
+  real(kind = GRID_SR) ::basis_1
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_1 = (1.0000000000000002_GRID_SR + x**1 * -3.0000000000000004_GRID_SR + x**2 * 2.0_GRID_SR) + y**1 * (-3.0_GRID_SR + x**1 * 4.0_GRID_SR) + y**2 * (2.0_GRID_SR)
+end function basis_1
+ 
+function basis_2(x,y)
+  real(kind = GRID_SR) ::basis_2
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_2 = (-8.881784197001252e-16_GRID_SR + x**1 * 4.000000000000002_GRID_SR + x**2 * -4.000000000000002_GRID_SR) + y**1 * (-1.1102230246251565e-16_GRID_SR + x**1 * -4.000000000000001_GRID_SR)
+end function basis_2
+ 
+function basis_3(x,y)
+  real(kind = GRID_SR) ::basis_3
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_3 = (x**1 * -1.0_GRID_SR + x**2 * 2.0_GRID_SR)
+end function basis_3
+ 
+function basis_4(x,y)
+  real(kind = GRID_SR) ::basis_4
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_4 = (-1.6653345369376993e-16_GRID_SR + x**1 * 7.771561172376001e-16_GRID_SR + x**2 * -1.22124532708767e-15_GRID_SR) + y**1 * (4.000000000000001_GRID_SR + x**1 * -4.000000000000001_GRID_SR) + y**2 * (-4.000000000000001_GRID_SR)
+end function basis_4
+ 
+function basis_5(x,y)
+  real(kind = GRID_SR) ::basis_5
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_5 = (1.1102230246250993e-16_GRID_SR + x**1 * 7.2164496600636e-16_GRID_SR + x**2 * -1.33226762955019e-15_GRID_SR) + y**1 * (x**1 * 3.999999999999999_GRID_SR)
+end function basis_5
+ 
+function basis_6(x,y)
+  real(kind = GRID_SR) ::basis_6
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_6 = (x**1 * 5.55111512312578e-17_GRID_SR + x**2 * -5.55111512312578e-17_GRID_SR) + y**1 * (-1.0_GRID_SR) + y**2 * (2.0_GRID_SR)
+end function basis_6
+ 
+function evaluate(Q,coords)
+  real(kind = GRID_SR)            :: evaluate
+  real(kind = GRID_SR),intent(in) :: Q(_SWE_DG_DOFS)
+  real(kind = GRID_SR),intent(in) :: coords(2) 
+
+  evaluate =&
+  basis_1(coords(1),coords(2)) * Q(1) +&
+  basis_2(coords(1),coords(2)) * Q(2) +&
+  basis_3(coords(1),coords(2)) * Q(3) +&
+  basis_4(coords(1),coords(2)) * Q(4) +&
+  basis_5(coords(1),coords(2)) * Q(5) +&
+  basis_6(coords(1),coords(2)) * Q(6)
+end function evaluate

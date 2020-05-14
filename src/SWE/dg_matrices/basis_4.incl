@@ -1,0 +1,127 @@
+function basis_1(x,y)
+  real(kind = GRID_SR) ::basis_1
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_1 = (1.000000000000002_GRID_SR + x**1 * -9.999999999999982_GRID_SR + x**2 * 29.99999999999995_GRID_SR + x**3 * -35.0_GRID_SR + x**4 * 14.00000000000004_GRID_SR) + y**1 * (-9.999999999999993_GRID_SR + x**1 * 64.88613223878917_GRID_SR + x**2 * -117.43523962865669_GRID_SR + x**3 * 63.54910738986739_GRID_SR) + y**2 * (30.000000000000057_GRID_SR + x**1 * -117.43523962865756_GRID_SR + x**2 * 99.09821477973611_GRID_SR) + y**3 * (-35.00000000000022_GRID_SR + x**1 * 63.54910738986828_GRID_SR) + y**4 * (14.00000000000015_GRID_SR)
+end function basis_1
+ 
+function basis_2(x,y)
+  real(kind = GRID_SR) ::basis_2
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_2 = (2.4424906541753444e-14_GRID_SR + x**1 * 13.513004977448034_GRID_SR + x**2 * -56.872348265676465_GRID_SR + x**3 * 76.02600995489307_GRID_SR + x**4 * -32.66666666666463_GRID_SR) + y**1 * (-1.0658141036401503e-13_GRID_SR + x**1 * -65.61543128972033_GRID_SR + x**2 * 175.81926299509897_GRID_SR + x**3 * -113.0241600612623_GRID_SR) + y**2 * (6.821210263296962e-13_GRID_SR + x**1 * 96.0389769155355_GRID_SR + x**2 * -124.29404399786306_GRID_SR) + y**3 * (-1.5987211554602254e-12_GRID_SR + x**1 * -43.93655060326242_GRID_SR) + y**4 * (9.9475983006414e-13_GRID_SR)
+end function basis_2
+ 
+function basis_3(x,y)
+  real(kind = GRID_SR) ::basis_3
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_3 = (-1.1546319456101628e-14_GRID_SR + x**1 * -5.333333333333357_GRID_SR + x**2 * 42.66666666666686_GRID_SR + x**3 * -74.66666666666704_GRID_SR + x**4 * 37.33333333333354_GRID_SR) + y**1 * (-2.842170943040401e-14_GRID_SR + x**1 * 6.424556033152669_GRID_SR + x**2 * -75.75788936648553_GRID_SR + x**3 * 74.66666666666629_GRID_SR) + y**2 * (3.197442310920451e-13_GRID_SR + x**1 * 8.291731497664315_GRID_SR + x**2 * 27.950379135848934_GRID_SR) + y**3 * (-7.818190539410352e-13_GRID_SR + x**1 * -9.382954197483624_GRID_SR) + y**4 * (4.9737991503207e-13_GRID_SR)
+end function basis_3
+ 
+function basis_4(x,y)
+  real(kind = GRID_SR) ::basis_4
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_4 = (1.5987211554602254e-14_GRID_SR + x**1 * 2.8203283558848113_GRID_SR + x**2 * -24.794318400987898_GRID_SR + x**3 * 54.64065671176975_GRID_SR + x**4 * -32.66666666666669_GRID_SR) + y**1 * (7.105427357601002e-15_GRID_SR + x**1 * 3.460748681339453_GRID_SR + x**2 * 0.6687529466123365_GRID_SR + x**3 * -17.642506605400264_GRID_SR) + y**2 * (-9.947598300641403e-14_GRID_SR + x**1 * -10.035353161894772_GRID_SR + x**2 * 18.778436185936865_GRID_SR) + y**3 * (2.1310730957679875e-13_GRID_SR + x**1 * 3.754276124670453_GRID_SR) + y**4 * (-1.24344978758017e-13_GRID_SR)
+end function basis_4
+ 
+function basis_5(x,y)
+  real(kind = GRID_SR) ::basis_5
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_5 = (-3.552713678800501e-15_GRID_SR + x**1 * -1.0_GRID_SR + x**2 * 9.000000000000018_GRID_SR + x**3 * -21.000000000000036_GRID_SR + x**4 * 14.00000000000001_GRID_SR) + y**1 * (3.552713678800501e-15_GRID_SR + x**1 * -2.662975151078843_GRID_SR + x**2 * 10.212082540947186_GRID_SR + x**3 * -7.549107389868347_GRID_SR) + y**2 * (-3.552713678800501e-15_GRID_SR + x**1 * 2.6629751510788395_GRID_SR + x**2 * -7.549107389868347_GRID_SR)
+end function basis_5
+ 
+function basis_6(x,y)
+  real(kind = GRID_SR) ::basis_6
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_6 = (4.4755865680240246e-15_GRID_SR + x**1 * -1.5026868638302584e-13_GRID_SR + x**2 * 7.874811913666348e-13_GRID_SR + x**3 * -1.334488075599442e-12_GRID_SR + x**4 * 6.94999613415348e-13_GRID_SR) + y**1 * (13.513004977448492_GRID_SR + x**1 * -65.61543128972039_GRID_SR + x**2 * 96.03897691553313_GRID_SR + x**3 * -43.93655060326099_GRID_SR) + y**2 * (-56.87234826567909_GRID_SR + x**1 * 175.81926299510184_GRID_SR + x**2 * -124.29404399786111_GRID_SR) + y**3 * (76.02600995489765_GRID_SR + x**1 * -113.02416006126623_GRID_SR) + y**4 * (-32.66666666666708_GRID_SR)
+end function basis_6
+ 
+function basis_7(x,y)
+  real(kind = GRID_SR) ::basis_7
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_7 = (1.4988010832430273e-15_GRID_SR + x**1 * 2.0872192862955972e-14_GRID_SR + x**2 * -1.6542323066915105e-13_GRID_SR + x**3 * 3.5349501104065105e-13_GRID_SR + x**4 * -2.25597318603832e-13_GRID_SR) + y**1 * (-1.1368683772161603e-13_GRID_SR + x**1 * 85.46432471462231_GRID_SR + x**2 * -195.62832723006593_GRID_SR + x**3 * 110.16400251544361_GRID_SR) + y**2 * (3.979039320256561e-13_GRID_SR + x**1 * -195.6283272300675_GRID_SR + x**2 * 220.32800503088916_GRID_SR) + y**3 * (-4.991562718714703e-13_GRID_SR + x**1 * 110.16400251544503_GRID_SR) + y**4 * (2.48689957516035e-13_GRID_SR)
+end function basis_7
+ 
+function basis_8(x,y)
+  real(kind = GRID_SR) ::basis_8
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_8 = (7.382983113756824e-15_GRID_SR + x**1 * -1.1735057370287753e-13_GRID_SR + x**2 * 4.2971182168116517e-13_GRID_SR + x**3 * -5.22248910783673e-13_GRID_SR + x**4 * 1.98951966012828e-13_GRID_SR) + y**1 * (-2.842170943040401e-14_GRID_SR + x**1 * -24.699677800821064_GRID_SR + x**2 * 134.86368031626355_GRID_SR + x**3 * -110.16400251544236_GRID_SR) + y**2 * (9.947598300641403e-14_GRID_SR + x**1 * 24.69967780082078_GRID_SR + x**2 * -110.16400251544269_GRID_SR) + y**3 * (-7.105427357601e-14_GRID_SR + x**1 * 6.394884621840901e-13_GRID_SR)
+end function basis_8
+ 
+function basis_9(x,y)
+  real(kind = GRID_SR) ::basis_9
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_9 = (5.419276138951612e-15_GRID_SR + x**1 * -2.1177504194724937e-14_GRID_SR + x**2 * 5.882794251732556e-14_GRID_SR + x**3 * -9.547918011776341e-14_GRID_SR + x**4 * 5.41788836017076e-14_GRID_SR) + y**1 * (-7.815970093361102e-14_GRID_SR + x**1 * 5.347129268438238_GRID_SR + x**2 * -35.77067489425143_GRID_SR + x**3 * 43.93655060326171_GRID_SR) + y**2 * (3.7925218521195347e-13_GRID_SR + x**1 * 1.2274752121168238_GRID_SR + x**2 * 7.5156078119248315_GRID_SR) + y**3 * (-6.572520305780923e-13_GRID_SR + x**1 * -3.754276124670177_GRID_SR) + y**4 * (3.41948691584548e-13_GRID_SR)
+end function basis_9
+ 
+function basis_10(x,y)
+  real(kind = GRID_SR) ::basis_10
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_10 = (-7.521760991838995e-15_GRID_SR + x**1 * 1.6509016376176926e-13_GRID_SR + x**2 * -8.334444245861131e-13_GRID_SR + x**3 * 1.397770788003074e-12_GRID_SR + x**4 * -7.18980430747251e-13_GRID_SR) + y**1 * (-5.333333333333362_GRID_SR + x**1 * 6.424556033153394_GRID_SR + x**2 * 8.291731497663896_GRID_SR + x**3 * -9.382954197484208_GRID_SR) + y**2 * (42.66666666666683_GRID_SR + x**1 * -75.7578893664876_GRID_SR + x**2 * 27.950379135850703_GRID_SR) + y**3 * (-74.66666666666697_GRID_SR + x**1 * 74.66666666666751_GRID_SR) + y**4 * (37.33333333333351_GRID_SR)
+end function basis_10
+ 
+function basis_11(x,y)
+  real(kind = GRID_SR) ::basis_11
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_11 = (-1.4432899320140162e-15_GRID_SR + x**1 * -3.086420008457087e-14_GRID_SR + x**2 * 4.353739591067416e-13_GRID_SR + x**3 * -1.093347634650848e-12_GRID_SR + x**4 * 7.24753590475302e-13_GRID_SR) + y**1 * (-9.237055564881302e-14_GRID_SR + x**1 * -24.699677800821924_GRID_SR + x**2 * 24.69967780082203_GRID_SR + x**3 * 1.7053025658242404e-13_GRID_SR) + y**2 * (6.110667527536862e-13_GRID_SR + x**1 * 134.8636803162654_GRID_SR + x**2 * -110.16400251544424_GRID_SR) + y**3 * (-1.2807532812075802e-12_GRID_SR + x**1 * -110.16400251544304_GRID_SR) + y**4 * (7.46069872548105e-13_GRID_SR)
+end function basis_11
+ 
+function basis_12(x,y)
+  real(kind = GRID_SR) ::basis_12
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_12 = (1.2767564783191572e-15_GRID_SR + x**1 * -2.6562085864157678e-14_GRID_SR + x**2 * 1.4808987369718903e-13_GRID_SR + x**3 * -2.66897615119888e-13_GRID_SR + x**4 * 1.48769885299771e-13_GRID_SR) + y**1 * (-1.5987211554602254e-14_GRID_SR + x**1 * 5.140843563970144_GRID_SR + x**2 * -19.857131094787256_GRID_SR + x**3 * 9.38295419748382_GRID_SR) + y**2 * (1.9895196601282805e-13_GRID_SR + x**1 * -19.85713109478708_GRID_SR + x**2 * 56.09924172830054_GRID_SR) + y**3 * (-3.639311074721267e-13_GRID_SR + x**1 * 9.382954197483633_GRID_SR) + y**4 * (1.86517468137026e-13_GRID_SR)
+end function basis_12
+ 
+function basis_13(x,y)
+  real(kind = GRID_SR) ::basis_13
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_13 = (4.7878367936942205e-15_GRID_SR + x**1 * -1.6436851879574918e-13_GRID_SR + x**2 * 9.319767180215842e-13_GRID_SR + x**3 * -1.6786572132332363e-12_GRID_SR + x**4 * 9.15267861500979e-13_GRID_SR) + y**1 * (2.82032835588485_GRID_SR + x**1 * 3.4607486813390933_GRID_SR + x**2 * -10.03535316189518_GRID_SR + x**3 * 3.7542761246715646_GRID_SR) + y**2 * (-24.794318400987834_GRID_SR + x**1 * 0.6687529466140489_GRID_SR + x**2 * 18.778436185935696_GRID_SR) + y**3 * (54.64065671176951_GRID_SR + x**1 * -17.64250660540145_GRID_SR) + y**4 * (-32.66666666666652_GRID_SR)
+end function basis_13
+ 
+function basis_14(x,y)
+  real(kind = GRID_SR) ::basis_14
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_14 = (5.141720382796607e-15_GRID_SR + x**1 * -9.545142454215187e-14_GRID_SR + x**2 * 4.391487173904851e-13_GRID_SR + x**3 * -6.87006007638049e-13_GRID_SR + x**4 * 3.30402372128447e-13_GRID_SR) + y**1 * (-1.9539925233402755e-14_GRID_SR + x**1 * 5.347129268438344_GRID_SR + x**2 * 1.2274752121169374_GRID_SR + x**3 * -3.7542761246702465_GRID_SR) + y**2 * (-2.842170943040401e-14_GRID_SR + x**1 * -35.77067489425187_GRID_SR + x**2 * 7.515607811924702_GRID_SR) + y**3 * (1.7852386235972532e-13_GRID_SR + x**1 * 43.93655060326201_GRID_SR) + y**4 * (-1.55431223447522e-13_GRID_SR)
+end function basis_14
+ 
+function basis_15(x,y)
+  real(kind = GRID_SR) ::basis_15
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_15 = (-1.3019099687210229e-15_GRID_SR + x**1 * 4.793561381166812e-14_GRID_SR + x**2 * -2.774456012155652e-13_GRID_SR + x**3 * 5.077882558879311e-13_GRID_SR + x**4 * -2.82052159406021e-13_GRID_SR) + y**1 * (-1.0_GRID_SR + x**1 * -2.66297515107871_GRID_SR + x**2 * 2.662975151078834_GRID_SR + x**3 * -2.184918912462308e-13_GRID_SR) + y**2 * (8.999999999999954_GRID_SR + x**1 * 10.212082540946637_GRID_SR + x**2 * -7.5491073898678565_GRID_SR) + y**3 * (-20.999999999999847_GRID_SR + x**1 * -7.549107389868009_GRID_SR) + y**4 * (13.99999999999988_GRID_SR)
+end function basis_15
+ 
+function evaluate(Q,coords)
+  real(kind = GRID_SR)            :: evaluate
+  real(kind = GRID_SR),intent(in) :: Q(_SWE_DG_DOFS)
+  real(kind = GRID_SR),intent(in) :: coords(2) 
+
+  evaluate =&
+  basis_1(coords(1),coords(2)) * Q(1) +&
+  basis_2(coords(1),coords(2)) * Q(2) +&
+  basis_3(coords(1),coords(2)) * Q(3) +&
+  basis_4(coords(1),coords(2)) * Q(4) +&
+  basis_5(coords(1),coords(2)) * Q(5) +&
+  basis_6(coords(1),coords(2)) * Q(6) +&
+  basis_7(coords(1),coords(2)) * Q(7) +&
+  basis_8(coords(1),coords(2)) * Q(8) +&
+  basis_9(coords(1),coords(2)) * Q(9) +&
+  basis_10(coords(1),coords(2)) * Q(10) +&
+  basis_11(coords(1),coords(2)) * Q(11) +&
+  basis_12(coords(1),coords(2)) * Q(12) +&
+  basis_13(coords(1),coords(2)) * Q(13) +&
+  basis_14(coords(1),coords(2)) * Q(14) +&
+  basis_15(coords(1),coords(2)) * Q(15)
+end function evaluate

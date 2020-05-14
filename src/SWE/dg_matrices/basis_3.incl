@@ -1,0 +1,87 @@
+function basis_1(x,y)
+  real(kind = GRID_SR) ::basis_1
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_1 = (1.0000000000000002_GRID_SR + x**1 * -6.0000000000000036_GRID_SR + x**2 * 10.00000000000001_GRID_SR + x**3 * -5.000000000000006_GRID_SR) + y**1 * (-6.000000000000023_GRID_SR + x**1 * 21.000000000000043_GRID_SR + x**2 * -16.000000000000025_GRID_SR) + y**2 * (10.000000000000075_GRID_SR + x**1 * -16.000000000000075_GRID_SR) + y**3 * (-5.000000000000052_GRID_SR)
+end function basis_1
+ 
+function basis_2(x,y)
+  real(kind = GRID_SR) ::basis_2
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_2 = (-2.220446049250313e-15_GRID_SR + x**1 * 8.09016994374944_GRID_SR + x**2 * -19.27050983124832_GRID_SR + x**3 * 11.18033988749888_GRID_SR) + y**1 * (7.105427357601002e-15_GRID_SR + x**1 * -21.180339887498917_GRID_SR + x**2 * 24.270509831248383_GRID_SR) + y**2 * (-2.842170943040401e-14_GRID_SR + x**1 * 13.090169943749466_GRID_SR) + y**3 * (2.66453525910038e-14_GRID_SR)
+end function basis_2
+ 
+function basis_3(x,y)
+  real(kind = GRID_SR) ::basis_3
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_3 = (1.7763568394002505e-15_GRID_SR + x**1 * -3.0901699437494727_GRID_SR + x**2 * 14.270509831248422_GRID_SR + x**3 * -11.18033988749895_GRID_SR) + y**1 * (-1.4210854715202004e-14_GRID_SR + x**1 * 1.1803398874989703_GRID_SR + x**2 * -9.270509831248436_GRID_SR) + y**2 * (3.5915714846623814e-14_GRID_SR + x**1 * 1.909830056250506_GRID_SR) + y**3 * (-2.22044604925031e-14_GRID_SR)
+end function basis_3
+ 
+function basis_4(x,y)
+  real(kind = GRID_SR) ::basis_4
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_4 = (x**1 * 1.0_GRID_SR + x**2 * -4.999999999999998_GRID_SR + x**3 * 4.999999999999999_GRID_SR) + y**1 * (1.5543122344752192e-15_GRID_SR + x**1 * 1.000000000000002_GRID_SR + x**2 * -1.0000000000000036_GRID_SR) + y**2 * (-1.6375789613221059e-15_GRID_SR + x**1 * -1.0000000000000036_GRID_SR)
+end function basis_4
+ 
+function basis_5(x,y)
+  real(kind = GRID_SR) ::basis_5
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_5 = (-1.096345236817309e-15_GRID_SR + x**1 * 1.0547118733938899e-14_GRID_SR + x**2 * -2.1094237467877902e-14_GRID_SR + x**3 * 1.22124532708767e-14_GRID_SR) + y**1 * (8.09016994374948_GRID_SR + x**1 * -21.180339887498985_GRID_SR + x**2 * 13.090169943749512_GRID_SR) + y**2 * (-19.270509831248454_GRID_SR + x**1 * 24.27050983124847_GRID_SR) + y**3 * (11.18033988749897_GRID_SR)
+end function basis_5
+ 
+function basis_6(x,y)
+  real(kind = GRID_SR) ::basis_6
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_6 = (-3.5527136788005956e-15_GRID_SR + x**1 * 2.6201263381153896e-14_GRID_SR + x**2 * -5.995204332975859e-14_GRID_SR + x**3 * 3.73034936274053e-14_GRID_SR) + y**1 * (2.4868995751603507e-14_GRID_SR + x**1 * 26.999999999999858_GRID_SR + x**2 * -26.999999999999865_GRID_SR) + y**2 * (-2.708944180085382e-14_GRID_SR + x**1 * -26.999999999999865_GRID_SR)
+end function basis_6
+ 
+function basis_7(x,y)
+  real(kind = GRID_SR) ::basis_7
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_7 = (-6.106226635438503e-16_GRID_SR + x**1 * -4.718447854656694e-16_GRID_SR + x**2 * 5.995204332975839e-15_GRID_SR + x**3 * -6.21724893790088e-15_GRID_SR) + y**1 * (-1.7763568394002505e-15_GRID_SR + x**1 * -5.0000000000000036_GRID_SR + x**2 * 13.090169943749466_GRID_SR) + y**2 * (-1.27675647831893e-15_GRID_SR + x**1 * 1.9098300562505486_GRID_SR)
+end function basis_7
+ 
+function basis_8(x,y)
+  real(kind = GRID_SR) ::basis_8
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_8 = (-3.608224830032295e-16_GRID_SR + x**1 * 7.0499162063698766e-15_GRID_SR + x**2 * -1.90958360235528e-14_GRID_SR + x**3 * 1.18793863634892e-14_GRID_SR) + y**1 * (-3.0901699437494603_GRID_SR + x**1 * 1.1803398874988975_GRID_SR + x**2 * 1.9098300562505708_GRID_SR) + y**2 * (14.270509831248392_GRID_SR + x**1 * -9.27050983124837_GRID_SR) + y**3 * (-11.18033988749893_GRID_SR)
+end function basis_8
+ 
+function basis_9(x,y)
+  real(kind = GRID_SR) ::basis_9
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_9 = (2.0122792321330935e-15_GRID_SR + x**1 * -9.159339953157532e-15_GRID_SR + x**2 * 1.099120794378904e-14_GRID_SR + x**3 * -3.99680288865056e-15_GRID_SR) + y**1 * (3.552713678800501e-15_GRID_SR + x**1 * -4.999999999999973_GRID_SR + x**2 * 1.9098300562504882_GRID_SR) + y**2 * (-6.8833827526759706e-15_GRID_SR + x**1 * 13.090169943749464_GRID_SR)
+end function basis_9
+ 
+function basis_10(x,y)
+  real(kind = GRID_SR) ::basis_10
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_10 = (1.0096090630185002e-15_GRID_SR + x**1 * -5.467848396278896e-15_GRID_SR + x**2 * 1.3766765505351938e-14_GRID_SR + x**3 * -8.90953977261688e-15_GRID_SR) + y**1 * (0.9999999999999938_GRID_SR + x**1 * 1.0000000000000195_GRID_SR + x**2 * -1.0000000000000258_GRID_SR) + y**2 * (-4.999999999999986_GRID_SR + x**1 * -1.0000000000000107_GRID_SR) + y**3 * (4.99999999999999_GRID_SR)
+end function basis_10
+ 
+function evaluate(Q,coords)
+  real(kind = GRID_SR)            :: evaluate
+  real(kind = GRID_SR),intent(in) :: Q(_SWE_DG_DOFS)
+  real(kind = GRID_SR),intent(in) :: coords(2) 
+
+  evaluate =&
+  basis_1(coords(1),coords(2)) * Q(1) +&
+  basis_2(coords(1),coords(2)) * Q(2) +&
+  basis_3(coords(1),coords(2)) * Q(3) +&
+  basis_4(coords(1),coords(2)) * Q(4) +&
+  basis_5(coords(1),coords(2)) * Q(5) +&
+  basis_6(coords(1),coords(2)) * Q(6) +&
+  basis_7(coords(1),coords(2)) * Q(7) +&
+  basis_8(coords(1),coords(2)) * Q(8) +&
+  basis_9(coords(1),coords(2)) * Q(9) +&
+  basis_10(coords(1),coords(2)) * Q(10)
+end function evaluate

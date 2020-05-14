@@ -79,7 +79,10 @@ real(kind=GRID_SR),Parameter :: s_m_inv_coarsen2(_SWE_DG_DOFS,_SWE_DG_DOFS) =&
 			     matmul(s_m_inv,coarsen2)
 
 
-contains 
+contains
+
+!basis functions
+#include "dg_matrices/basis_SWE_DG_ORDER_TAG.incl"
 
 subroutine lusolve(mat,n,pivot,b)
  integer :: n,ii,i,j,ll

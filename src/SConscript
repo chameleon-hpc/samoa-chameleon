@@ -38,7 +38,7 @@ f90_sources = [
 "SWE/SWE_xml_output.f90",
 "SWE/SWE_xml_point_output.f90",
 "SWE/SWE_DG_Limiter.f90",        
-"SWE/SWE_point_output.f90",
+"SWE/SWE_probe_output.f90",
 "SWE/SWE_adapt.f90",
 "SWE/SWE_patch.f90",
 "SWE/SWE_patch_solvers.f90",

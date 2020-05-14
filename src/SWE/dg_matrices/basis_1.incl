@@ -1,0 +1,31 @@
+function basis_1(x,y)
+  real(kind = GRID_SR) ::basis_1
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_1 = (1.0_GRID_SR + x**1 * -1.0_GRID_SR) + y**1 * (-1.0_GRID_SR)
+end function basis_1
+ 
+function basis_2(x,y)
+  real(kind = GRID_SR) ::basis_2
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_2 = (-5.55111512312578e-17_GRID_SR + x**1 * 1.0_GRID_SR)
+end function basis_2
+ 
+function basis_3(x,y)
+  real(kind = GRID_SR) ::basis_3
+  real(kind = GRID_SR),intent(in) :: x
+  real(kind = GRID_SR),intent(in) :: y
+  basis_3 = (-5.55111512312578e-17_GRID_SR) + y**1 * (1.0_GRID_SR)
+end function basis_3
+ 
+function evaluate(Q,coords)
+  real(kind = GRID_SR)            :: evaluate
+  real(kind = GRID_SR),intent(in) :: Q(_SWE_DG_DOFS)
+  real(kind = GRID_SR),intent(in) :: coords(2) 
+
+  evaluate =&
+  basis_1(coords(1),coords(2)) * Q(1) +&
+  basis_2(coords(1),coords(2)) * Q(2) +&
+  basis_3(coords(1),coords(2)) * Q(3)
+end function evaluate

@@ -39,7 +39,7 @@ module config
         integer (kind = selected_int_kind(8))   :: i_max_time_steps				                    !< number of simulation time steps
         double precision                        :: r_output_time_step					            !< grid output time step
         integer                                 :: i_output_time_steps					            !< grid output time step
-        integer                                 :: i_stats_phases					                !< number of times intermediate stats should be printed during time steps
+        integer                                 :: i_stats_phases					                !< number of times intermediate stats should be prined during time steps
         logical			                        :: l_log                                            !< if true, a log file is used
         integer (kind = selected_int_kind(1))   :: i_min_depth, i_max_depth, i_start_depth			!< minimum, maximum and start scenario depth
         integer			        	            :: i_asagi_mode			                		    !< ASAGI mode
@@ -136,7 +136,10 @@ module config
             integer                             :: i_ascii_width                                    !< width of the ascii output
             logical					            :: l_pointoutput                                    !< test points output on/off
 !            character(512)				        :: s_testpoints			                            !< test points input string
-            character(262144)				    :: s_testpoints			                            !< test points input string
+            character(:),allocatable	  :: s_testpoints			                            !< test points input string
+                      
+
+            character(512)		         :: s_testpoints_file			                    !< test points file
             double precision, pointer		    :: r_testpoints(:,:)		                        !< test points array
 #    	elif defined(_FLASH)
             double precision                    :: scaling, offset(2)                               !< grid scaling and offset of the computational domain
@@ -189,7 +192,7 @@ module config
 
         write(arguments, '(A)') "-v .false. --version .false. -h .false. --help .false."
         write(arguments, '(A, A)') trim(arguments),   " -lbtime .false. -lbsplit .false. -lbserial .false. -lbcellweight 1.0d0 -lbbndweight 0.0d0"
-        write(arguments, '(A, A)') trim(arguments),  " -asagihints 2 -phases 1 -tadapt -1.0 -nadapt 1 -asciioutput_width 60 -output_dir output -asciioutput .false. -xmloutput .false. -xmlpointoutput .false. -stestpoints '' -noprint .false. -sections 4"
+        write(arguments, '(A, A)') trim(arguments),  " -asagihints 2 -phases 1 -tadapt -1.0 -nadapt 1 -asciioutput_width 60 -output_dir output -asciioutput .false. -xmloutput .false. -xmlpointoutput .false. -stestpoints '' -stestpoints_file '' -noprint .false. -sections 4"
 #       if defined(_XDMF)
             write(arguments, '(A, A)') trim(arguments),  " -xdmfoutput .false. -xdmfoutputmode 1 -xdmfcpint 0 -xdmfspf 100 -xdmfinput -xdmffilterindex 0 -xdmffilterparams "
 #       endif
@@ -378,15 +381,20 @@ module config
                call set_domain(config)
             end if
 
-            
+            config%s_testpoints_file = sget('samoa_stestpoints_file', 512)
             config%s_testpoints = sget('samoa_stestpoints', 262144)
 
-            if (len(trim(config%s_testpoints)) .ne. 2) then
-                config%l_pointoutput = .true.
-                call parse_testpoints(config)
+            if(len(trim(config%s_testpoints_file)) .ne. 2 ) then
+               config%l_pointoutput = .true.
+               call read_testPointsFile(config)
+            else if (len(trim(config%s_testpoints)) .ne. 2) then
+               allocate(character(512) :: config%s_testpoints)
+               config%l_pointoutput = .true.
+               call parse_testpoints(config)
             else
-                config%l_pointoutput = .false.
-            end if
+               config%l_pointoutput = .false.
+            end if            
+
 #       endif
 
         if (rank_MPI == 0) then
@@ -908,6 +916,35 @@ module config
             end if
           end subroutine parse_testpoints
 
+          subroutine read_testPointsFile(config)
+            class(t_config), intent(inout)         :: config
+            double precision, pointer		           :: temp_testpoints(:,:)
+            integer                                :: size_testpoints,io
+            
+            size_testpoints = 0
+            open(unit=10,file=trim(config%s_testpoints_file),action="read", iostat = io)
+            if(io /= 0) then
+               print*, "Something went wrong reading ",trim(config%s_testpoints_file)," ",io
+            end if
+            
+            do
+               read (unit=10,fmt=*, iostat=io)
+               if(io /= 0) exit
+               size_testpoints = size_testpoints + 1
+            end do
+            close(10)
+            
+            open(unit=10,file=trim(config%s_testpoints_file),action="read")
+            
+            allocate(temp_testpoints(2,size_testpoints))
+            allocate(config%r_testpoints(size_testpoints,2))
+            
+            read(10,*) temp_testpoints
+            
+            config%r_testpoints = transpose(temp_testpoints)
+            deallocate(temp_testpoints)
+            close(10)
+          end subroutine read_testPointsFile
           
           subroutine set_domain(config)
             class(t_config), intent(inout)         :: config

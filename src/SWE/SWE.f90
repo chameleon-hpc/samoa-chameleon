@@ -17,7 +17,7 @@ MODULE SWE
   use SWE_output
   use SWE_xml_output
   use SWE_xml_point_output
-  use SWE_point_output
+  use SWE_probe_output
 
   use SWE_PATCH
   use Samoa_swe
@@ -46,7 +46,7 @@ MODULE SWE
      type(t_swe_output_traversal)            :: output
      type(t_swe_xml_point_output_traversal)  :: xml_point_output
      type(t_swe_xml_output_traversal)        :: xml_output
-     type(t_swe_point_output_traversal)	     :: point_output
+     type(t_swe_probe_output_traversal)	     :: probe_output
      type(t_swe_adaption_traversal)          :: adaption
      type(t_swe_dg_timestep_traversal)       :: dg_timestep
      type(t_swe_dg_predictor_traversal)      :: dg_predictor
@@ -106,7 +106,7 @@ contains
 #           endif
     swe%xml_output%s_file_stamp = swe%output%s_file_stamp
     swe%xml_point_output%s_file_stamp = swe%output%s_file_stamp
-    swe%point_output%s_file_stamp = swe%output%s_file_stamp
+    swe%probe_output%s_file_stamp = swe%output%s_file_stamp
     s_log_name = trim(swe%output%s_file_stamp) // ".log"
     
     if (l_log) then
@@ -211,7 +211,7 @@ contains
     call swe%output%destroy()
     call swe%xml_output%destroy()
     call swe%xml_point_output%destroy()
-    call swe%point_output%destroy()
+    call swe%probe_output%destroy()
 #           if defined(_XDMF)
     call swe%xdmf_output%destroy()
     call swe%xdmf_output_filter%destroy()
@@ -350,7 +350,7 @@ contains
           !output grids during initial phase if and only if t_out is 0
           if (cfg%r_output_time_step == 0.0_GRID_SR) then
              if (cfg%l_pointoutput) then
-                call swe%point_output%traverse(grid)
+                call swe%probe_output%traverse(grid)
              end if
 
              if(cfg%l_gridoutput) then
@@ -405,7 +405,7 @@ contains
 #           endif
        if (cfg%i_output_time_steps > 0 .or. cfg%r_output_time_step >= 0.0_GRID_SR) then
           if (cfg%l_pointoutput) then
-             call swe%point_output%traverse(grid)
+             call swe%probe_output%traverse(grid)
           end if
 
           if(cfg%l_gridoutput) then
@@ -533,7 +533,7 @@ contains
           end if
 
           if (cfg%l_pointoutput) then
-             call swe%point_output%traverse(grid)
+             call swe%probe_output%traverse(grid)
           end if
 
 #                       if defined(_XDMF)
@@ -568,7 +568,7 @@ contains
              end if
 
              if (cfg%l_pointoutput) then
-                call swe%point_output%traverse(grid)
+                call swe%probe_output%traverse(grid)
              end if
 
 #                       		if defined(_XDMF)
@@ -606,9 +606,8 @@ contains
        if ((cfg%i_output_time_steps > 0 .and. mod(i_time_step, cfg%i_output_time_steps) == 0) .or. &
             (cfg%r_output_time_step >= 0.0_GRID_SR .and. grid%r_time >= r_time_next_output)) then
 
-
           if (cfg%l_pointoutput) then
-             call swe%point_output%traverse(grid)
+             call swe%probe_output%traverse(grid)
           end if
 
           if(cfg%l_gridoutput) then

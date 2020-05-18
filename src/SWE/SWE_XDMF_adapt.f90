@@ -10,7 +10,6 @@
 
         use Samoa_swe
         use Tools_noise
-        use SWE_euler_timestep
 
 #       if defined(_SWE_PATCH)
             use SWE_PATCH
@@ -18,6 +17,7 @@
 #       if defined(_SWE_DG)
             use SWE_dg_matrices
             use SWE_data_types
+            use SWE_dg_solver
 #       endif   
     
         implicit none
@@ -37,7 +37,7 @@
 #		define _GT_REFINE_OP					refine_op
 #		define _GT_COARSEN_OP					coarsen_op
 
-#		define _GT_CELL_TO_EDGE_OP				cell_to_edge_op
+#		define _GT_CELL_TO_EDGE_OP				cell_to_edge_op_dg
 
 #		include "SFC_generic_adaptive_traversal.f90"
 

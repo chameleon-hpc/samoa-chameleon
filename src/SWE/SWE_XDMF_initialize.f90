@@ -8,7 +8,6 @@
 
         use iso_c_binding
         use SFC_edge_traversal
-        use SWE_euler_timestep
         use Samoa_swe
 
         use SWE_XDMF_config
@@ -20,6 +19,7 @@
 #       if defined(_SWE_DG)
             use SWE_dg_matrices
             use SWE_data_types
+            use SWE_dg_solver
 #       endif   
 
         implicit none
@@ -37,7 +37,7 @@
 #		define _GT_POST_TRAVERSAL_GRID_OP		post_traversal_grid_op
 #		define _GT_ELEMENT_OP					element_op
 
-#		define _GT_CELL_TO_EDGE_OP				cell_to_edge_op
+#		define _GT_CELL_TO_EDGE_OP				cell_to_edge_op_dg
 
 #		include "SFC_generic_traversal_ringbuffer.f90"
 

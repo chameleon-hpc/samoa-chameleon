@@ -114,6 +114,14 @@ vars.AddVariables(
 
   PathVariable( 'xdmf_hdf5_dir', 'HDF5 directory, if not in search path', '.'),
 
+  BoolVariable( 'yateto', 'yateto support', False),
+  
+  PathVariable( 'yateto_dir', 'FoX directory, if not in search path', '.'),
+
+  EnumVariable( 'arch', 'goal architecture of the optimization', 'dhsw',
+                allowed_values=('dsnb','dhsw','dskx')
+  ),
+
   EnumVariable( 'boundary', 'Inflow boundary condition', 'disabled',
                 allowed_values=('disabled', 'file', 'function')
               ),
@@ -180,9 +188,11 @@ env['LINKFLAGS'] = ''
 
 # Choose compiler
 if env['compiler'] == 'intel':
-  fc = 'ifort'
-  env['F90FLAGS'] = ' -implicitnone -nologo -fpp -allow nofpp-comments -align array64byte'
+  fc  = 'ifort'
+  cxx = 'icpc'
+  env['F90FLAGS'] = ' -implicitnone -nologo -fpp -allow nofpp-comments -align array32byte'
   env['LINKFLAGS'] += ' -Bdynamic -shared-libgcc -shared-intel'
+  env.Append(CXXFLAGS=["-ipo-c","-std=c++11"])
 elif  env['compiler'] == 'gnu':
   fc = 'gfortran'
   env['F90FLAGS'] = '-fimplicit-none -cpp -ffree-line-length-none'
@@ -233,6 +243,7 @@ if env['xdmf']:
   env['F90'] += ' -c'
 else:
   env['F90'] = fc_env_vars + ' ' + env['F90']
+  env['CXX'] = cxx
 
 # set scenario with preprocessor macros
 if env['scenario'] == 'darcy':
@@ -321,6 +332,17 @@ if env['xdmf']:
     env.AppendUnique(LIBPATH = env['xdmf_fox_dir'] + '/lib')
   env['F90FLAGS'] += ' -D_XDMF'
   env.Append(LIBS = ['FoX_dom', 'FoX_common', 'FoX_fsys', 'FoX_sax', 'FoX_utils', 'FoX_wxml'])
+
+if env["yateto"]:
+  if env['yateto_dir'] != '.':
+#    env.Append(F90PATH = os.path.abspath(env['yateto_dir'] + '/include'))
+#    env.Append(CPATH = os.path.abspath(env['yateto_dir'] + '/include'))
+    env.Append(CPPPATH = os.path.abspath(env['yateto_dir'] + '/include'))
+#    env.Append(F90LFAGS=['-align', '-align', 'array32byte'])
+    env.Append(CXXFLAGS=["-mkl","-mavx","-O3","-DALIGNMENT=32","-DREAL_SIZE=8","-DNDEBUG"])
+    env.Append(LIBS=["libstdc++","libgfortran","libxsmm"])
+    env["LINKFLAGS"] += " -mkl"
+
  
 #Choose a flux solver
 if env['flux_solver'] == 'upwind':
@@ -631,7 +653,8 @@ env['FORTRANPATH'] = env['F90PATH']
 env.obj_files = []
 
 Export('env')
-SConscript('src/SConscript', variant_dir=object_dir, duplicate=0)
+SConscript('src/SConscript', variant_dir=object_dir+"/src", duplicate=0)
+SConscript('generated/SConscript', variant_dir=object_dir+"/generated", duplicate=0)
 Import('env')
 
 # build the program

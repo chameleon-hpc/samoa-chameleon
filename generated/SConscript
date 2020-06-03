@@ -1,0 +1,37 @@
+#! /usr/bin/python
+
+# @file
+
+#
+#
+# @section DESCRIPTION
+
+Import('env')
+import os
+
+genCodeDir = os.path.join(env['arch'])
+def addOutDir(it): return [os.path.join(genCodeDir, i) for i in it]
+c_sources = addOutDir(['tensor.cpp', 'init.cpp','kernel.cpp'])
+c_sources_no_red_zone = addOutDir(['subroutine.cpp'])
+
+def generate_code(target, source, env, for_signature):
+  basePath = os.path.split(str(source[0]))[0]
+  return './{} --outputDir {} --arch {} --order {} --yateto {} --matrixDir {}'.format(
+      os.path.join(basePath, 'generate.py'),
+      os.path.split(str(target[0]))[0],
+      env['arch'],
+      env['swe_dg_order'],
+      env['yateto_dir'],
+      basePath+"/matrices"
+  )
+
+env.Append(BUILDERS = {'Generate': Builder(generator=generate_code)})
+
+generated = env.Generate(['subroutine.cpp', 'subroutine.h', 'init.h', 'init.cpp', 'tensor.h', 'tensor.cpp', 'kernel.cpp', 'kernel.h'], Glob('*.py'))
+
+objs = env.Object(c_sources)
+objs_nrz = env.Object(c_sources_no_red_zone,CXXFLAGS=env['CXXFLAGS'] + '-mno-red-zone')
+env.obj_files += [obj for obj in objs if obj.get_suffix() == ".o"]
+env.obj_files += [obj for obj in objs_nrz if obj.get_suffix() == ".o"]
+
+Export('env')

@@ -78,7 +78,7 @@ MODULE SWE_DG_predictor
     real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER,3) :: q_temp_st
     
     !--local variables--!
-    integer                                    :: iteration,i,j,offset,edge_type,indx
+    integer                                    :: iteration,i,j,k,offset,edge_type,indx
     real(kind=GRID_SR),Dimension(2,2)          :: jacobian,jacobian_inv
     real(kind=GRID_SR),Dimension(3)            :: edge_sizes
     real(kind=GRID_SR)                         :: epsilon
@@ -118,11 +118,12 @@ MODULE SWE_DG_predictor
       do i=1,_SWE_DG_ORDER+1
          q_i_st(:,i,:) = q_0
       end do
-      
+
       iteration=0
       epsilon=1.0_GRID_SR
       
       !!---------------------------!!
+      
       do while(epsilon > cfg%max_picard_error .and.&
            (.not.(cell%data_pers%troubled.eq.PREDICTOR_DIVERGED)))
 
@@ -187,6 +188,7 @@ MODULE SWE_DG_predictor
                q_temp_st(j,i,:) = q_temp_st(j,i,:) - t_k_t_11_inv_x_t_k_t_10(i,1) * q_0(j,:)
             end do
          end do
+
 
          !------ compute error ------!
          epsilon=0.0_GRID_SR
@@ -338,7 +340,7 @@ MODULE SWE_DG_predictor
 
     
     !--local variables--!
-    integer                                    :: iteration,i,j,offset,edge_type,indx
+    integer                                    :: iteration,i,j,k,offset,edge_type,indx
     integer                                    :: cell_type
     
     real(kind=GRID_SR),Dimension(2,2)          :: jacobian,jacobian_inv
@@ -415,7 +417,7 @@ MODULE SWE_DG_predictor
             end do
          end do
 #endif
-         
+
          call yateto_predictor_execute(q_temp_st, f_ref, q_0, s_ref, dtdx , cell_type)
 
          !------ compute error ------!

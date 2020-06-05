@@ -9,13 +9,21 @@
 Import('env')
 import os
 
-genCodeDir = os.path.join(env['arch'])
-def addOutDir(it): return [os.path.join(genCodeDir, i) for i in it]
-c_sources = addOutDir(['tensor.cpp', 'init.cpp','kernel.cpp'])
-c_sources_no_red_zone = addOutDir(['subroutine.cpp'])
+#genCodeDir = os.path.join(env['arch'])
+#def addOutDir(it): return [os.path.join(genCodeDir, i) for i in it]
+c_sources = ['tensor.cpp', 'init.cpp','kernel.cpp']
+c_sources_no_red_zone = ['subroutine.cpp']
 
 def generate_code(target, source, env, for_signature):
   basePath = os.path.split(str(source[0]))[0]
+  print('./{} --outputDir {} --arch {} --order {} --yateto {} --matrixDir {}'.format(
+      os.path.join(basePath, 'generate.py'),
+      os.path.split(str(target[0]))[0],
+      env['arch'],
+      env['swe_dg_order'],
+      env['yateto_dir'],
+      basePath+"/matrices"
+  ))
   return './{} --outputDir {} --arch {} --order {} --yateto {} --matrixDir {}'.format(
       os.path.join(basePath, 'generate.py'),
       os.path.split(str(target[0]))[0],

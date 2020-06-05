@@ -342,6 +342,7 @@ if env["yateto"]:
     env.Append(CXXFLAGS=["-mkl","-mavx","-O3","-DALIGNMENT=32","-DREAL_SIZE=8","-DNDEBUG"])
     env.Append(LIBS=["libstdc++","libgfortran","libxsmm"])
     env["LINKFLAGS"] += " -mkl"
+    env['F90FLAGS'] += ' -D_OPT_KERNELS'
 
  
 #Choose a flux solver
@@ -654,7 +655,8 @@ env.obj_files = []
 
 Export('env')
 SConscript('src/SConscript', variant_dir=object_dir+"/src", duplicate=0)
-SConscript('generated/SConscript', variant_dir=object_dir+"/generated", duplicate=0)
+if env["yateto"]:
+  SConscript('generated/SConscript', variant_dir=object_dir+"/generated", duplicate=0)
 Import('env')
 
 # build the program

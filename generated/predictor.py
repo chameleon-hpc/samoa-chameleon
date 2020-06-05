@@ -14,10 +14,11 @@ class PredictorGenerator():
 
 
     def add(self,g):
-        
         SWE_DG_ORDER = self.order
         SWE_DG_DOFS = (SWE_DG_ORDER+1)*(SWE_DG_ORDER+2)//2
         max_depth=8
+
+        dtdx  = Tensor("dtdx",())
         
         # results
         P     = Tensor('P', (SWE_DG_DOFS, SWE_DG_ORDER, 3))
@@ -37,7 +38,7 @@ class PredictorGenerator():
         Msinv_Ks_Jinv = Tensor('MsinvKs', (SWE_DG_DOFS,2,SWE_DG_DOFS))    
         
         def predictor_generator(i):
-            return P["lLq"] <= \
+            return P["lLq"] <= dtdx[""] *\
                 ( db_m.t_k_t_11_inv_t_m_1["LJ"] * db_m.J[i]["mq"]                  * S ["lJm"]   +\
                   db_m.t_k_t_11_inv_t_m_1["LJ"] * db_t.s_m_inv_s_k_J_inv[i]["jbl"] * F ["jJbq"]) +\
                   db_m.t_k_t_11_inv_x_t_k_t_10["L"] * Q0["lq"]

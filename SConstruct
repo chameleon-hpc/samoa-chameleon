@@ -190,7 +190,7 @@ env['LINKFLAGS'] = ''
 if env['compiler'] == 'intel':
   fc  = 'ifort'
   cxx = 'icpc'
-  env['F90FLAGS'] = ' -implicitnone -nologo -fpp -allow nofpp-comments -align array32byte'
+  env['F90FLAGS'] = ' -implicitnone -nologo -fpp -allow nofpp-comments'
   env['LINKFLAGS'] += ' -Bdynamic -shared-libgcc -shared-intel'
   env.Append(CXXFLAGS=["-ipo-c","-std=c++11"])
 elif  env['compiler'] == 'gnu':
@@ -339,10 +339,19 @@ if env["yateto"]:
 #    env.Append(CPATH = os.path.abspath(env['yateto_dir'] + '/include'))
     env.Append(CPPPATH = os.path.abspath(env['yateto_dir'] + '/include'))
 #    env.Append(F90LFAGS=['-align', '-align', 'array32byte'])
-    env.Append(CXXFLAGS=["-mkl","-mavx","-O3","-DALIGNMENT=32","-DREAL_SIZE=8","-DNDEBUG"])
+    env.Append(CXXFLAGS=["-mkl","-O3","-DREAL_SIZE=8","-DNDEBUG","-qopenmp"])
     env.Append(LIBS=["libstdc++","libgfortran","libxsmm"])
     env["LINKFLAGS"] += " -mkl"
     env['F90FLAGS'] += ' -D_OPT_KERNELS'
+    if env['arch'] == "dsnb":
+      env.Append(CXXFLAGS=["-mavx","-DALIGNMENT=32"])
+      env.Append(F90LFAGS=['-align', 'array32byte'])
+    if env['arch'] == "dhsw":
+      env.Append(CXXFLAGS=['-xCORE-AVX2', '-fma',"-DALIGNMENT=32"])
+      env.Append(F90LFAGS=['-align', 'array32byte'])
+    if env['arch'] == "dskx":
+      env.Append(CXXFLAGS=['-xCORE-AVX2', '-fma',"-DALIGNMENT=64"])
+      env.Append(F90LFAGS=['-align', 'array64byte'])
 
  
 #Choose a flux solver

@@ -45,11 +45,38 @@ MODULE SWE_DG_predictor
     type(t_swe_dg_predictor_traversal), intent(inout) :: traversal
     type(t_grid_section), intent(inout)						 :: section
     type(t_element_base), intent(inout)						 :: element
+    !-- testing --!
+    type(t_element_base)	              					 :: dummy_element
+    type(t_cell_data_ptr)  :: cell_ptr
+    type(fine_triangle)    :: geometry_ptr
 
     !-------Compute predictor --------!
     if(isDG(element%cell%data_pers%troubled)) then
 #if defined(_OPT_KERNELS)
+       print*,"Z"
+       !dummy_element%cell%geometry = element%cell%geometry
+       dummy_element%cell = cell_ptr
+       print*,"Z0"
+       dummy_element%cell%geometry = geometry_ptr
+       print*,"Z1"
+       dummy_element%cell%geometry%i_depth = element%cell%geometry%i_depth
+       dummy_element%cell%geometry%i_plotter_type = element%cell%geometry%i_plotter_type
+       print*,"Z2"
+       dummy_element%cell%data_pers%troubled = element%cell%data_pers%troubled
+       print*,"Z3"
+       dummy_element%cell%data_pers%Q = element%cell%data_pers%Q
+       !dummy_element%cell%data_pers%Q = element%cell%data_pers%Q
+       !dummy_element%edges = element%edges
+       print*,"A"
        call dg_predictor_opt(element,section%r_dt)
+       print*,"B"
+       call dg_predictor(dummy_element,section%r_dt)
+       print*,"C"
+
+       if(.not.all(element%cell%data_pers%Q_DG_UPDATE .eq.&
+            dummy_element%cell%data_pers%Q_DG_UPDATE))then
+         stop
+       end if
 #else       
        call dg_predictor(element,section%r_dt)
 #endif       
@@ -188,7 +215,6 @@ MODULE SWE_DG_predictor
                q_temp_st(j,i,:) = q_temp_st(j,i,:) - t_k_t_11_inv_x_t_k_t_10(i,1) * q_0(j,:)
             end do
          end do
-
 
          !------ compute error ------!
          epsilon=0.0_GRID_SR
@@ -397,8 +423,8 @@ MODULE SWE_DG_predictor
          !!--- Compute F S1 and S2---!!
          s_ref = 0
          do i=1,_SWE_DG_ORDER+1
-            s_ref(:,i,2) = ( g * q_i_st(:,i,1)    * matmul(basis_der_x,q_i_st(:,i,1) + Q_DG(:)%B) )
-            s_ref(:,i,3) = ( g * q_i_st(:,i,1)    * matmul(basis_der_y,q_i_st(:,i,1) + Q_DG(:)%B) )
+            s_ref(:,i,2) = ( g * q_i_st(:,i,1) * matmul(basis_der_x,q_i_st(:,i,1) + Q_DG(:)%B) )
+            s_ref(:,i,3) = ( g * q_i_st(:,i,1) * matmul(basis_der_y,q_i_st(:,i,1) + Q_DG(:)%B) )
          end do
          
          f_ref = 0
@@ -417,9 +443,9 @@ MODULE SWE_DG_predictor
             end do
          end do
 #endif
-
+            
          call yateto_predictor_execute(q_temp_st, f_ref, q_0, s_ref, dtdx , cell_type)
-
+         !print*,q_temp_st
          !------ compute error ------!
          epsilon=0.0_GRID_SR
          do j=1,_SWE_DG_DOFS
@@ -452,7 +478,6 @@ MODULE SWE_DG_predictor
             cell%data_pers%troubled=PREDICTOR_DIVERGED
          end if
          !-------------------------------------------!
-
       end do
 
       if(.not.(cell%data_pers%troubled.eq.PREDICTOR_DIVERGED)) then

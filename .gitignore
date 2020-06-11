@@ -24,3 +24,4 @@ scripts/DG/Sage/*.incl
 fort*
 *.ipynb*
 scripts/DG/Sage/alpha_nodes/*
+src/SWE/SWE_dg_matrices.f90

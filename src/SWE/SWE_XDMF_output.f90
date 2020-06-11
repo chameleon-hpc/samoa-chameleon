@@ -126,6 +126,8 @@
             integer(GRID_SI)	                                            :: i, offset_cells_buffer, offset_tree_buffer
 #           if defined(_SWE_DG)
                 integer(GRID_SI)	                                        :: point_id
+                real(GRID_SR), dimension(_SWE_DG_DOFS)                      :: norm_b_dg, norm_h_dg, norm_hu_dg, norm_hv_dg
+                real(GRID_SR), dimension(_SWE_PATCH_ORDER_SQUARE)           :: norm_b_fv, norm_h_fv, norm_hu_fv, norm_hv_fv
 #           endif
 #           if defined(_SWE_PATCH)
                 integer(GRID_SI)	                                        :: offset_patches_buffer, patch_offs
@@ -211,13 +213,19 @@
                     end if
 #                   if defined (_SWE_PATCH)
                         if ((filter_result_cells .and. (iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells)) .or. write_cp) then
+                            norm_h_fv = element%cell%data_pers%H
+                            norm_hu_fv = element%cell%data_pers%HU
+                            norm_hv_fv = element%cell%data_pers%HV
+                            norm_b_fv = element%cell%data_pers%B
                             ! Apply attribute size correction
+                            ! This cell shall be output as FV
 #                           if defined(_SWE_DG)    
                                 if (isDG(element%cell%data_pers%troubled)) then
-                                    call apply_phi(element%cell%data_pers%Q%H + element%cell%data_pers%Q%b, element%cell%data_pers%H)
-                                    call apply_phi(element%cell%data_pers%Q%p(1), element%cell%data_pers%HU)
-                                    call apply_phi(element%cell%data_pers%Q%p(2), element%cell%data_pers%HV)
-                                    call apply_phi(element%cell%data_pers%Q%b, element%cell%data_pers%B)
+                                    ! DG stores H, FV stores H + B, so we normalize DG to FV
+                                    call apply_phi(element%cell%data_pers%Q%H + element%cell%data_pers%Q%b, norm_h_fv)
+                                    call apply_phi(element%cell%data_pers%Q%p(1), norm_hu_fv)
+                                    call apply_phi(element%cell%data_pers%Q%p(2), norm_hv_fv)
+                                    call apply_phi(element%cell%data_pers%Q%b, norm_b_fv)
                                 end if
 #                           endif
                             ! Depending on the iteration direction (sign. plotter type), the order of the cells inside
@@ -253,13 +261,16 @@
                                     /)
 
                                 ! Store point data in traversal buffer
-                                new_bigh = real(element%cell%data_pers%H(patch_cell_id), XDMF_ISO_P)
-                                new_h = real(element%cell%data_pers%H(patch_cell_id) - element%cell%data_pers%B(patch_cell_id), XDMF_ISO_P) 
+                                ! h = WaterLevel = H + B
+                                ! bigh = WaterHeight = WaterLevel - B = (H + B) - B
+                                ! clamp WaterHeight to 0, negative value = below landmass
+                                new_bigh = max(0.0_XDMF_ISO_P, real(norm_h_fv(patch_cell_id) - norm_b_fv(patch_cell_id), XDMF_ISO_P))
+                                new_h = new_bigh + real(norm_b_fv(patch_cell_id), XDMF_ISO_P) ! TODO
                                 do j=1, swe_xdmf_param_cells%hdf5_attr_width
                                     traversal%base%sect_store_cells%ptr%valsr(j, cell_offs, :) = (/ &
-                                        real(element%cell%data_pers%B(patch_cell_id), XDMF_ISO_P), new_h, new_bigh /)
+                                        real(norm_b_fv(patch_cell_id), XDMF_ISO_P), new_h, new_bigh /)
                                     traversal%base%sect_store_cells%ptr%valsuv(:, j, cell_offs, swe_hdf5_valsuv_f_offset) = &
-                                        real((/ element%cell%data_pers%HU(patch_cell_id), element%cell%data_pers%HV(patch_cell_id) /), XDMF_ISO_P)
+                                        real((/ norm_hu_fv(patch_cell_id), norm_hv_fv(patch_cell_id) /), XDMF_ISO_P)
                                 end do
 
                                 ! Compute the subcells cartesian position
@@ -281,6 +292,21 @@
                         end if
 
                         if ((filter_result_patches .and. (iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .eq. xdmf_output_mode_patches)) .or. write_cp) then
+                            norm_h_dg = element%cell%data_pers%Q%H
+                            norm_hu_dg = element%cell%data_pers%Q%p(1)
+                            norm_hv_dg = element%cell%data_pers%Q%p(2)
+                            norm_b_dg = element%cell%data_pers%Q%b
+#                           if defined(_SWE_DG)
+                                ! Apply attribute size correction
+                                ! This cell shall be output as DG
+                                if (isFV(element%cell%data_pers%troubled)) then
+                                    ! DG stores H, FV stores H + B, so we normalize FV to DG
+                                    call apply_mue(element%cell%data_pers%H - element%cell%data_pers%B, norm_h_dg)
+                                    call apply_mue(element%cell%data_pers%HU, norm_hu_dg)
+                                    call apply_mue(element%cell%data_pers%HV, norm_hv_dg)
+                                    call apply_mue(element%cell%data_pers%B, norm_b_dg)
+                                end if
+#                           endif
                             ! Store the patch, too
                             patch_offs = traversal%base%sect_store_index_patches + offset_patches_buffer
                             ! Store patch values, see SWE implementation for details
@@ -326,13 +352,15 @@
                                     end if
                                     ! Store point data in traversal buffer
                                     traversal%base%sect_store_patches%ptr%valsr(i, patch_offs, swe_hdf5_valsr_b_offset) = &
-                                        real(element%cell%data_pers%Q(point_id)%b, XDMF_ISO_P)
-                                    traversal%base%sect_store_patches%ptr%valsr(i, patch_offs, swe_hdf5_valsr_h_offset) = &
-                                        real(element%cell%data_pers%Q(point_id)%H, XDMF_ISO_P)
-                                    traversal%base%sect_store_patches%ptr%valsr(i, patch_offs, swe_hdf5_valsr_bh_offset) = &
-                                        real(element%cell%data_pers%Q(point_id)%H + element%cell%data_pers%Q(point_id)%b, XDMF_ISO_P)
+                                        real(norm_b_dg(point_id), XDMF_ISO_P)
+                                    ! DG stores H, FV stores H + B, so we normalize DG to FV
+                                    ! clamp WaterHeight to 0, negative value = below landmass
+                                    new_bigh = max(0.0_XDMF_ISO_P, real(norm_h_dg(point_id), XDMF_ISO_P))
+                                    new_h = new_bigh + real(norm_b_dg(point_id), XDMF_ISO_P)  ! TODO
+                                    traversal%base%sect_store_patches%ptr%valsr(i, patch_offs, swe_hdf5_valsr_h_offset) = new_h ! TODO
+                                    traversal%base%sect_store_patches%ptr%valsr(i, patch_offs, swe_hdf5_valsr_bh_offset) = new_bigh
                                     traversal%base%sect_store_patches%ptr%valsuv(:, i, patch_offs, swe_hdf5_valsuv_f_offset) = &
-                                        real(element%cell%data_pers%Q(point_id)%p(:), XDMF_ISO_P)
+                                        real((/ norm_hu_dg(point_id), norm_hv_dg(point_id) /), XDMF_ISO_P)
                                 end do
 #                           endif
 
@@ -347,39 +375,8 @@
                             traversal%base%sect_store_index_patches = traversal%base%sect_store_index_patches + 1
                         end if
 #                   else
-                        if ((filter_result_cells .and. (iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells)) .or. write_cp) then
-                            cell_offs = traversal%base%sect_store_index_cells + offset_cells_buffer
-                            ! Store cell values, see SWE implementation for details
-                            traversal%base%sect_store_cells%ptr%valsi(cell_offs, :) = (/ &
-                                int(element%cell%geometry%i_depth, INT32), &
-                                int(rank_MPI, INT32), &
-                                int(element%cell%geometry%i_plotter_type, INT32), &
-                                int(section%index, INT32) &
-#                               if defined(_SWE_DG)
-                                    , int(element%cell%data_pers%troubled, INT32) &
-#                               endif
-                                /)
-
-#                           if defined(_SWE_DG)
-                                ! Store point data in traversal buffer
-                                new_bigh = real(element%cell%data_pers%Q%h, XDMF_ISO_P)
-                                new_h = real(element%cell%data_pers%Q%h + element%cell%data_pers%Q%b, XDMF_ISO_P)
-                                traversal%base%sect_store_cells%ptr%valsr(1, cell_offs, :) = (/ &
-                                    real(element%cell%data_pers%Q%b, XDMF_ISO_P), new_h, new_bigh /)
-                                traversal%base%sect_store_cells%ptr%valsuv(:, 1, cell_offs, swe_hdf5_valsuv_f_offset) = &
-                                    real(element%cell%data_pers%Q%p(:), XDMF_ISO_P)
-#                           endif
-
-                            ! Compute the cells cartesian position
-                            do i = 1, swe_xdmf_param_cells%hdf5_valst_width
-                                position(:, i) = real((cfg%scaling * element%nodes(i)%ptr%position) + cfg%offset(:), XDMF_ISO_P) 
-                            end do
-                            forall(i = 1:swe_xdmf_param_cells%hdf5_valst_width) &
-                                traversal%base%sect_store_cells%ptr%valsg(:, &
-                                ((cell_offs - 1) * swe_xdmf_param_cells%hdf5_valst_width) + i) = position(:, i)
-
-                            traversal%base%sect_store_index_cells = traversal%base%sect_store_index_cells + 1
-                        end if
+                        assert(.false.)
+#                       error SWE_PATCH is missing
 #                   endif
                 end if
             end if

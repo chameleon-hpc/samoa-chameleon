@@ -57,7 +57,7 @@
 #           if defined(_SWE_DG)
                 hdf5_valsi_width = 5, &     ! 5 int32 values per cell: d, o, l, s, t
 #           else
-                hdf5_valsi_width = 4, &     ! 5 int32 values per cell: d, o, l, s
+                hdf5_valsi_width = 4, &     ! 4 int32 values per cell: d, o, l, s
 #           endif
             hdf5_valsuv_width = 1, &    ! 1 2D vector real32 values in attribute structure: f
             hdf5_valsr_width = 3 &      ! 3 real32 values in attribute structure: b, h, k

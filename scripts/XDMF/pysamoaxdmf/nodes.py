@@ -2,7 +2,7 @@
 
 # This module reads the files from scripts/DG/Sage/alpha_nodes and provides them as structured objects
 
-import os
+import os, math
 import pandas as pd
 
 
@@ -43,3 +43,9 @@ class AlphaNodes:
             if i < len(self.configs) - 1:
                 retstr += "\n"
         return retstr
+
+    def order_to_dof(self, order):
+        return int(0.5 * (order + 1) * (order + 2))
+
+    def dof_to_order(self, dof):
+        return int(0.5 * (-3.0 + math.sqrt((8.0 * dof) + 1.0)))

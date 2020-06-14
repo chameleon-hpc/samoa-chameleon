@@ -16,7 +16,7 @@ class NodeInformation:
 
     def __str__(self):
         return "X: " + "{0:0.20f}".format(self.x) + ", Y: " + \
-            "{0:0.20f}".format(self.y) + ", Weight: " + str(self.w)
+            "{0:0.20f}".format(self.y) + ", Weight: " + "{0:0.20f}".format(self.w)
 
 class AlphaNodes:
     """This class holds the alpha optimized nodes location and weights"""
@@ -25,6 +25,7 @@ class AlphaNodes:
         basepath = os.path.dirname(__file__) + "/../../DG/Sage/alpha_nodes/"
         print(basepath)
         self.configs = [None] * 10
+        self.configs[0] = [ NodeInformation(0.0, 0.0, 0.5) ]
         for n in range(1, 10):
             df = pd.read_csv(basepath + 'nodes_' + str(n) + '.txt', sep=' ', header=None)
             df.columns = ['x', 'y']
@@ -38,8 +39,7 @@ class AlphaNodes:
     def __str__(self):
         retstr = "Alpha optimized nodes information:\n"
         for i, config in enumerate(self.configs):
-            if i > 0:
-                retstr += " - Order: " + str(i) + ", nodes: " + str(len(config))
-                if i < len(self.configs) - 1:
-                    retstr += "\n"
+            retstr += " - Order: " + str(i) + ", nodes: " + str(len(config))
+            if i < len(self.configs) - 1:
+                retstr += "\n"
         return retstr

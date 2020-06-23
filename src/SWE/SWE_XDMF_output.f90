@@ -321,35 +321,15 @@
                                 /)
                                 
 #                           if defined(_SWE_DG)
+                                ! Depending on the iteration direction (sign. plotter type), the order of the DOFs inside
+                                ! a cell may need to be flipped
                                 do i = 1, _SWE_DG_DOFS
-                                    ! Pick corners (linear interpolation of dg cell) and flip if needed
-                                    if (element%cell%geometry%i_plotter_type .le. 0) then
+                                    if (element%cell%geometry%i_plotter_type .le. 0) then 
                                         point_id = i
-                                        if (i .eq. 1) then
-                                            point_id = _SWE_DG_DOFS
-                                        else if (i .eq. 2) then
-                                            point_id = 1
-                                        else if (i .eq. 3) then
-                                            point_id = _SWE_DG_ORDER+1
-                                        else if (i .eq. _SWE_DG_ORDER+1) then
-                                            point_id = 3
-                                        else if (i .eq. _SWE_DG_DOFS) then
-                                            point_id = 2
-                                        end if
                                     else
-                                        point_id = i
-                                        if (i .eq. 1) then
-                                            point_id = _SWE_DG_ORDER+1
-                                        else if (i .eq. 2) then
-                                            point_id = 1
-                                        else if (i .eq. 3) then
-                                            point_id = _SWE_DG_DOFS
-                                        else if (i .eq. _SWE_DG_ORDER+1) then
-                                            point_id = 2
-                                        else if (i .eq. _SWE_DG_DOFS) then
-                                            point_id = 3
-                                        end if
+                                        point_id = mirrored_coords(i)
                                     end if
+                                    
                                     ! Store point data in traversal buffer
                                     traversal%base%sect_store_patches%ptr%valsr(i, patch_offs, swe_hdf5_valsr_b_offset) = &
                                         real(norm_b_dg(point_id), XDMF_ISO_P)
@@ -365,8 +345,10 @@
 #                           endif
 
                             ! Compute the patchs cartesian position
+                            ! Rotate the vertices by one, because thats just how it is
                             do i = 1, swe_xdmf_param_patches%hdf5_valst_width
-                                position(:, i) = real((cfg%scaling * element%nodes(i)%ptr%position) + cfg%offset(:), XDMF_ISO_P) 
+                                position(:, i) = real((cfg%scaling * element%nodes(mod(i, swe_xdmf_param_patches%hdf5_valst_width) + 1)%ptr%position) &
+                                    + cfg%offset(:), XDMF_ISO_P) 
                             end do
                             forall(i = 1:swe_xdmf_param_patches%hdf5_valst_width) &
                                 traversal%base%sect_store_patches%ptr%valsg(:, &
@@ -442,12 +424,12 @@
                 grid%r_dt, '</DataItem></Attribute>'
 
             if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_cells) .eq. xdmf_output_mode_cells) .or. write_cp .eq. 1) then
-                call write_xdmf_data(base, swe_xdmf_param_cells, xml_file_id, int(base%num_cells, HSIZE_T), output_meta_iteration, hdf5_gr_cells_dname_nz)
+                call write_xdmf_data(base, swe_xdmf_param_cells, xml_file_id, int(base%num_cells, HSIZE_T), output_meta_iteration, hdf5_gr_cells_dname_nz, .false.)
             end if
 #           if defined(_SWE_PATCH)
                 if ((iand(cfg%xdmf%i_xdmfoutput_mode, xdmf_output_mode_patches) .eq. xdmf_output_mode_patches) .or. write_cp .eq. 1) then
                     call write_xdmf_data(base, swe_xdmf_param_patches, xml_file_id, int(base%num_patches, HSIZE_T), output_meta_iteration, &
-                        hdf5_gr_patches_dname_nz, swe_xdmf_param_patches%hdf5_valst_width)
+                        hdf5_gr_patches_dname_nz, cfg%xdmf%l_xdmfoutput_lagrange, swe_xdmf_param_patches%hdf5_valst_width)
                 end if
 #           endif
 
@@ -458,13 +440,14 @@
         end subroutine
 
         ! This routine generates the XMF attributes for a grid
-        subroutine write_xdmf_data(base, param, xml_file_id, num_cells, output_meta_iteration, subgroup_dname_nz, hdf5_attr_width_override)
+        subroutine write_xdmf_data(base, param, xml_file_id, num_cells, output_meta_iteration, subgroup_dname_nz, lagrange, hdf5_attr_width_override)
             type(t_xdmf_base_output_traversal), intent(inout)				    :: base
             type(t_xdmf_parameter), intent(in)                                  :: param
             integer, intent(in)                                                 :: xml_file_id
             integer(HSIZE_T), intent(in)                                        :: num_cells
             integer(GRID_SI), intent(in)                                        :: output_meta_iteration
             character(*), intent(in)                                            :: subgroup_dname_nz
+            logical, intent(in)                                                 :: lagrange
             integer (XDMF_GRID_DI), intent(in), optional	                    :: hdf5_attr_width_override
 
             character(len = 21)                                                 :: xml_dims_string
@@ -472,7 +455,7 @@
             integer (XDMF_GRID_DI)	                                            :: hdf5_attr_width_override_p
 
 
-            if (present(hdf5_attr_width_override)) then
+            if ((.not. lagrange) .and. present(hdf5_attr_width_override)) then
                 hdf5_attr_width_override_p = hdf5_attr_width_override
             else
                 hdf5_attr_width_override_p =  param%hdf5_attr_width
@@ -500,26 +483,35 @@
     
             ! Cell attributes
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                subgroup_dname_nz, num_cells, 0_HSIZE_T, 0_HSIZE_T, swe_hdf5_attr_depth_dname_nz, "Depth", .true., .true., xml_file_id)
+                subgroup_dname_nz, num_cells, 0_HSIZE_T, 0_HSIZE_T, swe_hdf5_attr_depth_dname_nz, "Depth", &
+                .true., .true., .false., xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                subgroup_dname_nz, num_cells, 0_HSIZE_T, 0_HSIZE_T, swe_hdf5_attr_rank_dname_nz, "Rank", .true., .true., xml_file_id)
+                subgroup_dname_nz, num_cells, 0_HSIZE_T, 0_HSIZE_T, swe_hdf5_attr_rank_dname_nz, "Rank", &
+                .true., .true., .false., xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                subgroup_dname_nz, num_cells, 0_HSIZE_T, 0_HSIZE_T, swe_hdf5_attr_plotter_dname_nz, "Plotter", .true., .true., xml_file_id)
+                subgroup_dname_nz, num_cells, 0_HSIZE_T, 0_HSIZE_T, swe_hdf5_attr_plotter_dname_nz, "Plotter", &
+                .true., .true., .false., xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                subgroup_dname_nz, num_cells, 0_HSIZE_T, 0_HSIZE_T, swe_hdf5_attr_section_dname_nz, "Section", .true., .true., xml_file_id)
+                subgroup_dname_nz, num_cells, 0_HSIZE_T, 0_HSIZE_T, swe_hdf5_attr_section_dname_nz, "Section", &
+                .true., .true., .false., xml_file_id)
 #           if defined(_SWE_DG)                                             
                 call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                    subgroup_dname_nz, num_cells, 0_HSIZE_T, 0_HSIZE_T, swe_hdf5_attr_troubled_dname_nz, "Troubled", .true., .true., xml_file_id)
+                    subgroup_dname_nz, num_cells, 0_HSIZE_T, 0_HSIZE_T, swe_hdf5_attr_troubled_dname_nz, "Troubled", &
+                    .true., .true., .false., xml_file_id)
 #           endif
             ! Simulation values
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                subgroup_dname_nz, num_cells, hdf5_attr_width_override_p, 0_HSIZE_T, swe_hdf5_attr_b_dname_nz, "Bathymetry", .false., .false., xml_file_id)
+                subgroup_dname_nz, num_cells, hdf5_attr_width_override_p, 0_HSIZE_T, swe_hdf5_attr_b_dname_nz, "Bathymetry", &
+                .false., .false., lagrange, xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                subgroup_dname_nz, num_cells, hdf5_attr_width_override_p, 0_HSIZE_T, swe_hdf5_attr_bh_dname_nz, "WaterHeight", .false., .false., xml_file_id)
+                subgroup_dname_nz, num_cells, hdf5_attr_width_override_p, 0_HSIZE_T, swe_hdf5_attr_bh_dname_nz, "WaterHeight", &
+                .false., .false., lagrange, xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                subgroup_dname_nz, num_cells, hdf5_attr_width_override_p, 0_HSIZE_T, swe_hdf5_attr_h_dname_nz, "WaterLevel", .false., .false., xml_file_id)
+                subgroup_dname_nz, num_cells, hdf5_attr_width_override_p, 0_HSIZE_T, swe_hdf5_attr_h_dname_nz, "WaterLevel", &
+                .false., .false., lagrange, xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
-                subgroup_dname_nz, num_cells, hdf5_attr_width_override_p, 2_HSIZE_T, swe_hdf5_attr_f_dname_nz, "Momentum", .false., .false., xml_file_id)
+                subgroup_dname_nz, num_cells, hdf5_attr_width_override_p, 2_HSIZE_T, swe_hdf5_attr_f_dname_nz, "Momentum", &
+                .false., .false., lagrange, xml_file_id)
     
             write(xml_file_id, "(A)", advance="no") '</Grid>'
         end subroutine

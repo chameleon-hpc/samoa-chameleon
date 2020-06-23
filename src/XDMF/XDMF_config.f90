@@ -31,6 +31,7 @@ module XDMF_config
     type t_config_xdmf
         logical 				            :: l_xdmfoutput			                            !< xdmf output on/off
         integer                             :: i_xdmfoutput_mode                                !< xdmf output mode flags
+        logical                             :: l_xdmfoutput_lagrange                            !< xdmf output use vtk lagrance cells for dg
         character(256) 				        :: s_xdmfinput_file			                        !< xdmf input file
         integer                             :: i_xdmfcpint                                      !< write checkpoint data every n steps
         integer                             :: i_xdmfspf                                        !< amount of steps per file

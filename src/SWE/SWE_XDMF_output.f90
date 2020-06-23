@@ -10,7 +10,7 @@
 
         use SWE_XDMF_config
         use XDMF_output_base
-        use XDMF_xmf  
+        use XDMF_xmf
 
 #       if defined(_SWE_PATCH)
             use SWE_PATCH
@@ -391,7 +391,11 @@
             else
                 ! If file does not exist, write XML header
                 open(unit=xml_file_id, file=trim(file_name_xmf)//char(0), status="new", action="write", access="sequential", form="formatted")
-                write(xml_file_id, "(A, A, A, A, A, A)", advance="yes") '<?xml version="1.0" encoding="UTF-8"?><Xdmf Version="3.0"><Domain>', &
+                write(xml_file_id, "(A)", advance="no") '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE Xdmf SYSTEM "Xdmf.dtd" [ '
+                if(cfg%xdmf%l_xdmfoutput_lagrange) then
+                    call xdmf_xmf_add_dof_lut(swe_xdmf_param_patches%hdf5_valst_width, nodes, xml_file_id)
+                end if
+                write(xml_file_id, "(A, A, A, A, A, A)", advance="yes") ' ]><Xdmf Version="3.0"><Domain>', &
                     '<Information Name="CommandLine" Value="', trim(cfg%xdmf%s_krakencommand), &
                     '" /><Information Name="FileStamp" Value="', trim(base%s_file_stamp), &
                     '" /><Grid GridType="Collection" CollectionType="Temporal">'
@@ -484,34 +488,34 @@
             ! Cell attributes
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
                 subgroup_dname_nz, num_cells, 0_HSIZE_T, 0_HSIZE_T, swe_hdf5_attr_depth_dname_nz, "Depth", &
-                .true., .true., .false., xml_file_id)
+                .true., .true., .false., param%hdf5_valst_width, xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
                 subgroup_dname_nz, num_cells, 0_HSIZE_T, 0_HSIZE_T, swe_hdf5_attr_rank_dname_nz, "Rank", &
-                .true., .true., .false., xml_file_id)
+                .true., .true., .false., param%hdf5_valst_width, xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
                 subgroup_dname_nz, num_cells, 0_HSIZE_T, 0_HSIZE_T, swe_hdf5_attr_plotter_dname_nz, "Plotter", &
-                .true., .true., .false., xml_file_id)
+                .true., .true., .false., param%hdf5_valst_width, xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
                 subgroup_dname_nz, num_cells, 0_HSIZE_T, 0_HSIZE_T, swe_hdf5_attr_section_dname_nz, "Section", &
-                .true., .true., .false., xml_file_id)
+                .true., .true., .false., param%hdf5_valst_width, xml_file_id)
 #           if defined(_SWE_DG)                                             
                 call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
                     subgroup_dname_nz, num_cells, 0_HSIZE_T, 0_HSIZE_T, swe_hdf5_attr_troubled_dname_nz, "Troubled", &
-                    .true., .true., .false., xml_file_id)
+                    .true., .true., .false., param%hdf5_valst_width, xml_file_id)
 #           endif
             ! Simulation values
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
                 subgroup_dname_nz, num_cells, hdf5_attr_width_override_p, 0_HSIZE_T, swe_hdf5_attr_b_dname_nz, "Bathymetry", &
-                .false., .false., lagrange, xml_file_id)
+                .false., .false., lagrange, param%hdf5_valst_width, xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
                 subgroup_dname_nz, num_cells, hdf5_attr_width_override_p, 0_HSIZE_T, swe_hdf5_attr_bh_dname_nz, "WaterHeight", &
-                .false., .false., lagrange, xml_file_id)
+                .false., .false., lagrange, param%hdf5_valst_width, xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
                 subgroup_dname_nz, num_cells, hdf5_attr_width_override_p, 0_HSIZE_T, swe_hdf5_attr_h_dname_nz, "WaterLevel", &
-                .false., .false., lagrange, xml_file_id)
+                .false., .false., lagrange, param%hdf5_valst_width, xml_file_id)
             call xdmf_xmf_add_attribute(base%output_iteration, output_meta_iteration, base%s_file_stamp_base, &
                 subgroup_dname_nz, num_cells, hdf5_attr_width_override_p, 2_HSIZE_T, swe_hdf5_attr_f_dname_nz, "Momentum", &
-                .false., .false., lagrange, xml_file_id)
+                .false., .false., lagrange, param%hdf5_valst_width, xml_file_id)
     
             write(xml_file_id, "(A)", advance="no") '</Grid>'
         end subroutine

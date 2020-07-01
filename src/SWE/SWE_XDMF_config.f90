@@ -130,7 +130,7 @@
                 case (1)
                     SWE_xdmf_filter = SWE_xdmf_filter_rect(element, argv(1), argv(2), argv(3), argv(4))
                 case (2)
-                    SWE_xdmf_filter = SWE_xdmf_filter_h_treshold(element, argv(1), argv(2))
+                    SWE_xdmf_filter = SWE_xdmf_filter_treshold(element, int(argv(1)), argv(2), argv(3))
                 case (3)
                     SWE_xdmf_filter = SWE_xdmf_filter_probes(element, argv(1), (argc - 1) / 2, &
                         reshape(argv(2:), (/ 2, xdmf_filter_max_probes /), (/ 0.0 /)))
@@ -171,25 +171,34 @@
             SWE_xdmf_filter_rect = .false.
         end function
 
-        ! Water height treshold selection filter
-        function SWE_xdmf_filter_h_treshold(element, min, max)
+        ! Treshold selection filter
+        function SWE_xdmf_filter_treshold(element, type, min, max)
             type(t_element_base), intent(in) :: element
+            integer, intent(in)                 :: type
             real, intent(in)                    :: min, max
-            logical                             :: SWE_xdmf_filter_h_treshold
+            logical                             :: SWE_xdmf_filter_treshold
 
             integer                             :: i
-            real(XDMF_GRID_SR)		            :: h
+            real(XDMF_GRID_SR)		            :: attr
 
             do i = 1, 3
                 ! Get cells water height
-                h = real(element%cell%data_pers%Q(i)%h, XDMF_GRID_SR)
+                if (type .eq. 0) then
+                    attr = real(element%cell%data_pers%Q(i)%h - element%cell%data_pers%Q(i)%b, XDMF_GRID_SR)
+                else if (type .eq. 1) then
+                    attr = real(element%cell%data_pers%Q(i)%h, XDMF_GRID_SR)
+                else if (type .eq. 2) then
+                    attr = real(element%cell%data_pers%Q(i)%b, XDMF_GRID_SR)
+                else
+                    attr = 0.0_XDMF_GRID_SR
+                end if
                 ! Compare each vertex to selection
-                if (h .ge. min .and. h .le. max) then
-                    SWE_xdmf_filter_h_treshold = .true.
+                if (attr .gt. min .and. attr .lt. max) then
+                    SWE_xdmf_filter_treshold = .true.
                     return
                 end if
             end do
-            SWE_xdmf_filter_h_treshold = .false.
+            SWE_xdmf_filter_treshold = .false.
         end function
 
         ! Include probes output filter

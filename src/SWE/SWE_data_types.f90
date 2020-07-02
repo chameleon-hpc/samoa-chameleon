@@ -168,28 +168,14 @@ type num_cell_rep
                  subroutine apply_phi(dg,fv)
                    real(kind=GRID_SR),intent(out) :: fv(_SWE_PATCH_ORDER_SQUARE)
                    real(kind=GRID_SR),intent(in)  :: dg(_SWE_DG_DOFS)
-
-                   fv=matmul(phi,dg)*_REF_TRIANGLE_SIZE_INV
-                   
+                   fv=matmul(phi,dg)
                  end subroutine apply_phi
 
                  subroutine apply_mue(fv,dg)
                    real(kind=GRID_SR),intent(in) :: fv(_SWE_PATCH_ORDER_SQUARE)
                    real(kind=GRID_SR),intent(out)  :: dg(_SWE_DG_DOFS)
                    real(kind=GRID_SR)             :: q_temp(_SWE_DG_DOFS+1)                   
-
-                   q_temp(1:_SWE_DG_DOFS)= 2.0q0*matmul(transpose(phi),fv)
-                   
-                   q_temp(_SWE_DG_DOFS+1) = sum(fv)
-                   
-                   q_temp = q_temp /_REF_TRIANGLE_SIZE_INV
-
-                  
-                   !                   call lusolve(mue_lu,_SWE_DG_DOFS+1,mue_lu_pivot,q_temp)
-                   q_temp=matmul(mue_inv,q_temp)                   
-
-                   dg=q_temp(1:_SWE_DG_DOFS)
-                   
+                   dg= matmul(mue_inv,fv)
                  end subroutine apply_mue
 
 

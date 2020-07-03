@@ -29,37 +29,37 @@ class PredictorGenerator():
         Q0    = Tensor('Q0', (SWE_DG_DOFS, 3) )
         
         clones={}
-        # def transpose(name):
-        #     dict_t = { "t_k_t_11_inv_t_m_1" : True}
+        def transpose(name):
+            dict_t = { "t_k_t_11_inv_t_m_1" : True}
             
-        #     for mat in ["J","s_m_inv_s_k_inv"]:
-        #         for n in ["{}({})".format(mat,i) for i in range(0,8)]:
-        #             dict_t[n] = True
+            for mat in ["J","s_m_inv_s_k_J_inv"]:
+                for n in ["{}({})".format(mat,i) for i in range(0,8)]:
+                    dict_t[n] = True
             
-        #     return dict_t[name] if name in dict_t else False
+            return dict_t[name] if name in dict_t else False
 
-        transpose=lambda x: False
+#        transpose=lambda x: False
         
         db_m = parseJSONMatrixFile('{}/matrices_{}.json'.format(self.matrixDir,self.order),
                                    clones, alignStride=(lambda name: True), transpose=transpose)
         db_t = parseJSONTensorFile('{}/tensor_{}.json'.format(self.matrixDir,self.order),
                                    clones, alignStride=(lambda name: True), transpose=transpose)
 
-        # def predictor_generator(i):
-        #     return P["lLq"] <= dtdx[""] *\
-        #         ( db_m.t_k_t_11_inv_t_m_1["JL"] * db_m.J[i]["mq"]                  * S ["lJm"]   +\
-        #           db_m.t_k_t_11_inv_t_m_1["JL"] * db_t.s_m_inv_s_k_J_inv[i]["jbl"] * F ["jJbq"]) -\
-        #           db_m.t_k_t_11_inv_x_t_k_t_10["L"] * Q0["lq"]
+        def predictor_generator(i):
+            return P["lLq"] <= dtdx[""] *\
+                ( db_m.t_k_t_11_inv_t_m_1["JL"] * db_m.J[i]["mq"]                  * S ["lJm"]   +\
+                  db_m.t_k_t_11_inv_t_m_1["JL"] * db_t.s_m_inv_s_k_J_inv[i]["jbl"] * F ["jJbq"]) -\
+                  db_m.t_k_t_11_inv_x_t_k_t_10["L"] * Q0["lq"]
 
 
         # precalculated matrices
         #Msinv_Ks_Jinv = Tensor('MsinvKs', (SWE_DG_DOFS,2,SWE_DG_DOFS))    
         
-        def predictor_generator(i):
-            return P["lLq"] <= dtdx[""] *\
-                ( db_m.t_k_t_11_inv_t_m_1["LJ"] * db_m.J[i]["qm"]                  * S ["lJm"]   -\
-                  db_m.t_k_t_11_inv_t_m_1["LJ"] * db_t.s_m_inv_s_k_J_inv[i]["lbj"] * F ["jJbq"]) -\
-                  db_m.t_k_t_11_inv_x_t_k_t_10["L"] * Q0["lq"]
+        # def predictor_generator(i):
+        #     return P["lLq"] <= dtdx[""] *\
+        #         ( db_m.t_k_t_11_inv_t_m_1["LJ"] * db_m.J[i]["qm"]                  * S ["lJm"]   -\
+        #           db_m.t_k_t_11_inv_t_m_1["LJ"] * db_t.s_m_inv_s_k_J_inv[i]["lbj"] * F ["jJbq"]) -\
+        #           db_m.t_k_t_11_inv_x_t_k_t_10["L"] * Q0["lq"]
         
 #def kernel_generator(i):
 #return P["lLq"] <= \

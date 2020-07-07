@@ -597,36 +597,37 @@ if(isDG(data%troubled)) then
 end if
 
 ! print*,"before"
+! print*,"troubled: ",element%cell%data_pers%troubled
 ! print*,element%cell%data_pers%H
-! print*,element%cell%data_pers%HU
-! print*,element%cell%data_pers%HV
-! print*,element%cell%data_pers%B
+!print*,element%cell%data_pers%HU
+!print*,element%cell%data_pers%HV
+!print*,element%cell%data_pers%B
 
 if(isFV(data%troubled)) then
    !-----Call FV patch solver----!    
    call fv_patch_solver(traversal, section, element, update1, update2, update3)
 end if
 
-! print*,"after"
-! print*,element%cell%data_pers%H
-! print*,element%cell%data_pers%HU
-! print*,element%cell%data_pers%HV
-! print*,element%cell%data_pers%B
-!  print*,"update1"
-!  print*,update1%H
-!  print*,update1%HU
-!  print*,update1%HV
-!  print*,update1%B
-!  print*,"update2"
-!  print*,update2%H
-!  print*,update2%HU
-!  print*,update2%HV
-!  print*,update2%B
-!  print*,"update3"
-!  print*,update3%H
-!  print*,update3%HU
-!  print*,update3%HV
-!  print*,update3%B
+!print*,"after"
+!print*,element%cell%data_pers%H
+!print*,element%cell%data_pers%HU
+!print*,element%cell%data_pers%HV
+!print*,element%cell%data_pers%B
+! print*,"update1"
+! print*,update1%H
+! print*,update1%HU
+! print*,update1%HV
+! print*,update1%B
+! print*,"update2"
+! print*,update2%H
+! print*,update2%HU
+! print*,update2%HV
+! print*,update2%B
+! print*,"update3"
+! print*,update3%H
+! print*,update3%HU
+! print*,update3%HV
+! print*,update3%B
  
 
 !------- Update cell status and compute next timestep size --------!
@@ -1074,9 +1075,62 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                dQ_max_norm = maxval(abs(dQ_H))
 
                ! ! if the water level falls below the dry tolerance, set water surface to 0 and velocity to 0
+                              
                dQ_H  = dQ_H * (-dt_div_volume)
                dQ_HU = dQ_HU * (-dt_div_volume)
                dQ_HV = dQ_HV * (-dt_div_volume)
+
+            !    if(data%troubled == 4)then
+            !    if(update1%troubled == -2)then
+            !       print*,"data"
+            !       print*,data%H 
+            !       print*,data%HU
+            !       print*,data%HV
+            !       print*,"update1"
+            !       print*,update1%H(:)
+            !       print*,update1%HU(:)
+            !       print*,update1%HV(:)
+            !       print*,update1%B(:)
+            !       print*,"dQ"
+            !       print*,dQ_H
+            !       print*,dQ_HU
+            !       print*,dQ_HV
+            !    end if
+            !    if(update2%troubled == -2)then
+            !       print*,"data"
+            !       print*,data%H 
+            !       print*,data%HU
+            !       print*,data%HV
+            !       print*,"update2"
+            !       print*,update2%H(:)
+            !       print*,update2%HU(:)
+            !       print*,update2%HV(:)
+            !       print*,update2%B(:)
+            !       print*,"dQ"
+            !       print*,dQ_H
+            !       print*,dQ_HU
+            !       print*,dQ_HV
+            !    end if
+            !    if(update3%troubled == -2)then
+            !       print*,"data"
+            !       print*,data%H 
+            !       print*,data%HU
+            !       print*,data%HV
+            !       print*,"update3"
+            !       print*,update3%H(:)
+            !       print*,update3%HU(:)
+            !       print*,update3%HV(:)
+            !       print*,update3%B(:)
+            !       print*,"dQ"
+            !       print*,dQ_H
+            !       print*,dQ_HU
+            !       print*,dQ_HV                  
+            !    end if
+            ! end if
+
+            ! if(any(abs(dQ_HU) > 10.0e-8))then
+            !    stop
+            ! end if
 
                ! if land is flooded, init water height to dry tolerance and
                ! velocity to zero

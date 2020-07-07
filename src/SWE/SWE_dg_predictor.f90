@@ -301,6 +301,7 @@ MODULE SWE_DG_predictor
          Q_DG_UPDATE(:,1) = reshape(matmul(t_a,volume_flux(:,:,1)),(/_SWE_DG_DOFS/))
          Q_DG_UPDATE(:,2) = reshape(matmul(t_a,volume_flux(:,:,2)),(/_SWE_DG_DOFS/))
          Q_DG_UPDATE(:,3) = reshape(matmul(t_a,volume_flux(:,:,3)),(/_SWE_DG_DOFS/))
+
          !!------------------------------!!
          
          !!---- set values for riemannsolve and project on edges----!!
@@ -361,7 +362,7 @@ MODULE SWE_DG_predictor
     integer                                    :: i,j,edge
     if(.not.isCoast(element%cell%data_pers%troubled)) then
        associate(Q_DG => element%cell%data_pers%Q,&
-                 QFV  => element%cell%data_pers%QFV)
+            QFV  => element%cell%data_pers%QFV)
          do edge = 1,3
             select case(edge)
             case (1) !right
@@ -378,12 +379,9 @@ MODULE SWE_DG_predictor
                QFV(edge,:,1) = matmul(phi_l,Q_DG%h+Q_DG%b) 
                QFV(edge,:,2) = matmul(phi_l,Q_DG%p(1))    
                QFV(edge,:,3) = matmul(phi_l,Q_DG%p(2))    
-               QFV(edge,:,4) = matmul(phi_l,Q_DG%b)       
+               QFV(edge,:,4) = matmul(phi_l,Q_DG%b)
             end select
          end do
-         !---scale by element size---!
-         QFV = QFV * _REF_TRIANGLE_SIZE_INV
-         !---------------------------!
        end associate
 
     else

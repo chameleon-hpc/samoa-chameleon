@@ -528,19 +528,10 @@ if (element%cell%geometry%i_plotter_type > 0) then !
 end if
 !--------------------------------------------------------------------------!
 
-edge_sizes=element%cell%geometry%get_edge_sizes()
+!------- Update cell status and compute next timestep size --------!
+call updateCellStatusPre(data,update1,update2,update3)
 
-!----If any neighbour is troubled use FV scheme ---!
-if(isDG(data%troubled)) then
-   if(neighbourTroubled(update1,update2,update3)) then
-      data%troubled = NEIGHBOUR_TROUBLED
-      call apply_phi(data%Q(:)%h+data%Q(:)%b ,data%h)
-      call apply_phi(data%Q(:)%p(1)          ,data%hu)
-      call apply_phi(data%Q(:)%p(2)          ,data%hv)
-      call apply_phi(data%Q(:)%b             ,data%b)
-   end if
-end if
-!--------------------------------------------------!
+edge_sizes=element%cell%geometry%get_edge_sizes()
 
 if(isDG(data%troubled)) then
    data%troubled = DG

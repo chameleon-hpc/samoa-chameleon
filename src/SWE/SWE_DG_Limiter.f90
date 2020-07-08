@@ -60,6 +60,27 @@ contains
     end if
   end function checkIfCellIsDry
 
+  subroutine updateCellStatusPre(data,update1,update2,update3)
+    type(num_cell_data_pers),intent(inout) :: data
+    type(num_cell_update) , intent(in) :: update1
+    type(num_cell_update) , intent(in) :: update2
+    type(num_cell_update) , intent(in) :: update3
+
+    !----If any neighbour is troubled use FV scheme ---!
+    if(isDG(data%troubled)) then
+       if(neighbourTroubled(update1,update2,update3)) then
+          if(.not.data%troubled .eq. -NEIGHBOUR_TROUBLED)then
+             call apply_phi(data%Q(:)%h+data%Q(:)%b ,data%h)
+             call apply_phi(data%Q(:)%p(1)          ,data%hu)
+             call apply_phi(data%Q(:)%p(2)          ,data%hv)
+             call apply_phi(data%Q(:)%b             ,data%b)
+          end if
+          data%troubled = NEIGHBOUR_TROUBLED
+       end if
+    end if
+    !--------------------------------------------------!
+    
+  end subroutine updateCellStatusPre
 
 
   subroutine updateCellStatus(data)
@@ -69,6 +90,10 @@ contains
     if(data%troubled == COAST) then
        return
     end if
+
+    ! if(data%troubled == NEIGHBOUR_TROUBLED) then
+    !    return
+    ! end if
     !---------------------------!
 
     if (data%troubled .le. DG) then
@@ -95,7 +120,6 @@ contains
        isWetDryInterface = .False.
     end if
   end function isWetDryInterface
-
 
   function allNeighboursDry(update1,update2,update3) result(neighbours_dry)
     type(num_cell_update) , intent(in) :: update1

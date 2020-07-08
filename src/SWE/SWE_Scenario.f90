@@ -278,9 +278,10 @@ MODULE SWE_Scenario_resting_lake2
     function SWE_Scenario_get_initial_Q(x) result(Q)
         real (kind = GRID_SR), intent(in) :: x(2)
         type(t_dof_state) :: Q
-        
+        real(kind=GRID_SR) :: b
         Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
-        Q%h = 0.0_GRID_SR
+        b = SWE_Scenario_get_bathymetry(x)
+        Q%h = max(0.0_GRID_SR,b)
     end function
 
   END MODULE SWE_Scenario_resting_lake2

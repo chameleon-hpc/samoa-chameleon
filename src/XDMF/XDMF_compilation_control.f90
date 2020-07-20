@@ -17,3 +17,9 @@
 #   define _XDMF_PATCH
 #   define _XDMF_PATCH_ORDER_SQUARE _SWE_PATCH_ORDER_SQUARE 
 # endif
+
+# if defined(_SWE_DG)
+#   define _XDMF_DG
+#   define _XDMF_DG_ORDER _SWE_DG_ORDER
+#   define _XDMF_DG_DOFS _SWE_DG_DOFS
+# endif

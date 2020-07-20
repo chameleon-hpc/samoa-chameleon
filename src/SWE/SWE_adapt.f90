@@ -138,6 +138,7 @@
           real (kind = GRID_SR), DIMENSION(2)                      :: r_coords
           logical, DIMENSION(_SWE_PATCH_ORDER_SQUARE)              :: dry_cell_in, dry_cell_out
           integer					           :: i
+          integer(kind = selected_int_kind(16))                    :: iterations
           
           
           i_plotter_type = src_element%cell%geometry%i_plotter_type
@@ -177,7 +178,7 @@
                dest%troubled = src%troubled
                call updateCellStatus(dest)
                if(isDG(dest%troubled))then
-                  call dg_predictor(dest_element,section%r_dt)
+                  call dg_predictor(dest_element,section%r_dt,iterations)
                end if
                
                if(isFV(dest%troubled)) then

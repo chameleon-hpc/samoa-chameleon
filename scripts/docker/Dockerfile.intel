@@ -1,9 +1,9 @@
-FROM ubuntu:18.04
+
+# Base stage: Install package dependencies
+FROM ubuntu:18.04 AS base
 
 ENV DEBIAN_FRONTEND noninteractive
 ENV TZ=Europe/Berlin
-
-# Package dependencies
 
 RUN apt-get -y update && apt-get -y upgrade && \
     apt-get -y install git cmake build-essential autotools-dev autoconf pkg-config scons \
@@ -11,16 +11,26 @@ RUN apt-get -y update && apt-get -y upgrade && \
         valgrind rsync && \
     rm -rf /var/lib/apt/lists/*
 
-# Intel compiler
+
+# Installer stage: Install intel toolchain
+FROM base AS installer
 
 COPY scripts/docker/intel_compiler/parallel_studio_xe_2019_update4_cluster_edition.tgz /app/intel.tgz
 COPY scripts/docker/intel_compiler/silent.cfg scripts/docker/intel_compiler/license.lic scripts/docker/intel_compiler/intelrc.sh /app/intel/
+
 WORKDIR /app
 RUN mkdir -p intel && \
     tar -zxvf intel.tgz -C intel
 WORKDIR /app/intel/parallel_studio_xe_2019_update4_cluster_edition
 RUN ./install.sh --silent=../silent.cfg && \
     rm -rf /tmp/root && rm -rf /tmp/install*
+
+
+# Production stage: Copy toolchain and build libraries
+FROM base AS tool
+
+COPY scripts/docker/intel_compiler/license.lic scripts/docker/intel_compiler/intelrc.sh /app/intel/
+COPY --from=installer /opt/intel /opt/intel
 
 # Libraries
 

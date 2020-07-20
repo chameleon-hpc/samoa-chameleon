@@ -192,9 +192,6 @@ MODULE SWE_Scenario_resting_lake
     use iso_c_binding
 !    ! use Samoa_swe
     public SWE_Scenario_get_scaling, SWE_Scenario_get_offset, SWE_Scenario_get_bathymetry, SWE_Scenario_get_initial_Q
-#   if defined(_BOUNDARY_FUNC)
-      public SWE_Scenario_get_boundary_height
-#   endif
     contains
 
     function SWE_Scenario_get_scaling() result(scaling)
@@ -213,8 +210,8 @@ MODULE SWE_Scenario_resting_lake
         real (kind = GRID_SR), intent(in) :: x(2)
         real (kind = GRID_SR) :: bathymetry
         
-        bathymetry = x(1) *4 + 16 * x(2) - 20.0_GRID_SR
-            
+        bathymetry = max(0.0_GRID_SR, 0.25_GRID_SR - (5.0_GRID_SR * &
+            ( ((x(1) - 0.5_GRID_SR) ** 2) + ((x(2) - 0.5_GRID_SR) ** 2) ))) - 0.1_GRID_SR
     end function
     
     function SWE_Scenario_get_initial_Q(x) result(Q)
@@ -222,18 +219,8 @@ MODULE SWE_Scenario_resting_lake
         type(t_dof_state) :: Q
         
         Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
-        Q%h = max(0.0_GRID_SR, 0.0_GRID_SR)
+        Q%h = 0.0_GRID_SR
     end function
-
-#   if defined(_BOUNDARY_FUNC)
-      function SWE_Scenario_get_boundary_height(b, t) result(height)
-        real (kind = GRID_SR), intent(in)   :: b
-        real (kind = GRID_SR), intent(in)   :: t
-        real (kind = GRID_SR)               :: height
-
-        height = max(0.0_GRID_SR, (0.1_GRID_SR + (sin(t * 10.0_GRID_SR) * 0.05_GRID_SR)) - b)
-      end function
-#   endif
 
   END MODULE SWE_Scenario_resting_lake
 #endif
@@ -291,10 +278,10 @@ MODULE SWE_Scenario_resting_lake2
     function SWE_Scenario_get_initial_Q(x) result(Q)
         real (kind = GRID_SR), intent(in) :: x(2)
         type(t_dof_state) :: Q
-        
+        real(kind=GRID_SR) :: b
         Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
-        !        Q%h = max(0.0_GRID_SR, - SWE_Scenario_get_bathymetry(x))
-        Q%h = 0.0_GRID_SR
+        b = SWE_Scenario_get_bathymetry(x)
+        Q%h = max(0.0_GRID_SR,b)
     end function
 
   END MODULE SWE_Scenario_resting_lake2

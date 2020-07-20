@@ -43,27 +43,34 @@ MODULE SWE_DG_predictor
   
   subroutine element_op(traversal, section, element)
     type(t_swe_dg_predictor_traversal), intent(inout) :: traversal
-    type(t_grid_section), intent(inout)						 :: section
-    type(t_element_base), intent(inout)						 :: element
+    type(t_grid_section), intent(inout)		      :: section
+    type(t_element_base), intent(inout)		      :: element
+    integer(kind = selected_int_kind(16))             :: iterations
 
+    iterations = 0
     !-------Compute predictor --------!
     if(isDG(element%cell%data_pers%troubled)) then
 #if defined(_OPT_KERNELS)
-       call dg_predictor_opt(element,section%r_dt)
+       call dg_predictor_opt(element,section%r_dt,iterations)
 !       call dg_predictor_test(element,section%r_dt)
 
 #else       
-       call dg_predictor(element,section%r_dt)
+       call dg_predictor    (element,section%r_dt,iterations)
 #endif       
     end if
+
     call writeFVBoundaryFields(element)
+    call traversal%stats%add_counter(predictor_iterations,iterations) 
+!    print*,section%stats%get_counter(predictor_iterations)
     !---------------------------------!
   end subroutine element_op
   
-  subroutine dg_predictor(element,dt)
+  subroutine dg_predictor(element,dt,iterations)
     class(t_element_base), intent(inout)         :: element
     real(kind=GRID_SR) ,intent(in)               :: dt
     real(kind=GRID_SR)                           :: dx
+    integer(kind = selected_int_kind(16)),intent(inout) :: iterations
+
     real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,3) :: q_0
     
     real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3)  :: q_i_st
@@ -317,6 +324,7 @@ MODULE SWE_DG_predictor
 #endif
       end if
     end associate
+    iterations = iteration
   end subroutine dg_predictor
 
 
@@ -593,10 +601,12 @@ MODULE SWE_DG_predictor
   end subroutine dg_predictor_test
 
 #if defined(_OPT_KERNELS)
-    subroutine dg_predictor_opt(element,dt)
+    subroutine dg_predictor_opt(element,dt,iterations)
     class(t_element_base), intent(inout)         :: element
     real(kind=GRID_SR) ,intent(in)               :: dt
     real(kind=GRID_SR)                           :: dx
+    integer(kind = selected_int_kind(16)),intent(inout) :: iterations
+    
     real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,3) :: q_0
     
     real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3)  :: q_i_st
@@ -767,6 +777,7 @@ MODULE SWE_DG_predictor
 #endif
          
          volume_flux = volume_flux + source_st
+
          do j = 1,_SWE_DG_DOFS
             Q_DG_UPDATE(j,:) = reshape(matmul(t_a,volume_flux(j,:,:)),(/ 3 /))
          end do
@@ -819,6 +830,7 @@ MODULE SWE_DG_predictor
 #endif
       end if
     end associate
+    iterations = iteration
   end subroutine dg_predictor_opt
 
 #endif
@@ -828,7 +840,7 @@ MODULE SWE_DG_predictor
     integer                                    :: i,j,edge
     if(.not.isCoast(element%cell%data_pers%troubled)) then
        associate(Q_DG => element%cell%data_pers%Q,&
-                 QFV  => element%cell%data_pers%QFV)
+            QFV  => element%cell%data_pers%QFV)
          do edge = 1,3
             select case(edge)
             case (1) !right
@@ -845,12 +857,9 @@ MODULE SWE_DG_predictor
                QFV(edge,:,1) = matmul(phi_l,Q_DG%h+Q_DG%b) 
                QFV(edge,:,2) = matmul(phi_l,Q_DG%p(1))    
                QFV(edge,:,3) = matmul(phi_l,Q_DG%p(2))    
-               QFV(edge,:,4) = matmul(phi_l,Q_DG%b)       
+               QFV(edge,:,4) = matmul(phi_l,Q_DG%b)
             end select
          end do
-         !---scale by element size---!
-         QFV = QFV * _REF_TRIANGLE_SIZE_INV
-         !---------------------------!
        end associate
 
     else

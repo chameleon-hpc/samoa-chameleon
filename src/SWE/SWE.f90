@@ -122,6 +122,7 @@ contains
     call swe%xml_output%create()
     call swe%xml_point_output%create()
     call swe%adaption%create()
+    call swe%dg_predictor%create()
     call swe%dg_timestep%create()
 
 #if defined(_XDMF)
@@ -226,6 +227,7 @@ contains
     call swe%adaption%destroy()
 
 #			if defined(_SWE_DG)
+    call swe%dg_predictor%destroy()
     call swe%dg_timestep%destroy()
 #			endif
 
@@ -674,7 +676,8 @@ contains
 
        call swe%init_dofs%reduce_stats(MPI_SUM, .true.)
        call swe%displace%reduce_stats(MPI_SUM, .true.)
-#					if defined(_SWE_DG)                    
+#					if defined(_SWE_DG)     
+       call swe%dg_predictor%reduce_stats(MPI_SUM, .true.)                      
        call swe%dg_timestep%reduce_stats(MPI_SUM, .true.)       
 #					else
        !						call swe%euler%reduce_stats(MPI_SUM, .true.)
@@ -742,10 +745,15 @@ contains
           _log_write(0, '(A, T34, F12.4, A)') " Phase time:", t_phase, " s"
           _log_write(0, *) ""
           _log_write(0, '(A, A)') "traversal; ",trim(swe%dg_timestep%stats%to_csv_header())
-          _log_write(0, '(A, A)') "predictor; ",trim(swe%adaption%stats%to_csv())
+          _log_write(0, '(A, A)') "adaption; ",trim(swe%adaption%stats%to_csv())
+          _log_write(0, '(A, A)') "predictor; ",trim(swe%dg_predictor%stats%to_csv())
           _log_write(0, '(A, A)') "solver; "   ,trim(swe%dg_timestep%stats%to_csv())
-          _log_write(0, '(A)') "threads; procs; dmin; dmax; Order"
-          _log_write(0, '(I0,";",I0,";",I0,";",I0,";",I0)') cfg%i_threads, omp_get_num_procs(), cfg%i_min_depth, cfg%i_max_depth, _SWE_DG_ORDER
+          _log_write(0, '(A)') "ranks; threads; procs; dmin; dmax; order; opt"
+#if defined(_OPT_KERNELS)
+          _log_write(0, '(I0,";",I0,";",I0,";",I0,";",I0,";",I0,";",A)') size_MPI, cfg%i_threads, omp_get_num_procs(), cfg%i_min_depth, cfg%i_max_depth, _SWE_DG_ORDER,"True"
+#else
+          _log_write(0, '(I0,";",I0,";",I0,";",I0,";",I0,";",I0,";",A)') size_MPI, cfg%i_threads, omp_get_num_procs(), cfg%i_min_depth, cfg%i_max_depth, _SWE_DG_ORDER,"False"
+#endif
 
        end if
     end if
@@ -754,6 +762,7 @@ contains
     call swe%displace%clear_stats()
 #				if defined(_SWE_DG)
     call swe%dg_timestep%clear_stats()
+    call swe%dg_predictor%clear_stats()
 #				else
     call swe%euler%clear_stats()
 #				endif

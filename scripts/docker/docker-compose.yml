@@ -20,6 +20,7 @@ services:
       - SYS_PTRACE
     security_opt:
       - seccomp:unconfined
+    shm_size: '32gb'
 
   samoa_intel:
     image: registry.chrz.de/chonal/docker_samoa:intel
@@ -36,3 +37,4 @@ services:
       - ./run_samoa_local.sh:/app/samoa/run_samoa_local.sh:ro
       - ../../scripts/FlashAnalysis/verification/data:/app/samoa/scripts/FlashAnalysis/verification/data:ro
       - /opt/samoa:/opt/samoa:rw
+    shm_size: '32gb'

@@ -156,4 +156,14 @@ module XDMF_math
         key = mod(mod(element, table_size) + (try * (hash2_prime - mod(element, hash2_prime))), table_size)
     end subroutine
 
+    ! This subroutine converts between coordinate systems on a unit triangle
+    subroutine xdmf_cartesian_barycentric_tri(c, b)
+        real(XDMF_GRID_SR), dimension(2), intent(in)    :: c
+        real(XDMF_GRID_SR), dimension(3), intent(inout) :: b
+
+        b(1) = 1.0_XDMF_GRID_SR - c(1) - c(2)
+        b(2) = c(1)
+        b(3) = 1.0_XDMF_GRID_SR - b(1) - b(2)
+    end subroutine
+
 end module

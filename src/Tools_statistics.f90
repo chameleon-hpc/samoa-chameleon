@@ -10,10 +10,10 @@ module Tools_statistics
     public t_base_statistics, t_statistics, t_adaptive_statistics
 
     enum, bind(c)
-        enumerator :: TRAVERSALS = 1, TRAVERSED_CELLS, TRAVERSED_EDGES, TRAVERSED_NODES, TRAVERSED_MEMORY, STATS_TYPE_END_INT_COUNTER
+        enumerator :: TRAVERSALS = 1, TRAVERSED_CELLS, TRAVERSED_EDGES, TRAVERSED_NODES, TRAVERSED_MEMORY, PREDICTOR_ITERATIONS, STATS_TYPE_END_INT_COUNTER
     end enum
 
-    public :: TRAVERSALS, TRAVERSED_CELLS, TRAVERSED_EDGES, TRAVERSED_NODES, TRAVERSED_MEMORY
+    public :: TRAVERSALS, TRAVERSED_CELLS, TRAVERSED_EDGES, TRAVERSED_NODES, TRAVERSED_MEMORY, PREDICTOR_ITERATIONS
 
     enum, bind(c)
         enumerator :: TRAVERSAL_TIME = 1, PRE_COMPUTE_TIME, INNER_COMPUTE_TIME, POST_COMPUTE_TIME, ASAGI_TIME, SYNC_TIME, BARRIER_TIME, PACKING_TIME, STATS_TYPE_END_TIME_COUNTER
@@ -104,8 +104,8 @@ module Tools_statistics
 	contains
 
     elemental subroutine t_base_statistics_add_counter(s, counter_type, counter_value)
-        class(t_base_statistics), intent(inout)			    :: s
-        integer, intent(in)			                        :: counter_type
+        class(t_base_statistics), intent(inout)	            :: s
+        integer, intent(in)			            :: counter_type
         integer (kind = selected_int_kind(16)), intent(in)  :: counter_value
 
         assert_pure(counter_type > 0)
@@ -171,7 +171,6 @@ module Tools_statistics
     subroutine t_statistics_reduce_global(s, mpi_op)
         class(t_statistics), intent(inout)          :: s
         integer, intent(in)                         :: mpi_op
-
 		call reduce(s%counter_stats, mpi_op)
 		call reduce(s%time_stats, mpi_op)
      end subroutine
@@ -279,15 +278,16 @@ module Tools_statistics
     pure function t_statistics_to_csv_header(s) result(str)
         class(t_statistics), intent(in)	:: s
         character (len = 512)		:: str
-        write(str, '(A)') , "travs; time; comp; pre; inner; post; asagi; sync; barr"
+        write(str, '(A)') , "travs; pred; time; comp; pre; inner; post; asagi; sync; barr"
     end function t_statistics_to_csv_header
 
     pure function t_statistics_to_csv(s) result(str)
         class(t_statistics), intent(in)	:: s
         character (len = 512)		:: str
 
-        write(str,'(I0 ,";", F0.4 ";", F0.4,";", F0.4, ";", F0.4, ";", F0.4, ";", F0.4, ",", F0.4, ";", F0.4)'),&
-            s%get_counter(traversals), s%get_time(traversal_time),  &
+        write(str,'(I0 ,";", I0, ";", F0.4,";", F0.4, ";", F0.4, ";", F0.4, ";", F0.4, ",", F0.4, ";", F0.4, ";", F0.4)'),&
+            s%get_counter(traversals), s%get_counter(predictor_iterations), &
+            s%get_time(traversal_time),  &
             s%get_time(pre_compute_time) + s%get_time(inner_compute_time) + s%get_time(post_compute_time), &
             s%get_time(pre_compute_time), s%get_time(inner_compute_time), s%get_time(post_compute_time), &
             s%get_time(asagi_time), s%get_time(sync_time), s%get_time(barrier_time)
@@ -297,8 +297,9 @@ module Tools_statistics
         class(t_adaptive_statistics), intent(in)	:: s
         character (len = 512)		:: str
 
-        write(str,'(I0 ,";", F0.4 ";", F0.4,";", F0.4, ";", F0.4, ";", F0.4, ";", F0.4, ",", F0.4, ";", F0.4)'),&
-            s%get_counter(traversals), s%get_time(traversal_time),  &
+        write(str,'(I0 ,";", I0 ,";", F0.4 ";", F0.4,";", F0.4, ";", F0.4, ";", F0.4, ";", F0.4, ",", F0.4, ";", F0.4)'),&
+            s%get_counter(traversals), s%get_counter(predictor_iterations),&
+            s%get_time(traversal_time),  &
             s%get_time(pre_compute_time) + s%get_time(inner_compute_time) + s%get_time(post_compute_time), &
             s%get_time(pre_compute_time), s%get_time(inner_compute_time), s%get_time(post_compute_time), &
             s%get_time(asagi_time), s%get_time(sync_time), s%get_time(barrier_time)

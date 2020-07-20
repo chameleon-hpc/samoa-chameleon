@@ -20,18 +20,20 @@ sys.path.append(cmdLineArgs.yateto)
 from yateto import *
 from yateto.ast.visitor import PrettyPrinter, FindTensors, PrintEquivalentSparsityPatterns
 from yateto.codegen.code import Cpp
-from predictor import PredictorGenerator
+from predictor import PredictorGenerator, SourceGenerator
 
 arch = useArchitectureIdentifiedBy(cmdLineArgs.arch)
 
 g = Generator(arch)
 
 predictor = PredictorGenerator(cmdLineArgs.order,cmdLineArgs.matrixDir)
-gemm_cfg = predictor.gemm_cfg(arch)
-
 predictor.add(g)
-g.generate(outputDir=cmdLineArgs.outputDir, gemm_cfg=gemm_cfg)
 
+source = SourceGenerator(cmdLineArgs.order,cmdLineArgs.matrixDir)
+source.add(g)
+
+gemm_cfg = predictor.gemm_cfg(arch)
+g.generate(outputDir=cmdLineArgs.outputDir, gemm_cfg=gemm_cfg)
 
 for kernel in g.kernels():
     title = 'AST of {}'.format(kernel.name)

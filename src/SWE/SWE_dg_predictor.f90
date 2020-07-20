@@ -50,13 +50,7 @@ MODULE SWE_DG_predictor
     iterations = 0
     !-------Compute predictor --------!
     if(isDG(element%cell%data_pers%troubled)) then
-#if defined(_OPT_KERNELS)
-       call dg_predictor_opt(element,section%r_dt,iterations)
-!       call dg_predictor_test(element,section%r_dt)
-
-#else       
        call dg_predictor    (element,section%r_dt,iterations)
-#endif       
     end if
 
     call writeFVBoundaryFields(element)
@@ -64,73 +58,45 @@ MODULE SWE_DG_predictor
 !    print*,section%stats%get_counter(predictor_iterations)
     !---------------------------------!
   end subroutine element_op
-  
+
   subroutine dg_predictor(element,dt,iterations)
     class(t_element_base), intent(inout)         :: element
     real(kind=GRID_SR) ,intent(in)               :: dt
     real(kind=GRID_SR)                           :: dx
     integer(kind = selected_int_kind(16)),intent(inout) :: iterations
 
+    !local variables
     real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,3) :: q_0
-    
     real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3)  :: q_i_st
     
-    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3)  :: source_st, source_ref_st
-    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER  ,3)  :: source_st_red
-    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3)  :: volume_flux
-    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER  ,3)  :: volume_flux_red
-    
-    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,2,3) :: f,f_ref
-
-    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,  3) :: s_ref
+    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,2,3) :: f_ref
+    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,  2) :: s_ref
     
     real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER,3) :: q_temp_st
     
+    integer                                    :: cell_type
+    integer                                    :: i
+    real(kind=GRID_SR),Dimension(1)            :: dtdx
+    
     !--local variables--!
-    integer                                    :: iteration,i,j,k,offset,edge_type,indx
+    integer                                    :: iteration
     real(kind=GRID_SR),Dimension(2,2)          :: jacobian,jacobian_inv
-    real(kind=GRID_SR),Dimension(3)            :: edge_sizes
     real(kind=GRID_SR)                         :: epsilon
-
-    real(kind=GRID_SR), DIMENSION(2,_SWE_DG_DOFS,3)  :: FP
-    real(kind=GRID_SR), DIMENSION(  _SWE_DG_DOFS,4)  :: QP
 
 
     associate(Q_DG        => element%cell%data_pers%Q,&
               Q_DG_UPDATE => element%cell%data_pers%Q_DG_UPDATE,&
               cell  => element%cell,&
               edges => element%edges)
+
+      cell_type = abs(cell%geometry%i_plotter_type) 
       
       !--Normalize jacobian--!
-      jacobian=ref_plotter_data(abs(cell%geometry%i_plotter_type))%jacobian_normalized
-      jacobian_inv=ref_plotter_data(abs(cell%geometry%i_plotter_type))%jacobian_inv_normalized
+      jacobian     = ref_plotter_data(cell_type)%jacobian_normalized
+      jacobian_inv = ref_plotter_data(cell_type)%jacobian_inv_normalized
       
-      edge_sizes=cell%geometry%get_edge_sizes()
-      dx=edge_sizes(1)*cfg%scaling
-      
-      !--transform Q_DG to tensor--!
-      !--TODO: Should be default representation--!
-      q_0(:,1) = Q_DG%h
-      q_0(:,2) = Q_DG%p(1)
-      q_0(:,3) = Q_DG%p(2)
-      !----!
       !!--Set initial conditions for discrete picard iteration--!!
-
-
-      !------Guard for negative water height------!
-      if (any(q_0(:,1).le.0)) then
-         cell%data_pers%troubled=PREDICTOR_DIVERGED
-      end if
-      !-------------------------------------------!
-
-      !--span dofs at t=0 over time basis--!
-      do i=1,_SWE_DG_ORDER+1
-         q_i_st(:,i,:) = q_0
-      end do
-
-      iteration=0
-      epsilon=1.0_GRID_SR
-      
+      call initialise_predictor(Q_DG, cell, dt, dtdx, iteration, epsilon , q_0 , q_i_st)
       !!---------------------------!!
       
       do while(epsilon > cfg%max_picard_error .and.&
@@ -139,17 +105,9 @@ MODULE SWE_DG_predictor
          iteration=iteration+1
          
          !!--- Compute F S1 and S2---!!
-         s_ref = 0
-         do i=1,_SWE_DG_ORDER+1
-            s_ref(:,i,2) = ( g * q_i_st(:,i,1)    * matmul(basis_der_x,q_i_st(:,i,1) + Q_DG(:)%B) )
-            s_ref(:,i,3) = ( g * q_i_st(:,i,1)    * matmul(basis_der_y,q_i_st(:,i,1) + Q_DG(:)%B) )
-         end do
+         call compute_sref(s_ref,q_i_st(:,:,1),Q_DG%B)
+         call compute_fref(f_ref,q_i_st)
          
-         f_ref = 0
-         do i=1,_SWE_DG_ORDER+1
-            f_ref(:,i,:,:) = flux_no_grav(q_i_st(:,i,:),_SWE_DG_DOFS)
-         end do
-
 #if defined(_DEBUG)
          do i=1,_SWE_DG_ORDER+1
             do j=1,_SWE_DG_DOFS
@@ -161,56 +119,14 @@ MODULE SWE_DG_predictor
             end do
          end do
 #endif
-         
-         
-         !!--------flux terms--------!!
-         volume_flux = 0
 
-         do i=1,_SWE_DG_ORDER+1
-            volume_flux(:,i,:) = matmul(jacobian_inv(1,1) * s_m_inv_s_k_x_t+&
-                                        jacobian_inv(2,1) * s_m_inv_s_k_y_t, f_ref(:,i,1,:)) +&
-                                 matmul(jacobian_inv(1,2) * s_m_inv_s_k_x_t+&
-                                        jacobian_inv(2,2) * s_m_inv_s_k_y_t, f_ref(:,i,2,:))
-         end do
-
-         do j=1,_SWE_DG_DOFS
-            q_temp_st(j,:,:) = matmul(-t_k_t_11_inv_t_m_1, volume_flux(j,:,:))
-         end do
-         !!----- end flux terms -----!!
-         
-         !!------- source terms ------!!
-         
-         !!------------S1-------------!!
-         source_st = 0
-         source_st(:,:,2) = s_ref(:,:,2) * jacobian(1,1) + s_ref(:,:,3) * jacobian(1,2)
-         source_st(:,:,3) = s_ref(:,:,2) * jacobian(2,1) + s_ref(:,:,3) * jacobian(2,2)
-         
-         do j=1,_SWE_DG_DOFS
-            q_temp_st(j,:,:) = q_temp_st(j,:,:) + matmul(t_k_t_11_inv_t_m_1, source_st(j,:,:))
-         end do
-         !!------- end source term -------!!
-         
-         q_temp_st = q_temp_st * dt/dx
-         
-         do j=1,_SWE_DG_DOFS                  
-            do i=1,_SWE_DG_ORDER
-               q_temp_st(j,i,:) = q_temp_st(j,i,:) - t_k_t_11_inv_x_t_k_t_10(i,1) * q_0(j,:)
-            end do
-         end do
-
+#if defined(_OPT_KERNELS)
+         call yateto_predictor_execute(q_temp_st, f_ref, q_0, s_ref, dtdx , cell_type-1)
+#else         
+         call update_predictor(q_temp_st, q_0, dtdx, s_ref, f_ref, jacobian, jacobian_inv)
+#endif         
          !------ compute error ------!
-         epsilon=0.0_GRID_SR
-         do j=1,_SWE_DG_DOFS
-            do i=1,_SWE_DG_ORDER
-               if(.not.all(q_i_st(j,i+1,:).eq.0)) then
-                  epsilon=max(epsilon, &
-                       NORM2(q_temp_st(j,i,:)-q_i_st(j,i+1,:)) / &
-                       NORM2(q_i_st(j,i+1,:)))
-               else if(.not.all(q_temp_st(j,i,:) .eq. 0)) then
-                  epsilon=max(epsilon,1.0_GRID_SR)
-               end if
-            end do
-         end do
+         epsilon =  compute_epsilon(q_i_st,q_temp_st)         
          !--------------------------!
 
          !--------------Update predictor-------------!
@@ -234,604 +150,236 @@ MODULE SWE_DG_predictor
       end do
 
       if(.not.(cell%data_pers%troubled.eq.PREDICTOR_DIVERGED)) then
-         
-         !!--- compute volume update----!!
-         !-- Question: is it better to recompte the flux then to store it --!
-         f(:,:,1,:) = jacobian_inv(1,1) * f_ref(:,:,1,:) + jacobian_inv(1,2) * f_ref(:,:,2,:)
-         f(:,:,2,:) = jacobian_inv(2,1) * f_ref(:,:,1,:) + jacobian_inv(2,2) * f_ref(:,:,2,:)
-      
-         do i=1,_SWE_DG_ORDER+1
-            volume_flux(:,i,:) = matmul(s_m_inv, &
-                 matmul(s_k_x_s_b_3_s_b_2, f(:,i,1,:)) + &
-                 matmul(s_k_y_s_b_1_s_b_2, f(:,i,2,:)))
-         end do
-         
-         do i=1,_SWE_DG_ORDER+1
-            source_ref_st(:,i,2) = matmul(s_m_inv, -matmul(s_m, s_ref(:,i,2)))
-            source_ref_st(:,i,3) = matmul(s_m_inv, -matmul(s_m, s_ref(:,i,3)))
-         end do
-         
-         source_st(:,:,2) = source_ref_st(:,:,2) * jacobian(1,1) + source_ref_st(:,:,3) * jacobian(1,2)
-         source_st(:,:,3) = source_ref_st(:,:,2) * jacobian(2,1) + source_ref_st(:,:,3) * jacobian(2,2)
+         call compute_volume_update(Q_DG_UPDATE,s_ref,f_ref,jacobian,jacobian_inv)
+         call initialise_riemann_arguments(cell,q_i_st,Q_DG)
 
-#if defined(_DEBUG)
-         do j=1,_SWE_DG_DOFS
-            do i=1,_SWE_DG_ORDER+1
-               if(isnan(volume_flux(j,i,1)).or.isnan(source_st(j,i,1))) then
-                  print*,epsilon
-                  print*,iteration
-                  print*,cell%data_pers%troubled
-                  print*,"vol"
-                  print*,volume_flux
-                  print*,"src"
-                  print*,source_st
-                  exit
-               end if
-            end do
-         end do
-#endif
-         
-         volume_flux = volume_flux + source_st
-         do j = 1,_SWE_DG_DOFS
-            Q_DG_UPDATE(j,:) = reshape(matmul(t_a,volume_flux(j,:,:)),(/ 3 /))
-         end do
-         !!------------------------------!!
-         
-         !!---- set values for riemannsolve and project on edges----!!
-         if(isDG(cell%data_pers%troubled)) then
-            do i=1,_SWE_DG_ORDER+1
-               f_ref(:,i,:,:) = flux(q_i_st(:,i,:),_SWE_DG_DOFS)
-            end do
-         endif
-         
-         do j = 1,_SWE_DG_DOFS
-            QP(  j,1:3) = reshape( matmul(t_a,q_i_st(j,:,:))  ,(/ 3 /))
-            FP(1,j, : ) = reshape( matmul(t_a,f_ref (j,:,1,:)),(/ 3 /))
-            FP(2,j, : ) = reshape( matmul(t_a,f_ref (j,:,2,:)),(/ 3 /))
-         end do
-         QP(:,4) = Q_DG(:)%B
-         
-         do j = 1,3
-            edge_type =  j
-            do i = 1,_SWE_DG_ORDER+1
-               select case(edge_type)
-               case(1) !right
-                  !                  indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i+2)*(_SWE_DG_ORDER-i+3)/2 +1
-                  indx=_SWE_DG_DOFS-(i+1)*(i)/2 +1
-               case(2) !mid
-                  indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i+2)*(_SWE_DG_ORDER-i+1)/2
-               case(3) !left
-                  indx=i
-               case default
-                  stop
-               end select
-               cell%data_pers%QP(j,  i,:) = QP(indx,:)
-               cell%data_pers%FP(j,1,i,:) = FP(1,indx,:)               
-               cell%data_pers%FP(j,2,i,:) = FP(2,indx,:)
-            end do
-         end do
-
-#if defined(_DEBUG)
-         do i=1,_SWE_DG_DOFS
-            if(isnan(Q_DG_UPDATE(i,1))) then
-               print*,"nan Q_DG_update"
-               print*,Q_DG_UPDATE
-               print*,"q_i_st"
-               print*,q_i_st
-               exit
-            end if
-         end do
-#endif
       end if
     end associate
     iterations = iteration
   end subroutine dg_predictor
 
-
-    subroutine dg_predictor_test(element,dt)
-    class(t_element_base), intent(inout)         :: element
-    real(kind=GRID_SR) ,intent(in)               :: dt
-    real(kind=GRID_SR)                           :: dx
-    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,3) :: q_0
-    
-    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3)  :: q_i_st
-    
-    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3)  :: source_st, source_ref_st
-    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER  ,3)  :: source_st_red
-    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3)  :: volume_flux
-    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER  ,3)  :: volume_flux_red
-    
-    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,2,3) :: f,f_ref
-
-    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,  3) :: s_ref
-    
-    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER,3) :: q_temp_st
-    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,3)               :: q_dg_upd
-    
-    !--local variables--!
-    integer                                    :: iteration,i,j,k,offset,edge_type,indx
-    real(kind=GRID_SR),Dimension(2,2)          :: jacobian,jacobian_inv
-    real(kind=GRID_SR),Dimension(3)            :: edge_sizes
-    real(kind=GRID_SR)                         :: epsilon
-
-    real(kind=GRID_SR), DIMENSION(2,_SWE_DG_DOFS,3)  :: FP
-    real(kind=GRID_SR), DIMENSION(  _SWE_DG_DOFS,4)  :: QP
-
-
-    associate(Q_DG        => element%cell%data_pers%Q,&
-              Q_DG_UPDATE => element%cell%data_pers%Q_DG_UPDATE,&
-              cell  => element%cell,&
-              edges => element%edges)
-
-      q_dg_upd = Q_DG_UPDATE !Save old update
-      
-      !--Normalize jacobian--!
-      jacobian=ref_plotter_data(abs(cell%geometry%i_plotter_type))%jacobian_normalized
-      jacobian_inv=ref_plotter_data(abs(cell%geometry%i_plotter_type))%jacobian_inv_normalized
-      
-      edge_sizes=cell%geometry%get_edge_sizes()
-      dx=edge_sizes(1)*cfg%scaling
-      
-      !--transform Q_DG to tensor--!
-      !--TODO: Should be default representation--!
-      q_0(:,1) = Q_DG%h
-      q_0(:,2) = Q_DG%p(1)
-      q_0(:,3) = Q_DG%p(2)
-      !----!
-      !!--Set initial conditions for discrete picard iteration--!!
-
-
-      !------Guard for negative water height------!
-      if (any(q_0(:,1).le.0)) then
-         cell%data_pers%troubled=PREDICTOR_DIVERGED
-      end if
-      !-------------------------------------------!
-
-      !--span dofs at t=0 over time basis--!
-      do i=1,_SWE_DG_ORDER+1
-         q_i_st(:,i,:) = q_0
-      end do
-
-      iteration=0
-      epsilon=1.0_GRID_SR
-      
-      !!---------------------------!!
-      
-      do while(epsilon > cfg%max_picard_error .and.&
-           (.not.(cell%data_pers%troubled.eq.PREDICTOR_DIVERGED)))
-
-         iteration=iteration+1
-         
-         !!--- Compute F S1 and S2---!!
-         s_ref = 0
-         do i=1,_SWE_DG_ORDER+1
-            s_ref(:,i,2) = ( g * q_i_st(:,i,1)    * matmul(basis_der_x,q_i_st(:,i,1) + Q_DG(:)%B) )
-            s_ref(:,i,3) = ( g * q_i_st(:,i,1)    * matmul(basis_der_y,q_i_st(:,i,1) + Q_DG(:)%B) )
-         end do
-         
-         f_ref = 0
-         do i=1,_SWE_DG_ORDER+1
-            f_ref(:,i,:,:) = flux_no_grav(q_i_st(:,i,:),_SWE_DG_DOFS)
-         end do
-
-#if defined(_DEBUG)
-         do i=1,_SWE_DG_ORDER+1
-            do j=1,_SWE_DG_DOFS
-               if(isnan(f_ref(j,i,1,1)).or.isnan(f_ref(j,i,2,1))) then
-                  print*,"fref"
-                  print*,f_ref
-                  exit
-               end if
-            end do
-         end do
-#endif
-         
-         
-         !!--------flux terms--------!!
-         volume_flux = 0
-
-         do i=1,_SWE_DG_ORDER+1
-            volume_flux(:,i,:) = matmul(jacobian_inv(1,1) * s_m_inv_s_k_x_t+&
-                                        jacobian_inv(2,1) * s_m_inv_s_k_y_t, f_ref(:,i,1,:)) +&
-                                 matmul(jacobian_inv(1,2) * s_m_inv_s_k_x_t+&
-                                        jacobian_inv(2,2) * s_m_inv_s_k_y_t, f_ref(:,i,2,:))
-         end do
-
-         do j=1,_SWE_DG_DOFS
-            q_temp_st(j,:,:) = matmul(-t_k_t_11_inv_t_m_1, volume_flux(j,:,:))
-         end do
-         !!----- end flux terms -----!!
-         
-         !!------- source terms ------!!
-         
-         !!------------S1-------------!!
-         source_st = 0
-         source_st(:,:,2) = s_ref(:,:,2) * jacobian(1,1) + s_ref(:,:,3) * jacobian(1,2)
-         source_st(:,:,3) = s_ref(:,:,2) * jacobian(2,1) + s_ref(:,:,3) * jacobian(2,2)
-         
-         do j=1,_SWE_DG_DOFS
-            q_temp_st(j,:,:) = q_temp_st(j,:,:) + matmul(t_k_t_11_inv_t_m_1, source_st(j,:,:))
-         end do
-         !!------- end source term -------!!
-         
-         q_temp_st = q_temp_st * dt/dx
-         
-         do j=1,_SWE_DG_DOFS                  
-            do i=1,_SWE_DG_ORDER
-               q_temp_st(j,i,:) = q_temp_st(j,i,:) - t_k_t_11_inv_x_t_k_t_10(i,1) * q_0(j,:)
-            end do
-         end do
-
-         !------ compute error ------!
-         epsilon=0.0_GRID_SR
-         do j=1,_SWE_DG_DOFS
-            do i=1,_SWE_DG_ORDER
-               if(.not.all(q_i_st(j,i+1,:).eq.0)) then
-                  epsilon=max(epsilon, &
-                       NORM2(q_temp_st(j,i,:)-q_i_st(j,i+1,:)) / &
-                       NORM2(q_i_st(j,i+1,:)))
-               else if(.not.all(q_temp_st(j,i,:) .eq. 0)) then
-                  epsilon=max(epsilon,1.0_GRID_SR)
-               end if
-            end do
-         end do
-         !--------------------------!
-
-         !--------------Update predictor-------------!
-         do i=2,_SWE_DG_ORDER+1
-            q_i_st(:,i,:) = q_temp_st(:,i-1,:)
-         end do
-         !-------------------------------------------!
-
-         !------Guard for diverging Picard Loop------!
-         if(iteration > cfg%max_picard_iterations) then                           
-            cell%data_pers%troubled=PREDICTOR_DIVERGED
-         end if
-         !-------------------------------------------!
-
-          !------Guard for negative water height------!
-         if (any(q_i_st(:,:,1).le.0)) then
-            cell%data_pers%troubled=PREDICTOR_DIVERGED
-         end if
-         !-------------------------------------------!
-
-      end do
-
-      if(.not.(cell%data_pers%troubled.eq.PREDICTOR_DIVERGED)) then
-         
-         !!--- compute volume update----!!
-         !-- Question: is it better to recompte the flux then to store it --!
-         f(:,:,1,:) = jacobian_inv(1,1) * f_ref(:,:,1,:) + jacobian_inv(1,2) * f_ref(:,:,2,:)
-         f(:,:,2,:) = jacobian_inv(2,1) * f_ref(:,:,1,:) + jacobian_inv(2,2) * f_ref(:,:,2,:)
-      
-         do i=1,_SWE_DG_ORDER+1
-            volume_flux(:,i,:) = matmul(s_m_inv, &
-                 matmul(s_k_x_s_b_3_s_b_2, f(:,i,1,:)) + &
-                 matmul(s_k_y_s_b_1_s_b_2, f(:,i,2,:)))
-         end do
-         
-         do i=1,_SWE_DG_ORDER+1
-            source_ref_st(:,i,2) = matmul(s_m_inv, -matmul(s_m, s_ref(:,i,2)))
-            source_ref_st(:,i,3) = matmul(s_m_inv, -matmul(s_m, s_ref(:,i,3)))
-         end do
-         
-         source_st(:,:,2) = source_ref_st(:,:,2) * jacobian(1,1) + source_ref_st(:,:,3) * jacobian(1,2)
-         source_st(:,:,3) = source_ref_st(:,:,2) * jacobian(2,1) + source_ref_st(:,:,3) * jacobian(2,2)
-
-#if defined(_DEBUG)
-         do j=1,_SWE_DG_DOFS
-            do i=1,_SWE_DG_ORDER+1
-               if(isnan(volume_flux(j,i,1)).or.isnan(source_st(j,i,1))) then
-                  print*,epsilon
-                  print*,iteration
-                  print*,cell%data_pers%troubled
-                  print*,"vol"
-                  print*,volume_flux
-                  print*,"src"
-                  print*,source_st
-                  exit
-               end if
-            end do
-         end do
-#endif
-         
-         volume_flux = volume_flux + source_st
-         do j = 1,_SWE_DG_DOFS
-            Q_DG_UPDATE(j,:) = reshape(matmul(t_a,volume_flux(j,:,:)),(/ 3 /))
-         end do
-
-
-         !--compare to old update--!
-
-         if (.not.all(abs(q_dg_upd - Q_DG_UPDATE) < 1.0d-10))then
-            print*,q_dg_upd
-            print*,Q_DG_UPDATE
-            stop
-         endif
-         
-         !!------------------------------!!
-         
-         !!---- set values for riemannsolve and project on edges----!!
-         if(isDG(cell%data_pers%troubled)) then
-            do i=1,_SWE_DG_ORDER+1
-               f_ref(:,i,:,:) = flux(q_i_st(:,i,:),_SWE_DG_DOFS)
-            end do
-         endif
-         
-         do j = 1,_SWE_DG_DOFS
-            QP(  j,1:3) = reshape( matmul(t_a,q_i_st(j,:,:))  ,(/ 3 /))
-            FP(1,j, : ) = reshape( matmul(t_a,f_ref (j,:,1,:)),(/ 3 /))
-            FP(2,j, : ) = reshape( matmul(t_a,f_ref (j,:,2,:)),(/ 3 /))
-         end do
-         QP(:,4) = Q_DG(:)%B
-         
-         do j = 1,3
-            edge_type =  j
-            do i = 1,_SWE_DG_ORDER+1
-               select case(edge_type)
-               case(1) !right
-                  !                  indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i+2)*(_SWE_DG_ORDER-i+3)/2 +1
-                  indx=_SWE_DG_DOFS-(i+1)*(i)/2 +1
-               case(2) !mid
-                  indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i+2)*(_SWE_DG_ORDER-i+1)/2
-               case(3) !left
-                  indx=i
-               case default
-                  stop
-               end select
-               cell%data_pers%QP(j,  i,:) = QP(indx,:)
-               cell%data_pers%FP(j,1,i,:) = FP(1,indx,:)               
-               cell%data_pers%FP(j,2,i,:) = FP(2,indx,:)
-            end do
-         end do
-
-#if defined(_DEBUG)
-         do i=1,_SWE_DG_DOFS
-            if(isnan(Q_DG_UPDATE(i,1))) then
-               print*,"nan Q_DG_update"
-               print*,Q_DG_UPDATE
-               print*,"q_i_st"
-               print*,q_i_st
-               exit
-            end if
-         end do
-#endif
-      end if
-    end associate
-  end subroutine dg_predictor_test
-
 #if defined(_OPT_KERNELS)
-    subroutine dg_predictor_opt(element,dt,iterations)
-    class(t_element_base), intent(inout)         :: element
-    real(kind=GRID_SR) ,intent(in)               :: dt
-    real(kind=GRID_SR)                           :: dx
-    integer(kind = selected_int_kind(16)),intent(inout) :: iterations
+!     subroutine dg_predictor_opt(element,dt,iterations)
+!     class(t_element_base), intent(inout)         :: element
+!     real(kind=GRID_SR) ,intent(in)               :: dt
+!     real(kind=GRID_SR)                           :: dx
+!     integer(kind = selected_int_kind(16)),intent(inout) :: iterations
     
-    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,3) :: q_0
+!     real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,3) :: q_0
     
-    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3)  :: q_i_st
+!     real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3)  :: q_i_st
     
-    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3)  :: source_st, source_ref_st
-    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER  ,3)  :: source_st_red
-    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3)  :: volume_flux
-    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER  ,3)  :: volume_flux_red
+!     real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3)  :: source_st, source_ref_st
+!     real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER  ,3)  :: source_st_red
+!     real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3)  :: volume_flux
+!     real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER  ,3)  :: volume_flux_red
     
-    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,2,3) :: f,f_ref
+!     real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,2,3) :: f,f_ref
 
-    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,  3) :: s_ref
+!     real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,  3) :: s_ref
     
-    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER,3) :: q_temp_st
+!     real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER,3) :: q_temp_st
 
     
-    !--local variables--!
-    integer                                    :: iteration,i,j,k,offset,edge_type,indx
-    integer                                    :: cell_type
+!     !--local variables--!
+!     integer                                    :: iteration,i,j,k,offset,edge_type,indx
+!     integer                                    :: cell_type
     
-    real(kind=GRID_SR),Dimension(2,2)          :: jacobian,jacobian_inv
-    real(kind=GRID_SR),Dimension(1)            :: dtdx
-    real(kind=GRID_SR),Dimension(3)            :: edge_sizes
-    real(kind=GRID_SR)                         :: epsilon
+!     real(kind=GRID_SR),Dimension(2,2)          :: jacobian,jacobian_inv
+!     real(kind=GRID_SR),Dimension(1)            :: dtdx
+!     real(kind=GRID_SR),Dimension(3)            :: edge_sizes
+!     real(kind=GRID_SR)                         :: epsilon
 
-    real(kind=GRID_SR), DIMENSION(2,_SWE_DG_DOFS,3)  :: FP
-    real(kind=GRID_SR), DIMENSION(  _SWE_DG_DOFS,4)  :: QP
+!     real(kind=GRID_SR), DIMENSION(2,_SWE_DG_DOFS,3)  :: FP
+!     real(kind=GRID_SR), DIMENSION(  _SWE_DG_DOFS,4)  :: QP
 
 
-    associate(Q_DG        => element%cell%data_pers%Q,&
-              Q_DG_UPDATE => element%cell%data_pers%Q_DG_UPDATE,&
-              cell  => element%cell,&
-              edges => element%edges)
+!     associate(Q_DG        => element%cell%data_pers%Q,&
+!               Q_DG_UPDATE => element%cell%data_pers%Q_DG_UPDATE,&
+!               cell  => element%cell,&
+!               edges => element%edges)
+
+!       cell_type = abs(cell%geometry%i_plotter_type) - 1
       
-      !--Normalize jacobian--!
-      edge_sizes=cell%geometry%get_edge_sizes()
-      dx=edge_sizes(1)*cfg%scaling
-      dtdx(1) = dt/dx
-
-      cell_type = abs(cell%geometry%i_plotter_type) - 1
+!       !--Normalize jacobian--!
+!       jacobian     = ref_plotter_data(cell_type+1)%jacobian_normalized
+!       jacobian_inv = ref_plotter_data(cell_type+1)%jacobian_inv_normalized
       
-      jacobian     = ref_plotter_data(cell_type+1)%jacobian_normalized
-      jacobian_inv = ref_plotter_data(cell_type+1)%jacobian_inv_normalized
+!       edge_sizes=cell%geometry%get_edge_sizes()
+!       dx=edge_sizes(1)*cfg%scaling
+!       dtdx(1) = dt/dx
       
-      !--transform Q_DG to tensor--!
-      !--TODO: Should be default representation--!
-      q_0(:,1) = Q_DG%h
-      q_0(:,2) = Q_DG%p(1)
-      q_0(:,3) = Q_DG%p(2)
-      !----!
+!       !--transform Q_DG to tensor--!
+!       !--TODO: Should be default representation--!
+!       q_0(:,1) = Q_DG%h
+!       q_0(:,2) = Q_DG%p(1)
+!       q_0(:,3) = Q_DG%p(2)
+!       !----!
 
-      !------Guard for negative water height------!
-      if (any(q_0(:,1).le.0)) then
-         cell%data_pers%troubled=PREDICTOR_DIVERGED
-      end if
-      !-------------------------------------------!
+!       !------Guard for negative water height------!
+!       if (any(q_0(:,1).le.0)) then
+!          cell%data_pers%troubled=PREDICTOR_DIVERGED
+!       end if
+!       !-------------------------------------------!
 
-      !--span dofs at t=0 over time basis--!
-      do i=1,_SWE_DG_ORDER+1
-         q_i_st(:,i,:) = q_0
-      end do
+!       !--span dofs at t=0 over time basis--!
+!       do i=1,_SWE_DG_ORDER+1
+!          q_i_st(:,i,:) = q_0
+!       end do
       
-      iteration=0
-      epsilon=1.0_GRID_SR
+!       iteration=0
+!       epsilon=1.0_GRID_SR
       
-      !!---------------------------!!
-      do while(epsilon > cfg%max_picard_error .and.&
-           (.not.(cell%data_pers%troubled.eq.PREDICTOR_DIVERGED)))
+!       !!---------------------------!!
+!       do while(epsilon > cfg%max_picard_error .and.&
+!            (.not.(cell%data_pers%troubled.eq.PREDICTOR_DIVERGED)))
 
-         iteration=iteration+1
+!          iteration=iteration+1
+
+!          !!--- Compute F S1 and S2---!!
+!          s_ref = 0
+!          do i=1,_SWE_DG_ORDER+1
+!             s_ref(:,i,2) = ( g * q_i_st(:,i,1) * matmul(basis_der_x,q_i_st(:,i,1) + Q_DG(:)%B) )
+!             s_ref(:,i,3) = ( g * q_i_st(:,i,1) * matmul(basis_der_y,q_i_st(:,i,1) + Q_DG(:)%B) )
+!          end do
+!          print*,s_ref
+!          print*
+!          f_ref = 0
+!          do i=1,_SWE_DG_ORDER+1
+!             f_ref(:,i,:,:) = flux_no_grav(q_i_st(:,i,:),_SWE_DG_DOFS)
+!          end do
+
+! #if defined(_DEBUG)
+!          do i=1,_SWE_DG_ORDER+1
+!             do j=1,_SWE_DG_DOFS
+!                if(isnan(f_ref(j,i,1,1)).or.isnan(f_ref(j,i,2,1))) then
+!                   print*,"fref"
+!                   print*,f_ref
+!                   exit
+!                end if
+!             end do
+!          end do
+! #endif
+
+!          call yateto_predictor_execute(q_temp_st, f_ref, q_0, s_ref, dtdx , cell_type)
+
+!          !------ compute error ------!
+!          epsilon =  compute_epsilon(q_i_st,q_temp_st)         
+!          !--------------------------!
+
+!          !--------------Update predictor-------------!
+!          do i=2,_SWE_DG_ORDER+1
+!             q_i_st(:,i,:) = q_temp_st(:,i-1,:)
+!          end do
+!          !-------------------------------------------!
+
+!          !------Guard for diverging Picard Loop------!
+!          if(iteration > cfg%max_picard_iterations) then                           
+!             cell%data_pers%troubled=PREDICTOR_DIVERGED
+!          end if
+!          !-------------------------------------------!
+
+!           !------Guard for negative water height------!
+!          if (any(q_i_st(:,:,1).le.0)) then
+!             cell%data_pers%troubled=PREDICTOR_DIVERGED
+!          end if
+!          !-------------------------------------------!
+!       end do
+
+!       if(.not.(cell%data_pers%troubled.eq.PREDICTOR_DIVERGED)) then
          
-         !!--- Compute F S1 and S2---!!
-         s_ref = 0
-         do i=1,_SWE_DG_ORDER+1
-            s_ref(:,i,2) = ( g * q_i_st(:,i,1) * matmul(basis_der_x,q_i_st(:,i,1) + Q_DG(:)%B) )
-            s_ref(:,i,3) = ( g * q_i_st(:,i,1) * matmul(basis_der_y,q_i_st(:,i,1) + Q_DG(:)%B) )
-         end do
-         
-         f_ref = 0
-         do i=1,_SWE_DG_ORDER+1
-            f_ref(:,i,:,:) = flux_no_grav(q_i_st(:,i,:),_SWE_DG_DOFS)
-         end do
-
-#if defined(_DEBUG)
-         do i=1,_SWE_DG_ORDER+1
-            do j=1,_SWE_DG_DOFS
-               if(isnan(f_ref(j,i,1,1)).or.isnan(f_ref(j,i,2,1))) then
-                  print*,"fref"
-                  print*,f_ref
-                  exit
-               end if
-            end do
-         end do
-#endif
-            
-         call yateto_predictor_execute(q_temp_st, f_ref, q_0, s_ref, dtdx , cell_type)
-         !print*,q_temp_st
-         !------ compute error ------!
-         epsilon=0.0_GRID_SR
-         do j=1,_SWE_DG_DOFS
-            do i=1,_SWE_DG_ORDER
-               if(.not.all(q_i_st(j,i+1,:).eq.0)) then
-                  epsilon=max(epsilon, &
-                       NORM2(q_temp_st(j,i,:)-q_i_st(j,i+1,:)) / &
-                       NORM2(q_i_st(j,i+1,:)))
-               else if(.not.all(q_temp_st(j,i,:) .eq. 0)) then
-                  epsilon=max(epsilon,1.0_GRID_SR)
-               end if
-            end do
-         end do
-         !--------------------------!
-
-         !--------------Update predictor-------------!
-         do i=2,_SWE_DG_ORDER+1
-            q_i_st(:,i,:) = q_temp_st(:,i-1,:)
-         end do
-         !-------------------------------------------!
-
-         !------Guard for diverging Picard Loop------!
-         if(iteration > cfg%max_picard_iterations) then                           
-            cell%data_pers%troubled=PREDICTOR_DIVERGED
-         end if
-         !-------------------------------------------!
-
-          !------Guard for negative water height------!
-         if (any(q_i_st(:,:,1).le.0)) then
-            cell%data_pers%troubled=PREDICTOR_DIVERGED
-         end if
-         !-------------------------------------------!
-      end do
-
-      if(.not.(cell%data_pers%troubled.eq.PREDICTOR_DIVERGED)) then
-         
-         !!--- compute volume update----!!
-         !-- Question: is it better to recompte the flux then to store it --!
-         f(:,:,1,:) = jacobian_inv(1,1) * f_ref(:,:,1,:) + jacobian_inv(1,2) * f_ref(:,:,2,:)
-         f(:,:,2,:) = jacobian_inv(2,1) * f_ref(:,:,1,:) + jacobian_inv(2,2) * f_ref(:,:,2,:)
+!          !!--- compute volume update----!!
+!          !-- Question: is it better to recompte the flux then to store it --!
+!          f(:,:,1,:) = jacobian_inv(1,1) * f_ref(:,:,1,:) + jacobian_inv(1,2) * f_ref(:,:,2,:)
+!          f(:,:,2,:) = jacobian_inv(2,1) * f_ref(:,:,1,:) + jacobian_inv(2,2) * f_ref(:,:,2,:)
       
-         do i=1,_SWE_DG_ORDER+1
-            volume_flux(:,i,:) = matmul(s_m_inv, &
-                 matmul(s_k_x_s_b_3_s_b_2, f(:,i,1,:)) + &
-                 matmul(s_k_y_s_b_1_s_b_2, f(:,i,2,:)))
-         end do
+!          do i=1,_SWE_DG_ORDER+1
+!             volume_flux(:,i,:) = matmul(s_m_inv, &
+!                  matmul(s_k_x_s_b_3_s_b_2, f(:,i,1,:)) + &
+!                  matmul(s_k_y_s_b_1_s_b_2, f(:,i,2,:)))
+!          end do
          
-         do i=1,_SWE_DG_ORDER+1
-            source_ref_st(:,i,2) = matmul(s_m_inv, -matmul(s_m, s_ref(:,i,2)))
-            source_ref_st(:,i,3) = matmul(s_m_inv, -matmul(s_m, s_ref(:,i,3)))
-         end do
+!          do i=1,_SWE_DG_ORDER+1
+!             source_ref_st(:,i,2) = matmul(s_m_inv, -matmul(s_m, s_ref(:,i,2)))
+!             source_ref_st(:,i,3) = matmul(s_m_inv, -matmul(s_m, s_ref(:,i,3)))
+!          end do
          
-         source_st(:,:,2) = source_ref_st(:,:,2) * jacobian(1,1) + source_ref_st(:,:,3) * jacobian(1,2)
-         source_st(:,:,3) = source_ref_st(:,:,2) * jacobian(2,1) + source_ref_st(:,:,3) * jacobian(2,2)
+!          source_st(:,:,2) = source_ref_st(:,:,2) * jacobian(1,1) + source_ref_st(:,:,3) * jacobian(1,2)
+!          source_st(:,:,3) = source_ref_st(:,:,2) * jacobian(2,1) + source_ref_st(:,:,3) * jacobian(2,2)
 
-#if defined(_DEBUG)
-         do j=1,_SWE_DG_DOFS
-            do i=1,_SWE_DG_ORDER+1
-               if(isnan(volume_flux(j,i,1)).or.isnan(source_st(j,i,1))) then
-                  print*,epsilon
-                  print*,iteration
-                  print*,cell%data_pers%troubled
-                  print*,"vol"
-                  print*,volume_flux
-                  print*,"src"
-                  print*,source_st
-                  exit
-               end if
-            end do
-         end do
-#endif
+! #if defined(_DEBUG)
+!          do j=1,_SWE_DG_DOFS
+!             do i=1,_SWE_DG_ORDER+1
+!                if(isnan(volume_flux(j,i,1)).or.isnan(source_st(j,i,1))) then
+!                   print*,epsilon
+!                   print*,iteration
+!                   print*,cell%data_pers%troubled
+!                   print*,"vol"
+!                   print*,volume_flux
+!                   print*,"src"
+!                   print*,source_st
+!                   exit
+!                end if
+!             end do
+!          end do
+! #endif
          
-         volume_flux = volume_flux + source_st
+!          volume_flux = volume_flux + source_st
 
-         do j = 1,_SWE_DG_DOFS
-            Q_DG_UPDATE(j,:) = reshape(matmul(t_a,volume_flux(j,:,:)),(/ 3 /))
-         end do
-         !!------------------------------!!
+!          do j = 1,_SWE_DG_DOFS
+!             Q_DG_UPDATE(j,:) = reshape(matmul(t_a,volume_flux(j,:,:)),(/ 3 /))
+!          end do
+!          !!------------------------------!!
          
-         !!---- set values for riemannsolve and project on edges----!!
-         if(isDG(cell%data_pers%troubled)) then
-            do i=1,_SWE_DG_ORDER+1
-               f_ref(:,i,:,:) = flux(q_i_st(:,i,:),_SWE_DG_DOFS)
-            end do
-         endif
+!          !!---- set values for riemannsolve and project on edges----!!
+!          if(isDG(cell%data_pers%troubled)) then
+!             do i=1,_SWE_DG_ORDER+1
+!                f_ref(:,i,:,:) = flux(q_i_st(:,i,:),_SWE_DG_DOFS)
+!             end do
+!          endif
          
-         do j = 1,_SWE_DG_DOFS
-            QP(  j,1:3) = reshape( matmul(t_a,q_i_st(j,:,:))  ,(/ 3 /))
-            FP(1,j, : ) = reshape( matmul(t_a,f_ref (j,:,1,:)),(/ 3 /))
-            FP(2,j, : ) = reshape( matmul(t_a,f_ref (j,:,2,:)),(/ 3 /))
-         end do
-         QP(:,4) = Q_DG(:)%B
+!          do j = 1,_SWE_DG_DOFS
+!             QP(  j,1:3) = reshape( matmul(t_a,q_i_st(j,:,:))  ,(/ 3 /))
+!             FP(1,j, : ) = reshape( matmul(t_a,f_ref (j,:,1,:)),(/ 3 /))
+!             FP(2,j, : ) = reshape( matmul(t_a,f_ref (j,:,2,:)),(/ 3 /))
+!          end do
+!          QP(:,4) = Q_DG(:)%B
          
-         do j = 1,3
-            edge_type =  j
-            do i = 1,_SWE_DG_ORDER+1
-               select case(edge_type)
-               case(1) !right
-                  !                  indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i+2)*(_SWE_DG_ORDER-i+3)/2 +1
-                  indx=_SWE_DG_DOFS-(i+1)*(i)/2 +1
-               case(2) !mid
-                  indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i+2)*(_SWE_DG_ORDER-i+1)/2
-               case(3) !left
-                  indx=i
-               case default
-                  stop
-               end select
-               cell%data_pers%QP(j,  i,:) = QP(indx,:)
-               cell%data_pers%FP(j,1,i,:) = FP(1,indx,:)               
-               cell%data_pers%FP(j,2,i,:) = FP(2,indx,:)
-            end do
-         end do
+!          do j = 1,3
+!             edge_type =  j
+!             do i = 1,_SWE_DG_ORDER+1
+!                select case(edge_type)
+!                case(1) !right
+!                   !                  indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i+2)*(_SWE_DG_ORDER-i+3)/2 +1
+!                   indx=_SWE_DG_DOFS-(i+1)*(i)/2 +1
+!                case(2) !mid
+!                   indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i+2)*(_SWE_DG_ORDER-i+1)/2
+!                case(3) !left
+!                   indx=i
+!                case default
+!                   stop
+!                end select
+!                cell%data_pers%QP(j,  i,:) = QP(indx,:)
+!                cell%data_pers%FP(j,1,i,:) = FP(1,indx,:)               
+!                cell%data_pers%FP(j,2,i,:) = FP(2,indx,:)
+!             end do
+!          end do
 
-#if defined(_DEBUG)
-         do i=1,_SWE_DG_DOFS
-            if(isnan(Q_DG_UPDATE(i,1))) then
-               print*,"nan Q_DG_update"
-               print*,Q_DG_UPDATE
-               print*,"q_i_st"
-               print*,q_i_st
-               exit
-            end if
-         end do
-#endif
-      end if
-    end associate
-    iterations = iteration
-  end subroutine dg_predictor_opt
+! #if defined(_DEBUG)
+!          do i=1,_SWE_DG_DOFS
+!             if(isnan(Q_DG_UPDATE(i,1))) then
+!                print*,"nan Q_DG_update"
+!                print*,Q_DG_UPDATE
+!                print*,"q_i_st"
+!                print*,q_i_st
+!                exit
+!             end if
+!          end do
+! #endif
+!       end if
+!     end associate
+!     iterations = iteration
+!   end subroutine dg_predictor_opt
 
 #endif
   
@@ -946,6 +494,284 @@ function flux_no_grav(q,N)
 
 end function flux_no_grav
 
+function compute_epsilon(q_i_st,q_temp_st) result(epsilon)
+  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3)  :: q_i_st
+  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER,3)    :: q_temp_st
+  real(kind=GRID_SR)                         :: epsilon
+  integer i,j
+  
+  epsilon=0.0_GRID_SR
+  do j=1,_SWE_DG_DOFS
+     do i=1,_SWE_DG_ORDER
+        if(.not.all(q_i_st(j,i+1,:).eq.0)) then
+           epsilon=max(epsilon, &
+                NORM2(q_temp_st(j,i,:)-q_i_st(j,i+1,:)) / &
+                NORM2(q_i_st(j,i+1,:)))
+        else if(.not.all(q_temp_st(j,i,:) .eq. 0)) then
+           epsilon=max(epsilon,1.0_GRID_SR)
+        end if
+     end do
+  end do
+end function compute_epsilon
+
+subroutine initialise_predictor(Q_DG, cell, dt, dtdx, iteration, epsilon, q_0 , q_i_st)
+  type(t_state)        , DIMENSION(_SWE_DG_DOFS),intent(in) :: Q_DG
+  type(t_cell_data_ptr),intent(inout)          :: cell
+  real(kind=GRID_SR),intent(in)                :: dt
+  real(kind=GRID_SR),intent(out),dimension(1)  :: dtdx
+  integer,intent(inout)                        :: iteration
+  real(kind=GRID_SR),intent(inout)             :: epsilon
+  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,3) :: q_0
+  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3)  :: q_i_st
+
+  !local variables
+  real(kind=GRID_SR),Dimension(3)             :: edge_sizes
+  real(kind=GRID_SR)                          :: dx
+  integer :: i
+
+  !--transform Q_DG to tensor--!
+  !--TODO: Should be default representation--!
+  q_0(:,1) = Q_DG%h
+  q_0(:,2) = Q_DG%p(1)
+  q_0(:,3) = Q_DG%p(2)
+  !----!
+
+  !------Guard for negative water height------!
+  if (any(q_0(:,1).le.0)) then
+     cell%data_pers%troubled=PREDICTOR_DIVERGED
+  end if
+  !-------------------------------------------!
+  
+  !--span dofs at t=0 over time basis--!
+  do i=1,_SWE_DG_ORDER+1
+     q_i_st(:,i,:) = q_0
+  end do
+  
+  edge_sizes=cell%geometry%get_edge_sizes()
+  dx=edge_sizes(1)*cfg%scaling
+  dtdx(1) = dt/dx
+  
+  iteration=0
+  epsilon=1.0_GRID_SR
+
+end subroutine initialise_predictor
+
+subroutine compute_sref(s_ref,h,b)
+  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,  2),intent(out) :: s_ref
+  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1),intent(in)      :: h
+  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS),intent(in)                      :: b
+  integer :: i
+  ! s_ref = 0
+  ! do i=1,_SWE_DG_ORDER+1
+  !    s_ref(:,i,2) = ( g * q_i_st(:,i,1)    * matmul(basis_der_x,q_i_st(:,i,1) + Q_DG(:)%B) )
+  !    s_ref(:,i,3) = ( g * q_i_st(:,i,1)    * matmul(basis_der_y,q_i_st(:,i,1) + Q_DG(:)%B) )
+  ! end do
+
+  s_ref = 0
+  do i=1,_SWE_DG_ORDER+1
+     s_ref(:,i,1) = ( g * h(:,i) * matmul(basis_der_x,h(:,i) + b) )
+     s_ref(:,i,2) = ( g * h(:,i) * matmul(basis_der_y,h(:,i) + b) )
+  end do
+end subroutine compute_sref
+
+subroutine compute_fref(f_ref,q_i_st)
+  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,2,3),intent(out) :: f_ref
+  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3),intent(in)    :: q_i_st
+  integer :: i
+  
+  f_ref = 0
+  do i=1,_SWE_DG_ORDER+1
+     f_ref(:,i,:,:) = flux_no_grav(q_i_st(:,i,:),_SWE_DG_DOFS)
+  end do
+  
+#if defined(_DEBUG)
+  do i=1,_SWE_DG_ORDER+1
+     do j=1,_SWE_DG_DOFS
+        if(isnan(f_ref(j,i,1,1)).or.isnan(f_ref(j,i,2,1))) then
+           print*,"fref"
+           print*,f_ref
+           exit
+        end if
+     end do
+  end do
+#endif
+  
+end subroutine compute_fref
+
+subroutine update_predictor(q_temp_st, q_0 , dtdx, s_ref, f_ref, jacobian, jacobian_inv)
+  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER,3),intent(out)     :: q_temp_st
+  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,3),intent(in)                    :: q_0
+  real(kind=GRID_SR),dimension(1),intent(in)                                 :: dtdx
+  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,  2),intent(in)  :: s_ref
+  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,2,3),intent(in)  :: f_ref
+  real(kind=GRID_SR),Dimension(2,2),intent(in)                               :: jacobian
+  real(kind=GRID_SR),Dimension(2,2),intent(in)                               :: jacobian_inv
+
+  
+  !local variables
+  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3)  :: volume_flux
+  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3)  :: source_st
+  integer :: i,j
+
+  volume_flux = 0
+  
+  do i=1,_SWE_DG_ORDER+1
+     volume_flux(:,i,:) = matmul(jacobian_inv(1,1) * s_m_inv_s_k_x_t+&
+                                 jacobian_inv(2,1) * s_m_inv_s_k_y_t, f_ref(:,i,1,:)) +&
+                          matmul(jacobian_inv(1,2) * s_m_inv_s_k_x_t+&
+                                 jacobian_inv(2,2) * s_m_inv_s_k_y_t, f_ref(:,i,2,:))
+  end do
+  
+  do j=1,_SWE_DG_DOFS
+     q_temp_st(j,:,:) = matmul(-t_k_t_11_inv_t_m_1, volume_flux(j,:,:))
+  end do
+
+  !!----- end flux terms -----!!
+  
+  !!------- source terms ------!!
+  
+  !!------------S1-------------!!
+  source_st = 0
+  source_st(:,:,2) = s_ref(:,:,1) * jacobian(1,1) + s_ref(:,:,2) * jacobian(1,2)
+  source_st(:,:,3) = s_ref(:,:,1) * jacobian(2,1) + s_ref(:,:,2) * jacobian(2,2)
+  
+  do j=1,_SWE_DG_DOFS
+     q_temp_st(j,:,:) = q_temp_st(j,:,:) + matmul(t_k_t_11_inv_t_m_1, source_st(j,:,:))
+  end do
+  !!------- end source term -------!!
+  
+  q_temp_st = q_temp_st * dtdx(1)
+  
+  do j=1,_SWE_DG_DOFS                  
+     do i=1,_SWE_DG_ORDER
+        q_temp_st(j,i,:) = q_temp_st(j,i,:) - t_k_t_11_inv_x_t_k_t_10(i,1) * q_0(j,:)
+     end do
+  end do
+  
+end subroutine update_predictor
+
+
+subroutine compute_volume_update(Q_DG_UPDATE, s_ref, f_ref, jacobian,jacobian_inv)
+  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,3)                               :: Q_DG_UPDATE
+  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,  2),intent(in)  :: s_ref
+  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,2,3),intent(in)  :: f_ref
+  real(kind=GRID_SR),Dimension(2,2),intent(in)                               :: jacobian,jacobian_inv
+
+  !local variables
+  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3)   :: source_st, source_ref_st
+  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3)   :: volume_flux
+  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,2,3) :: f
+  integer :: i,j
+
+  volume_flux = 0
+  source_st = 0
+  f = 0
+  
+  !-- Question: is it better to recompte the flux then to store it --!
+  f(:,:,1,:) = jacobian_inv(1,1) * f_ref(:,:,1,:) + jacobian_inv(1,2) * f_ref(:,:,2,:)
+  f(:,:,2,:) = jacobian_inv(2,1) * f_ref(:,:,1,:) + jacobian_inv(2,2) * f_ref(:,:,2,:)
+  
+  do i=1,_SWE_DG_ORDER+1
+     volume_flux(:,i,:) = matmul(s_m_inv, &
+          matmul(s_k_x_s_b_3_s_b_2, f(:,i,1,:)) + &
+          matmul(s_k_y_s_b_1_s_b_2, f(:,i,2,:)))
+  end do
+  
+  do i=1,_SWE_DG_ORDER+1
+     source_ref_st(:,i,2) = matmul(s_m_inv, -matmul(s_m, s_ref(:,i,1)))
+     source_ref_st(:,i,3) = matmul(s_m_inv, -matmul(s_m, s_ref(:,i,2)))
+  end do
+  
+  source_st(:,:,2) = source_ref_st(:,:,2) * jacobian(1,1) + source_ref_st(:,:,3) * jacobian(1,2)
+  source_st(:,:,3) = source_ref_st(:,:,2) * jacobian(2,1) + source_ref_st(:,:,3) * jacobian(2,2)
+  
+#if defined(_DEBUG)
+  do j=1,_SWE_DG_DOFS
+     do i=1,_SWE_DG_ORDER+1
+        if(isnan(volume_flux(j,i,1)).or.isnan(source_st(j,i,1))) then
+           print*,epsilon
+           print*,iteration
+           print*,cell%data_pers%troubled
+           print*,"vol"
+           print*,volume_flux
+           print*,"src"
+           print*,source_st
+           exit
+        end if
+     end do
+  end do
+#endif
+  
+  volume_flux = volume_flux + source_st
+  do j = 1,_SWE_DG_DOFS
+     Q_DG_UPDATE(j,:) = reshape(matmul(t_a,volume_flux(j,:,:)),(/ 3 /))
+  end do
+
+#if defined(_DEBUG)
+         do i=1,_SWE_DG_DOFS
+            if(isnan(Q_DG_UPDATE(i,1))) then
+               print*,"nan Q_DG_update"
+               print*,Q_DG_UPDATE
+               print*,"q_i_st"
+               print*,q_i_st
+               exit
+            end if
+         end do
+#endif
+
+  !!------------------------------!!  
+end subroutine compute_volume_update
+
+
+subroutine initialise_riemann_arguments(cell, q_i_st, Q_DG)
+  type(t_cell_data_ptr),intent(inout)                                     :: cell
+  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3),intent(in) :: q_i_st
+  type(t_state), DIMENSION(_SWE_DG_DOFS),intent(in)                       :: Q_DG
+  
+  !local variables
+  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,2,3)  :: f_ref
+  real(kind=GRID_SR), DIMENSION(2,_SWE_DG_DOFS,3)  :: FP
+  real(kind=GRID_SR), DIMENSION(  _SWE_DG_DOFS,4)  :: QP
+  integer :: i,j,indx,edge_type 
+
+  FP = 0
+  QP = 0
+  f_ref = 0
+  
+  !!---- set values for riemannsolve and project on edges----!!
+  if(isDG(cell%data_pers%troubled)) then
+     do i=1,_SWE_DG_ORDER+1
+        f_ref(:,i,:,:) = flux(q_i_st(:,i,:),_SWE_DG_DOFS)
+     end do
+  endif
+  
+  do j = 1,_SWE_DG_DOFS
+     QP(  j,1:3) = reshape( matmul(t_a,q_i_st(j,:,:))  ,(/ 3 /))
+     FP(1,j, : ) = reshape( matmul(t_a,f_ref (j,:,1,:)),(/ 3 /))
+     FP(2,j, : ) = reshape( matmul(t_a,f_ref (j,:,2,:)),(/ 3 /))
+  end do
+  QP(:,4) = Q_DG(:)%B
+
+  do j = 1,3
+     edge_type =  j
+     do i = 1,_SWE_DG_ORDER+1
+        select case(edge_type)
+        case(1) !right
+           indx=_SWE_DG_DOFS-(i+1)*(i)/2 +1
+        case(2) !mid
+           indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i+2)*(_SWE_DG_ORDER-i+1)/2
+        case(3) !left
+           indx=i
+        case default
+           stop
+        end select
+        cell%data_pers%QP(j,  i,:) = QP(indx,:)
+        cell%data_pers%FP(j,1,i,:) = FP(1,indx,:)               
+        cell%data_pers%FP(j,2,i,:) = FP(2,indx,:)
+     end do
+  end do
+end subroutine initialise_riemann_arguments
+  
 END MODULE SWE_DG_predictor
 
 #endif

@@ -9,7 +9,7 @@ module yateto_interface
     real(c_double),dimension(_SWE_DG_DOFS,_SWE_DG_ORDER  ,3)   :: P
     real(c_double),dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,2,3) :: F
     real(c_double),dimension(_SWE_DG_DOFS,3)                   :: Q0
-    real(c_double),dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3)   :: S
+    real(c_double),dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,2)   :: S
     real(c_double),dimension(1)   :: dtdx    
     integer(C_INT),value :: i0
   end subroutine yateto_predictor_execute

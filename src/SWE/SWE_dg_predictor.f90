@@ -560,18 +560,49 @@ subroutine compute_sref(s_ref,h,b)
   real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,  2),intent(out) :: s_ref
   real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1),intent(in)      :: h
   real(kind=GRID_SR),Dimension(_SWE_DG_DOFS),intent(in)                      :: b
+  !local variables
   integer :: i
-  ! s_ref = 0
-  ! do i=1,_SWE_DG_ORDER+1
-  !    s_ref(:,i,2) = ( g * q_i_st(:,i,1)    * matmul(basis_der_x,q_i_st(:,i,1) + Q_DG(:)%B) )
-  !    s_ref(:,i,3) = ( g * q_i_st(:,i,1)    * matmul(basis_der_y,q_i_st(:,i,1) + Q_DG(:)%B) )
-  ! end do
 
+#if defined(_OPT_KERNELS)  
+  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS, _SWE_DG_ORDER+1, 2) :: h2
+  real(kind=GRID_SR),Dimension(_SWE_DG_DOFS, _SWE_DG_ORDER+1)    :: w
+#endif
+  
   s_ref = 0
+  
+#if defined(_OPT_KERNELS)  
   do i=1,_SWE_DG_ORDER+1
-     s_ref(:,i,1) = ( g * h(:,i) * matmul(basis_der_x,h(:,i) + b) )
-     s_ref(:,i,2) = ( g * h(:,i) * matmul(basis_der_y,h(:,i) + b) )
+     w(:,i) = h(:,i) + b
   end do
+  
+  h2(:,:,1) = g*h(:,:)
+  h2(:,:,2) = g*h(:,:)
+
+  call yateto_compute_source_execute(s_ref, h2 , w)
+
+  ! do i=1,_SWE_DG_ORDER+1
+  !    s_ref2(:,i,1) = ( g * h(:,i) * matmul(basis_der_x,h(:,i) + b) )
+  !    s_ref2(:,i,2) = ( g * h(:,i) * matmul(basis_der_y,h(:,i) + b) )
+  ! end do
+  
+  ! if(any(abs(s_ref-s_ref2) > 10.0e-10))then
+  !    print*,"s_ref"
+  !    print*,s_ref
+  !    print*,"s_ref2"
+  !    print*,s_ref2
+  !    stop
+  ! endif
+
+#else  
+
+  do i=1,_SWE_DG_ORDER+1
+     s_ref2(:,i,1) = ( g * h(:,i) * matmul(basis_der_x,h(:,i) + b) )
+     s_ref2(:,i,2) = ( g * h(:,i) * matmul(basis_der_y,h(:,i) + b) )
+  end do
+  
+#endif
+
+  
 end subroutine compute_sref
 
 subroutine compute_fref(f_ref,q_i_st)

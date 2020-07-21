@@ -22,7 +22,11 @@ class SourceGenerator():
         Dx = Tensor('Dx', (SWE_DG_DOFS, SWE_DG_DOFS, 2) )
         S2 = Tensor('S2', (SWE_DG_DOFS, SWE_DG_ORDER+1, 2) )
 
-        source = S2["lJm"] <= H["lJm"] + Dx["jlm"] * W["jJ"]
+        db_t = parseJSONTensorFile('{}/tensor_{}.json'.format(self.matrixDir,self.order),
+                                   {}, alignStride=(lambda name: True), transpose=(lambda x: False))
+
+
+        source = S2["lJm"] <= H["lJm"] * db_t.Dx["jlm"] * W["jJ"]
 
         g.add("compute_source",  source)    
 

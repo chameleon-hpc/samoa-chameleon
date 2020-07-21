@@ -596,8 +596,8 @@ subroutine compute_sref(s_ref,h,b)
 #else  
 
   do i=1,_SWE_DG_ORDER+1
-     s_ref2(:,i,1) = ( g * h(:,i) * matmul(basis_der_x,h(:,i) + b) )
-     s_ref2(:,i,2) = ( g * h(:,i) * matmul(basis_der_y,h(:,i) + b) )
+     s_ref(:,i,1) = ( g * h(:,i) * matmul(basis_der_x,h(:,i) + b) )
+     s_ref(:,i,2) = ( g * h(:,i) * matmul(basis_der_y,h(:,i) + b) )
   end do
   
 #endif

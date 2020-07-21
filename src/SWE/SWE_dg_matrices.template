@@ -64,6 +64,9 @@ MODULE SWE_dg_matrices
 #include "dg_matrices/coarsen1_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/coarsen2_SWE_DG_ORDER_TAG.incl"
 
+#include "dg_matrices/jacobian.incl"
+#include "dg_matrices/jacobian_inv.incl"
+
 real(kind=GRID_SR), Parameter :: s_m_inv_s_k_x_t   (_SWE_DG_DOFS,_SWE_DG_DOFS)     = matmul(s_m_inv,transpose(s_k_x))
 real(kind=GRID_SR), Parameter :: s_m_inv_s_k_y_t   (_SWE_DG_DOFS,_SWE_DG_DOFS)     = matmul(s_m_inv,transpose(s_k_y))
 real(kind=GRID_SR), Parameter :: t_k_t_11_inv_t_m_1(_SWE_DG_ORDER,_SWE_DG_ORDER+1) = matmul(t_k_t_11_inv,t_m_1)

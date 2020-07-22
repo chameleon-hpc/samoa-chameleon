@@ -26,7 +26,7 @@ class SourceGenerator():
                                    {}, alignStride=(lambda name: True), transpose=(lambda x: False))
 
 
-        source = S2["lJm"] <= H["lJm"] * db_t.Dx["jlm"] * W["jJ"]
+        source = S2["lJm"] <= H["lJm"] * db_t.Dx["ljm"] * W["jJ"]
 
         g.add("compute_source",  source)    
 

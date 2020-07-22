@@ -20,7 +20,7 @@ sys.path.append(cmdLineArgs.yateto)
 from yateto import *
 from yateto.ast.visitor import PrettyPrinter, FindTensors, PrintEquivalentSparsityPatterns
 from yateto.codegen.code import Cpp
-from predictor import PredictorGenerator, SourceGenerator
+from predictor import PredictorGenerator, SourceGenerator, VolumeUpdateGenerator
 
 arch = useArchitectureIdentifiedBy(cmdLineArgs.arch)
 
@@ -31,6 +31,10 @@ predictor.add(g)
 
 source = SourceGenerator(cmdLineArgs.order,cmdLineArgs.matrixDir)
 source.add(g)
+
+volume = VolumeUpdateGenerator(cmdLineArgs.order,cmdLineArgs.matrixDir)
+volume.add(g)
+
 
 gemm_cfg = predictor.gemm_cfg(arch)
 g.generate(outputDir=cmdLineArgs.outputDir, gemm_cfg=gemm_cfg)

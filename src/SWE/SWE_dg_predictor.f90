@@ -81,6 +81,7 @@ MODULE SWE_DG_predictor
     !--local variables--!
     integer                                    :: iteration
     real(kind=GRID_SR)                         :: epsilon
+    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,3) :: Q_DG_UPDATE2
 
 
     associate(Q_DG        => element%cell%data_pers%Q,&
@@ -150,7 +151,12 @@ MODULE SWE_DG_predictor
       end do
 
       if(.not.(cell%data_pers%troubled.eq.PREDICTOR_DIVERGED)) then
-         call compute_volume_update(Q_DG_UPDATE,s_ref,f_ref,cell_type)
+#if defined(_OPT_KERNELS)
+         call yateto_volume_execute(Q_DG_UPDATE, f_ref, s_ref, cell_type - 1)
+#else
+         call compute_volume_update(Q_DG_UPDATE, s_ref, f_ref, cell_type)
+#endif         
+
          call initialise_riemann_arguments(cell,q_i_st,Q_DG)
 
       end if
@@ -498,13 +504,10 @@ subroutine compute_volume_update(Q_DG_UPDATE, s_ref, f_ref, cell_type)
        matmul(s_k_x_s_b_3_s_b_2, f(:,1,:)) + &
        matmul(s_k_y_s_b_1_s_b_2, f(:,2,:)))
   
-  source_ref_st(:,2) = matmul(s_m_inv, -matmul(s_m, s_ref_a(:,1)))
-  source_ref_st(:,3) = matmul(s_m_inv, -matmul(s_m, s_ref_a(:,2)))
-  
-  source_st(:,2) = source_ref_st(:,2) * jacobian(1,1,cell_type) +&
-                   source_ref_st(:,3) * jacobian(1,2,cell_type)
-  source_st(:,3) = source_ref_st(:,2) * jacobian(2,1,cell_type) +&
-                   source_ref_st(:,3) * jacobian(2,2,cell_type)
+  source_st(:,2) = -s_ref_a(:,1) * jacobian(1,1,cell_type)&
+                   -s_ref_a(:,2) * jacobian(1,2,cell_type)
+  source_st(:,3) = -s_ref_a(:,1) * jacobian(2,1,cell_type)&
+                   -s_ref_a(:,2) * jacobian(2,2,cell_type)
   
 #if defined(_DEBUG)
   do j=1,_SWE_DG_DOFS

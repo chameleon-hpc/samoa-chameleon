@@ -20,6 +20,15 @@ module yateto_interface
        real(c_double),dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,2) :: H
        real(c_double),dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1)   :: W
      end subroutine yateto_compute_source_execute
+
+
+     subroutine yateto_volume_execute(U, F, S, i0)  bind(C, name="yateto_volume_execute")
+       use iso_c_binding
+       real(c_double),dimension(_SWE_DG_DOFS,3)                   :: U
+       real(c_double),dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,2,3) :: F
+       real(c_double),dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,2)   :: S
+       integer(c_int),value :: i0
+     end subroutine yateto_volume_execute
   end interface
   
 end module yateto_interface

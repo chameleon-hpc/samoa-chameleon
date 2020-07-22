@@ -4,6 +4,41 @@ from yateto.input import parseJSONMatrixFile, parseJSONTensorFile
 from yateto import *
 from math import sqrt
 
+
+
+class VolumeUpdateGenerator():
+    def __init__(self,order,matrixDir):
+        self.order = int(order)
+        self.matrixDir = matrixDir
+        
+    def gemm_cfg(self,arch):
+        return GeneratorCollection([LIBXSMM(arch), MKL(arch)])
+
+
+    def add(self,g):
+        SWE_DG_ORDER = self.order
+        SWE_DG_DOFS = (SWE_DG_ORDER+1)*(SWE_DG_ORDER+2)//2
+
+        F     = Tensor('F' , (SWE_DG_DOFS, SWE_DG_ORDER+1, 2, 3) )
+        S     = Tensor('S' , (SWE_DG_DOFS, SWE_DG_ORDER+1, 2) )
+        U     = Tensor('U' , (SWE_DG_DOFS, 3) )
+
+#        s_k_s_b_J_inv  = Tensor('s_k_s_b_J_inv' , (SWE_DG_DOFS, SWE_DG_DOFS , 2) )
+#        t_a  = Tensor('t_a' , (SWE_DG_ORDER+1,) )
+
+        db_m = parseJSONMatrixFile('{}/matrices_{}.json'.format(self.matrixDir,self.order),
+                                   {}, alignStride=(lambda name: True),transpose=(lambda x : False))
+        db_t = parseJSONTensorFile('{}/tensor_{}.json'.format(self.matrixDir,self.order),
+                                   {}, alignStride=(lambda name: True),transpose=(lambda x : False))
+
+
+        def volume_generator(i):
+            return U["lq"] <= db_t.s_k_s_b_J_inv[i]["ljd"] * db_m.t_a["J"] * F["jJdq"] -\
+                                          db_m.J[i]["mq"]  * db_m.t_a["J"] * S["lJm"]
+        
+        g.addFamily('volume', simpleParameterSpace(8),volume_generator)
+            
+
 class SourceGenerator():
     def __init__(self,order,matrixDir):
         self.order = int(order)
@@ -58,7 +93,7 @@ class PredictorGenerator():
         def transpose(name):
             dict_t = { "t_k_t_11_inv_t_m_1" : True}
             
-            for mat in ["J","s_m_inv_s_k_J_inv"]:
+            for mat in ["s_m_inv_s_k_J_inv"]:
                 for n in ["{}({})".format(mat,i) for i in range(0,8)]:
                     dict_t[n] = True
             

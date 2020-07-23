@@ -75,7 +75,7 @@ MODULE SWE_DG_predictor
     real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER,3) :: q_temp_st2
     
     integer                                    :: cell_type
-    integer                                    :: i
+    integer                                    :: i,j
     real(kind=GRID_SR),Dimension(1)            :: dtdx
     
     !--local variables--!
@@ -152,9 +152,6 @@ MODULE SWE_DG_predictor
 
       if(.not.(cell%data_pers%troubled.eq.PREDICTOR_DIVERGED)) then
 #if defined(_OPT_KERNELS)
-         print*,f_ref
-         print*,s_ref
-         print*,cell_type
          call yateto_volume_execute(Q_DG_UPDATE, f_ref, s_ref, cell_type - 1)
 #else
          call compute_volume_update(Q_DG_UPDATE, s_ref, f_ref, cell_type)
@@ -365,7 +362,7 @@ subroutine compute_sref(s_ref,h,b)
      do j=1,_SWE_DG_ORDER+1
         !$omp simd
         do k=1,_SWE_DG_DOFS
-           s_ref(k,j,i) = h(k,j)*s_ref(k,j,i)
+           s_ref(k,j,i) = g* h(k,j)*s_ref(k,j,i)
         end do
      end do
   end do
@@ -385,7 +382,7 @@ end subroutine compute_sref
 subroutine compute_fref(f_ref,q_i_st)
   real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,2,3),intent(out) :: f_ref
   real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3),intent(in)    :: q_i_st
-  integer :: i
+  integer :: i,j
   
   f_ref = 0
   do i=1,_SWE_DG_ORDER+1
@@ -502,34 +499,17 @@ subroutine compute_volume_update(Q_DG_UPDATE, s_ref, f_ref, cell_type)
   
 #if defined(_DEBUG)
   do j=1,_SWE_DG_DOFS
-     do i=1,_SWE_DG_ORDER+1
-        if(isnan(volume_flux(j,i,1)).or.isnan(source_st(j,i,1))) then
-           print*,epsilon
-           print*,iteration
-           print*,cell%data_pers%troubled
-           print*,"vol"
-           print*,volume_flux
-           print*,"src"
-           print*,source_st
-           exit
-        end if
-     end do
+     if(isnan(volume_flux(j,1)).or.isnan(source_st(j,1))) then
+        print*,"vol"
+        print*,volume_flux
+        print*,"src"
+        print*,source_st
+        exit
+     end if
   end do
 #endif
   
   Q_DG_UPDATE = volume_flux + source_st
-
-#if defined(_DEBUG)
-         do i=1,_SWE_DG_DOFS
-            if(isnan(Q_DG_UPDATE(i,1))) then
-               print*,"nan Q_DG_update"
-               print*,Q_DG_UPDATE
-               print*,"q_i_st"
-               print*,q_i_st
-               exit
-            end if
-         end do
-#endif
 
   !!------------------------------!!  
 end subroutine compute_volume_update

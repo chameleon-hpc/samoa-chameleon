@@ -345,14 +345,17 @@ if env["yateto"]:
     env['F90FLAGS'] += ' -D_OPT_KERNELS'
     if env['arch'] == "dsnb":
       env.Append(CXXFLAGS=["-mavx","-DALIGNMENT=32"])
-      env.Append(F90LFAGS=['-align', 'array32byte'])
+      #env.Append(F90FLAGS=["-align", "array32byte"])
+      env["F90FLAGS"] += " -align array32byte"
     if env['arch'] == "dhsw":
       env.Append(CXXFLAGS=['-xCORE-AVX2', '-fma',"-DALIGNMENT=32"])
-      env.Append(F90LFAGS=['-align', 'array32byte'])
+      env["F90FLAGS"] += " -align array32byte"
+      #env.Append(F90FLAGS=["-align", "array32byte"])
     if env['arch'] == "dskx":
       env.Append(CXXFLAGS=['-xCORE-AVX2', '-fma',"-DALIGNMENT=64"])
-      env.Append(F90LFAGS=['-align', 'array64byte'])
-
+      env["F90FLAGS"] += " -align array64byte"
+      #env.Append(F90LFAGS=['-align', 'array64byte'])
+print(env)
  
 #Choose a flux solver
 if env['flux_solver'] == 'upwind':

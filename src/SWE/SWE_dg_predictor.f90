@@ -67,12 +67,22 @@ MODULE SWE_DG_predictor
     !local variables
     real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,3) :: q_0
     real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3)  :: q_i_st
-    
+
     real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,2,3) :: f_ref
     real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,  2) :: s_ref
     
     real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER,3) :: q_temp_st
-    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER,3) :: q_temp_st2
+    real(kind=GRID_SR)   , DIMENSION(_SWE_DG_DOFS,3)           :: q_dg_update_t
+
+#if defined(_OPT_KERNELS)
+    !dir$ attributes align:ALIGNMENT :: q_0
+    !dir$ attributes align:ALIGNMENT :: q_i_st
+    !dir$ attributes align:ALIGNMENT :: f_ref
+    !dir$ attributes align:ALIGNMENT :: s_ref
+    !dir$ attributes align:ALIGNMENT :: q_temp_st
+    !dir$ attributes align:ALIGNMENT :: dtdx
+    !dir$ attributes align:ALIGNMENT :: q_dg_update_t
+#endif    
     
     integer                                    :: cell_type
     integer                                    :: i,j
@@ -81,7 +91,6 @@ MODULE SWE_DG_predictor
     !--local variables--!
     integer                                    :: iteration
     real(kind=GRID_SR)                         :: epsilon
-    real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,3) :: Q_DG_UPDATE2
 
 
     associate(Q_DG        => element%cell%data_pers%Q,&
@@ -152,7 +161,8 @@ MODULE SWE_DG_predictor
 
       if(.not.(cell%data_pers%troubled.eq.PREDICTOR_DIVERGED)) then
 #if defined(_OPT_KERNELS)
-         call yateto_volume_execute(Q_DG_UPDATE, f_ref, s_ref, cell_type - 1)
+         call yateto_volume_execute(q_dg_update_t, f_ref, s_ref, cell_type - 1)
+         Q_DG_UPDATE = q_dg_update_t
 #else
          call compute_volume_update(Q_DG_UPDATE, s_ref, f_ref, cell_type)
 #endif         
@@ -343,9 +353,10 @@ subroutine compute_sref(s_ref,h,b)
   !local variables
   integer :: i,j,k
 
-#if defined(_OPT_KERNELS)  
+#if defined(_OPT_KERNELS)
   real(kind=GRID_SR),Dimension(_SWE_DG_DOFS, _SWE_DG_ORDER+1, 2) :: h2
   real(kind=GRID_SR),Dimension(_SWE_DG_DOFS, _SWE_DG_ORDER+1)    :: w
+  !dir$ attributes align:32 :: w
 #endif
   
   s_ref = 0

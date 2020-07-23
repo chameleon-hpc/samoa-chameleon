@@ -21,10 +21,7 @@ class VolumeUpdateGenerator():
 
         F     = Tensor('F' , (SWE_DG_DOFS, SWE_DG_ORDER+1, 2, 3) )
         S     = Tensor('S' , (SWE_DG_DOFS, SWE_DG_ORDER+1, 2) )
-        U     = Tensor('U' , (SWE_DG_DOFS, 3) )
-
-#        s_k_s_b_J_inv  = Tensor('s_k_s_b_J_inv' , (SWE_DG_DOFS, SWE_DG_DOFS , 2) )
-#        t_a  = Tensor('t_a' , (SWE_DG_ORDER+1,) )
+        U     = Tensor('U' , (SWE_DG_DOFS, 3) ,alignStride=False)
 
         db_m = parseJSONMatrixFile('{}/matrices_{}.json'.format(self.matrixDir,self.order),
                                    {}, alignStride=(lambda name: True),transpose=(lambda x : False))

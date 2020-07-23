@@ -14,10 +14,9 @@ module yateto_interface
        integer(c_int),value :: i0
      end subroutine yateto_predictor_execute
 
-     subroutine yateto_compute_source_execute(S2, H ,W)  bind(C, name="yateto_compute_source_execute")
+     subroutine yateto_compute_source_execute(S2, W)  bind(C, name="yateto_compute_source_execute")
        use iso_c_binding
        real(c_double),dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,2) :: S2
-       real(c_double),dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,2) :: H
        real(c_double),dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1)   :: W
      end subroutine yateto_compute_source_execute
 

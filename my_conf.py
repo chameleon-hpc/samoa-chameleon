@@ -1,6 +1,5 @@
 scenario='swe'
-swe_dg_order='2'
-
+swe_dg_order='4'
 #swe_patch_order=''
 #swe_scenario='asagi'
 #swe_scenario='splashing_pool'
@@ -16,7 +15,6 @@ dg_limiter='all'
 flux_solver='aug_riemann'
 flux_time_averaging=True
 #flux_solver='fwave'
-exe="samoa_"+swe_dg_order+"_"+dg_limiter
 compiler='intel'
 asagi='false'
 mpi='nompi'
@@ -30,6 +28,7 @@ chameleon=0
 #netcdf_dir='/dss/dsshome1/02/di57zoh3/xdmf_install/intel/parallel'
 
 #openmp="notasks"
-yateto=True
+yateto=False
+exe="samoa_"+swe_dg_order+"_"+dg_limiter+"_"+str(yateto)
 arch="dsnb"
-yateto_dir="/home/leo/Documents/yateto/yateto"
+yateto_dir="/home/rannabau/Documents/yateto/"

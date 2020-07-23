@@ -4,7 +4,7 @@ export LC_NUMERIC="en_US.UTF-8"
 
 
 #mkdir output
-export OMP_NUM_THREADS=8
+export OMP_NUM_THREADS=1
 
 periods=1
 
@@ -15,14 +15,18 @@ t_max=1.0
 
 i_min=10
 i_max=10
-order=2
+order=4
 output=output/output_${order}_all_$i_max
 
-rm -r $output
-mkdir $output
+rm -rf ${output}_1
+rm -rf ${output}_2
+
+mkdir ${output}_1
+mkdir ${output}_2
 
 
-bin/samoa_${order}_all -tmax $t_max -dmin $i_min -dmax $i_max -tout 0.01 -output_dir $output -drytolerance 0.000001 -dry_dg_guard 0.01 -coastheight -0.025 -xmlpointoutput -sections 1 -max_picard_iterations 20 -max_picard_error 10.0d-12 -limiter_buffer 0.1d0 -courant 0.05
+bin/samoa_${order}_all_True -nmax 10 -dmin $i_min -dmax $i_max -tout 0.01 -output_dir ${output}_1 -drytolerance 0.000001 -dry_dg_guard 0.01 -coastheight -0.025 -xmlpointoutput -sections 1 -max_picard_iterations 20 -max_picard_error 10.0d-12 -limiter_buffer 0.1d0 -courant 0.05
+bin/samoa_${order}_all_False -nmax 10 -dmin $i_min -dmax $i_max -tout 0.01 -output_dir ${output}_2 -drytolerance 0.000001 -dry_dg_guard 0.01 -coastheight -0.025 -xmlpointoutput -sections 1 -max_picard_iterations 20 -max_picard_error 10.0d-12 -limiter_buffer 0.1d0 -courant 0.05
 
 #bin/samoa_${order}_all -tmax $t_max -dmin $i_min -dmax $i_max -drytolerance 0.000001 -dry_dg_guard 0.01 -coastheight -0.025 -sections 1 -max_picard_iterations 20 -max_picard_error 10.0d-12 -limiter_buffer 0.1d0 -courant 0.05
 

@@ -33,8 +33,8 @@ class VolumeUpdateGenerator():
 
 
         def volume_generator(i):
-            return U["lq"] <= db_t.s_k_s_b_J_inv[i]["ljd"] * db_m.t_a["J"] * F["jJdq"] -\
-                                          db_m.J[i]["mq"]  * db_m.t_a["J"] * S["lJm"]
+            return U["lq"] <= db_t.s_k_s_b_J_inv[i]["ljd"] * db_m.t_a["J"]   * F["jJdq"] +\
+                                          db_m.J[i]["mq"]  * db_m.n_t_a["J"] * S["lJm"]
         
         g.addFamily('volume', simpleParameterSpace(8),volume_generator)
             
@@ -52,7 +52,6 @@ class SourceGenerator():
         SWE_DG_ORDER = self.order
         SWE_DG_DOFS = (SWE_DG_ORDER+1)*(SWE_DG_ORDER+2)//2
         
-        H  = Tensor('H',  (SWE_DG_DOFS, SWE_DG_ORDER+1, 2) )
         W  = Tensor('W',  (SWE_DG_DOFS, SWE_DG_ORDER+1) )
         Dx = Tensor('Dx', (SWE_DG_DOFS, SWE_DG_DOFS, 2) )
         S2 = Tensor('S2', (SWE_DG_DOFS, SWE_DG_ORDER+1, 2) )
@@ -61,7 +60,7 @@ class SourceGenerator():
                                    {}, alignStride=(lambda name: True), transpose=(lambda x: False))
 
 
-        source = S2["lJm"] <= H["lJm"] * db_t.Dx["ljm"] * W["jJ"]
+        source = S2["lJm"] <= db_t.Dx["ljm"] * W["jJ"]
 
         g.add("compute_source",  source)    
 
@@ -93,9 +92,9 @@ class PredictorGenerator():
         def transpose(name):
             dict_t = { "t_k_t_11_inv_t_m_1" : True}
             
-            for mat in ["s_m_inv_s_k_J_inv"]:
-                for n in ["{}({})".format(mat,i) for i in range(0,8)]:
-                    dict_t[n] = True
+#            for mat in ["s_m_inv_s_k_J_inv"]:
+#                for n in ["{}({})".format(mat,i) for i in range(0,8)]:
+#                    dict_t[n] = True
             
             return dict_t[name] if name in dict_t else False
 
@@ -109,8 +108,8 @@ class PredictorGenerator():
         def predictor_generator(i):
             return P["lLq"] <= dtdx[""] *\
                 ( db_m.t_k_t_11_inv_t_m_1["JL"] * db_m.J[i]["mq"]                  * S ["lJm"]   +\
-                  db_m.t_k_t_11_inv_t_m_1["JL"] * db_t.s_m_inv_s_k_J_inv[i]["jbl"] * F ["jJbq"]) -\
-                db_m.t_k_t_11_inv_x_t_k_t_10["L"] * Q0["lq"]    
+                  db_m.t_k_t_11_inv_t_m_1["JL"] * db_t.s_m_inv_s_k_J_inv[i]["lbj"] * F ["jJbq"]) +\
+                  db_m.n_t_k_t_11_inv_x_t_k_t_10["L"] * Q0["lq"]    
 
         g.addFamily('predictor', simpleParameterSpace(8),predictor_generator)
 

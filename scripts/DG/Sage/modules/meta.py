@@ -1,4 +1,38 @@
 from sage.calculus.integration import numerical_integral
+from sage.parallel.decorate import parallel
+from numpy.polynomial.legendre import leggauss
+
+class gl_rule:    
+    def __init__(self,order,a1=0,b1=1,a2=0,b2=1,c=-1):
+        quad_node_1d,quad_weight_1d = leggauss(order)
+        quad_node_1d   = [ (x+1.0)/2.0 for x in quad_node_1d]
+        quad_weight_1d = [ w/2.0       for w in quad_weight_1d]
+
+        self.quad_rule = []
+
+        quad_node_1d_scale_x   = list(map(lambda x: x * (b1-a1), quad_node_1d))
+        quad_weight_1d_scale_x = list(map(lambda w: w * (b1-a1), quad_weight_1d))
+        
+        for i in range(len(quad_node_1d)):
+            x = quad_node_1d_scale_x[i] + a1
+            w_x = quad_weight_1d_scale_x[i]
+
+            dy = ( (1-c)/2.0 + c*(x - a1)/(b1 - a1))*(b2 - a2)
+            self.quad_rule.extend(zip([(x, y * dy + a2) for y in quad_node_1d],
+                                      [(w_x * w_y * dy) for w_y in quad_weight_1d]))
+    
+    def quad(self,func):
+        quad_sum = 0
+        for c,w in self.quad_rule:
+            quad_sum = quad_sum + func(x=c[0], y=c[1]) * w
+    
+        return quad_sum
+
+    
+@parallel('multiprocessing',8)
+def numerical_integral_2d_arr(i,func,r):
+    #print(r.quad(func))
+    return r.quad(func)
 
 def dimMapping(order):
     mapping = { 1                      : str(1), 

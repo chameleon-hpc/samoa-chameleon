@@ -197,21 +197,30 @@ def generate_ref(basis,side):
     N = len(basis)
 
     s_m_trafo = Matrix([[0.0]*N]*N)
+
+    #old    
+    #for i in range(N):
+    #for j in range(N):
+    #s_m_trafo[i,j] = numerical_integral_2d(simplify(basis[i]*basis_trafo[j]))
+
     for i in range(N):
-        for j in range(N):
-            s_m_trafo[i,j] = numerical_integral_2d(simplify(basis[i]*basis_trafo[j]))
+        bases_arr = list(zip(range(N),[ simplify(basis[i]*basis_trafo[l]) for l in range(N)],[ gl_rule(N) for k in range(N)]))
+        s_m_trafo_lst = sorted(list(numerical_integral_2d_arr(bases_arr)))
+        s_m_trafo_i = map(lambda x : x[1], s_m_trafo_lst)
+        s_m_trafo[i,:] = vector(s_m_trafo_i)
+
     return s_m_trafo
 
 def generate_coarse(basis,side):
     #s_m = generate_s_m(basis)
     if(side == "l"):   #L
-        trafo_a = [-(x - 0.5) + (y - 0.5),
-                   -(x - 0.5) - (y - 0.5)]
-        trafo_b = [x,y]
-    elif(side == "r"): #R
-        trafo_a = [-(y - 0.5) - (x - 0.5),
-                   +(y - 0.5) - (x - 0.5)]
+        trafo_a = [-(y - 0.5) + (x - 0.5),
+                   -(y - 0.5) - (x - 0.5)]
         trafo_b = [y,x]
+    elif(side == "r"): #R
+        trafo_a = [-(x - 0.5) - (y - 0.5),
+                   +(x - 0.5) - (y - 0.5)]
+        trafo_b = [x,y]
 
     basis_trafo_a = [b(x=trafo_a[0], y=trafo_a[1]) for b in basis]
     basis_trafo_b = [b(x=trafo_b[0], y=trafo_b[1]) for b in basis]
@@ -219,24 +228,32 @@ def generate_coarse(basis,side):
     N = len(basis)
     threads = 8
 
-    s_m_trafo = Matrix([[0.0]*N]*N)
+    s_m_trafo_l = Matrix([[0.0]*N]*N)
+    s_m_trafo_r = Matrix([[0.0]*N]*N)
 
-    def compute_integral(j):
-        return numerical_integral_2d(simplify(basis_trafo_b[i]*basis_trafo_a[j]),0,0.5,0,0,1) +\
-            numerical_integral_2d(simplify(basis_trafo_b[i]*basis_trafo_a[j]),0.5,1,0,1,-1)
-    columns = range(N)
-    
     for i in range(N):
-        print(i)
-        row_i = parallel_iter(threads,compute_integral(j), columns)
+        bases_arr_l = list(zip(range(N),
+                               [ simplify(basis_trafo_b[i]*basis_trafo_a[l]) for l in range(N)],
+                               [ gl_rule(N,0.0,0.5,0.0,0.5,1) for k in range(N)]))
         
-        s_m_trafo[i,:]   = row_i
+        s_m_trafo_lst = sorted(list(numerical_integral_2d_arr(bases_arr_l)))
+        s_m_trafo_i = map(lambda x : x[1], s_m_trafo_lst)
+        s_m_trafo_l[i,:] = vector(RR,s_m_trafo_i)
 
 
-            #s_m_trafo[i,j+N] = numerical_integral_2d(simplify(basis[i]*basis_trafo[j]),0,0.5,0,0,1) + 
-            #                   numerical_integral_2d(simplify(basis[i]*basis_trafo[j]),0.5,1,0,1,-1)
+        bases_arr_r = list(zip(range(N),
+                               [ simplify(basis_trafo_b[i]*basis_trafo_a[l]) for l in range(N)],
+                               [ gl_rule(N,0.5,1.0,0.0,0.5,-1) for k in range(N)]))
+                           
+        s_m_trafo_lst = sorted(list(numerical_integral_2d_arr(bases_arr_r)))
+        s_m_trafo_i = list(map(lambda x : x[1], s_m_trafo_lst))
+        s_m_trafo_r[i,:] = vector(RR,s_m_trafo_i)
 
-    return s_m_trafo
+        #old
+        #s_m_trafo[i,j+N] = numerical_integral_2d(simplify(basis[i]*basis_trafo[j]),0,0.5,0,0,1) + 
+        # numerical_integral_2d(simplify(basis[i]*basis_trafo[j]),0.5,1,0,1,-1)
+
+    return s_m_trafo_l + s_m_trafo_r
 
 
 

@@ -10,6 +10,7 @@ MODULE SWE_DG_solver
   use SFC_edge_traversal
   !use SWE_euler_timestep
   use Samoa_swe
+  use SWE_Riemann_solver_wrapper
   use c_bind_riemannsolvers
 
 
@@ -214,9 +215,9 @@ subroutine general_dg_riemannsolver(edge,rep1,rep2,update1,update2)
   FR = rep2%FP
 
 
-  ! print*,"general riemann"
-  ! print*,rep1%QP
-  ! print*,rep2%QP
+  ! !print*,"general riemann"
+  ! !print*,rep1%QP
+  ! !print*,rep2%QP
   
   !---- Dofs for hypothenuse need to be permuted ----!
   ! if(edge%transform_data%index.eq.2) then
@@ -282,45 +283,45 @@ if(isDG(rep1%troubled) .and. isDG(rep2%troubled)) then
    end do
    
    call general_dg_riemannsolver(edge,rep1,rep2_rev,update1,update2_rev)
-   ! print*
-   ! print*,edge%transform_data%normal
-   ! print*,"Q1"
-   ! print*,rep1%troubled
-   ! print*,rep1%QP(:,1)
-   ! print*,rep1%QP(:,2)
-   ! print*,rep1%QP(:,3)
-   ! print*,rep1%QP(:,4)
-   ! print*,"F1"
-   ! print*,rep1%FP(1,:,1)
-   ! print*,rep1%FP(1,:,2)
-   ! print*,rep1%FP(1,:,3)
-   ! print*,"F2"
-   ! print*,rep1%FP(2,:,1)
-   ! print*,rep1%FP(2,:,2)
-   ! print*,rep1%FP(2,:,3)
+   ! !print*
+   ! !print*,edge%transform_data%normal
+   ! !print*,"Q1"
+   ! !print*,rep1%troubled
+   ! !print*,rep1%QP(:,1)
+   ! !print*,rep1%QP(:,2)
+   ! !print*,rep1%QP(:,3)
+   ! !print*,rep1%QP(:,4)
+   ! !print*,"F1"
+   ! !print*,rep1%FP(1,:,1)
+   ! !print*,rep1%FP(1,:,2)
+   ! !print*,rep1%FP(1,:,3)
+   ! !print*,"F2"
+   ! !print*,rep1%FP(2,:,1)
+   ! !print*,rep1%FP(2,:,2)
+   ! !print*,rep1%FP(2,:,3)
 
-   ! print*,"Q2"
-   ! print*,rep2%troubled
-   ! print*,rep2%QP(:,1)
-   ! print*,rep2%QP(:,2)
-   ! print*,rep2%QP(:,3)
-   ! print*,rep2%QP(:,4)
-   ! print*,"F1"
-   ! print*,rep2%FP(1,:,1)
-   ! print*,rep2%FP(1,:,2)
-   ! print*,rep2%FP(1,:,3)
-   ! print*,"F2"
-   ! print*,rep2%FP(2,:,1)
-   ! print*,rep2%FP(2,:,2)
-   ! print*,rep2%FP(2,:,3)
-   ! print*,"update1"
-   ! print*,update1%flux(:)%h
-   ! print*,update1%flux(:)%p(1)
-   ! print*,update1%flux(:)%p(2)
-   ! print*,"update2"
-   ! print*,update2%flux(:)%h
-   ! print*,update2%flux(:)%p(1)
-   ! print*,update2%flux(:)%p(2)
+   ! !print*,"Q2"
+   ! !print*,rep2%troubled
+   ! !print*,rep2%QP(:,1)
+   ! !print*,rep2%QP(:,2)
+   ! !print*,rep2%QP(:,3)
+   ! !print*,rep2%QP(:,4)
+   ! !print*,"F1"
+   ! !print*,rep2%FP(1,:,1)
+   ! !print*,rep2%FP(1,:,2)
+   ! !print*,rep2%FP(1,:,3)
+   ! !print*,"F2"
+   ! !print*,rep2%FP(2,:,1)
+   ! !print*,rep2%FP(2,:,2)
+   ! !print*,rep2%FP(2,:,3)
+   ! !print*,"update1"
+   ! !print*,update1%flux(:)%h
+   ! !print*,update1%flux(:)%p(1)
+   ! !print*,update1%flux(:)%p(2)
+   ! !print*,"update2"
+   ! !print*,update2%flux(:)%h
+   ! !print*,update2%flux(:)%p(1)
+   ! !print*,update2%flux(:)%p(2)
 
 
    do i = 1,_SWE_DG_ORDER+1
@@ -542,18 +543,18 @@ if(isDG(data%troubled)) then
 
    call getObservableLimits(element%cell%data_pers%Q,minVals,maxVals)
 
-   ! print*,"update1"
-   ! print*,update1%flux(:)%h
-   ! print*,update1%flux(:)%p(1)
-   ! print*,update1%flux(:)%p(2)
-   ! print*,"update2"
-   ! print*,update2%flux(:)%h
-   ! print*,update2%flux(:)%p(1)
-   ! print*,update2%flux(:)%p(2)
-   ! print*,"update3"
-   ! print*,update3%flux(:)%h
-   ! print*,update3%flux(:)%p(1)
-   ! print*,update3%flux(:)%p(2)
+   ! !print*,"update1"
+   ! !print*,update1%flux(:)%h
+   ! !print*,update1%flux(:)%p(1)
+   ! !print*,update1%flux(:)%p(2)
+   ! !print*,"update2"
+   ! !print*,update2%flux(:)%h
+   ! !print*,update2%flux(:)%p(1)
+   ! !print*,update2%flux(:)%p(2)
+   ! !print*,"update3"
+   ! !print*,update3%flux(:)%h
+   ! !print*,update3%flux(:)%p(1)
+   ! !print*,update3%flux(:)%p(2)
    
    ! if(any(abs(update1%flux%p(1)+update2%flux%p(1)+update3%flux%p(1)) > 1.5d-4))then
    !    stop
@@ -587,38 +588,38 @@ if(isDG(data%troubled)) then
    end if
 end if
 
-! print*,"before"
-! print*,"troubled: ",element%cell%data_pers%troubled
-! print*,element%cell%data_pers%H
-!print*,element%cell%data_pers%HU
-!print*,element%cell%data_pers%HV
-!print*,element%cell%data_pers%B
+! !print*,"before"
+! !print*,"troubled: ",element%cell%data_pers%troubled
+! !print*,element%cell%data_pers%H
+!!print*,element%cell%data_pers%HU
+!!print*,element%cell%data_pers%HV
+!!print*,element%cell%data_pers%B
 
 if(isFV(data%troubled)) then
    !-----Call FV patch solver----!    
    call fv_patch_solver(traversal, section, element, update1, update2, update3)
 end if
 
-!print*,"after"
-!print*,element%cell%data_pers%H
-!print*,element%cell%data_pers%HU
-!print*,element%cell%data_pers%HV
-!print*,element%cell%data_pers%B
-! print*,"update1"
-! print*,update1%H
-! print*,update1%HU
-! print*,update1%HV
-! print*,update1%B
-! print*,"update2"
-! print*,update2%H
-! print*,update2%HU
-! print*,update2%HV
-! print*,update2%B
-! print*,"update3"
-! print*,update3%H
-! print*,update3%HU
-! print*,update3%HV
-! print*,update3%B
+!!print*,"after"
+!!print*,element%cell%data_pers%H
+!!print*,element%cell%data_pers%HU
+!!print*,element%cell%data_pers%HV
+!!print*,element%cell%data_pers%B
+! !print*,"update1"
+! !print*,update1%H
+! !print*,update1%HU
+! !print*,update1%HV
+! !print*,update1%B
+! !print*,"update2"
+! !print*,update2%H
+! !print*,update2%HU
+! !print*,update2%HV
+! !print*,update2%B
+! !print*,"update3"
+! !print*,update3%H
+! !print*,update3%HU
+! !print*,update3%HV
+! !print*,update3%B
  
 
 !------- Update cell status and compute next timestep size --------!
@@ -650,9 +651,9 @@ if (.not.isCoast(element%cell%data_pers%troubled))then
       coarsen = .true.
    endif
    ! if(error > 10.d-8) then
-   !    print*,"error"
-   !    print*,error
-   !    print*,section%max_error
+   !    !print*,"error"
+   !    !print*,error
+   !    !print*,section%max_error
    ! end if
    
    i_depth = element%cell%geometry%i_depth
@@ -696,12 +697,12 @@ real(kind = GRID_SR)	          :: epsilon
 real(kind=GRID_SR)	          :: vL, vR, alpha
 integer                           :: i
 
-! print*,"FLn"   
-! print*,FLn
-! print*,"FRn"   
-! print*,FRn
-! print*,"norm"
-! print*,normal
+! !print*,"FLn"   
+! !print*,FLn
+! !print*,"FRn"   
+! !print*,FRn
+! !print*,"norm"
+! !print*,normal
 Fn_avg = 0.5_GRID_SR * ( FRn - FLn )
 
 VelL(:) = QL(:,2)/QL(:,1) * normal(1) +  QL(:,3)/QL(:,1) * normal(2)
@@ -730,25 +731,25 @@ FRn(:,2) = FRn(:,2) - Djump * normal(1)
 FRn(:,3) = FRn(:,3) - Djump * normal(2)
 
 ! if (any(abs(FLn(:,2)) > 10.0e-5)) then
-!    print*,"FLn"   
-!    print*,FLn
-!    print*,"FRn"   
-!    print*,FRn
-!    print*,"QR"   
-!    print*,QR(:,1)
-!    print*,QR(:,2)
-!    print*,QR(:,3)
-!    print*,QR(:,4)
-!    print*,"QL"   
-!    print*,QL(:,1)
-!    print*,QL(:,2)
-!    print*,QL(:,3)
-!    print*,QL(:,4)
-!    print*,"Djump"
-!    print*,Djump
-!    print*,"Qrus"
-!    print*,Q_rus
-!    print*,"MARK"
+!    !print*,"FLn"   
+!    !print*,FLn
+!    !print*,"FRn"   
+!    !print*,FRn
+!    !print*,"QR"   
+!    !print*,QR(:,1)
+!    !print*,QR(:,2)
+!    !print*,QR(:,3)
+!    !print*,QR(:,4)
+!    !print*,"QL"   
+!    !print*,QL(:,1)
+!    !print*,QL(:,2)
+!    !print*,QL(:,3)
+!    !print*,QL(:,4)
+!    !print*,"Djump"
+!    !print*,Djump
+!    !print*,"Qrus"
+!    !print*,Q_rus
+!    !print*,"MARK"
 ! end if
 
 end subroutine compute_flux_pred
@@ -791,18 +792,18 @@ subroutine dg_solver(element,update1,update2,update3,dt)
 #if defined(_DEBUG)
     do i=1,_SWE_DG_DOFS
        if(isnan(bnd_flux_l(i,1)).or.isnan(bnd_flux_m(i,1)).or.isnan(bnd_flux_r(i,1)))then
-          print*,"nan bnd"
-          print*,bnd_flux_l(:,:)
-          print*,bnd_flux_m(:,:)
-          print*,bnd_flux_r(:,:)
+          !print*,"nan bnd"
+          !print*,bnd_flux_l(:,:)
+          !print*,bnd_flux_m(:,:)
+          !print*,bnd_flux_r(:,:)
           exit
        endif
     end do
 
     do i=1,_SWE_DG_DOFS
        if(isnan(q(i,1))) then
-          print*,"nan q"
-          print*,q
+          !print*,"nan q"
+          !print*,q
        end if
     end do
 #endif
@@ -824,81 +825,54 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
             type(num_cell_update), intent(inout)  :: update1, update2, update3
             integer                               :: i, j, ind
             type(num_cell_update)                 :: tmp !> ghost cells in correct order 
-            real(kind = GRID_SR)                  :: volume, edge_lengths(3), maxWaveSpeed, dQ_max_norm, dt_div_volume
+            real(kind = GRID_SR)                  :: volume, edge_lengths(3), maxWaveSpeed, dQ_max_norm, dt_div_volume, maxWaveSpeedLocal
 
             real(kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER_SQUARE)                :: dQ_H, dQ_HU, dQ_HV !> deltaQ, used to compute cell updates
             real(kind = GRID_SR), DIMENSION(_SWE_PATCH_SOLVER_CHUNK_SIZE)           :: hL, huL, hvL, bL
             real(kind = GRID_SR), DIMENSION(_SWE_PATCH_SOLVER_CHUNK_SIZE)           :: hR, huR, hvR, bR
             real(kind = GRID_SR), DIMENSION(_SWE_PATCH_SOLVER_CHUNK_SIZE)           :: upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR
-            real(kind = GRID_SR), DIMENSION(_SWE_PATCH_SOLVER_CHUNK_SIZE,2,2)       :: transf
 
 #if !defined (_SWE_USE_PATCH_SOLVER)
             type(t_state), dimension(_SWE_PATCH_SOLVER_CHUNK_SIZE)      :: edges_a, edges_b
             type(t_update)                                              :: update_a, update_b
             real(kind = GRID_SR), dimension(2,3)                        :: normals
 #endif
-#if defined(_SWE_DG)
+
             type(t_update),  DIMENSION((_SWE_DG_ORDER+1)**2)		:: flux1, flux2, flux3
             type(t_state), dimension((_SWE_DG_ORDER+1)**2)              :: edge_l, edge_m,edge_r
             real(kind= GRID_SR):: dt,dx,delta(3),max_neighbour(3),min_neighbour(3),data_max_val(3),data_min_val(3)
-            integer:: indx,indx_mir,k
+            integer:: indx,indx_mir,k,edgesLeft
             real (kind = GRID_SR), dimension (_SWE_PATCH_ORDER_SQUARE):: H_old, HU_old, HV_old
             logical :: drying,troubled,coarsen,refine
             real (kind=GRID_SR) :: refinement_threshold = 0.50_GRID_SR
+            real(kind = GRID_SR), DIMENSION(_SWE_PATCH_SOLVER_CHUNK_SIZE)                :: normals_x, normals_y
+
+#if defined(_OPT_KERNELS)            
+            !DIR$ ASSUME_ALIGNED hL: ALIGNMENT
+            !DIR$ ASSUME_ALIGNED hR: ALIGNMENT
+            !DIR$ ASSUME_ALIGNED huL: ALIGNMENT
+            !DIR$ ASSUME_ALIGNED huR: ALIGNMENT
+            !DIR$ ASSUME_ALIGNED hvL: ALIGNMENT
+            !DIR$ ASSUME_ALIGNED hvR: ALIGNMENT
+            !DIR$ ASSUME_ALIGNED bL: ALIGNMENT
+            !DIR$ ASSUME_ALIGNED bR: ALIGNMENT
+            !DIR$ ASSUME_ALIGNED upd_hL: ALIGNMENT
+            !DIR$ ASSUME_ALIGNED upd_hR: ALIGNMENT
+            !DIR$ ASSUME_ALIGNED upd_huL: ALIGNMENT
+            !DIR$ ASSUME_ALIGNED upd_huR: ALIGNMENT
+            !DIR$ ASSUME_ALIGNED upd_hvL: ALIGNMENT
+            !DIR$ ASSUME_ALIGNED upd_hvR: ALIGNMENT
 #endif
-
-#if defined(_DEBUG)
-            do i=1,_SWE_PATCH_ORDER_SQUARE
-               if(isnan(element%cell%data_pers%H(i)))then
-                  print*,"fv_nan"
-                  print*,element%cell%data_pers%H(:)
-                  print*,element%cell%data_pers%HU(:)
-                  print*,element%cell%data_pers%HV(:)
-                  print*,element%cell%data_pers%B(:)
-                  exit
-               end if
-            end do
-
-            do i=1,_SWE_PATCH_ORDER
-               if(isnan(update1%H(i)))then
-                  print*,"update1"
-                  print*,update1%H(:)
-                  print*,update1%HU(:)
-                  print*,update1%HV(:)
-                  print*,update1%B(:)
-                  exit
-               end if
-            end do
-
-            do i=1,_SWE_PATCH_ORDER
-               if(isnan(update2%H(i)))then
-                  print*,"update2"
-                  print*,update2%H(:)
-                  print*,update2%HU(:)
-                  print*,update2%HV(:)
-                  print*,update2%B(:)
-                  exit
-               end if
-            end do
-
-            do i=1,_SWE_PATCH_ORDER
-               if(isnan(update3%H(i)))then
-                  print*,"update3"
-                  print*,update3%H(:)
-                  print*,update3%HU(:)
-                  print*,update3%HV(:)
-                  print*,update3%B(:)
-                  exit
-               end if
-            end do
-#endif
+            upd_hL = 0.0_GRID_SR
+            upd_hR = 0.0_GRID_SR
+            upd_huL= 0.0_GRID_SR
+            upd_huR= 0.0_GRID_SR
+            upd_hvL= 0.0_GRID_SR
+            upd_hvR= 0.0_GRID_SR
 
             
-#if !defined(_SWE_USE_PATCH_SOLVER)
-            ! using patches, but applying geoclaw solvers on single edges
-            
-            ! the normals are only needed in this case.
-            
+            ! using patches, but applying geoclaw solvers on single edges            
+            ! the normals are only needed in this case.            
             ! copy/compute normal vectors
             ! normal for type 2 edges is equal to the 2nd edge's normal
             normals(:,2) = element%edges(2)%ptr%transform_data%normal
@@ -911,8 +885,6 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                normals(:,1) = - element%edges(3)%ptr%transform_data%normal
                normals(:,3) = element%edges(1)%ptr%transform_data%normal
             end if
-#endif
-
 
             ! init some variables
             dQ_H = 0.0_GRID_SR
@@ -941,14 +913,14 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                     hvR = 0.0_GRID_SR
                     bR = 0.0_GRID_SR
                  end if
+                 !number of edges that still haven't been processed
+                 edgesLeft = _SWE_PATCH_NUM_EDGES - i + 1
 
-                 do j=1, _SWE_PATCH_SOLVER_CHUNK_SIZE ! j -> position inside chunk
+                 do j=1, min(edgesLeft,_SWE_PATCH_SOLVER_CHUNK_SIZE) !j -> position inside chunk
                     ind = i + j - 1 ! actual index
-
-                    ! don't go outside array limits
-                    if (ind > _SWE_PATCH_NUM_EDGES) then
-                       exit
-                    end if
+                    
+                    normals_x(j) = normals(1,geom%edges_orientation(ind))
+                    normals_y(j) = normals(2,geom%edges_orientation(ind))
 
                     ! left
                     if (geom%edges_a(ind) <= _SWE_PATCH_ORDER_SQUARE) then
@@ -995,31 +967,30 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                        hvR(j) = update3%HV(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
                        bR(j) = update3%B(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
                     end if
-
-                    !copy transformation matrices
-                    transf(j,:,:) = geom%transform_matrices(geom%edges_orientation(ind),:,:,element%cell%geometry%i_plotter_type)
                  end do
 
                  ! compute net_updates -> solve Riemann problems within chunk
-#                       if defined (_SWE_USE_PATCH_SOLVER)
-#                           if defined(_FWAVE_FLUX) || defined(_AUG_RIEMANN_FLUX)
-                 call compute_updates_simd(transf, hL, huL, hvL, bL, hR, huR, hvR, bR, upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR, maxWaveSpeed)
-#                           elif defined(_HLLE_FLUX)
-                 call compute_updates_hlle_simd(transf, hL, huL, hvL, bL, hR, huR, hvR, bR, upd_hL, upd_huL, upd_hvL, upd_hR, upd_huR, upd_hvR, maxWaveSpeed)
-#                           else
-                 ! this should never happen -> SCons rules should avoid this before compiling
-#                               error "No valid SWE solver for patches/simd implementation has been defined!"
-                 print *, 
-#                           endif
-#                       else                    
-                 ! using original geoclaw solver
-                 do j=1, _SWE_PATCH_SOLVER_CHUNK_SIZE
-                    ind = i + j - 1 ! actual index
+#if defined(_OPT_KERNELS)
+                 ! Vectorization! (Requires OpenMP 4.0 or later)
+                 !$OMP SIMD PRIVATE(maxWaveSpeedLocal) REDUCTION(max: maxWaveSpeed)
+                 do j=1, min(edgesLeft, _SWE_PATCH_SOLVER_CHUNK_SIZE)
+! #if defined(_PATCH_VEC_INLINE)
+!                     ! Warning: inlining this subroutine into an OMP SIMD loop may cause
+!                     ! bugs and incorrect calculations depending on the compiler version
+                    !                     ! Check the 
+!                     ! Recommended compiler: ifort 17.0 or 19.0
+!                     !DIR$ FORCEINLINE
+! #endif !_PATCH_VEC_INLINE
+                    call SWE_compute_fluxes(normals_x(j), normals_y(j), hL(j), hR(j), huL(j), huR(j), hvL(j), hvR(j), bL(j), bR(j), upd_hL(j), upd_hR(j), upd_huL(j), upd_huR(j), upd_hvL(j), upd_hvR(j), maxWaveSpeedLocal)
+                    maxWaveSpeed = max(maxWaveSpeed, maxWaveSpeedLocal)
+                 end do
 
-                    ! don't go outside array limits
-                    if (ind > _SWE_PATCH_NUM_EDGES) then
-                       exit
-                    end if
+
+#else 
+                 ! using original geoclaw solver
+                                     
+                 do j=1, min(edgesLeft,_SWE_PATCH_SOLVER_CHUNK_SIZE) !j -> position inside chunk
+                    ind = i + j - 1 ! actual index
 
                     edges_a(j)%h = hL(j)
                     edges_a(j)%p(1) = huL(j)
@@ -1031,22 +1002,17 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                     edges_b(j)%b = bR(j)
                     call compute_geoclaw_flux(normals(:,geom%edges_orientation(ind)), edges_a(j), edges_b(j), update_a, update_b)
 
-                    upd_hL(j) = update_a%h
+                    upd_hL(j)  = update_a%h
                     upd_huL(j) = update_a%p(1)
                     upd_hvL(j) = update_a%p(2)
-                    upd_hR(j) = update_b%h
+                    upd_hR(j)  = update_b%h
                     upd_huR(j) = update_b%p(1)
                     upd_hvR(j) = update_b%p(2)
                  end do
 #                       endif
                   ! compute dQ
-                  do j=1, _SWE_PATCH_SOLVER_CHUNK_SIZE
+                  do j=1, min(edgesLeft,_SWE_PATCH_SOLVER_CHUNK_SIZE)
                      ind = i + j - 1 ! actual index
-
-                     ! don't go outside array limits
-                     if (ind > _SWE_PATCH_NUM_EDGES) then
-                        exit
-                     end if
 
                      if (geom%edges_a(ind) <= _SWE_PATCH_ORDER_SQUARE) then !ignore ghost cells
                         dQ_H(geom%edges_a(ind)) = dQ_H(geom%edges_a(ind)) + upd_hL(j) * edge_lengths(geom%edges_orientation(ind))
@@ -1070,58 +1036,6 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                dQ_H  = dQ_H * (-dt_div_volume)
                dQ_HU = dQ_HU * (-dt_div_volume)
                dQ_HV = dQ_HV * (-dt_div_volume)
-
-            !    if(data%troubled == 4)then
-            !    if(update1%troubled == -2)then
-            !       print*,"data"
-            !       print*,data%H 
-            !       print*,data%HU
-            !       print*,data%HV
-            !       print*,"update1"
-            !       print*,update1%H(:)
-            !       print*,update1%HU(:)
-            !       print*,update1%HV(:)
-            !       print*,update1%B(:)
-            !       print*,"dQ"
-            !       print*,dQ_H
-            !       print*,dQ_HU
-            !       print*,dQ_HV
-            !    end if
-            !    if(update2%troubled == -2)then
-            !       print*,"data"
-            !       print*,data%H 
-            !       print*,data%HU
-            !       print*,data%HV
-            !       print*,"update2"
-            !       print*,update2%H(:)
-            !       print*,update2%HU(:)
-            !       print*,update2%HV(:)
-            !       print*,update2%B(:)
-            !       print*,"dQ"
-            !       print*,dQ_H
-            !       print*,dQ_HU
-            !       print*,dQ_HV
-            !    end if
-            !    if(update3%troubled == -2)then
-            !       print*,"data"
-            !       print*,data%H 
-            !       print*,data%HU
-            !       print*,data%HV
-            !       print*,"update3"
-            !       print*,update3%H(:)
-            !       print*,update3%HU(:)
-            !       print*,update3%HV(:)
-            !       print*,update3%B(:)
-            !       print*,"dQ"
-            !       print*,dQ_H
-            !       print*,dQ_HU
-            !       print*,dQ_HV                  
-            !    end if
-            ! end if
-
-            ! if(any(abs(dQ_HU) > 10.0e-8))then
-            !    stop
-            ! end if
 
                ! if land is flooded, init water height to dry tolerance and
                ! velocity to zero

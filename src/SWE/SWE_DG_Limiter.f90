@@ -104,19 +104,19 @@ contains
     
     if(isWetDryInterface(data%Q%H))then
        if(isDG(data%troubled))then
-          call apply_phi(element%cell%data_pers%Q%H+element%cell%data_pers%Q%B,element%cell%data_pers%H)
-          call apply_phi(element%cell%data_pers%Q%p(1),element%cell%data_pers%HU)
-          call apply_phi(element%cell%data_pers%Q%p(2),element%cell%data_pers%HV)
-          call apply_phi(element%cell%data_pers%Q%B,element%cell%data_pers%B)
+          call apply_phi(data%Q(:)%H+data%Q(:)%B,data%H(:))
+          call apply_phi(data%Q(:)%p(1),data%HU(:))
+          call apply_phi(data%Q(:)%p(2),data%HV(:))
+          call apply_phi(data%Q(:)%B,data%B(:))
        end if
        data%troubled = WET_DRY_INTERFACE
     end if
     if(checkIfCellIsDry(data%Q%H)) then
        if(isDG(data%troubled))then
-          call apply_phi(element%cell%data_pers%Q%H+element%cell%data_pers%Q%B,element%cell%data_pers%H)
-          call apply_phi(element%cell%data_pers%Q%p(1),element%cell%data_pers%HU)
-          call apply_phi(element%cell%data_pers%Q%p(2),element%cell%data_pers%HV)
-          call apply_phi(element%cell%data_pers%Q%B,element%cell%data_pers%B)
+          call apply_phi(data%Q(:)%H+data%Q(:)%B,data%H(:))
+          call apply_phi(data%Q(:)%p(1),data%HU(:))
+          call apply_phi(data%Q(:)%p(2),data%HV(:))
+          call apply_phi(data%Q(:)%B,data%B(:))
        end if
        data%troubled = DRY
     end if

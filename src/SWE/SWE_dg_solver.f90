@@ -372,6 +372,7 @@ integer                                             :: i
 
 normal=(edge%transform_data%normal)/NORM2(edge%transform_data%normal)
 update%troubled=rep%troubled
+rep_bnd%troubled = rep%troubled
 update%minObservables = rep%minObservables
 update%maxObservables = rep%maxObservables
 
@@ -455,7 +456,8 @@ end subroutine bnd_skeleton_scalar_op_dg
 
    subroutine get_edge_boundary_Q(t, H, HU, HV, B, isDG)
       real(GRID_SR), intent(in)                 :: t
-      real(GRID_SR), intent(inout)              :: H, HU, HV, B
+      real(GRID_SR), intent(inout)              :: H, HU, HV
+      real(GRID_SR), intent(in)                 :: B
       logical, intent(in)                       :: isDG
 
       real(GRID_SR)                             :: velocity, h_init

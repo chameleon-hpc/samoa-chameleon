@@ -220,7 +220,7 @@
                             ! Apply attribute size correction
                             ! This cell shall be output as FV
 #                           if defined(_SWE_DG)    
-                                if (isDG(element%cell%data_pers%troubled)) then
+                                if (.not. isCoast(element%cell%data_pers%troubled)) then
                                     ! DG stores H, FV stores H + B, so we normalize DG to FV
                                     call apply_phi(element%cell%data_pers%Q%H + element%cell%data_pers%Q%b, norm_h_fv)
                                     call apply_phi(element%cell%data_pers%Q%p(1), norm_hu_fv)
@@ -299,7 +299,7 @@
 #                           if defined(_SWE_DG)
                                 ! Apply attribute size correction
                                 ! This cell shall be output as DG
-                                if (isFV(element%cell%data_pers%troubled)) then
+                                if (isCoast(element%cell%data_pers%troubled)) then
                                     ! DG stores H, FV stores H + B, so we normalize FV to DG
                                     call apply_mue(element%cell%data_pers%H - element%cell%data_pers%B, norm_h_dg)
                                     call apply_mue(element%cell%data_pers%HU, norm_hu_dg)

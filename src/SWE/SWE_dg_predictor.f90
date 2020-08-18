@@ -353,7 +353,12 @@ MODULE SWE_DG_predictor
          !!---- updateQ ----!!
 !         Q_DG%h    = Q_DG%h    + Q_DG_UPDATE(:,1) * dt/dx
 !         Q_DG%p(1) = Q_DG%p(1) + Q_DG_UPDATE(:,2) * dt/dx
-!         Q_DG%p(2) = Q_DG%p(2) + Q_DG_UPDATE(:,3) * dt/dx
+         !         Q_DG%p(2) = Q_DG%p(2) + Q_DG_UPDATE(:,3) * dt/dx
+      else
+         call apply_phi(element%cell%data_pers%Q%H+element%cell%data_pers%Q%B,element%cell%data_pers%H)
+         call apply_phi(element%cell%data_pers%Q%p(1),element%cell%data_pers%HU)
+         call apply_phi(element%cell%data_pers%Q%p(2),element%cell%data_pers%HV)
+         call apply_phi(element%cell%data_pers%Q%B,element%cell%data_pers%B)
       end if
     end associate
   end subroutine dg_predictor

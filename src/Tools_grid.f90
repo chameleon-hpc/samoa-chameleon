@@ -129,6 +129,7 @@ module Neighbor_list
 	type t_comm_interface
 		integer                         :: local_rank = -1, neighbor_rank = -1			    !< local and comm process rank
 		integer                         :: local_section = -1, neighbor_section = -1	    !< local and comm section index
+		integer                         :: old_neighbor_section=-1, old_neighbor_rank=-1    !< used only in send_recv_comm_changes
         integer (kind = GRID_DI)        :: min_distance = 0		                            !< minimum distance in the grid (invariant)
 		integer (kind = GRID_SI)        :: i_edges = 0		                                !< number of shared edges
 		integer (kind = GRID_SI)        :: i_nodes = 0		                                !< number of shared nodes
@@ -245,6 +246,7 @@ module Section_info_list
 		procedure, pass :: reduce_grid_info => grid_info_reduce
 		procedure, pass :: estimate_bounds => grid_info_estimate_bounds
 		procedure, pass :: print => grid_info_print
+                procedure, pass :: print_csv => grid_info_csv
 
         generic :: operator(+) => add
         generic :: reduce => reduce_grid_info
@@ -368,6 +370,25 @@ module Section_info_list
 
 		_log_write(0, *) ""
 	end subroutine
+
+ subroutine grid_info_csv(grid_info)
+   class(t_grid_info), intent(in)	:: grid_info
+   real(kind = GRID_SR)            :: quality
+   integer :: nodes
+   integer :: edges
+
+   !Compute average partition circumference
+   quality = sum(grid_info%i_boundary_edges) / real(size_MPI, SR) * (sqrt(2.0_SR) / 3.0_SR + 2.0_SR/3.0_SR)
+   !Divide by ideal circumference of a square partition
+   quality = quality * 0.25_SR / sqrt(real(grid_info%i_cells, SR) / (2.0_SR * real(size_MPI, SR)))
+   nodes = grid_info%i_nodes + grid_info%i_boundary_nodes(1) + grid_info%i_boundary_nodes(2)
+   edges = grid_info%i_crossed_edges + grid_info%i_color_edges + grid_info%i_boundary_edges(1) + grid_info%i_boundary_edges(2)
+
+   _log_write(0, "(A)")			"cells; edges; nodes"
+   _log_write(0, '(I14,";",I14,";",I14)')	grid_info%i_cells, edges, nodes
+                                                        
+   
+ end subroutine grid_info_csv
 
     subroutine section_info_reduce(s, v, mpi_op, global)
         class(t_section_info), intent(inout)	:: s

@@ -80,6 +80,7 @@ contains
 #endif
 
     call SWE_PATCH_geometry%init(_SWE_PATCH_ORDER)
+    call init_matrices()
     call date_and_time(s_date, s_time)
 
 #if defined(_MPI)

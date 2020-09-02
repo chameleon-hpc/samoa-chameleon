@@ -47,6 +47,10 @@ MODULE SWE_dg_matrices
 #include "dg_matrices/phi_l_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/phi_m_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/phi_r_SWE_DG_ORDER_TAG.incl"
+
+!#include "dg_matrices/phi_8_p1.incl"
+!#include "dg_matrices/phi_8_p2.incl"
+
 #include "dg_matrices/phi_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/mue_inv_SWE_DG_ORDER_TAG.incl"
 
@@ -81,11 +85,55 @@ real(kind=GRID_SR),Parameter :: s_m_inv_coarsen1(_SWE_DG_DOFS,_SWE_DG_DOFS) =&
 real(kind=GRID_SR),Parameter :: s_m_inv_coarsen2(_SWE_DG_DOFS,_SWE_DG_DOFS) =&
 			     matmul(s_m_inv,coarsen2)
 
-
+real(kind=GRID_SR) :: phi_hat(_SWE_PATCH_ORDER_SQUARE,_SWE_DG_DOFS)
+real(kind=GRID_SR) :: mue_inv_hat(_SWE_DG_DOFS,_SWE_PATCH_ORDER_SQUARE)
 contains
 
 !basis functions
 #include "dg_matrices/basis_SWE_DG_ORDER_TAG.incl"
+
+subroutine init_matrices()
+  call init_phi_hat()
+  call init_mue_inv_hat()	
+end subroutine
+	
+subroutine init_phi_hat()
+	real(kind=GRID_SR),dimension(_SWE_PATCH_ORDER_SQUARE,_SWE_DG_DOFS) :: R
+	real(kind=GRID_SR),dimension(_SWE_PATCH_ORDER_SQUARE) :: v
+	real(kind=GRID_SR),dimension(_SWE_DG_DOFS)            :: vn
+	real(kind=GRID_SR),dimension(_SWE_PATCH_ORDER_SQUARE) :: vm	                   
+	integer :: i
+                   
+	R = 0.0_GRID_SR
+	vn = 1.0_GRID_SR
+	vm = 1.0_GRID_SR
+	v = vm - matmul(phi,vn)
+	
+	do i = 1,_SWE_PATCH_ORDER_SQUARE
+	   R(i,1) = v(i)
+	end do
+	
+	phi_hat = phi+R
+end subroutine
+
+subroutine init_mue_inv_hat()
+	real(kind=GRID_SR),dimension(_SWE_DG_DOFS,_SWE_PATCH_ORDER_SQUARE) :: R
+	real(kind=GRID_SR),dimension(_SWE_DG_DOFS)            :: v
+	real(kind=GRID_SR),dimension(_SWE_PATCH_ORDER_SQUARE) :: vn
+	real(kind=GRID_SR),dimension(_SWE_DG_DOFS)            :: vm	                   
+	integer :: i
+                   
+	R = 0.0_GRID_SR
+	vn = 1.0_GRID_SR
+	vm = 1.0_GRID_SR
+	v = vm - matmul(mue_inv,vn)
+	
+	do i = 1,_SWE_DG_DOFS
+	   R(i,1) = v(i)
+	end do
+	
+	mue_inv_hat = mue_inv+R
+end subroutine
 
 subroutine lusolve(mat,n,pivot,b)
  integer :: n,ii,i,j,ll

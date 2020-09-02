@@ -81,7 +81,7 @@ type num_cell_data_pers
   real(kind=GRID_SR)   , DIMENSION(_SWE_DG_DOFS,3)         :: Q_DG_UPDATE !Predictor element update
   real(kind=GRID_SR)   , DIMENSION(3,  _SWE_DG_ORDER+1,4)  :: QP  !Predictor projections on edges
   real(kind=GRID_SR)   , DIMENSION(3,2,_SWE_DG_ORDER+1,3)  :: FP  !Predictor projections on edges
-  real(kind=GRID_SR)   , DIMENSION(3, _SWE_PATCH_ORDER,4)  :: QFV !FV projections on edges  
+  real(kind=GRID_SR)   , DIMENSION(3, _SWE_PATCH_ORDER,4)  :: QFV !FV projections on edges 
 
   integer :: troubled
 #if defined(_DEBUG)
@@ -168,14 +168,17 @@ type num_cell_rep
                  subroutine apply_phi(dg,fv)
                    real(kind=GRID_SR),intent(out) :: fv(_SWE_PATCH_ORDER_SQUARE)
                    real(kind=GRID_SR),intent(in)  :: dg(_SWE_DG_DOFS)
-                   fv=matmul(phi,dg)
+                   
+                   fv=matmul(phi_hat,dg)
                  end subroutine apply_phi
 
                  subroutine apply_mue(fv,dg)
                    real(kind=GRID_SR),intent(in) :: fv(_SWE_PATCH_ORDER_SQUARE)
                    real(kind=GRID_SR),intent(out)  :: dg(_SWE_DG_DOFS)
-                   real(kind=GRID_SR)             :: q_temp(_SWE_DG_DOFS+1)                   
-                   dg= matmul(mue_inv,fv)
+                   real(kind=GRID_SR)             :: q_temp(_SWE_DG_DOFS+1)
+                   
+                   dg= matmul(mue_inv_hat,fv)
+                   
                  end subroutine apply_mue
 
 

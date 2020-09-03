@@ -178,7 +178,7 @@ module config
     subroutine read_from_program_arguments(config)
         class(t_config), intent(inout)          :: config
 
-        character(1024)    :: arguments
+        character(_MAX_ARG_SIZE)    :: arguments
 
         call config%define_arguments(arguments)
         call config%parse_program_arguments(arguments)

@@ -18,7 +18,7 @@ module XDMF_config
     implicit none
 
     ! Filter parameters
-    integer, parameter                      :: xdmf_filter_params_width = 16
+    integer, parameter                      :: xdmf_filter_params_width = 32
     character(len = 1), parameter           :: xdmf_filter_params_delim = " "
 
     ! Output mode flags
@@ -32,20 +32,20 @@ module XDMF_config
         logical 				            :: l_xdmfoutput			                            !< xdmf output on/off
         integer                             :: i_xdmfoutput_mode                                !< xdmf output mode flags
         logical                             :: l_xdmfoutput_lagrange                            !< xdmf output use vtk lagrance cells for dg
-        character(256) 				        :: s_xdmfinput_file			                        !< xdmf input file
+        character(_MAX_PATH_SIZE) 			:: s_xdmfinput_file			                        !< xdmf input file
         integer                             :: i_xdmfcpint                                      !< write checkpoint data every n steps
         integer                             :: i_xdmfspf                                        !< amount of steps per file
         logical                             :: l_xdmfcheckpoint                                 !< xdmf is restarting from checkpoint
         logical                             :: l_xdmfcheckpoint_loaded                          !< cached data is loaded
-        character(256) 				        :: s_xdmffile_stamp                                 !< cached output file stamp
+        character(_MAX_PATH_SIZE) 			:: s_xdmffile_stamp                                 !< cached output file stamp
         integer(INT32)                      :: i_xdmfoutput_iteration                           !< last output iteration
         integer(INT32)                      :: i_xdmfcheckpoint_iteration                       !< last checkpoint iteration
         integer(INT32)                      :: i_xdmfsimulation_iteration                       !< cached simulation iteration
         double precision                    :: r_xdmftime                                       !< cached simulation time
         double precision                    :: r_xdmfdeltatime                                  !< cached simulation time delta
-        character(1024)                     :: s_krakencommand                                  !< cached command line for checkpointing
+        character(_MAX_ARG_SIZE)            :: s_krakencommand                                  !< cached command line for checkpointing
         integer                             :: i_xdmffilter_index                               !< filter function index
-        character(256)                      :: s_xdmffilter_params                              !< filter function parameters string
+        character((xdmf_filter_params_width + 2) * 32) :: s_xdmffilter_params                   !< filter function parameters string
         integer                             :: i_xmdffilter_params_count                        !< filter funstion parameters count
         real, dimension(xdmf_filter_params_width) :: r_xdmffilter_params_vector                 !< filter function parameters vector
     end type
@@ -58,7 +58,7 @@ module XDMF_config
         type(t_config_xdmf), intent(inout)  :: config
         integer, intent(inout)              :: result
 
-        character (1024)                    :: fox_attribute_text
+        character (_MAX_PATH_SIZE)          :: fox_attribute_text
         integer                             :: i, j, k
         logical                             :: xdmf_file_exists, is_cp
         type(t_fox_Node), pointer           :: fox_doc, fox_domain, fox_child, fox_attribute_name, fox_attribute_value
@@ -174,8 +174,8 @@ module XDMF_config
 
             integer                             :: error
 
-            call mpi_bcast(config%s_krakencommand, 1024, MPI_CHARACTER, 0, MPI_COMM_WORLD, error); assert_eq(error, 0)
-            call mpi_bcast(config%s_xdmffile_stamp, 256, MPI_CHARACTER, 0, MPI_COMM_WORLD, error); assert_eq(error, 0)
+            call mpi_bcast(config%s_krakencommand, _MAX_ARG_SIZE, MPI_CHARACTER, 0, MPI_COMM_WORLD, error); assert_eq(error, 0)
+            call mpi_bcast(config%s_xdmffile_stamp, _MAX_PATH_SIZE, MPI_CHARACTER, 0, MPI_COMM_WORLD, error); assert_eq(error, 0)
             call mpi_bcast(config%i_xdmfcheckpoint_iteration, 1, MPI_INTEGER4, 0, MPI_COMM_WORLD, error); assert_eq(error, 0)
             call mpi_bcast(config%i_xdmfoutput_iteration, 1, MPI_INTEGER4, 0, MPI_COMM_WORLD, error); assert_eq(error, 0)
             call mpi_bcast(config%i_xdmfsimulation_iteration, 1, MPI_INTEGER4, 0, MPI_COMM_WORLD, error); assert_eq(error, 0)
@@ -211,7 +211,7 @@ module XDMF_config
 
         integer                             :: i
         character(len = 32)                 :: param_string
-        character(len = 1024)               :: params_string
+        character(len = (xdmf_filter_params_width + 2) * 32) :: params_string
 
         params_string(:) = " "
         do i = 1, config%i_xmdffilter_params_count

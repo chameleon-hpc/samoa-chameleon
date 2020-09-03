@@ -24,7 +24,7 @@ module XDMF_xmf
         integer(HSIZE_T), intent(in)                                    :: valst_width
         integer, intent(in)                                             :: xml_file_id
 
-        character(len = 512)					                        :: xml_hdf5_path_string
+        character(len = _MAX_PATH_SIZE)					                :: xml_hdf5_path_string
         character(len = 32)                                             :: xml_dims_string
         character(len = 32)                                             :: xml_number_type_string
         character(len = 4)                                              :: xml_center_type_string
@@ -89,7 +89,7 @@ module XDMF_xmf
 
         real(XDMF_GRID_SR), dimension(valst_width)                          :: dof_pos
         integer                                                             :: i, j
-        character(len = 2048)					                            :: xml_dof_string
+        character(len = 4096)					                            :: xml_dof_string
 
 #       if defined(_XDMF_DG)
             xml_dof_string(:) = " "

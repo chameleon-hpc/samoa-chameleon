@@ -87,6 +87,11 @@ real(kind=GRID_SR),Parameter :: s_m_inv_coarsen2(_SWE_DG_DOFS,_SWE_DG_DOFS) =&
 
 real(kind=GRID_SR) :: phi_hat(_SWE_PATCH_ORDER_SQUARE,_SWE_DG_DOFS)
 real(kind=GRID_SR) :: mue_inv_hat(_SWE_DG_DOFS,_SWE_PATCH_ORDER_SQUARE)
+
+real(kind=GRID_SR) :: basis_der_x_hat(_SWE_DG_DOFS,_SWE_DG_DOFS)
+real(kind=GRID_SR) :: basis_der_y_hat(_SWE_DG_DOFS,_SWE_DG_DOFS)
+
+real(kind=GRID_SR) :: t_k_t_11_inv_x_t_k_t_10_hat(_SWE_DG_ORDER,1)      
 contains
 
 !basis functions
@@ -94,7 +99,10 @@ contains
 
 subroutine init_matrices()
   call init_phi_hat()
-  call init_mue_inv_hat()	
+  call init_mue_inv_hat()
+  call init_basis_der_x_hat()
+  call init_basis_der_y_hat()
+  call init_t_k_t_11_inv_x_t_k_t_10_hat()
 end subroutine
 	
 subroutine init_phi_hat()
@@ -133,6 +141,57 @@ subroutine init_mue_inv_hat()
 	end do
 	
 	mue_inv_hat = mue_inv+R
+end subroutine
+
+
+subroutine init_basis_der_x_hat()
+	real(kind=GRID_SR),dimension(_SWE_DG_DOFS,_SWE_DG_DOFS) :: R
+	real(kind=GRID_SR),dimension(_SWE_DG_DOFS) :: v
+	real(kind=GRID_SR),dimension(_SWE_DG_DOFS)            :: vn
+	real(kind=GRID_SR),dimension(_SWE_DG_DOFS) :: vm	                   
+	integer :: i
+                   
+	R = 0.0_GRID_SR
+	vn = 1.0_GRID_SR
+	vm = 1.0_GRID_SR
+	v = matmul(basis_der_x,vn)
+	
+	do i = 1,_SWE_DG_DOFS
+	   R(i,i) = v(i)
+	end do
+	
+	basis_der_x_hat = basis_der_x - R
+end subroutine
+
+
+subroutine init_basis_der_y_hat()
+	real(kind=GRID_SR),dimension(_SWE_DG_DOFS,_SWE_DG_DOFS) :: R
+	real(kind=GRID_SR),dimension(_SWE_DG_DOFS) :: v
+	real(kind=GRID_SR),dimension(_SWE_DG_DOFS)            :: vn
+	real(kind=GRID_SR),dimension(_SWE_DG_DOFS) :: vm	                   
+	integer :: i
+                   
+	R = 0.0_GRID_SR
+	vn = 1.0_GRID_SR
+	vm = 1.0_GRID_SR
+	v = matmul(basis_der_y,vn)
+	
+	do i = 1,_SWE_DG_DOFS
+	   R(i,i) = v(i)
+	end do
+	
+	basis_der_y_hat = basis_der_y - R
+end subroutine
+
+subroutine init_t_k_t_11_inv_x_t_k_t_10_hat()
+	real(kind=GRID_SR),dimension(_SWE_DG_ORDER+1,1) :: R
+	real(kind=GRID_SR),dimension(1) :: v
+
+	v = 1.0_GRID_SR
+!	R = matmul(t_k_t_11_inv_x_t_k_t_10,v)
+
+!	t_k_t_11_inv_x_t_k_t_10_hat(1,1) = t_k_t_11_inv_x_t_k_t_10(1,1) - R(1,1)
+	
 end subroutine
 
 subroutine lusolve(mat,n,pivot,b)

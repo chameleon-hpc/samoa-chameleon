@@ -201,6 +201,7 @@ subroutine general_dg_riemannsolver(edge,rep1,rep2,update1,update2)
   type(t_update), dimension((_SWE_DG_ORDER+1)**2)         :: flux_temp
   real(kind = GRID_SR)                   	          :: normal(2)
   integer                                                 :: i,j
+! real(kind = GRID_SR),Parameter :: error = 1.0d-10
 
   normal = edge%transform_data%normal/NORM2(edge%transform_data%normal)
    !        ______
@@ -215,47 +216,18 @@ subroutine general_dg_riemannsolver(edge,rep1,rep2,update1,update2)
   FR = rep2%FP
 
 
-  ! !print*,"general riemann"
-  ! !print*,rep1%QP
-  ! !print*,rep2%QP
-  
-  !---- Dofs for hypothenuse need to be permuted ----!
-  ! if(edge%transform_data%index.eq.2) then
-  !    do j=0,_SWE_DG_ORDER
-  !       QR(  j+1,:) = rep2%QP(  (_SWE_DG_ORDER+1)-j,:)
-  !       FR(1,j+1,:) = rep2%FP(1,(_SWE_DG_ORDER+1)-j,:)
-  !       FR(2,j+1,:) = rep2%FP(2,(_SWE_DG_ORDER+1)-j,:)
-  !    end do
-  ! else
-  !    QR = rep2%QP
-  !    FR = rep2%FP
-  ! end if
-
   FLn = FL(1,:,:) * normal(1) + FL(2,:,:) * normal(2)
   FRn = FR(1,:,:) * normal(1) + FR(2,:,:) * normal(2)
   
   call compute_flux_pred(normal,QL,QR,FLn,FRn)
 
-   !---- Result for hypothenuse needs to be permuted back----!
-   ! if(edge%transform_data%index.eq.2) then
-   !       do j=0,_SWE_DG_ORDER
-   !          FRn_temp(j+1,:) = FRn((_SWE_DG_ORDER+1)-j,:)
-   !       end do
-   ! else
-   !    FRn_temp = FRn
-   ! end if
-
-   update1%flux%h    = FLn(:,1)
-   update1%flux%p(1) = FLn(:,2)
-   update1%flux%p(2) = FLn(:,3)
-   ! update2%flux%h    = FRn_temp(:,1)
-   ! update2%flux%p(1) = FRn_temp(:,2)
-   ! update2%flux%p(2) = FRn_temp(:,3)
-
-   update2%flux%h    = FRn(:,1)
-   update2%flux%p(1) = FRn(:,2)
-   update2%flux%p(2) = FRn(:,3)
-
+  update1%flux%h    = FLn(:,1)
+  update1%flux%p(1) = FLn(:,2)
+  update1%flux%p(2) = FLn(:,3)
+  
+  update2%flux%h    = FRn(:,1)
+  update2%flux%p(1) = FRn(:,2)
+  update2%flux%p(2) = FRn(:,3)
 end subroutine
 
 subroutine skeleton_scalar_op_dg(traversal, grid, edge, rep1, rep2, update1, update2)
@@ -275,55 +247,15 @@ update1%troubled      =rep2%troubled
 update2%troubled      =rep1%troubled
 
 if(isDG(rep1%troubled) .and. isDG(rep2%troubled)) then
-   
+   rep2_rev%troubled = rep2%troubled
    do i = 1,_SWE_DG_ORDER+1
       rep2_rev%QP(  i,:) = rep2%QP(  _SWE_DG_ORDER+2-i,:)
       rep2_rev%FP(1,i,:) = rep2%FP(1,_SWE_DG_ORDER+2-i,:)
       rep2_rev%FP(2,i,:) = rep2%FP(2,_SWE_DG_ORDER+2-i,:)
    end do
-   
+
    call general_dg_riemannsolver(edge,rep1,rep2_rev,update1,update2_rev)
-   ! !print*
-   ! !print*,edge%transform_data%normal
-   ! !print*,"Q1"
-   ! !print*,rep1%troubled
-   ! !print*,rep1%QP(:,1)
-   ! !print*,rep1%QP(:,2)
-   ! !print*,rep1%QP(:,3)
-   ! !print*,rep1%QP(:,4)
-   ! !print*,"F1"
-   ! !print*,rep1%FP(1,:,1)
-   ! !print*,rep1%FP(1,:,2)
-   ! !print*,rep1%FP(1,:,3)
-   ! !print*,"F2"
-   ! !print*,rep1%FP(2,:,1)
-   ! !print*,rep1%FP(2,:,2)
-   ! !print*,rep1%FP(2,:,3)
-
-   ! !print*,"Q2"
-   ! !print*,rep2%troubled
-   ! !print*,rep2%QP(:,1)
-   ! !print*,rep2%QP(:,2)
-   ! !print*,rep2%QP(:,3)
-   ! !print*,rep2%QP(:,4)
-   ! !print*,"F1"
-   ! !print*,rep2%FP(1,:,1)
-   ! !print*,rep2%FP(1,:,2)
-   ! !print*,rep2%FP(1,:,3)
-   ! !print*,"F2"
-   ! !print*,rep2%FP(2,:,1)
-   ! !print*,rep2%FP(2,:,2)
-   ! !print*,rep2%FP(2,:,3)
-   ! !print*,"update1"
-   ! !print*,update1%flux(:)%h
-   ! !print*,update1%flux(:)%p(1)
-   ! !print*,update1%flux(:)%p(2)
-   ! !print*,"update2"
-   ! !print*,update2%flux(:)%h
-   ! !print*,update2%flux(:)%p(1)
-   ! !print*,update2%flux(:)%p(2)
-
-
+   
    do i = 1,_SWE_DG_ORDER+1
       update2%flux(i) = update2_rev%flux(_SWE_DG_ORDER+2-i)
    end do
@@ -697,13 +629,11 @@ real(kind = GRID_SR)	          :: epsilon
 real(kind=GRID_SR)	          :: vL, vR, alpha
 integer                           :: i
 
-! !print*,"FLn"   
-! !print*,FLn
-! !print*,"FRn"   
-! !print*,FRn
-! !print*,"norm"
-! !print*,normal
 Fn_avg = 0.5_GRID_SR * ( FRn - FLn )
+! print*,"Fn_avg"
+! print*,Fn_avg(:,1)
+! print*,Fn_avg(:,2)
+! print*,Fn_avg(:,3)
 
 VelL(:) = QL(:,2)/QL(:,1) * normal(1) +  QL(:,3)/QL(:,1) * normal(2)
 VelR(:) = QR(:,2)/QR(:,1) * normal(1) +  QR(:,3)/QR(:,1) * normal(2)
@@ -714,7 +644,10 @@ alpha=max(maxval(abs(VelL) + sqrt(g * QL(:,1))),&
 hRoe  = 0.5_GRID_SR * (QR(:,1) + QL(:,1))
 bm    = max(QR(:,4),QL(:,4))
 Deta  = max(QR(:,1) + QR(:,4) - bm, 0.0) - max(QL(:,1) + QL(:,4) - bm, 0.0)
+
 Djump = 0.5_GRID_SR * g * hRoe * Deta
+!print*,"Djump"
+!print*,Djump
 
 Q_rus(:,  1) = 0.5_GRID_SR * alpha * Deta
 Q_rus(:,2:3) = 0.5_GRID_SR * alpha * (QR(:,2:3) - QL(:,2:3))
@@ -731,10 +664,10 @@ FRn(:,2) = FRn(:,2) - Djump * normal(1)
 FRn(:,3) = FRn(:,3) - Djump * normal(2)
 
 ! if (any(abs(FLn(:,2)) > 10.0e-5)) then
-!    !print*,"FLn"   
-!    !print*,FLn
-!    !print*,"FRn"   
-!    !print*,FRn
+! print*,"FLn1"   
+! print*,FLn
+! print*,"FRn2"   
+! print*,FRn
 !    !print*,"QR"   
 !    !print*,QR(:,1)
 !    !print*,QR(:,2)
@@ -847,6 +780,7 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
             real (kind=GRID_SR) :: refinement_threshold = 0.50_GRID_SR
             real(kind = GRID_SR), DIMENSION(_SWE_PATCH_SOLVER_CHUNK_SIZE)                :: normals_x, normals_y
 
+
 #if defined(_OPT_KERNELS)            
             !DIR$ ASSUME_ALIGNED hL: ALIGNMENT
             !DIR$ ASSUME_ALIGNED hR: ALIGNMENT
@@ -896,6 +830,15 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
             edge_lengths = cfg%scaling * element%cell%geometry%get_edge_sizes() / _SWE_PATCH_ORDER
 
             associate(data => element%cell%data_pers, geom => SWE_PATCH_geometry)
+
+              ! if(element%cell%data_pers%troubled .eq. 2) then
+              !    print*,"patch start"
+              !    print*,data%h 
+              !    print*,data%hu
+              !    print*,data%hv
+              !    print*,data%b 
+              ! endif
+
 
               ! copy cell values to arrays edges_a and edges_b
               ! obs: cells with id > number of cells are actually ghost cells and come from edges "updates"
@@ -1071,10 +1014,22 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                   call apply_mue(data%h ,data%Q%h)
                   call apply_mue(data%hu,data%Q%p(1))
                   call apply_mue(data%hv,data%Q%p(2))
-                  call apply_mue(data%b ,data%Q%b)
+!                  call apply_mue(data%b ,data%Q%b)                                  
                   data%Q%h=data%Q%h-data%Q%b
                end if
-               
+
+               ! if(element%cell%data_pers%troubled .eq. 2) then
+               !    print*,"mue"
+               !    print*,data%h 
+               !    print*,data%hu
+               !    print*,data%hv
+               !    print*,data%b 
+               ! !    print*
+               ! !    print*,data%Q%h  
+               ! !    print*,data%Q%p(1)
+               ! !    print*,data%Q%p(2)
+               ! !    print*,data%Q%b                    
+               ! end if
           end associate
 
         end subroutine fv_patch_solver

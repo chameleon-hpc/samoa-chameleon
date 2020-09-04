@@ -91,6 +91,7 @@ MODULE SWE_DG_predictor
     !--local variables--!
     integer                                    :: iteration
     real(kind=GRID_SR)                         :: epsilon
+    logical                                    :: iterate
 
 
     associate(Q_DG        => element%cell%data_pers%Q,&
@@ -99,13 +100,13 @@ MODULE SWE_DG_predictor
               edges => element%edges)
 
       cell_type = abs(cell%geometry%i_plotter_type)
+      iterate = .True.
 
       !!--Set initial conditions for discrete picard iteration--!!
       call initialise_predictor(Q_DG, cell, dt, dtdx, iteration, epsilon , q_0 , q_i_st)
       !!---------------------------!!
       
-      do while(epsilon > cfg%max_picard_error .and.&
-           (.not.(cell%data_pers%troubled.eq.PREDICTOR_DIVERGED)))
+      do while(iterate)
 
          iteration  = iteration+1
          iterations = iteration
@@ -126,9 +127,8 @@ MODULE SWE_DG_predictor
          end do
 #endif
 
-
-#if defined(_OPT_KERNELS)
          q_temp_st = 0
+#if defined(_OPT_KERNELS)
          call yateto_predictor_execute(q_temp_st, f_ref, q_0, s_ref, dtdx , cell_type-1)
 #else         
          call update_predictor(q_temp_st, q_0, dtdx, s_ref, f_ref, cell_type)
@@ -137,13 +137,9 @@ MODULE SWE_DG_predictor
          ! print*,q_i_st
          ! print*,q_temp_st
          epsilon =  compute_epsilon(q_i_st,q_temp_st)
+!         print*,"epsilon"
+!         print*,epsilon
          !--------------------------!
-
-         !--------------Update predictor-------------!
-         do i=2,_SWE_DG_ORDER+1
-            q_i_st(:,i,:) = q_temp_st(:,i-1,:)
-         end do
-         !-------------------------------------------!
 
          !------Guard for diverging Picard Loop------!
          if(iteration > cfg%max_picard_iterations) then                           
@@ -152,13 +148,25 @@ MODULE SWE_DG_predictor
          !-------------------------------------------!
 
           !------Guard for negative water height------!
-         if (any(q_i_st(:,:,1).le.0)) then
+         if (any(q_temp_st(:,:,1).le.0)) then
             cell%data_pers%troubled=PREDICTOR_DIVERGED
          end if
          !-------------------------------------------!
 
-      end do
+         iterate = epsilon > cfg%max_picard_error .and.(.not.(cell%data_pers%troubled.eq.PREDICTOR_DIVERGED))
 
+         !--------------Update predictor-------------!
+         if (iterate) then
+            do i=2,_SWE_DG_ORDER+1
+               q_i_st(:,i,:) = q_temp_st(:,i-1,:)
+            end do
+         end if
+         !-------------------------------------------!
+
+
+      end do
+!      print*,"Iterations"
+!      print*,iteration
       if(.not.(cell%data_pers%troubled.eq.PREDICTOR_DIVERGED)) then
 #if defined(_OPT_KERNELS)
          call yateto_volume_execute(q_dg_update_t, f_ref, s_ref, cell_type - 1)
@@ -378,11 +386,12 @@ subroutine compute_sref(s_ref,h,b)
      end do
   end do
   
-#else  
+#else
+
 
   do i=1,_SWE_DG_ORDER+1
-     s_ref(:,i,1) = ( g * h(:,i) * matmul(basis_der_x,h(:,i) + b) )
-     s_ref(:,i,2) = ( g * h(:,i) * matmul(basis_der_y,h(:,i) + b) )
+     s_ref(:,i,1) = ( g * h(:,i) * matmul(basis_der_x_hat,h(:,i) + b) )
+     s_ref(:,i,2) = ( g * h(:,i) * matmul(basis_der_y_hat,h(:,i) + b) )
   end do
   
 #endif
@@ -449,17 +458,20 @@ subroutine update_predictor(q_temp_st, q_0 , dtdx, s_ref, f_ref, cell_type)
   source_st = 0
   source_st(:,:,2) = s_ref(:,:,1) * jacobian(1,1,cell_type) + s_ref(:,:,2) * jacobian(1,2,cell_type)
   source_st(:,:,3) = s_ref(:,:,1) * jacobian(2,1,cell_type) + s_ref(:,:,2) * jacobian(2,2,cell_type)
-  
+
   do j=1,_SWE_DG_DOFS
      q_temp_st(j,:,:) = q_temp_st(j,:,:) + matmul(t_k_t_11_inv_t_m_1, source_st(j,:,:))
   end do
   !!------- end source term -------!!
   
   q_temp_st = q_temp_st * dtdx(1)
+
   
   do j=1,_SWE_DG_DOFS                  
      do i=1,_SWE_DG_ORDER
-        q_temp_st(j,i,:) = q_temp_st(j,i,:) - t_k_t_11_inv_x_t_k_t_10(i,1) * q_0(j,:)
+        !        q_temp_st(j,i,:) = q_temp_st(j,i,:) - t_k_t_11_inv_x_t_k_t_10(i,1) * q_0(j,:)
+        ! t_k_t_11_inv_x_t_k_t_10 seems to be always 1 which we still have to proove
+        q_temp_st(j,i,:) = q_temp_st(j,i,:) + q_0(j,:) 
      end do
   end do
   
@@ -495,9 +507,9 @@ subroutine compute_volume_update(Q_DG_UPDATE, s_ref, f_ref, cell_type)
 
   
   f(:,1,:) = jacobian_inv(1,1,cell_type) * f_ref_a(:,1,:) +&
-               jacobian_inv(1,2,cell_type) * f_ref_a(:,2,:)
+             jacobian_inv(1,2,cell_type) * f_ref_a(:,2,:)
   f(:,2,:) = jacobian_inv(2,1,cell_type) * f_ref_a(:,1,:) +&
-               jacobian_inv(2,2,cell_type) * f_ref_a(:,2,:)
+             jacobian_inv(2,2,cell_type) * f_ref_a(:,2,:)
   
   volume_flux(:,:) = matmul(s_m_inv, &
        matmul(s_k_x_s_b_3_s_b_2, f(:,1,:)) + &
@@ -507,7 +519,8 @@ subroutine compute_volume_update(Q_DG_UPDATE, s_ref, f_ref, cell_type)
                    -s_ref_a(:,2) * jacobian(1,2,cell_type)
   source_st(:,3) = -s_ref_a(:,1) * jacobian(2,1,cell_type)&
                    -s_ref_a(:,2) * jacobian(2,2,cell_type)
-  
+
+
 #if defined(_DEBUG)
   do j=1,_SWE_DG_DOFS
      if(isnan(volume_flux(j,1)).or.isnan(source_st(j,1))) then
@@ -546,6 +559,21 @@ subroutine initialise_riemann_arguments(cell, q_i_st, Q_DG)
         f_ref(:,i,:,:) = flux(q_i_st(:,i,:),_SWE_DG_DOFS)
      end do
   endif
+
+  ! print*,"Project"
+  ! do i = 1,3
+  !    do j = 1,_SWE_DG_DOFS
+  !       print*,q_i_st(j,:,i)
+  !    end do
+  ! end do
+  
+
+  ! print*
+  ! do i = 1,3
+  !    do j = 1,_SWE_DG_DOFS
+  !       print*,matmul(t_a,q_i_st(j,:,i))
+  !    end do
+  ! end do
   
   do j = 1,_SWE_DG_DOFS
      QP(  j,1:3) = reshape( matmul(t_a,q_i_st(j,:,:))  ,(/ 3 /))

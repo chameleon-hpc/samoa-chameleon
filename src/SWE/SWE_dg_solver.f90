@@ -201,6 +201,7 @@ subroutine general_dg_riemannsolver(edge,rep1,rep2,update1,update2)
   type(t_update), dimension((_SWE_DG_ORDER+1)**2)         :: flux_temp
   real(kind = GRID_SR)                   	          :: normal(2)
   integer                                                 :: i,j
+! real(kind = GRID_SR),Parameter :: error = 1.0d-10
 
   normal = edge%transform_data%normal/NORM2(edge%transform_data%normal)
    !        ______
@@ -215,47 +216,18 @@ subroutine general_dg_riemannsolver(edge,rep1,rep2,update1,update2)
   FR = rep2%FP
 
 
-  ! !print*,"general riemann"
-  ! !print*,rep1%QP
-  ! !print*,rep2%QP
-  
-  !---- Dofs for hypothenuse need to be permuted ----!
-  ! if(edge%transform_data%index.eq.2) then
-  !    do j=0,_SWE_DG_ORDER
-  !       QR(  j+1,:) = rep2%QP(  (_SWE_DG_ORDER+1)-j,:)
-  !       FR(1,j+1,:) = rep2%FP(1,(_SWE_DG_ORDER+1)-j,:)
-  !       FR(2,j+1,:) = rep2%FP(2,(_SWE_DG_ORDER+1)-j,:)
-  !    end do
-  ! else
-  !    QR = rep2%QP
-  !    FR = rep2%FP
-  ! end if
-
   FLn = FL(1,:,:) * normal(1) + FL(2,:,:) * normal(2)
   FRn = FR(1,:,:) * normal(1) + FR(2,:,:) * normal(2)
   
   call compute_flux_pred(normal,QL,QR,FLn,FRn)
 
-   !---- Result for hypothenuse needs to be permuted back----!
-   ! if(edge%transform_data%index.eq.2) then
-   !       do j=0,_SWE_DG_ORDER
-   !          FRn_temp(j+1,:) = FRn((_SWE_DG_ORDER+1)-j,:)
-   !       end do
-   ! else
-   !    FRn_temp = FRn
-   ! end if
-
-   update1%flux%h    = FLn(:,1)
-   update1%flux%p(1) = FLn(:,2)
-   update1%flux%p(2) = FLn(:,3)
-   ! update2%flux%h    = FRn_temp(:,1)
-   ! update2%flux%p(1) = FRn_temp(:,2)
-   ! update2%flux%p(2) = FRn_temp(:,3)
-
-   update2%flux%h    = FRn(:,1)
-   update2%flux%p(1) = FRn(:,2)
-   update2%flux%p(2) = FRn(:,3)
-
+  update1%flux%h    = FLn(:,1)
+  update1%flux%p(1) = FLn(:,2)
+  update1%flux%p(2) = FLn(:,3)
+  
+  update2%flux%h    = FRn(:,1)
+  update2%flux%p(1) = FRn(:,2)
+  update2%flux%p(2) = FRn(:,3)
 end subroutine
 
 subroutine skeleton_scalar_op_dg(traversal, grid, edge, rep1, rep2, update1, update2)
@@ -275,55 +247,15 @@ update1%troubled      =rep2%troubled
 update2%troubled      =rep1%troubled
 
 if(isDG(rep1%troubled) .and. isDG(rep2%troubled)) then
-   
+   rep2_rev%troubled = rep2%troubled
    do i = 1,_SWE_DG_ORDER+1
       rep2_rev%QP(  i,:) = rep2%QP(  _SWE_DG_ORDER+2-i,:)
       rep2_rev%FP(1,i,:) = rep2%FP(1,_SWE_DG_ORDER+2-i,:)
       rep2_rev%FP(2,i,:) = rep2%FP(2,_SWE_DG_ORDER+2-i,:)
    end do
-   
+
    call general_dg_riemannsolver(edge,rep1,rep2_rev,update1,update2_rev)
-   ! !print*
-   ! !print*,edge%transform_data%normal
-   ! !print*,"Q1"
-   ! !print*,rep1%troubled
-   ! !print*,rep1%QP(:,1)
-   ! !print*,rep1%QP(:,2)
-   ! !print*,rep1%QP(:,3)
-   ! !print*,rep1%QP(:,4)
-   ! !print*,"F1"
-   ! !print*,rep1%FP(1,:,1)
-   ! !print*,rep1%FP(1,:,2)
-   ! !print*,rep1%FP(1,:,3)
-   ! !print*,"F2"
-   ! !print*,rep1%FP(2,:,1)
-   ! !print*,rep1%FP(2,:,2)
-   ! !print*,rep1%FP(2,:,3)
-
-   ! !print*,"Q2"
-   ! !print*,rep2%troubled
-   ! !print*,rep2%QP(:,1)
-   ! !print*,rep2%QP(:,2)
-   ! !print*,rep2%QP(:,3)
-   ! !print*,rep2%QP(:,4)
-   ! !print*,"F1"
-   ! !print*,rep2%FP(1,:,1)
-   ! !print*,rep2%FP(1,:,2)
-   ! !print*,rep2%FP(1,:,3)
-   ! !print*,"F2"
-   ! !print*,rep2%FP(2,:,1)
-   ! !print*,rep2%FP(2,:,2)
-   ! !print*,rep2%FP(2,:,3)
-   ! !print*,"update1"
-   ! !print*,update1%flux(:)%h
-   ! !print*,update1%flux(:)%p(1)
-   ! !print*,update1%flux(:)%p(2)
-   ! !print*,"update2"
-   ! !print*,update2%flux(:)%h
-   ! !print*,update2%flux(:)%p(1)
-   ! !print*,update2%flux(:)%p(2)
-
-
+   
    do i = 1,_SWE_DG_ORDER+1
       update2%flux(i) = update2_rev%flux(_SWE_DG_ORDER+2-i)
    end do
@@ -588,39 +520,11 @@ if(isDG(data%troubled)) then
    end if
 end if
 
-! !print*,"before"
-! !print*,"troubled: ",element%cell%data_pers%troubled
-! !print*,element%cell%data_pers%H
-!!print*,element%cell%data_pers%HU
-!!print*,element%cell%data_pers%HV
-!!print*,element%cell%data_pers%B
-
 if(isFV(data%troubled)) then
    !-----Call FV patch solver----!    
    call fv_patch_solver(traversal, section, element, update1, update2, update3)
 end if
 
-!!print*,"after"
-!!print*,element%cell%data_pers%H
-!!print*,element%cell%data_pers%HU
-!!print*,element%cell%data_pers%HV
-!!print*,element%cell%data_pers%B
-! !print*,"update1"
-! !print*,update1%H
-! !print*,update1%HU
-! !print*,update1%HV
-! !print*,update1%B
-! !print*,"update2"
-! !print*,update2%H
-! !print*,update2%HU
-! !print*,update2%HV
-! !print*,update2%B
-! !print*,"update3"
-! !print*,update3%H
-! !print*,update3%HU
-! !print*,update3%HV
-! !print*,update3%B
- 
 
 !------- Update cell status and compute next timestep size --------!
 call updateCellStatus(data)
@@ -628,12 +532,23 @@ call updateCellStatus(data)
 dx = cfg%scaling *  edge_sizes(1)
 if(isDG(data%troubled)) then
    do i=1,_SWE_DG_DOFS
+      ! if(get_next_time_step_size(data%Q(i)%h,data%Q(i)%p(1),data%Q(i)%p(2),dx,cfg%dry_tolerance) < section%r_dt_new)then
+      !    print*,"DG"
+      !    print*,data%troubled
+      !    print*,data%Q(i)%h,data%Q(i)%p(1),data%Q(i)%p(2)
+      !    print*,get_next_time_step_size(data%Q(i)%h,data%Q(i)%p(1),data%Q(i)%p(2),dx,cfg%dry_tolerance)
+      ! endif
       section%r_dt_new = min(section%r_dt_new, get_next_time_step_size(data%Q(i)%h,data%Q(i)%p(1),data%Q(i)%p(2),dx,cfg%dry_tolerance))
    end do
 else
    do i=1,_SWE_PATCH_ORDER_SQUARE
+      ! if(get_next_time_step_size(data%h(i)-data%b(i),data%hu(i),data%hv(i),dx,cfg%dry_tolerance) < section%r_dt_new)then
+      !    print*,"FV"
+      !    print*,data%h(i)-data%b(i),data%hu(i),data%hv(i)
+      !    print*,get_next_time_step_size(data%h(i)-data%b(i),data%hu(i),data%hv(i),dx,cfg%dry_tolerance)
+      ! endif
       section%r_dt_new = min(section%r_dt_new, get_next_time_step_size(data%h(i)-data%b(i),data%hu(i),data%hv(i),dx,cfg%dry_tolerance))
-   end do
+end do
 endif
 !------------------------------------------------------------------!
 
@@ -697,13 +612,11 @@ real(kind = GRID_SR)	          :: epsilon
 real(kind=GRID_SR)	          :: vL, vR, alpha
 integer                           :: i
 
-! !print*,"FLn"   
-! !print*,FLn
-! !print*,"FRn"   
-! !print*,FRn
-! !print*,"norm"
-! !print*,normal
 Fn_avg = 0.5_GRID_SR * ( FRn - FLn )
+! print*,"Fn_avg"
+! print*,Fn_avg(:,1)
+! print*,Fn_avg(:,2)
+! print*,Fn_avg(:,3)
 
 VelL(:) = QL(:,2)/QL(:,1) * normal(1) +  QL(:,3)/QL(:,1) * normal(2)
 VelR(:) = QR(:,2)/QR(:,1) * normal(1) +  QR(:,3)/QR(:,1) * normal(2)
@@ -714,7 +627,10 @@ alpha=max(maxval(abs(VelL) + sqrt(g * QL(:,1))),&
 hRoe  = 0.5_GRID_SR * (QR(:,1) + QL(:,1))
 bm    = max(QR(:,4),QL(:,4))
 Deta  = max(QR(:,1) + QR(:,4) - bm, 0.0) - max(QL(:,1) + QL(:,4) - bm, 0.0)
+
 Djump = 0.5_GRID_SR * g * hRoe * Deta
+!print*,"Djump"
+!print*,Djump
 
 Q_rus(:,  1) = 0.5_GRID_SR * alpha * Deta
 Q_rus(:,2:3) = 0.5_GRID_SR * alpha * (QR(:,2:3) - QL(:,2:3))
@@ -731,10 +647,10 @@ FRn(:,2) = FRn(:,2) - Djump * normal(1)
 FRn(:,3) = FRn(:,3) - Djump * normal(2)
 
 ! if (any(abs(FLn(:,2)) > 10.0e-5)) then
-!    !print*,"FLn"   
-!    !print*,FLn
-!    !print*,"FRn"   
-!    !print*,FRn
+! print*,"FLn1"   
+! print*,FLn
+! print*,"FRn2"   
+! print*,FRn
 !    !print*,"QR"   
 !    !print*,QR(:,1)
 !    !print*,QR(:,2)
@@ -827,6 +743,7 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
             type(num_cell_update)                 :: tmp !> ghost cells in correct order 
             real(kind = GRID_SR)                  :: volume, edge_lengths(3), maxWaveSpeed, dQ_max_norm, dt_div_volume, maxWaveSpeedLocal
 
+
             real(kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER_SQUARE)                :: dQ_H, dQ_HU, dQ_HV !> deltaQ, used to compute cell updates
             real(kind = GRID_SR), DIMENSION(_SWE_PATCH_SOLVER_CHUNK_SIZE)           :: hL, huL, hvL, bL
             real(kind = GRID_SR), DIMENSION(_SWE_PATCH_SOLVER_CHUNK_SIZE)           :: hR, huR, hvR, bR
@@ -846,6 +763,7 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
             logical :: drying,troubled,coarsen,refine
             real (kind=GRID_SR) :: refinement_threshold = 0.50_GRID_SR
             real(kind = GRID_SR), DIMENSION(_SWE_PATCH_SOLVER_CHUNK_SIZE)                :: normals_x, normals_y
+
 
 #if defined(_OPT_KERNELS)            
             !DIR$ ASSUME_ALIGNED hL: ALIGNMENT
@@ -896,6 +814,15 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
             edge_lengths = cfg%scaling * element%cell%geometry%get_edge_sizes() / _SWE_PATCH_ORDER
 
             associate(data => element%cell%data_pers, geom => SWE_PATCH_geometry)
+
+              ! if(element%cell%data_pers%troubled .eq. 2) then
+              !    print*,"patch start"
+              !    print*,data%h 
+              !    print*,data%hu
+              !    print*,data%hv
+              !    print*,data%b 
+              ! endif
+
 
               ! copy cell values to arrays edges_a and edges_b
               ! obs: cells with id > number of cells are actually ghost cells and come from edges "updates"
@@ -1000,7 +927,10 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                     edges_b(j)%p(1) = huR(j)
                     edges_b(j)%p(2) = hvR(j)
                     edges_b(j)%b = bR(j)
-                    call compute_geoclaw_flux(normals(:,geom%edges_orientation(ind)), edges_a(j), edges_b(j), update_a, update_b)
+                    maxWaveSpeed_node = 0.0_GRID_SR
+                    call compute_geoclaw_flux(normals(:,geom%edges_orientation(ind)), edges_a(j), edges_b(j), update_a, update_b, maxWaveSpeed_node)
+                    maxWaveSpeed=max(maxWaveSpeed,maxWaveSpeed_node)
+                    
 
                     upd_hL(j)  = update_a%h
                     upd_huL(j) = update_a%p(1)
@@ -1037,6 +967,58 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                dQ_HU = dQ_HU * (-dt_div_volume)
                dQ_HV = dQ_HV * (-dt_div_volume)
 
+            !    if(data%troubled == 4)then
+            !    if(update1%troubled == -2)then
+            !       print*,"data"
+            !       print*,data%H 
+            !       print*,data%HU
+            !       print*,data%HV
+            !       print*,"update1"
+            !       print*,update1%H(:)
+            !       print*,update1%HU(:)
+            !       print*,update1%HV(:)
+            !       print*,update1%B(:)
+            !       print*,"dQ"
+            !       print*,dQ_H
+            !       print*,dQ_HU
+            !       print*,dQ_HV
+            !    end if
+            !    if(update2%troubled == -2)then
+            !       print*,"data"
+            !       print*,data%H 
+            !       print*,data%HU
+            !       print*,data%HV
+            !       print*,"update2"
+            !       print*,update2%H(:)
+            !       print*,update2%HU(:)
+            !       print*,update2%HV(:)
+            !       print*,update2%B(:)
+            !       print*,"dQ"
+            !       print*,dQ_H
+            !       print*,dQ_HU
+            !       print*,dQ_HV
+            !    end if
+            !    if(update3%troubled == -2)then
+            !       print*,"data"
+            !       print*,data%H 
+            !       print*,data%HU
+            !       print*,data%HV
+            !       print*,"update3"
+            !       print*,update3%H(:)
+            !       print*,update3%HU(:)
+            !       print*,update3%HV(:)
+            !       print*,update3%B(:)
+            !       print*,"dQ"
+            !       print*,dQ_H
+            !       print*,dQ_HU
+            !       print*,dQ_HV                  
+            !    end if
+            ! end if
+
+            ! if(any(abs(dQ_HU) > 10.0e-8))then
+            !    stop
+            ! end if
+
                ! if land is flooded, init water height to dry tolerance and
                ! velocity to zero
                where (data%H < data%B + cfg%dry_tolerance .and. dQ_H > 0.0_GRID_SR)
@@ -1044,7 +1026,7 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                   data%H = min(0.0_GRID_SR,data%B)
 #else
                   !                  data%H = data%B + cfg%dry_tolerance
-                  data%H = data%B 
+                  data%H = data%B + cfg%dry_tolerance 
 #endif                  
                   data%HU = 0.0_GRID_SR
                   data%HV = 0.0_GRID_SR
@@ -1059,22 +1041,31 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
 #if defined (_ASAGI)                  
                   data%H = min(0.0_GRID_SR,data%B)
 #else
-!                 data%H = data%B + cfg%dry_tolerance
-                  data%H = data%B
+                 data%H = data%B 
+!                  data%H = data%B
 
 #endif                  
                   data%HU = 0.0_GRID_SR
                   data%HV = 0.0_GRID_SR
                end where
+
+
+               ! if(all(data%h - data%b < cfg%dry_tolerance * 10.0d4)) then
+               !    where (data%HU > cfg%dry_tolerance * 10.0d-2) 
+               !       data%HU = 0.0_GRID_SR
+               !    end where
+               !    where (data%HV > cfg%dry_tolerance * 10.0d-2) 
+               !       data%HV = 0.0_GRID_SR
+               !    end where
+               ! end if
                
                if(.not.isCoast(element%cell%data_pers%troubled)) then
                   call apply_mue(data%h ,data%Q%h)
                   call apply_mue(data%hu,data%Q%p(1))
                   call apply_mue(data%hv,data%Q%p(2))
-                  call apply_mue(data%b ,data%Q%b)
+!                  call apply_mue(data%b ,data%Q%b)                                  
                   data%Q%h=data%Q%h-data%Q%b
                end if
-               
           end associate
 
         end subroutine fv_patch_solver
@@ -1095,13 +1086,14 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
 
         end function get_next_time_step_size
 
-        subroutine compute_geoclaw_flux(normal, QL, QR, fluxL, fluxR)
+        subroutine compute_geoclaw_flux(normal, QL, QR, fluxL, fluxR,max_wave_speed)
           type(t_state), intent(in)           :: QL, QR
           type(t_update), intent(out)         :: fluxL, fluxR
           real(kind = GRID_SR), intent(in)    :: normal(2)
+          real(kind = GRID_SR)                :: max_wave_speed
           
           real(kind = GRID_SR)				:: transform_matrix(2, 2)
-          real(kind = GRID_SR)			    :: net_updatesL(3), net_updatesR(3), max_wave_speed
+          real(kind = GRID_SR)			    :: net_updatesL(3), net_updatesR(3)
           real(kind = GRID_SR)                :: pL(2), pR(2), hL, hR, bL, bR
           
           transform_matrix(1, :) = normal
@@ -1117,7 +1109,7 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
 #           if defined(_FWAVE_FLUX)
           call c_bind_geoclaw_solver(GEOCLAW_FWAVE, 1, 3, hL, hR, pL(1), pR(1), pL(2), pR(2), bL, bR, real(cfg%dry_tolerance, GRID_SR), g, net_updatesL, net_updatesR, max_wave_speed)
 #           elif defined(_AUG_RIEMANN_FLUX)
-          call c_bind_geoclaw_solver(GEOCLAW_AUG_RIEMANN, 1, 3, hL, hR, pL(1), pR(1), pL(2), pR(2), bL, bR, real(cfg%dry_tolerance, GRID_SR), g, net_updatesL, net_updatesR, max_wave_speed)
+          call c_bind_geoclaw_solver(GEOCLAW_AUG_RIEMANN, 10, 3, hL, hR, pL(1), pR(1), pL(2), pR(2), bL, bR, real(cfg%dry_tolerance, GRID_SR), g, net_updatesL, net_updatesR, max_wave_speed)
 #           elif defined(_HLLE_FLUX)
           call compute_updates_hlle_single(hL, hR, pL(1), pR(1), pL(2), pR(2), bL, bR, net_updatesL, net_updatesR, max_wave_speed)
 #           endif

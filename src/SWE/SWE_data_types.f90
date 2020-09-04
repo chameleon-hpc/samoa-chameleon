@@ -168,17 +168,14 @@ type num_cell_rep
                  subroutine apply_phi(dg,fv)
                    real(kind=GRID_SR),intent(out) :: fv(_SWE_PATCH_ORDER_SQUARE)
                    real(kind=GRID_SR),intent(in)  :: dg(_SWE_DG_DOFS)
-                   
                    fv=matmul(phi_hat,dg)
                  end subroutine apply_phi
 
                  subroutine apply_mue(fv,dg)
                    real(kind=GRID_SR),intent(in) :: fv(_SWE_PATCH_ORDER_SQUARE)
                    real(kind=GRID_SR),intent(out)  :: dg(_SWE_DG_DOFS)
-                   real(kind=GRID_SR)             :: q_temp(_SWE_DG_DOFS+1)
-                   
-                   dg= matmul(mue_inv_hat,fv)
-                   
+                   real(kind=GRID_SR)             :: q_temp(_SWE_DG_DOFS+1)                   
+                   dg= matmul(mue_inv,fv)
                  end subroutine apply_mue
 
 

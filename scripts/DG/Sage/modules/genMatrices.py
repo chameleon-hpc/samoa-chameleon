@@ -10,7 +10,7 @@ from modules.meta import *
 
 from sage.parallel.multiprocessing_sage import parallel_iter
 
-from joblib import Parallel, delayed
+#from joblib import Parallel, delayed
 import multiprocessing
 
 def vandermonde_2D(order,nodes):   
@@ -129,7 +129,7 @@ def generate_s_k(basis,direction):
 
 def generate_phi(basis,order,triangles):
     N   = len(basis)
-    phi = Matrix([[0.0]*N]*len(triangles))
+    phi = Matrix(RR,[[0.0]*N]*len(triangles))
     num=2*order+1
     for n in range(0,N):
 
@@ -139,8 +139,13 @@ def generate_phi(basis,order,triangles):
                 if not j == 0:
                     ind = ind + 2
                 triangle = triangles[ind]
-                phi[ind,n] = integral(integral(basis[n],y,a=triangle[0][1],b=triangle[2][1]-(x-triangle[0][0])),
-                                                        x,a=triangle[0][0],b=triangle[1][0])
+#                phi[ind,n] = integral(integral(basis[n],y,a=triangle[0][1],b=triangle[2][1]-(x-triangle[0][0])),
+#                                                                         x,a=triangle[0][0],b=triangle[1][0])
+                bases_arr = list(zip(range(N),[ simplify(basis[l]) for l in range(N)],[ gl_rule(N,triangle[0][0],triangle[1][0],triangle[0][1],triangle[2][1]) for k in range(N)]))
+                phi_ind = sorted(list(numerical_integral_2d_arr(bases_arr)))
+                phi_ind = map(lambda x : x[1], phi_ind)
+                phi[ind,:] = vector(phi_ind)
+
             ind = ind + 1    
             
         ind = 2
@@ -149,23 +154,43 @@ def generate_phi(basis,order,triangles):
                 if not j == 1:
                     ind = ind + 2
                 triangle = triangles[ind]
-                            #triangles[ind] = [nodes_top[j], nodes_top[j-1], nodes_bottom[j]]
-                phi[ind,n] = integral(integral(basis[n],x,a=triangle[0][0]-(y-triangle[2][1]),b=triangle[2][0]),
-                                                        y,a=triangle[1][1],b=triangle[2][1])
+                #triangles[ind] = [nodes_top[j], nodes_top[j-1], nodes_bottom[j]]
+                #phi[ind,n] = integral(integral(basis[n],x,a=triangle[0][0]-(y-triangle[2][1]),b=triangle[2][0]),
+                #                                        y,a=triangle[1][1],b=triangle[2][1])
+                bases_arr = list(zip(range(N),[ simplify(basis[l]) for l in range(N)],[ gl_rule(N,triangle[0][0],triangle[2][0],triangle[2][1],triangle[1][1],1) for k in range(N)]))
+                phi_ind = sorted(list(numerical_integral_2d_arr(bases_arr)))
+                phi_ind = map(lambda x : x[1], phi_ind)
+                phi[ind,:] = vector(phi_ind)
+                
             ind = ind + 3     
 
-    return phi
+    ref_triangle_size = 1.0/(2.0*num*num)
+            
+    return phi / ref_triangle_size
 
-def generate_mue(basis,order,phi):
+def generate_mue(basis,order,phi_n):
     N = (order+1)*(order+2)//2
     N_mue = N + 1
-    mue = matrix([[0.0]*N_mue]* N_mue)
+    num = 2*order+1
+    ref_triangle_size = 1.0/(2.0*num*num)
+    phi = phi_n *ref_triangle_size
+    phi_t = matrix(RR,[[0.0]*num*num]*N_mue)    
+    phi_t[  : N    , : ] = 2.0*phi.transpose()
+    phi_t[N : N_mue, : ] = 1.0
+    
+    phi_t = phi_t * ref_triangle_size
+    
+    mue = matrix(RR,[[0.0]*N_mue]* N_mue)    
     #print(phi.transpose()* phi)
     mue[:N,:N] = 2.0 * phi.transpose()* phi            
     for i in range(0,N):
         mue[N_mue-1,i] = numerical_integral_2d(basis[i])
         mue[i,N_mue-1] = mue[N_mue-1,i]
-    return mue.inverse()
+        
+    mue_f = matrix(RR,[[0.0]*num*num]* N_mue)    
+    mue_f = mue.inverse()*phi_t
+        
+    return mue_f[:N,:]
 
 
 def printMatrix(matrix,name,order):
@@ -173,17 +198,39 @@ def printMatrix(matrix,name,order):
     matrix_name = name+"("+dimString+")"
     output_string="real(kind=GRID_SR),Parameter :: "+matrix_name+" = reshape((/ &\n"
     for j in range(matrix.ncols()):
+        line_string = ""
         for i in range(matrix.nrows()):
-            #if i != 0 and i % 10 == 0:
-            #        output_string = output_string + "&\n"
-            output_string = output_string + str(matrix[i,j]) + "_GRID_SR ,"
-        output_string = output_string + "&\n"
+            if len(line_string) > 7150:
+                output_string = output_string + line_string + "&\n"
+                line_string = ""
+            line_string = line_string + str(matrix[i,j]) + "_GRID_SR ,"
+        output_string = output_string + line_string + "&\n"
     #remove last seperator
     output_string = output_string[:-3]
     output_string = output_string + "  /),(/"+dimString+"/))"
     with open(str(name)+"_"+str(order)+".incl","w") as output:
         output.write(output_string)
 
+
+def printMatrixSlimFormat(matrix,name,order):
+    dimString = dimMapping(matrix.nrows())+","+dimMapping(matrix.ncols())
+    matrix_name = name+"("+dimString+")"
+    output_string="real(kind=GRID_SR),Parameter :: "+matrix_name+" = reshape((/ &\n"
+    for j in range(matrix.ncols()):
+        line_string = ""
+        for i in range(matrix.nrows()):
+            if len(line_string) > 7150:
+                output_string = output_string + line_string + "&\n"
+                line_string = ""
+            #print(type(matrix[i,j]))
+            line_string = line_string + "{:.16e}".format(float(matrix[i,j].n())).replace("e","d") + ","
+        output_string = output_string + line_string + "&\n"
+    #remove last seperator
+    output_string = output_string[:-3]
+    output_string = output_string + "  /),(/"+dimString+"/))"
+    with open(str(name)+"_"+str(order)+".incl","w") as output:
+        output.write(output_string)
+        
 
 def generate_ref(basis,side):
     #s_m = generate_s_m(basis)
@@ -205,8 +252,14 @@ def generate_ref(basis,side):
 
     for i in range(N):
         bases_arr = list(zip(range(N),[ simplify(basis[i]*basis_trafo[l]) for l in range(N)],[ gl_rule(N) for k in range(N)]))
-        s_m_trafo_lst = sorted(list(numerical_integral_2d_arr(bases_arr)))
-        s_m_trafo_i = map(lambda x : x[1], s_m_trafo_lst)
+#        s_m_trafo_lst = sorted(list(numerical_integral_2d_arr(bases_arr)))
+        s_m_trafo_lst = sorted(list(numerical_integral_2d_arr(bases_arr)))       
+        # print(list([e[0][0][0] for e in s_m_trafo_lst]))
+        # print(list([e[0][0][1] for e in s_m_trafo_lst]))
+        # print(list([e[0][1] for e in s_m_trafo_lst]))
+        # print(list([e[1] for e in s_m_trafo_lst]))
+        
+        s_m_trafo_i = map(lambda e : e[1], s_m_trafo_lst)
         s_m_trafo[i,:] = vector(s_m_trafo_i)
 
     return s_m_trafo

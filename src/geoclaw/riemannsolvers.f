@@ -43,7 +43,7 @@ c-----------------------------------------------------------------------
       double precision det1,det2,det3,determinant
 
       logical rare1,rare2,rarecorrector,rarecorrectortest,sonic
-
+      logical zero_vel_bar
 
       !determine del vectors
       delh = hR-hL
@@ -139,6 +139,14 @@ c           lambda(2) = max(min(0.5d0*(s1m+s2m),sE2),sE1)
 
          hbar =  max(0.5d0*(hLstar+hRstar),0.d0)
          s1s2bar = 0.25d0*(uLstar+uRstar)**2 - g*hbar
+
+
+c        catch zero average velocity to keep steady state                       
+	 if((uLstar + uRstar)**2 < 1.0d-20) then
+            zero_vel_bar = .True.
+         endif
+
+         
          s1s2tilde= max(0.d0,uLstar*uRstar) - g*hbar
 
 c        !find if sonic problem
@@ -155,9 +163,23 @@ c        !find if sonic problem
 c        !find jump in h, deldelh
          if (sonic) then
             deldelh =  -delb
+c$$$         else if(zero_vel_bar) then
+c$$$	    deldelh = -delb
          else
-            deldelh = delb*g*hbar/s1s2bar
+            
+c            deldelh = delb*g*hbar/s1s2bar
+            deldelh = -delb + delb * (((uLstar+uRstar)**2) /((uLstar+uRstar)**2 - g*hbar*4.0d0))
+
+!     delb*g*hbar/(0.25d0*(uLstar+uRstar)**2 - g*hbar)
+c$$$         print*,"deldelh"
+c$$$         print*,(uLstar+uRstar)**2
+c$$$         print*,deldelh
+c$$$         print*,-delb
+c$$$         print*,deldelh + delb
+!          print*,((uLstar+uRstar)**2) /((uLstar+uRstar)**2 - g*hbar*4.0d0)
+!            print*,1.0d0 /(1.0d0 - g*hbar*4.0d0/((uLstar+uRstar)**2))
          endif
+         
 c        !find bounds in case of critical state resonance, or negative states
          if (sE1.lt.-criticaltol.and.sE2.gt.criticaltol) then
             deldelh = min(deldelh,hstarHLL*(sE2-sE1)/sE2)
@@ -173,8 +195,12 @@ c        !find bounds in case of critical state resonance, or negative states
 c        !find jump in phi, deldelphi
          if (sonic) then
             deldelphi = -g*hbar*delb
+c$$$         else if (zero_vel_bar) then
+c$$$            deldelphi = -g*hbar*delb
          else
-            deldelphi = -delb*g*hbar*s1s2tilde/s1s2bar
+c            deldelphi = -delb*g*hbar*s1s2tilde/s1s2bar
+            deldelphi = -delb*g*hbar + delb*g*hbar * 
+     +(4.0d0 * max(0.d0,uLstar*uRstar) - (uLstar+uRstar)**2 )/ ((uLstar+uRstar)**2 - 4.0d0 * g * hbar)
          endif
 c        !find bounds in case of critical state resonance, or negative states
          deldelphi=min(deldelphi,g*max(-hLstar*delb,-hRstar*delb))

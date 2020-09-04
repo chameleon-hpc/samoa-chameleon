@@ -162,8 +162,6 @@ MODULE SWE_DG_predictor
             end do
          end if
          !-------------------------------------------!
-
-
       end do
 !      print*,"Iterations"
 !      print*,iteration

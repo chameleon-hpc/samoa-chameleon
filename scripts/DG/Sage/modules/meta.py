@@ -1,6 +1,12 @@
 from sage.calculus.integration import numerical_integral
+from sage.calculus.var import var
+from sage.misc.functional import integral
 from sage.parallel.decorate import parallel
 from numpy.polynomial.legendre import leggauss
+from sage.rings.real_mpfr import RR
+
+import matplotlib.pyplot as plt
+import numpy as np
 
 class gl_rule:    
     def __init__(self,order,a1=0,b1=1,a2=0,b2=1,c=-1):
@@ -11,7 +17,7 @@ class gl_rule:
         self.quad_rule = []
 
         quad_node_1d_scale_x   = list(map(lambda x: x * (b1-a1), quad_node_1d))
-        quad_weight_1d_scale_x = list(map(lambda w: w * (b1-a1), quad_weight_1d))
+        quad_weight_1d_scale_x = list(map(lambda w: w * abs(b1-a1), quad_weight_1d))
         
         for i in range(len(quad_node_1d)):
             x = quad_node_1d_scale_x[i] + a1
@@ -19,20 +25,40 @@ class gl_rule:
 
             dy = ( (1-c)/2.0 + c*(x - a1)/(b1 - a1))*(b2 - a2)
             self.quad_rule.extend(zip([(x, y * dy + a2) for y in quad_node_1d],
-                                      [(w_x * w_y * dy) for w_y in quad_weight_1d]))
+                                      [(w_x * w_y * abs(dy)) for w_y in quad_weight_1d]))
+
+        assert(np.all(np.isfinite([ e[0] for e in self.quad_rule ])))
+        assert(np.all(np.isfinite([ e[1] for e in self.quad_rule ])))
     
     def quad(self,func):
-        quad_sum = 0
+        x = var('x',domain=RR)
+        y = var('y',domain=RR)        
+        quad_sum = 0.0
         for c,w in self.quad_rule:
-            quad_sum = quad_sum + func(x=c[0], y=c[1]) * w
-    
+            x_1 = c[0]
+            y_1 = c[1]
+            w_1 = w
+            func_res = func(x=x_1, y=y_1)
+            func_res = func_res * w
+            quad_sum = quad_sum + func_res
         return quad_sum
 
-    
-@parallel('multiprocessing',8)
+@parallel('fork',8)    
 def numerical_integral_2d_arr(i,func,r):
     #print(r.quad(func))
-    return r.quad(func)
+    res = r.quad(func)
+    return res
+
+
+def numerical_integral_2d_arr_st(lst):
+    #print(r.quad(func))
+    
+    res = []
+    for i,func,r in lst:
+        res.append((i,r.quad(func)))
+        
+    return res
+
 
 def dimMapping(order):
     mapping = { 1                      : str(1), 
@@ -50,7 +76,7 @@ def numerical_integral_2d(func,a1=0,b1=1,a2=0,b2=1,c=-1):
     integrand = lambda x : numerical_integral(func,a2,b2+x*c,params=[x])[0]
     return numerical_integral(integrand,a1,b1)[0]
 
-def generatePatch(order,show):
+def generatePatch(order,show=False):
     num = 2*order+1
     nodes = []
     for i in range(0,num+1):
@@ -82,7 +108,7 @@ def generatePatch(order,show):
     if show:
         for triangle in triangles:
             plt.plot([triangle[0][0], triangle[1][0], triangle[2][0], triangle[0][0]],
-                    [triangle[0][1], triangle[1][1], triangle[2][1], triangle[0][1]])
+                     [triangle[0][1], triangle[1][1], triangle[2][1], triangle[0][1]])
             center_x = (triangle[0][0]+ triangle[1][0] + triangle[2][0])/3.0
             center_y = (triangle[0][1]+ triangle[1][1] + triangle[2][1])/3.0
             plt.text(center_x,center_y,str(i))

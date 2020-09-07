@@ -171,7 +171,7 @@ module XDMF_output_base
 
         integer (XDMF_GRID_SI)                                          :: output_meta_iteration
         logical                                                         :: hdf5_step_exists, new_file, write_cp
-        character(len = 256)					                        :: file_name_h5
+        character(len = _MAX_PATH_SIZE)					                :: file_name_h5
 
         integer (INT64)                                                 :: htbl_size, htbl_hash2, htbl_try, htbl_key, htbl_num_cells
         integer (INT32)                                                 :: htbl_element, hdf5_tree_index

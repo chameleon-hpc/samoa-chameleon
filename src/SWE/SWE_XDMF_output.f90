@@ -369,7 +369,7 @@
             type(t_xdmf_base_output_traversal), intent(inout)				:: base
             type(t_grid), intent(inout)							            :: grid
     
-            character(len = 256)					                        :: file_name_h5, file_name_xmf
+            character(len = _MAX_PATH_SIZE)					                :: file_name_h5, file_name_xmf
             integer                                                         :: xml_file_id
             integer(GRID_SI)                                                :: output_meta_iteration
             character(len = 17)                                             :: xml_time_string
@@ -455,7 +455,7 @@
             integer (XDMF_GRID_DI), intent(in), optional	                    :: hdf5_attr_width_override
 
             character(len = 21)                                                 :: xml_dims_string
-            character(len = 512)					                            :: xml_hdf5_path_string
+            character(len = _MAX_PATH_SIZE)					                    :: xml_hdf5_path_string
             integer (XDMF_GRID_DI)	                                            :: hdf5_attr_width_override_p
 
 

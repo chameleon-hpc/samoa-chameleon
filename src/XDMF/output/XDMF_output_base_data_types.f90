@@ -48,7 +48,7 @@ module XDMF_output_base_data_types
             integer (XDMF_GRID_SI)	            :: num_patches = 0
             integer (XDMF_GRID_SI)	            :: sect_store_index_patches = 1
 #       endif
-        character(len = 256)					:: s_file_stamp, s_file_stamp_base
+        character(len = _MAX_PATH_SIZE)			:: s_file_stamp, s_file_stamp_base
         integer                                 :: xdmf_remove_lines = 0
 
         type(t_xdmf_layout_descriptor)          :: root_layout_desc

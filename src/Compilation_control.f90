@@ -214,3 +214,6 @@
 #define _DMP_NUM_OBSERVABLES 3
 #endif
 
+! OS specific
+#define _MAX_PATH_SIZE 1024
+#define _MAX_ARG_SIZE 2048

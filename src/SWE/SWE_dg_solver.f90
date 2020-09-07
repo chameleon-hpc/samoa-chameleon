@@ -927,9 +927,9 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                     edges_b(j)%p(1) = huR(j)
                     edges_b(j)%p(2) = hvR(j)
                     edges_b(j)%b = bR(j)
-                    maxWaveSpeed_node = 0.0_GRID_SR
-                    call compute_geoclaw_flux(normals(:,geom%edges_orientation(ind)), edges_a(j), edges_b(j), update_a, update_b, maxWaveSpeed_node)
-                    maxWaveSpeed=max(maxWaveSpeed,maxWaveSpeed_node)
+                    maxWaveSpeedLocal = 0.0_GRID_SR
+                    call compute_geoclaw_flux(normals(:,geom%edges_orientation(ind)), edges_a(j), edges_b(j), update_a, update_b, maxWaveSpeedLocal)
+                    maxWaveSpeed=max(maxWaveSpeed,maxWaveSpeedLocal)
                     
 
                     upd_hL(j)  = update_a%h

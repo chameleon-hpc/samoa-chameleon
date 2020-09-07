@@ -12,9 +12,11 @@ MODULE SWE_DG_predictor
   use Samoa_swe
   use SWE_DG_Limiter
   use SWE_dg_solver
+
 #if defined(_OPT_KERNELS)  
   use yateto_interface
-#endif
+#endif  
+  use SWE_PDE
 
 #if defined(CHAMELEON)
    use Chameleon_lib
@@ -36,8 +38,7 @@ MODULE SWE_DG_predictor
 # define _GT_ELEMENT_OP             element_op
 # define _GT_CELL_TO_EDGE_OP        cell_to_edge_op_dg  
   
-  public dg_predictor!,flux_1,flux_2
-  
+  public dg_predictor
   public writeFVBoundaryFields
 #		include "SFC_generic_traversal_ringbuffer.f90"
   
@@ -174,7 +175,6 @@ MODULE SWE_DG_predictor
 #endif         
 
          call initialise_riemann_arguments(cell,q_i_st,Q_DG)
-
       end if
     end associate
   end subroutine dg_predictor
@@ -239,56 +239,6 @@ MODULE SWE_DG_predictor
        end associate
     end if
   end subroutine writeFVBoundaryFields
-
-function flux(q,N)
-  real(kind=GRID_SR)             :: flux(N,2,3)
-  real(kind=GRID_SR), intent(in) :: q(N,3)
-  integer                        :: N
-  
-  flux(:,1,1) = q(:,2)
-  flux(:,1,2) = q(:,2)**2/q(:,1) + 0.5_GRID_SR * g * q(:,1)**2
-  flux(:,1,3) = q(:,2)*q(:,3)/q(:,1)
-  
-  flux(:,2,1) = q(:,3)
-  flux(:,2,2) = q(:,2)*q(:,3)/q(:,1)
-  flux(:,2,3) = q(:,3)**2/q(:,1) + 0.5_GRID_SR * g * q(:,1)**2
-  
-end function flux
-  
-function flux_1(q,N)
-  real(kind=GRID_SR)             ::flux_1(N,3)
-  real(kind=GRID_SR) ,intent(in) ::q(N,3)
-  integer :: N
-  flux_1(:,1) = q(:,2)
-  flux_1(:,2) = q(:,2)**2/q(:,1) + 0.5_GRID_SR * g * q(:,1)**2
-  !flux_1(:,2) = q(:,2)**2/q(:,1)
-  flux_1(:,3) = q(:,2)*q(:,3)/q(:,1)
-end function flux_1
-
-function flux_2(q,N)
-  real(kind=GRID_SR)             ::flux_2(N,3)
-  real(kind=GRID_SR) ,intent(in) ::q(N,3)
-  integer :: N
-  flux_2(:,1) = q(:,3)
-  flux_2(:,2) = q(:,2)*q(:,3)/q(:,1)
-  flux_2(:,3) = q(:,3)**2/q(:,1) + 0.5_GRID_SR * g * q(:,1)**2
-  !flux_2(:,3) = q(:,3)**2/q(:,1)
-end function flux_2
-
-function flux_no_grav(q,N)
-  real(kind=GRID_SR)             ::flux_no_grav(N,2,3)
-  real(kind=GRID_SR) ,intent(in) ::q(N,3)
-  integer :: N
-
-  flux_no_grav(:,1,1) = q(:,2)
-  flux_no_grav(:,1,2) = q(:,2)**2/q(:,1)
-  flux_no_grav(:,1,3) = q(:,2)*q(:,3)/q(:,1)
-
-  flux_no_grav(:,2,1) = q(:,3)
-  flux_no_grav(:,2,2) = q(:,2)*q(:,3)/q(:,1)
-  flux_no_grav(:,2,3) = q(:,3)**2/q(:,1)
-
-end function flux_no_grav
 
 function compute_epsilon(q_i_st,q_temp_st) result(epsilon)
   real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3)  :: q_i_st
@@ -600,81 +550,6 @@ subroutine initialise_riemann_arguments(cell, q_i_st, Q_DG)
   end do
 end subroutine initialise_riemann_arguments
 
-
-! subroutine compute_volume_update_o(Q_DG_UPDATE, s_ref, f_ref, cell_type)
-!   real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,3)                               :: Q_DG_UPDATE
-!   real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,  2),intent(in)  :: s_ref
-!   real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,2,3),intent(in)  :: f_ref
-!   integer,intent(in)                                                         :: cell_type
-
-!   !local variables
-!   real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3)   :: source_st, source_ref_st
-!   real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3)   :: volume_flux
-!   real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,2,3) :: f
-!   integer :: i,j
-
-!   volume_flux = 0
-!   source_st = 0
-!   f = 0
-  
-!   f(:,:,1,:) = jacobian_inv(1,1,cell_type) * f_ref(:,:,1,:) +&
-!                jacobian_inv(1,2,cell_type) * f_ref(:,:,2,:)
-!   f(:,:,2,:) = jacobian_inv(2,1,cell_type) * f_ref(:,:,1,:) +&
-!                jacobian_inv(2,2,cell_type) * f_ref(:,:,2,:)
-  
-!   do i=1,_SWE_DG_ORDER+1
-!      volume_flux(:,i,:) = matmul(s_m_inv, &
-!           matmul(s_k_x_s_b_3_s_b_2, f(:,i,1,:)) + &
-!           matmul(s_k_y_s_b_1_s_b_2, f(:,i,2,:)))
-!   end do
-  
-!   do i=1,_SWE_DG_ORDER+1
-!      source_ref_st(:,i,2) = matmul(s_m_inv, -matmul(s_m, s_ref(:,i,1)))
-!      source_ref_st(:,i,3) = matmul(s_m_inv, -matmul(s_m, s_ref(:,i,2)))
-!   end do
-  
-!   source_st(:,:,2) = source_ref_st(:,:,2) * jacobian(1,1,cell_type) +&
-!                      source_ref_st(:,:,3) * jacobian(1,2,cell_type)
-!   source_st(:,:,3) = source_ref_st(:,:,2) * jacobian(2,1,cell_type) +&
-!                      source_ref_st(:,:,3) * jacobian(2,2,cell_type)
-  
-! #if defined(_DEBUG)
-!   do j=1,_SWE_DG_DOFS
-!      do i=1,_SWE_DG_ORDER+1
-!         if(isnan(volume_flux(j,i,1)).or.isnan(source_st(j,i,1))) then
-!            print*,epsilon
-!            print*,iteration
-!            print*,cell%data_pers%troubled
-!            print*,"vol"
-!            print*,volume_flux
-!            print*,"src"
-!            print*,source_st
-!            exit
-!         end if
-!      end do
-!   end do
-! #endif
-  
-!   volume_flux = volume_flux + source_st
-!   do j = 1,_SWE_DG_DOFS
-!      Q_DG_UPDATE(j,:) = reshape(matmul(t_a,volume_flux(j,:,:)),(/ 3 /))
-!   end do
-
-! #if defined(_DEBUG)
-!          do i=1,_SWE_DG_DOFS
-!             if(isnan(Q_DG_UPDATE(i,1))) then
-!                print*,"nan Q_DG_update"
-!                print*,Q_DG_UPDATE
-!                print*,"q_i_st"
-!                print*,q_i_st
-!                exit
-!             end if
-!          end do
-! #endif
-
-!   !!------------------------------!!  
-!        end subroutine compute_volume_update_o
-  
 END MODULE SWE_DG_predictor
 
 #endif

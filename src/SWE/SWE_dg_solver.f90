@@ -12,7 +12,7 @@ MODULE SWE_DG_solver
   use Samoa_swe
   use SWE_Riemann_solver_wrapper
   use c_bind_riemannsolvers
-
+  use SWE_PDE
 
 #if defined(CHAMELEON)
    use Chameleon_lib
@@ -305,6 +305,7 @@ integer                                             :: i
 
 normal=(edge%transform_data%normal)/NORM2(edge%transform_data%normal)
 update%troubled=rep%troubled
+rep_bnd%troubled = rep%troubled
 update%minObservables = rep%minObservables
 update%maxObservables = rep%maxObservables
 
@@ -315,10 +316,13 @@ if(isDG(rep%troubled)) then
 #  if defined(_BOUNDARY)
       if(get_edge_boundary_align(normal)) then
          ! Time-dependent condition, generate virtual wave from data or function
-         do i=1, _SWE_DG_DOFS
+         do i=1, _SWE_DG_ORDER+1
             call get_edge_boundary_Q(grid%r_time, rep_bnd%QP(i,1), &
-               rep_bnd%QP(i,2), rep_bnd%QP(i,3), rep_bnd%QP(i,4))
+               rep_bnd%QP(i,2), rep_bnd%QP(i,3), rep_bnd%QP(i,4), .true.)
          end do
+
+         rep_bnd%FP(1, :, :) = flux_1(rep_bnd%QP(:, 1:3), _SWE_DG_ORDER+1)
+         rep_bnd%FP(2, :, :) = flux_2(rep_bnd%QP(:, 1:3), _SWE_DG_ORDER+1)
       else
 #  endif
          ! Generate mirrored wave to reflect out incoming wave
@@ -348,24 +352,22 @@ else if(isFV(rep%troubled)) then
             update%H(i) = rep%H(i)
             update%B(i) = rep%B(i)
             call get_edge_boundary_Q(grid%r_time, update%H(i), &
-               update%HU(i), update%HV(i), update%B(i))
+               update%HU(i), update%HV(i), update%B(i), .false.)
          end do
       else
 #  endif
+         ! Generate mirrored wave to reflect out incoming wave
+         update%H=rep%H
+         update%B=rep%B
+         do i=1, _SWE_PATCH_ORDER
+            length_flux = dot_product([ rep%HU(i), rep%HV(i) ], normal)
+            update%HU(i)=rep%HU(i) - 2.0_GRID_SR*length_flux*normal(1)
+            update%HV(i)=rep%HV(i) - 2.0_GRID_SR*length_flux*normal(2)
+         end do
 #  if defined(_BOUNDARY)
       end if
 #  endif
-   end if
-   
-   ! Generate mirrored wave to reflect out incoming wave
-   update%H=rep%H
-   do i=1, _SWE_PATCH_ORDER
-      length_flux = dot_product([ rep%HU(i), rep%HV(i) ], normal)
-      update%HU(i)=rep%HU(i) - 2.0_GRID_SR*length_flux*normal(1)
-      update%HV(i)=rep%HV(i) - 2.0_GRID_SR*length_flux*normal(2)
-   end do
-   update%B=rep%B
-   
+end if   
 end subroutine bnd_skeleton_scalar_op_dg
 
 #if defined(_BOUNDARY)
@@ -385,9 +387,11 @@ end subroutine bnd_skeleton_scalar_op_dg
       end select
    end function get_edge_boundary_align
 
-   subroutine get_edge_boundary_Q(t, H, HU, HV, B)
+   subroutine get_edge_boundary_Q(t, H, HU, HV, B, isDG)
       real(GRID_SR), intent(in)                 :: t
-      real(GRID_SR), intent(inout)              :: H, HU, HV, B
+      real(GRID_SR), intent(inout)              :: H, HU, HV
+      real(GRID_SR), intent(in)                 :: B
+      logical, intent(in)                       :: isDG
 
       real(GRID_SR)                             :: velocity, h_init
 
@@ -415,6 +419,10 @@ end subroutine bnd_skeleton_scalar_op_dg
       end select
       HU = HU * H
       HV = HV * H
+      if(.not. isDG) then
+         ! FV stores H + B, DG stores H
+         H = H + B
+      end if
    end subroutine
 #endif
 

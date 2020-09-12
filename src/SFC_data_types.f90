@@ -135,6 +135,7 @@ MODULE SFC_data_types
         double precision                                    :: r_computation_time_since_last_LB ! used for computing throughput on automatic & heterog. LB
         integer                                             :: i_steps_since_last_LB
         logical                                             :: l_grid_generation
+        logical                                             :: l_disturb_next_lb
 
         contains
 

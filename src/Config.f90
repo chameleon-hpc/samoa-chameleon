@@ -51,6 +51,7 @@ module config
         logical                                 :: l_lb_hh                                          !< if true, MPI load balancing can distribute the load unevenly
         logical                                 :: l_lb_hh_auto                                     !< if true, MPI load balancing considers the performance of each rank and distributes load accordingly
         !logical                                 :: l_lb_no_shared_split                                !< if true, sections are not split into uniform load in shared memory
+        logical                                 :: l_lb_disturb                                     !< if true, load information is actively disturbed to provoke wrong predictions
 
         double precision                        :: r_lb_hh_ratio(2)                                 !< HH LB ratio: value (1) is for Hosts, (2) is for MICs. Read from s_lb_hh_ratio.
         character(64)                           :: s_lb_hh_ratio                                    !< input string for r_lb_hh_ratio
@@ -166,7 +167,7 @@ module config
 
         write(arguments, '(A)') "-v .false. --version .false. -h .false. --help .false."
         write(arguments, '(A, A)') trim(arguments),   " -lbtime .false. -lbsplitmode 0 -lbserial .false. -lbcellweight 1.0d0 -lbbndweight 0.0d0"
-        write(arguments, '(A, A)') trim(arguments),   " -lbhh .false. -lbfreq 1 -lbthreshold 0.01 -lbhhauto .false. -lbhhratio 1 1"
+        write(arguments, '(A, A)') trim(arguments),   " -lbhh .false. -lbfreq 1 -lbthreshold 0.01 -lbhhauto .false. -lbhhratio 1 1 -lbdisturb .false."
         write(arguments, '(A, A)') trim(arguments),  " -asagihints 2 -phases 1 -tadapt -1.0 -nadapt 1 -asciioutput_width 60 -output_dir output -asciioutput .false. -xmloutput .false. -stestpoints '' -noprint .false. -statsperprocess .false. -verbosestats .false -sections 4 "
         write(arguments, '(A, A, I0)') trim(arguments), " -threads ", omp_get_max_threads()
 
@@ -258,6 +259,7 @@ module config
         config%l_lb_hh = lget('samoa_lbhh')
         config%l_lb_hh_auto = lget('samoa_lbhhauto')
         config%s_lb_hh_ratio = sget('samoa_lbhhratio', 64)
+        config%l_lb_disturb = lget('samoa_lbdisturb')
         read(unit=config%s_lb_hh_ratio, fmt=*) config%r_lb_hh_ratio(1), config%r_lb_hh_ratio(2)
         config%i_sections_per_thread = iget('samoa_sections')
         config%i_asagi_mode = iget('samoa_asagihints')

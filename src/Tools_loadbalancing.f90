@@ -35,7 +35,7 @@ module Tools_loadbalancing
 			! rank load is simply the sum of loads of all sections in the rank
 			rank_load = sum(grid%sections%elements_alloc(:)%load)
 
-            _log_write(0, '(A,I5)') "load balancing: current load", rank_load
+            _log_write(2, '(A,I5)') "load balancing: current load", rank_load
             if(grid%l_disturb_next_lb) then
                 if(mod (rank_MPI, 2) .eq. 0 ) then
                     _log_write(0, '(4X, "load balancing: disturbing load information")')

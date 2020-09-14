@@ -270,7 +270,9 @@
                 grid%i_steps_since_last_LB = cfg%i_lb_frequency - 1
                 ! only use homogeneous LB here (same reason)
                 grid%l_grid_generation = .true.
-                grid%l_disturb_next_lb = .true.
+                if(cfg%l_lb_disturb) then
+                  grid%l_disturb_next_lb = .true.
+                endif
 
 				call swe%adaption%traverse(grid)
 
@@ -295,6 +297,7 @@
 			end do
 
 			grid%l_grid_generation = .false.
+            grid%l_disturb_next_lb = .true.
         
 
             grid_info = grid%get_info(MPI_SUM, .true.)

@@ -297,8 +297,11 @@
 			end do
 
 			grid%l_grid_generation = .false.
-            grid%l_disturb_next_lb = .true.
-        
+            if(cfg%l_lb_disturb) then
+             grid%l_disturb_next_lb = .true.
+            else
+             grid%l_disturb_next_lb = .false.
+            end if
 
             grid_info = grid%get_info(MPI_SUM, .true.)
 

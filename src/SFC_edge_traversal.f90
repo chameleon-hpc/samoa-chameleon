@@ -1620,7 +1620,7 @@ subroutine collect_minimum_distances(grid, rank_list, neighbor_min_distances, i_
                 
                 !compute global imbalance by a prefix sum over the grid load
                 if(grid%l_disturb_next_lb) then
-                    if(mod (rank_MPI, 2) .eq. 0 ) then
+                    if(mod (rank_MPI, 2) .eq. 1 ) then
                         grid%sections%elements_alloc%load = grid%sections%elements_alloc%load * 0.5
                     endif
                 endif

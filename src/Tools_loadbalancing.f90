@@ -37,7 +37,7 @@ module Tools_loadbalancing
 
             _log_write(2, '(A,I5)') "load balancing: current load", rank_load
             if(grid%l_disturb_next_lb) then
-                if(mod (rank_MPI, 2) .eq. 0 ) then
+                if(mod (rank_MPI, 2) .eq. 1 ) then
                     _log_write(0, '(4X, "load balancing: disturbing load information")')
                     rank_load = 0.5 * rank_load
                 endif 

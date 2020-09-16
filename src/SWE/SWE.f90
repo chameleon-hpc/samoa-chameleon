@@ -645,6 +645,7 @@ contains
 
     !$omp master
     if (rank_MPI == 0) then
+       call grid_info%print_csv()
        _log_write(0, '(" SWE: done.")')
        _log_write(0, '()')
        _log_write(0, '("  Cells: avg: ", I0, " max: ", I0)') grid_info%i_cells / (omp_get_max_threads() * size_MPI), grid_info_max%i_cells

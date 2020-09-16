@@ -749,7 +749,7 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
             type(num_cell_update), intent(inout)  :: update1, update2, update3
             integer                               :: i, j, ind
             type(num_cell_update)                 :: tmp !> ghost cells in correct order 
-            real(kind = GRID_SR)                  :: volume, edge_lengths(3), maxWaveSpeed, dQ_max_norm, dt_div_volume, maxWaveSpeedLocal
+            real(kind = GRID_SR)                  :: volume, edge_lengths(3), maxWaveSpeed, dQ_max_norm, dt_div_volume, maxWaveSpeedLocal, maxWaveSpeed_node
 
 
             real(kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER_SQUARE)                :: dQ_H, dQ_HU, dQ_HV !> deltaQ, used to compute cell updates

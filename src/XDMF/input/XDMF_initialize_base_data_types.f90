@@ -17,7 +17,7 @@ module XDMF_initialize_dofs_base_data_types
     ! The base traversal data structure
     type t_xdmf_base_initialize_dofs_traversal
         integer (XDMF_GRID_SI)	                :: grid_scale, output_iteration
-        character(len = 256)					:: s_file_stamp
+        character(len = _MAX_PATH_SIZE)			:: s_file_stamp
         logical								    :: l_load_data
 
         type(t_xdmf_file_descriptor)            :: root_desc

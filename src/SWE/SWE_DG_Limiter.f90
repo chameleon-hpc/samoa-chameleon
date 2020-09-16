@@ -103,9 +103,21 @@ contains
     end if
     
     if(isWetDryInterface(data%Q%H))then
+       if(isDG(data%troubled))then
+          call apply_phi(data%Q(:)%H+data%Q(:)%B,data%H(:))
+          call apply_phi(data%Q(:)%p(1),data%HU(:))
+          call apply_phi(data%Q(:)%p(2),data%HV(:))
+          call apply_phi(data%Q(:)%B,data%B(:))
+       end if
        data%troubled = WET_DRY_INTERFACE
     end if
     if(checkIfCellIsDry(data%Q%H)) then
+       if(isDG(data%troubled))then
+          call apply_phi(data%Q(:)%H+data%Q(:)%B,data%H(:))
+          call apply_phi(data%Q(:)%p(1),data%HU(:))
+          call apply_phi(data%Q(:)%p(2),data%HV(:))
+          call apply_phi(data%Q(:)%B,data%B(:))
+       end if
        data%troubled = DRY
     end if
     

@@ -56,7 +56,7 @@ module config
 #       if defined(_XDMF)
             type(t_config_xdmf)                 :: xdmf                                             !< XDMF additional variables
 #       endif	
-        character(256)				            :: output_dir			                            !< output directory
+        character(_MAX_PATH_SIZE)				:: output_dir			                            !< output directory
 
         double precision                        :: courant_number                                   !< time step size relative to the CFL condition
 
@@ -66,8 +66,8 @@ module config
             double precision                    :: dx(3), dz                                        !< voxel size of the source data
 
 #           if defined(_ASAGI)
-                character(256)                  :: s_permeability_file                              !< permeability file
-                character(256)                  :: s_porosity_file                                  !< porosity file
+                character(_MAX_PATH_SIZE)       :: s_permeability_file                              !< permeability file
+                character(_MAX_PATH_SIZE)       :: s_porosity_file                                  !< porosity file
 
                 integer					 	    :: afh_permeability_X			                    !< asagi file handle to X-axis permeability data
                 integer					 	    :: afh_permeability_Y			                    !< asagi file handle to Y-axis permeability data
@@ -107,8 +107,8 @@ module config
             double precision                    :: scaling, offset(2)                               !< grid scaling and offset of the computational domain
 
 #           if defined(_ASAGI)
-                character(256)                  :: s_bathymetry_file                                !< bathymetry file
-                character(256)                  :: s_displacement_file                              !< displacement file
+                character(_MAX_PATH_SIZE)       :: s_bathymetry_file                                !< bathymetry file
+                character(_MAX_PATH_SIZE)       :: s_displacement_file                              !< displacement file
                 integer					 		:: afh_displacement			                        !< asagi file handle to displacement data
                 integer					 		:: afh_bathymetry			                        !< asagi file handle to bathymetry da
 #           endif
@@ -139,13 +139,13 @@ module config
             character(:),allocatable	  :: s_testpoints			                            !< test points input string
                       
 
-            character(512)		         :: s_testpoints_file			                    !< test points file
+            character(_MAX_PATH_SIZE)		    :: s_testpoints_file			                    !< test points file
             double precision, pointer		    :: r_testpoints(:,:)		                        !< test points array
 #    	elif defined(_FLASH)
             double precision                    :: scaling, offset(2)                               !< grid scaling and offset of the computational domain
 
-            character(256)                      :: s_bathymetry_file                                !< bathymetry file
-            character(256)                      :: s_displacement_file                              !< displacement file
+            character(_MAX_PATH_SIZE)           :: s_bathymetry_file                                !< bathymetry file
+            character(_MAX_PATH_SIZE)           :: s_displacement_file                              !< displacement file
  			integer					 		    :: afh_displacement			                        !< asagi file handle to displacement data
  			integer					 		    :: afh_bathymetry			                        !< asagi file handle to bathymetry data
 
@@ -155,7 +155,7 @@ module config
 #      if defined(_BOUNDARY)
             integer                             :: i_boundary_side                              !< which boundary to choose for incoming wave
 #           if defined(_BOUNDARY_FILE)
-                character(256)                  :: s_boundary_file                              !< boundary incoming wave file
+                character(_MAX_PATH_SIZE)       :: s_boundary_file                              !< boundary incoming wave file
 #           endif
 #      endif
 
@@ -178,7 +178,7 @@ module config
     subroutine read_from_program_arguments(config)
         class(t_config), intent(inout)          :: config
 
-        character(1024)    :: arguments
+        character(_MAX_ARG_SIZE)    :: arguments
 
         call config%define_arguments(arguments)
         call config%parse_program_arguments(arguments)
@@ -268,7 +268,7 @@ module config
         character(64), parameter        :: asagi_mode_to_char(0:4) = [character(64) :: "default", "pass through", "no mpi", "no mpi + small cache", "large grid"]
 
 #       if defined(_XDMF)
-            character (1024)            :: kraken_command_buffer
+            character (_MAX_ARG_SIZE)   :: kraken_command_buffer
             integer                     :: kraken_ilen, kraken_ier, error, result
 #       endif
 
@@ -304,9 +304,9 @@ module config
             config%xdmf%i_xdmfcpint = iget('samoa_xdmfcpint')
             config%xdmf%i_xdmfspf = iget('samoa_xdmfspf')
             config%xdmf%i_xdmffilter_index = iget('samoa_xdmffilterindex')
-            config%xdmf%s_xdmffilter_params = sget('samoa_xdmffilterparams', 256)
+            config%xdmf%s_xdmffilter_params = sget('samoa_xdmffilterparams', _MAX_PATH_SIZE)
             call xdmf_splitfilter_config(config%xdmf)
-            config%xdmf%s_xdmfinput_file = sget('samoa_xdmfinput', 256)
+            config%xdmf%s_xdmfinput_file = sget('samoa_xdmfinput', _MAX_PATH_SIZE)
             if(.not.config%xdmf%l_xdmfcheckpoint_loaded) then
                config%xdmf%l_xdmfcheckpoint = (len_trim(config%xdmf%s_xdmfinput_file).ne.0)
                call get_command_arguments(kraken_command_buffer, kraken_ilen, kraken_ier)
@@ -314,12 +314,12 @@ module config
             end if
 #       endif
         config%l_xml_pointoutput = lget('samoa_xmlpointoutput')
-        config%output_dir = sget('samoa_output_dir', 256)
+        config%output_dir = sget('samoa_output_dir', _MAX_PATH_SIZE)
 
 #    	if defined(_DARCY)
 #		    if defined(_ASAGI)
-                config%s_permeability_file = sget('samoa_fperm', 256)
-                config%s_porosity_file = sget('samoa_fpor', 256)
+                config%s_permeability_file = sget('samoa_fperm', _MAX_PATH_SIZE)
+                config%s_porosity_file = sget('samoa_fpor', _MAX_PATH_SIZE)
 #           endif
 
             config%r_epsilon = rget('samoa_epsilon')
@@ -349,8 +349,8 @@ module config
             config%l_well_output = lget('samoa_welloutput')
 #    	elif defined(_SWE) || defined(_FLASH)
 #		    if defined(_ASAGI)
-                config%s_bathymetry_file = sget('samoa_fbath', 256)
-                config%s_displacement_file = sget('samoa_fdispl', 256)
+                config%s_bathymetry_file = sget('samoa_fbath', _MAX_PATH_SIZE)
+                config%s_displacement_file = sget('samoa_fdispl', _MAX_PATH_SIZE)
 #           endif
 
             config%dry_tolerance = rget('samoa_drytolerance')
@@ -366,7 +366,7 @@ module config
 #           if defined(_BOUNDARY)
                config%i_boundary_side = iget('samoa_boundaryside')
 #              if defined(_BOUNDARY_FILE)
-                  config%s_boundary_file = sget('samoa_fboundary', 256)
+                  config%s_boundary_file = sget('samoa_fboundary', _MAX_PATH_SIZE)
                   call boundary_file_parse(config%s_boundary_file)
 #              endif
 #           endif
@@ -382,7 +382,7 @@ module config
                call set_domain(config)
             end if
 
-            config%s_testpoints_file = sget('samoa_stestpoints_file', 512)
+            config%s_testpoints_file = sget('samoa_stestpoints_file', _MAX_PATH_SIZE)
             config%s_testpoints = sget('samoa_stestpoints', 262144)
 
             if(len(trim(config%s_testpoints_file)) .ne. 2 ) then

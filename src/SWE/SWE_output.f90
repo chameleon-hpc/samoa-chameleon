@@ -34,7 +34,7 @@
         type num_traversal_data
             type(t_output_point_data), allocatable		            :: point_data(:)
             type(t_output_cell_data), allocatable			        :: cell_data(:)
-            character(len=64)							            :: s_file_stamp
+            character(len=_MAX_PATH_SIZE)							:: s_file_stamp
 
             integer (kind = GRID_SI)								:: i_output_iteration = 0
             integer (kind = GRID_SI)								:: i_point_data_index
@@ -87,7 +87,7 @@
 		end subroutine
 
 		subroutine post_traversal_op(traversal, grid)
-			type(t_swe_output_traversal), intent(inout)				:: traversal
+			type(t_swe_output_traversal), intent(inout)					:: traversal
 			type(t_grid_section), intent(inout)							:: grid
 
 			integer (kind = GRID_SI), dimension(:), allocatable			:: i_offsets
@@ -97,9 +97,9 @@
 			real (kind = GRID_SR), dimension(:), allocatable			:: r_empty
             type(t_vtk_writer)                                          :: vtk
 
-			type(t_section_info)                                           :: grid_info
+			type(t_section_info)                                        :: grid_info
 			integer (kind = GRID_SI)									:: i_error, i_cells, i_points
-			character (len = 256)										:: s_file_name
+			character (len = _MAX_PATH_SIZE)							:: s_file_name
 			integer(4)													:: e_io, i
 
             grid_info = grid%get_info()

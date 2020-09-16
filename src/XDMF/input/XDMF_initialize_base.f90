@@ -34,7 +34,7 @@ module XDMF_initialize_dofs_base
 
         integer                                                         :: result, i, hdf5_error
         integer(GRID_SI)                                                :: output_meta_iteration
-        character(len = 256)					        :: file_name_h5
+        character(len = _MAX_PATH_SIZE)					:: file_name_h5
         logical                                                         :: hdf5_step_exists
         integer(HSIZE_T), dimension(hdf5_rank)                          :: hdf5_tree_dims, hdf5_tree_maxdims
 

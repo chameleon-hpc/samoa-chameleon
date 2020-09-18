@@ -424,27 +424,27 @@ subroutine traverse(traversal, grid)
 
         map_entries(5, i_section)%valptr = c_loc(grid%sections%elements_alloc(i_section)%crossed_edges_in%get_c_pointer())
         map_entries(5, i_section)%size = sizeof(grid%sections%elements_alloc(i_section)%crossed_edges_in%elements)
-        map_entries(5, i_section)%type = 3
+        map_entries(5, i_section)%type = 1
 
         map_entries(6, i_section)%valptr = c_loc(grid%sections%elements_alloc(i_section)%crossed_edges_out%get_c_pointer())
         map_entries(6, i_section)%size = sizeof(grid%sections%elements_alloc(i_section)%crossed_edges_out%elements)
-        map_entries(6, i_section)%type = 3
+        map_entries(6, i_section)%type = 2
 
         map_entries(7, i_section)%valptr = c_loc(grid%sections%elements_alloc(i_section)%color_edges_in%get_c_pointer())
         map_entries(7, i_section)%size = sizeof(grid%sections%elements_alloc(i_section)%color_edges_in%elements)
-        map_entries(7, i_section)%type = 3
+        map_entries(7, i_section)%type = 1
 
         map_entries(8, i_section)%valptr = c_loc(grid%sections%elements_alloc(i_section)%color_edges_out%get_c_pointer())
         map_entries(8, i_section)%size = sizeof(grid%sections%elements_alloc(i_section)%color_edges_out%elements)
-        map_entries(8, i_section)%type = 3
+        map_entries(8, i_section)%type = 2
 
         map_entries(9, i_section)%valptr = c_loc(grid%sections%elements_alloc(i_section)%nodes_in%get_c_pointer())
         map_entries(9, i_section)%size = sizeof(grid%sections%elements_alloc(i_section)%nodes_in%elements)
-        map_entries(9, i_section)%type = 3
+        map_entries(9, i_section)%type = 1
 
         map_entries(10, i_section)%valptr = c_loc(grid%sections%elements_alloc(i_section)%nodes_out%get_c_pointer())
         map_entries(10, i_section)%size = sizeof(grid%sections%elements_alloc(i_section)%nodes_out%elements)
-        map_entries(10, i_section)%type = 3
+        map_entries(10, i_section)%type = 2
 
         map_entries(11, i_section)%valptr = c_loc(grid%sections%elements_alloc(i_section)%boundary_edges(RED)%get_c_pointer())
         map_entries(11, i_section)%size = sizeof(grid%sections%elements_alloc(i_section)%boundary_edges(RED)%elements)

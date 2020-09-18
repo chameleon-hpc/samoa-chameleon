@@ -54,8 +54,9 @@ MODULE SWE_dg_matrices
 #include "dg_matrices/phi_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/mue_inv_SWE_DG_ORDER_TAG.incl"
 
-!Coordinates	    
+!Basis nodes and weights
 #include "dg_matrices/nodes_SWE_DG_ORDER_TAG.incl"
+#include "dg_matrices/weights_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/mirrored_coords_SWE_DG_ORDER_TAG.incl"
 
 !Basis derivatives

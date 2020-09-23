@@ -666,7 +666,7 @@ env['FORTRANPATH'] = env['F90PATH']
 env.obj_files = []
 
 Export('env')
-SConscript('src/SConscript', variant_dir=object_dir+"/src", duplicate=0)
+SConscript('src/SConscript', variant_dir=object_dir, duplicate=0)
 if env["yateto"]:
   SConscript('generated/SConscript', variant_dir=object_dir+"/generated", duplicate=0)
 Import('env')

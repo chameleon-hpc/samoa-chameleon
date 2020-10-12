@@ -24,11 +24,13 @@ def basis_4(x,y):
 def basis_5(x,y):
   return (1.11022302462516e-16)*(x - 1.0)**2 - 2.0*(-1.0*x + 1.0)*y + (-2.0*x + 0.4)*y + 2.0*y**2 + (1.11022302462516e-16)*x + 0.6000000000000001*y - 1.11022302462516e-16
 
-basis=[basis_0,basis_1,basis_2,basis_3,basis_4,basis_5] 
-
-def interpolate(x,y,Q):
-    assert(len(Q) == len(basis))
-    result = 0
-    for i in range(len(Q)):
-        result = result + basis[i](x,y) * Q[i]
-    return result
+@njit
+def interpolate(x, Q):
+	assert(len(Q) == 6)
+	return \
+		(basis_0(x[0], x[1]) * Q[0]) + \
+		(basis_1(x[0], x[1]) * Q[1]) + \
+		(basis_2(x[0], x[1]) * Q[2]) + \
+		(basis_3(x[0], x[1]) * Q[3]) + \
+		(basis_4(x[0], x[1]) * Q[4]) + \
+		(basis_5(x[0], x[1]) * Q[5]) 

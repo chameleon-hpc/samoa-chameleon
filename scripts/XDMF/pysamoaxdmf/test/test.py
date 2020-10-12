@@ -5,10 +5,14 @@ from pysamoaxdmf.reader import Reader
 import numpy as np
 from PIL import Image
 
+from pysamoaxdmf import sampler
+
 # inputfile = "/mnt/scratch/samoa/ader-dg/oscillating_lake/fat/unlimited/swe_20200928_140446.295_xdmf.xmf"
 
 # inputfile = "/mnt/scratch/samoa/ader-dg/okushiri/unlimited/swe_20201005_111510.268_xdmf.xmf"
 inputfile = "/home/christoph/samoa/samoa-ader-dg/output/okushiri/swe_20201012_033636.820_xdmf.xmf"
+
+
 
 xdmf = Reader(inputfile)
 num_steps = len(xdmf.steps)
@@ -40,4 +44,3 @@ im = ax.imshow(buffer, cmap="coolwarm", aspect="equal", interpolation="bilinear"
 fig.colorbar(im, ax=ax, shrink=0.5)
 
 plt.savefig('test.png')
-

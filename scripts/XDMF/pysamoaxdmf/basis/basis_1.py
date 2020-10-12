@@ -12,11 +12,10 @@ def basis_1(x,y):
 def basis_2(x,y):
   return 1.0*y - 5.55111512312578e-17
 
-basis=[basis_0,basis_1,basis_2] 
-
-def interpolate(x,y,Q):
-    assert(len(Q) == len(basis))
-    result = 0
-    for i in range(len(Q)):
-        result = result + basis[i](x,y) * Q[i]
-    return result
+@njit
+def interpolate(x, Q):
+	assert(len(Q) == 3)
+	return \
+		(basis_0(x[0], x[1]) * Q[0]) + \
+		(basis_1(x[0], x[1]) * Q[1]) + \
+		(basis_2(x[0], x[1]) * Q[2])

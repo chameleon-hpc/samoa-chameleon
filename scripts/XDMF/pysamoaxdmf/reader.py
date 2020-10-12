@@ -96,19 +96,19 @@ class StepLayer:
             return ()
         for can in candidates:
             # Test candidate
-            if(sampler.tri_contains(x, self.cells_x[can])):
+            if(sampler.tri_contains(np.array(x), self.cells_x[can])):
                 if(self.name == 'p'):
-                    cuni = sampler.tri_cart_to_uni(x, self.cells_x[can], np.asscalar(self.cells_l[can]))
+                    cuni = sampler.tri_cart_to_uni(np.array(x), self.cells_x[can], np.asscalar(self.cells_l[can]))
                     # DG cell sampling
-                    return (sampler.tri_interp_cartuni_lagrange(cuni, self.cells_h[can]),
-                        sampler.tri_interp_cartuni_lagrange(cuni, self.cells_hu[can]),
-                        sampler.tri_interp_cartuni_lagrange(cuni, self.cells_b[can]))
+                    return (sampler.tri_interp_cartuni_lagrange_1d(cuni, self.cells_h[can]),
+                        sampler.tri_interp_cartuni_lagrange_2d(cuni, self.cells_hu[can]),
+                        sampler.tri_interp_cartuni_lagrange_1d(cuni, self.cells_b[can]))
                 elif(self.name == 'c'):
-                    cbary = sampler.tri_cart_to_bary(x, self.cells_x[can])
+                    cbary = sampler.tri_cart_to_bary(np.array(x), self.cells_x[can])
                     # FLASH cell sampling
-                    return (sampler.tri_interp_bary_linear(cbary, self.cells_h[can]),
-                        sampler.tri_interp_bary_linear(cbary, self.cells_hu[can]),
-                        sampler.tri_interp_bary_linear(cbary, self.cells_b[can]))
+                    return (sampler.tri_interp_bary_linear_1d(cbary, self.cells_h[can]),
+                        sampler.tri_interp_bary_linear_2d(cbary, self.cells_hu[can]),
+                        sampler.tri_interp_bary_linear_1d(cbary, self.cells_b[can]))
         return ()
 
     def __str__(self):

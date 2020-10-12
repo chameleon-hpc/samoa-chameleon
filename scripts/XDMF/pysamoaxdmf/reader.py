@@ -5,7 +5,6 @@
 # by the XDMF output module in samoa^2
 
 import numpy as np
-from numpy.testing.utils import HAS_REFCOUNT
 import h5py
 import os
 import pyqtree
@@ -100,15 +99,15 @@ class StepLayer:
                 if(self.name == 'p'):
                     cuni = sampler.tri_cart_to_uni(np.array(x), self.cells_x[can], np.asscalar(self.cells_l[can]))
                     # DG cell sampling
+                    hu = sampler.tri_interp_cartuni_lagrange_2d(cuni, self.cells_hu[can])
                     return (sampler.tri_interp_cartuni_lagrange_1d(cuni, self.cells_h[can]),
-                        sampler.tri_interp_cartuni_lagrange_2d(cuni, self.cells_hu[can]),
-                        sampler.tri_interp_cartuni_lagrange_1d(cuni, self.cells_b[can]))
+                        hu[0], hu[1], sampler.tri_interp_cartuni_lagrange_1d(cuni, self.cells_b[can]))
                 elif(self.name == 'c'):
                     cbary = sampler.tri_cart_to_bary(np.array(x), self.cells_x[can])
                     # FLASH cell sampling
+                    hu =  sampler.tri_interp_bary_linear_2d(cbary, self.cells_hu[can])
                     return (sampler.tri_interp_bary_linear_1d(cbary, self.cells_h[can]),
-                        sampler.tri_interp_bary_linear_2d(cbary, self.cells_hu[can]),
-                        sampler.tri_interp_bary_linear_1d(cbary, self.cells_b[can]))
+                        hu[0], hu[1], sampler.tri_interp_bary_linear_1d(cbary, self.cells_b[can]))
         return ()
 
     def __str__(self):
@@ -142,7 +141,20 @@ class Step:
         for layer in self.layers: 
             res = layer.sample(x)
             if(len(res) != 0): return res
-        return (None, (None, None), None)
+        return (None, None, None, None)
+
+    def sample_full(self, res):
+        bnd = self.bounds()
+        width = int((bnd[2] - bnd[0]) * res)
+        height = int((bnd[3] - bnd[1]) * res)
+        buffer = np.zeros((height, width, 4))
+        for y in range(0, height):
+            ny = bnd[1] + ((float(y) / height) * (bnd[3] - bnd[1]))
+            for x in range(0, width):
+                nx = bnd[0] + ((float(x) / width) * (bnd[2] - bnd[0]))
+                s = self.sample((nx, ny))
+                buffer[y, x, :] = s
+        return buffer
 
     def bounds(self):
         xmin = math.inf

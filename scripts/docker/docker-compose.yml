@@ -16,6 +16,7 @@ services:
       - ./run_samoa_local.sh:/app/samoa/run_samoa_local.sh:ro
       - ../../scripts/FlashAnalysis/verification/data:/app/samoa/scripts/FlashAnalysis/verification/data:ro
       - /opt/samoa:/opt/samoa:rw
+      - /mnt/scratch:/mnt/scratch:rw
     cap_add:
       - SYS_PTRACE
     security_opt:
@@ -37,4 +38,5 @@ services:
       - ./run_samoa_local.sh:/app/samoa/run_samoa_local.sh:ro
       - ../../scripts/FlashAnalysis/verification/data:/app/samoa/scripts/FlashAnalysis/verification/data:ro
       - /opt/samoa:/opt/samoa:rw
+      - /mnt/scratch:/mnt/scratch:rw
     shm_size: '32gb'

@@ -42,6 +42,7 @@ RUN /bin/bash -c "source /app/intel/intelrc.sh && ./install_all.sh mpi intel /ap
 
 # Entrypoint
 
+ENV MKL_DEBUG_CPU_TYPE=5
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/app/samoa_xdmf_libs/intel/parallel/lib
 WORKDIR /app/samoa
 CMD /bin/bash -c "source /app/intel/intelrc.sh && scons -j $(nproc) config=my_conf_intel.py"

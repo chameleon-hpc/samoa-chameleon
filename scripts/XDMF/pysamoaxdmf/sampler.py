@@ -6,10 +6,12 @@
 # and also some helper functions.
 # It can also be invoked, and will then compile itself to a native library.
 
+import math
+
 import numpy as np
 from numba import njit
 from numba.pycc import CC
-import math
+
 from pysamoaxdmf.basis import basis_1, basis_2, basis_3, basis_4, basis_5, basis_6, basis_7, basis_8
 
 cc = CC('sampler')

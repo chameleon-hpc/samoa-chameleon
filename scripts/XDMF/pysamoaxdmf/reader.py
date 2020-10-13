@@ -4,14 +4,13 @@
 # for the XDMF (HDF5 database and XML-based XMF index) data generated
 # by the XDMF output module in samoa^2
 
+import os, sys, math, re
+
 import numpy as np
-import h5py
-import os
-import pyqtree
-import sys
+import h5py, pyqtree
 from lxml import etree
+
 from . import sampler
-import math
 
 
 class Parameter:
@@ -86,7 +85,7 @@ class StepLayer:
         self.index = None
         self.index_bounds = (0, 0, 0, 0)
 
-    def sample(self, x):
+    def sample(self, x, dry_tolerance):
         if(self.index is None): 
             return ()
         # Lookup position in index
@@ -99,15 +98,17 @@ class StepLayer:
                 if(self.name == 'p'):
                     cuni = sampler.tri_cart_to_uni(np.array(x), self.cells_x[can], np.asscalar(self.cells_l[can]))
                     # DG cell sampling
+                    h = sampler.tri_interp_cartuni_lagrange_1d(cuni, self.cells_h[can])
                     hu = sampler.tri_interp_cartuni_lagrange_2d(cuni, self.cells_hu[can])
-                    return (sampler.tri_interp_cartuni_lagrange_1d(cuni, self.cells_h[can]),
-                        hu[0], hu[1], sampler.tri_interp_cartuni_lagrange_1d(cuni, self.cells_b[can]))
+                    return (h if h > dry_tolerance else 0.0, hu[0], hu[1], 
+                        sampler.tri_interp_cartuni_lagrange_1d(cuni, self.cells_b[can]))
                 elif(self.name == 'c'):
                     cbary = sampler.tri_cart_to_bary(np.array(x), self.cells_x[can])
                     # FLASH cell sampling
+                    h = sampler.tri_interp_bary_linear_1d(cbary, self.cells_h[can])
                     hu =  sampler.tri_interp_bary_linear_2d(cbary, self.cells_hu[can])
-                    return (sampler.tri_interp_bary_linear_1d(cbary, self.cells_h[can]),
-                        hu[0], hu[1], sampler.tri_interp_bary_linear_1d(cbary, self.cells_b[can]))
+                    return (h if h > dry_tolerance else 0.0, hu[0], hu[1], 
+                        sampler.tri_interp_bary_linear_1d(cbary, self.cells_b[can]))
         return ()
 
     def __str__(self):
@@ -137,13 +138,16 @@ class Step:
     def unload(self):
         for layer in self.layers: layer.unload()
 
-    def sample(self, x):
+    def sample(self, x, dry_tolerance=0.0):
         for layer in self.layers: 
-            res = layer.sample(x)
-            if(len(res) != 0): return res
-        return (None, None, None, None)
+            res = layer.sample(x, dry_tolerance)
+            if(len(res) != 0): return np.array(res)
+        return np.array([None, None, None, None])
 
-    def sample_full(self, res):
+    def sample_multiple(self, xs, dry_tolerance=0.0):
+        return np.array(list(map(lambda x: self.sample(x, dry_tolerance), xs)))
+
+    def sample_full(self, res, dry_tolerance=0.0):
         bnd = self.bounds()
         width = int((bnd[2] - bnd[0]) * res)
         height = int((bnd[3] - bnd[1]) * res)
@@ -152,7 +156,7 @@ class Step:
             ny = bnd[1] + ((float(y) / height) * (bnd[3] - bnd[1]))
             for x in range(0, width):
                 nx = bnd[0] + ((float(x) / width) * (bnd[2] - bnd[0]))
-                s = self.sample((nx, ny))
+                s = self.sample((nx, ny), dry_tolerance)
                 buffer[y, x, :] = s
         return buffer
 
@@ -184,15 +188,25 @@ class Reader:
     def __init__(self, path):
         self.path = path
         self.steps = []
+        self.dry_tolerance = 0.01
         self._parse()
 
     def __str__(self):
         # Pretty print step collection
-        return 'XMF file with ' + str(len(self.steps)) + ' steps, loaded from ' + self.path
+        return 'XMF file with ' + str(len(self.steps)) + ' steps, dry_tolerance=' + \
+            str(self.dry_tolerance) + ', loaded from ' + self.path
 
     def _parse(self):
         tree = etree.parse(self.path)
         root = tree.getroot()
+
+        # Get command line data
+        cmd = root.find("./Domain/Information[@Name='CommandLine']").attrib['Value']
+        dw_matches = re.search(r'-drytolerance\s*([^d\s]*)d?(\S*)', cmd)
+        if(dw_matches != None):
+            dw_exp = 0.0
+            if(dw_matches.groups()[1] != ""): dw_exp = float(dw_matches.groups()[1])
+            self.dry_tolerance = float(dw_matches.groups()[0]) * (10.0 ** dw_exp)
 
         # Iterate all steps in file
         for grid in root.findall("./Domain/Grid[@GridType='Collection']/Grid"):
@@ -230,7 +244,7 @@ class Reader:
                         layers.append(subgrid_to_layer(subgrid, subgrid.find("Information[@Name='Layer']").attrib['Value']))
                 else:
                     # Legacy single-layer (in root grid) step (FLASH)
-                    layers.append(subgrid_to_layer(grid, "p"))
+                    layers.append(subgrid_to_layer(grid, "c"))
                 # Add step object
                 index = int(grid.find("Attribute[@Name='Step']/DataItem").text)
                 self.steps.append(Step(index, time, layers))

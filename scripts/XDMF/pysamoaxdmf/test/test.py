@@ -1,11 +1,10 @@
 #!/usr/bin/python3
 
-import matplotlib.pyplot as plt
-from pysamoaxdmf.reader import Reader
 import numpy as np
-from PIL import Image
+import matplotlib.pyplot as plt
 
-from pysamoaxdmf import sampler
+from pysamoaxdmf.reader import Reader
+
 
 # inputfile = "/mnt/scratch/samoa/ader-dg/oscillating_lake/fat/unlimited/swe_20200928_140446.295_xdmf.xmf"
 # inputfile = "/mnt/scratch/samoa/ader-dg/okushiri/unlimited/swe_20201005_111510.268_xdmf.xmf"
@@ -19,11 +18,11 @@ sid = 20 # xdmf.step_near_time(0.01)
 xdmf.steps[sid].load()
 print(xdmf.steps[sid])
 bnd = xdmf.steps[sid].bounds()
-buffer = xdmf.steps[sid].sample_full(500.0)
+buffer = xdmf.steps[sid].sample_full(500.0, xdmf.dry_tolerance)
 xdmf.steps[sid].unload()
 
-fig, ax = plt.subplots(figsize=(12, 12))
-im = ax.imshow(buffer[:,:,3], cmap="coolwarm", aspect="equal", interpolation="bilinear", 
+fig, ax = plt.subplots(figsize=(8, 8))
+im = ax.imshow(buffer[:,:,0], cmap="coolwarm", aspect="equal", interpolation="bilinear", 
     origin="lower", extent=(bnd[0], bnd[2], bnd[1], bnd[3]))
 fig.colorbar(im, ax=ax, shrink=0.5)
 

@@ -22,7 +22,7 @@ class AlphaNodes:
     """This class holds the alpha optimized nodes location and weights"""
 
     def __init__(self):
-        basepath = os.path.dirname(__file__) + "/../../DG/Sage/alpha_nodes/"
+        basepath = os.path.dirname(__file__) + "/nodes/"
         self.configs = [None] * 10
         self.configs[0] = [ NodeInformation(0.0, 0.0, 0.5) ]
         for n in range(1, 10):

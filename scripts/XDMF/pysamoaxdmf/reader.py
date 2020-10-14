@@ -9,6 +9,7 @@ import os, sys, math, re
 import numpy as np
 import h5py, pyqtree
 from lxml import etree
+from time import time
 
 from . import sampler
 
@@ -144,20 +145,35 @@ class Step:
             if(len(res) != 0): return np.array(res)
         return np.array([None, None, None, None])
 
-    def sample_multiple(self, xs, dry_tolerance=0.0):
-        return np.array(list(map(lambda x: self.sample(x, dry_tolerance), xs)))
+    def sample_multiple(self, xs, dry_tolerance=0.0, status=False):
+        buffer = np.zeros((len(xs), 4))
+        starttime = time()
+        for i, x in enumerate(xs):
+            if status: sys.stdout.write("\rSampling data... n=" + str(i) + ", " + \
+                "{0:.2f}".format((float(i) / float(len(xs))) * 100.0) + '%')
+            buffer[i] = self.sample(x, dry_tolerance)
+        endtime = time()
+        if status: print("\rSampled data in " + "{0:.2f}".format(endtime - starttime) + \
+            's            ')
+        return buffer
 
-    def sample_full(self, res, dry_tolerance=0.0):
+    def sample_full(self, res, dry_tolerance=0.0, status=False):
         bnd = self.bounds()
         width = int((bnd[2] - bnd[0]) * res)
         height = int((bnd[3] - bnd[1]) * res)
         buffer = np.zeros((height, width, 4))
+        starttime = time()
         for y in range(0, height):
+            if status: sys.stdout.write("\rSampling data... n=" + str(y) + ", " + \
+                "{0:.2f}".format((float(y) / float(height)) * 100.0) + '%')
             ny = bnd[1] + ((float(y) / height) * (bnd[3] - bnd[1]))
             for x in range(0, width):
                 nx = bnd[0] + ((float(x) / width) * (bnd[2] - bnd[0]))
                 s = self.sample((nx, ny), dry_tolerance)
                 buffer[y, x, :] = s
+        endtime = time()
+        if status: print("\rSampled data in " + "{0:.2f}".format(endtime - starttime) + \
+            's            ')
         return buffer
 
     def bounds(self):

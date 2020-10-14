@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -18,7 +18,7 @@ sid = 20 # xdmf.step_near_time(0.01)
 xdmf.steps[sid].load()
 print(xdmf.steps[sid])
 bnd = xdmf.steps[sid].bounds()
-buffer = xdmf.steps[sid].sample_full(500.0, xdmf.dry_tolerance)
+buffer = xdmf.steps[sid].sample_full(500.0, xdmf.dry_tolerance, True)
 xdmf.steps[sid].unload()
 
 fig, ax = plt.subplots(figsize=(8, 8))

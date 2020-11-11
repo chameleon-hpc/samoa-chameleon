@@ -27,45 +27,6 @@ def _dof_to_order(dof):
     return int(0.5 * (-3.0 + math.sqrt((8.0 * dof) + 1.0)))
 
 @njit
-@cc.export('tri_cart_to_bary', '(f8[:], f8[:,:])')
-def tri_cart_to_bary(x, v):
-    """This function converts a cartesian point on a triangle to a barycentric one"""
-    det = ((v[1][1] - v[2][1]) * (v[0][0] - v[2][0])) + \
-            ((v[2][0] - v[1][0]) * (v[0][1] - v[2][1]))
-    l1 = (((v[1][1] - v[2][1]) * (x[0] - v[2][0])) + \
-            ((v[2][0] - v[1][0]) * (x[1] - v[2][1]))) / det
-    l2 = (((v[2][1] - v[0][1]) * (x[0] - v[2][0])) + \
-            ((v[0][0] - v[2][0]) * (x[1] - v[2][1]))) / det
-    return np.array([l1, l2, 1.0 - l1 - l2])
-
-
-@njit
-def _rotate(x, t):
-    """This function rotates a point around the origin using a specified angle"""
-    return (np.cos(t) * x[0] - np.sin(t) * x[1], 
-        np.sin(t) * x[0] + np.cos(t) * x[1])
-
-@njit
-@cc.export('tri_cart_to_uni', '(f8[:], f8[:,:], i8)')
-def tri_cart_to_uni(x, v, plotter):
-    """This function converts a cartesian point on a DG cell to a normalized one on the unit triangle"""
-    vt = v - v[0]
-    angle = -(math.pi / 4.0 * abs(plotter))
-    for i in range(0, 3): vt[i] = _rotate(vt[i], angle)
-    dist = max(abs(vt[0][0] - vt[1][0]), abs(vt[0][1] - vt[1][1]))
-    xo = (x[0] - v[0][0], x[1] - v[0][1])
-    xn = _rotate(xo, angle)
-    if(plotter > 0): return np.array([xn[1] / dist, xn[0] / dist])
-    else: return np.array([xn[0] / dist, xn[1] / dist])
-
-@njit
-@cc.export('tri_contains', '(f8[:], f8[:,:])')
-def tri_contains(x, v):
-    """This function checks if a triangle contains a point"""
-    res = tri_cart_to_bary(x, v)
-    return res[0] >= 0 and res[1] >= 0 and res[2] >= 0
-
-@njit
 def _tri_interp_bary_linear(bx, q):
     """This function interpolates a value on a FLASH cell"""
     return (bx[0] * q[0]) + (bx[1] * q[1]) + (bx[2] * q[2])

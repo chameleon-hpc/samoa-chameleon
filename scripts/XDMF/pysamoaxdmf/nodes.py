@@ -6,25 +6,13 @@ import os, math
 import pandas as pd
 
 
-class NodeInformation:
-    """This class holds values for a single node"""
-
-    def __init__(self, x, y, w):
-        self.x = x
-        self.y = y
-        self.w = w
-
-    def __str__(self):
-        return "X: " + "{0:0.20f}".format(self.x) + ", Y: " + \
-            "{0:0.20f}".format(self.y) + ", Weight: " + "{0:0.20f}".format(self.w)
-
 class AlphaNodes:
     """This class holds the alpha optimized nodes location and weights"""
 
     def __init__(self):
         basepath = os.path.dirname(__file__) + "/nodes/"
         self.configs = [None] * 10
-        self.configs[0] = [ NodeInformation(0.0, 0.0, 0.5) ]
+        self.configs[0] = [ [1.0 / 3.0, 1.0 / 3.0, 0.5] ]
         for n in range(1, 10):
             df = pd.read_csv(basepath + 'nodes_' + str(n) + '.txt', sep=' ', header=None)
             df.columns = ['x', 'y']
@@ -32,7 +20,7 @@ class AlphaNodes:
             dfw.columns = ['w']
             df['w'] = dfw['w']
             entries = []
-            for _, row in df.iterrows(): entries.append(NodeInformation(row['x'], row['y'], row['w']))
+            for _, row in df.iterrows(): entries.append([row['x'], row['y'], row['w']])
             self.configs[n] = entries
 
     def __str__(self):

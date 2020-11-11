@@ -11,7 +11,7 @@ import h5py, pyqtree
 from lxml import etree
 from time import time
 
-from . import sampler
+from . import sampler, coordinates
 
 
 class Parameter:
@@ -52,14 +52,12 @@ class StepLayer:
         h5dh = h5[self.h5hname]
         h5dhu = h5[self.h5huname]
         h5db = h5[self.h5bname]
-        h5dl = h5[self.h5lname]
         # Actually load the data to speed up lookups
         gdata = h5dg[...]
         self.cells_length = h5dh.shape[0]
         self.cells_h = h5dh[...]
         self.cells_hu = h5dhu[...]
         self.cells_b = h5db[...]
-        self.cells_l = h5dl[...]
         # Iterate all cells and unpack location
         self.cells_x = np.empty([self.cells_length, self.param.valst_width, gdata.shape[1]]) 
         for i in range(0, self.cells_length):
@@ -82,7 +80,6 @@ class StepLayer:
         self.cells_h = np.array([])
         self.cells_hu = np.array([])
         self.cells_b = np.array([])
-        self.cells_l = np.array([])
         self.index = None
         self.index_bounds = (0, 0, 0, 0)
 
@@ -95,16 +92,16 @@ class StepLayer:
             return ()
         for can in candidates:
             # Test candidate
-            if(sampler.tri_contains(np.array(x), self.cells_x[can])):
+            if(coordinates.tri_contains(np.array(x), self.cells_x[can])):
                 if(self.name == 'p'):
-                    cuni = sampler.tri_cart_to_uni(np.array(x), self.cells_x[can], np.asscalar(self.cells_l[can]))
+                    cuni = coordinates.tri_cart_to_uni(np.array(x), self.cells_x[can])
                     # DG cell sampling
                     h = sampler.tri_interp_cartuni_lagrange_1d(cuni, self.cells_h[can])
                     hu = sampler.tri_interp_cartuni_lagrange_2d(cuni, self.cells_hu[can])
                     return (h if h > dry_tolerance else 0.0, hu[0], hu[1], 
                         sampler.tri_interp_cartuni_lagrange_1d(cuni, self.cells_b[can]))
                 elif(self.name == 'c'):
-                    cbary = sampler.tri_cart_to_bary(np.array(x), self.cells_x[can])
+                    cbary = coordinates.tri_cart_to_bary(np.array(x), self.cells_x[can])
                     # FLASH cell sampling
                     h = sampler.tri_interp_bary_linear_1d(cbary, self.cells_h[can])
                     hu =  sampler.tri_interp_bary_linear_2d(cbary, self.cells_hu[can])

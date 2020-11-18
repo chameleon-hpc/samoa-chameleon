@@ -35,7 +35,7 @@ c-----------------------------------------------------------------------
 
       double precision delh,delhu,delb,delnorm
       double precision rare1st,rare2st,sdelta,raremin,raremax
-      double precision criticaltol,convergencetol,raretol
+      double precision criticaltol,convergencetol,raretol,error_tol
       double precision s1s2bar,s1s2tilde,hbar,hLstar,hRstar,hustar
       double precision huRstar,huLstar,uRstar,uLstar,hstarHLL
       double precision deldelh,deldelphi
@@ -209,6 +209,16 @@ c        !find bounds in case of critical state resonance, or negative states
          del(1)=delh-deldelh
          del(2)=delhu
          del(3)=delphi-deldelphi
+
+         error_tol = 1.0d-10
+         error_tol = error_tol * merge(max(abs(bL),abs(bR)),1.0,max(abs(bL),abs(bR)) > 1.0d-14)
+
+c$$$         do m = 1,3
+c$$$            if(del(m) < error_tol) then
+c$$$               del(m) = (del(m) / error_tol)**16 * error_tol
+c$$$!               del(m) = 0.0d0
+c$$$            end if
+c$$$         end do
 
 c        !Determine determinant of eigenvector matrix========
          det1=r(1,1)*(r(2,2)*r(3,3)-r(2,3)*r(3,2))

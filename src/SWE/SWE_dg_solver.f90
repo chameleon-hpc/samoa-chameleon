@@ -129,7 +129,8 @@ MODULE SWE_DG_solver
     type(t_element_base), intent(in)			    :: element
     type(t_edge_data), intent(in)			    :: edge
     type(num_cell_rep)				            :: rep
-    integer                                                 :: edge_type=-5 !1=right, 2=hypotenuse, 3=left
+    integer                               :: edge_type !1=right, 2=hypotenuse, 3=left
+    
     integer :: i,j,k,indx,indx_mir
     integer(kind=BYTE) :: orientation
     type(num_cell_rep) ::rep_fv
@@ -138,22 +139,24 @@ MODULE SWE_DG_solver
 #if defined (_DEBUG)
     rep%debug_flag = element%cell%data_pers%debug_flag
 #endif
-    associate(cell_edge => ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%edges)
-      if(((edge%transform_data%normal(1) ==  cell_edge(2)%normal(1)) .and.&
-          (edge%transform_data%normal(2) ==  cell_edge(2)%normal(2))).or.&
-         ((edge%transform_data%normal(1) == -cell_edge(2)%normal(1)) .and.&
-          (edge%transform_data%normal(2) == -cell_edge(2)%normal(2)))) then
-         edge_type = 2
-      else if(((edge%transform_data%normal(1) ==  cell_edge(1)%normal(1)) .and.&
-               (edge%transform_data%normal(2) ==  cell_edge(1)%normal(2))).or.&
-              ((edge%transform_data%normal(1) == -cell_edge(1)%normal(1)) .and.&
-               (edge%transform_data%normal(2) == -cell_edge(1)%normal(2)))) then
-         edge_type = 1
-      else
-         edge_type = 3
-      endif
-    end associate
- 
+    ! associate(cell_edge => ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%edges)
+    !   if(((edge%transform_data%normal(1) ==  cell_edge(2)%normal(1)) .and.&
+    !       (edge%transform_data%normal(2) ==  cell_edge(2)%normal(2))).or.&
+    !      ((edge%transform_data%normal(1) == -cell_edge(2)%normal(1)) .and.&
+    !       (edge%transform_data%normal(2) == -cell_edge(2)%normal(2)))) then
+    !      edge_type = 2
+    !   else if(((edge%transform_data%normal(1) ==  cell_edge(1)%normal(1)) .and.&
+    !            (edge%transform_data%normal(2) ==  cell_edge(1)%normal(2))).or.&
+    !           ((edge%transform_data%normal(1) == -cell_edge(1)%normal(1)) .and.&
+    !            (edge%transform_data%normal(2) == -cell_edge(1)%normal(2)))) then
+    !      edge_type = 1
+    !   else
+    !      edge_type = 3
+    !   endif
+    ! end associate
+
+    edge_type = get_edge_type(abs(element%cell%geometry%i_plotter_type),edge%transform_data%normal)
+    
     rep%QP(:,:)   = element%cell%data_pers%QP(edge_type  ,:,:)
     rep%FP(:,:,:) = element%cell%data_pers%FP(edge_type,:,:,:)
     
@@ -165,7 +168,17 @@ MODULE SWE_DG_solver
     rep%troubled=element%cell%data_pers%troubled
     call getObservableLimits(element%cell%data_pers%Q,rep%minObservables,rep%maxObservables)
     
-end function cell_to_edge_op_dg
+  end function cell_to_edge_op_dg
+
+
+function get_edge_type(cell_type,norm)
+  real(KIND=GRID_SR) :: norm(2)
+  integer :: cell_type
+  integer :: get_edge_type
+
+  get_edge_type = norm_to_edge_type(cell_type,nint(norm(1) * 2.0_GRID_SR),nint(norm(2) * 2.0_GRID_SR))
+end function
+  
   
 subroutine skeleton_array_op_dg(traversal, grid, edges, rep1, rep2, update1, update2)
 type(t_swe_dg_timestep_traversal), intent(in)	            :: traversal

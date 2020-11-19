@@ -42,16 +42,6 @@
 
 #		include "SFC_generic_adaptive_traversal.f90"
 
-        subroutine edge_merge_op_dg(local_edge,neighbor_edge)
-          type(t_edge_data), intent(inout)   ::local_edge
-          type(t_edge_data), intent(in)      ::neighbor_edge
-          type(t_state),Allocatable          ::rep_temp(:)
-          integer                            ::i,j
-          local_edge%rep%troubled=neighbor_edge%rep%troubled
-          local_edge%rep%QP = neighbor_edge%rep%QP
-          local_edge%rep%FP = neighbor_edge%rep%FP
-        end subroutine edge_merge_op_dg
-        
         subroutine pre_traversal_grid_op(traversal, grid)
           type(t_swe_adaption_traversal), intent(inout)				:: traversal
           type(t_grid), intent(inout)							        :: grid
@@ -105,23 +95,21 @@
           real (kind = GRID_SR), dimension(_SWE_PATCH_ORDER_SQUARE)				:: H, HU, HV, B
           integer :: i
 
-          dest_element%cell%data_pers%H = src_element%cell%data_pers%H
-          dest_element%cell%data_pers%HU = src_element%cell%data_pers%HU
-          dest_element%cell%data_pers%HV = src_element%cell%data_pers%HV
-          dest_element%cell%data_pers%B = src_element%cell%data_pers%B
+          if(isFV(src_element%cell%data_pers%troubled) .or.&
+               src_element%cell%data_pers%troubled .eq. NEIGHBOUR_WAS_TROUBLED) then
+            
+            dest_element%cell%data_pers%H = src_element%cell%data_pers%H
+            dest_element%cell%data_pers%HU = src_element%cell%data_pers%HU
+            dest_element%cell%data_pers%HV = src_element%cell%data_pers%HV
+            dest_element%cell%data_pers%B = src_element%cell%data_pers%B
+         end if
 
-          do i=1,size(dest_element%edges)
-             dest_element%edges(i)%ptr%rep = src_element%edges(i)%ptr%rep
-             dest_element%edges(i)%ptr%data_pers = src_element%edges(i)%ptr%data_pers
-          end do
-
-          dest_element%cell%data_pers%QFV          = src_element%cell%data_pers%QFV
-          dest_element%cell%data_pers%QP           = src_element%cell%data_pers%QP
-          dest_element%cell%data_pers%FP           = src_element%cell%data_pers%FP
-          dest_element%cell%data_pers%Q            = src_element%cell%data_pers%Q
-          dest_element%cell%data_pers%Q_DG_UPDATE  = src_element%cell%data_pers%Q_DG_UPDATE
+         if(isDG(src_element%cell%data_pers%troubled) .or.&
+              src_element%cell%data_pers%troubled .eq. DRY) then
+            dest_element%cell%data_pers%Q            = src_element%cell%data_pers%Q
+         end if
           
-          dest_element%cell%data_pers%troubled=src_element%cell%data_pers%troubled
+         dest_element%cell%data_pers%troubled=src_element%cell%data_pers%troubled
         end subroutine transfer_op
 
 

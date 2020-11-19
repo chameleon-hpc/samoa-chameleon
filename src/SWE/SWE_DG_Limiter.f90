@@ -12,10 +12,11 @@ MODULE SWE_DG_Limiter
   !*************************!
   !States for Troubled cells!
   !*************************!
-  public DG,TROUBLED,NEIGHBOUR_TROUBLED,COAST,DRY
+  public DG,TROUBLED,NEIGHBOUR_TROUBLED,NEIGHBOUR_WAS_TROUBLED,COAST,DRY
 
   enum,bind( C )
-     enumerator :: DG = 0                 ,&
+     enumerator :: NEIGHBOUR_WAS_TROUBLED = -2 ,&
+                   DG = 0                 ,&
                    WET_DRY_INTERFACE  = 1 ,&
                    NEIGHBOUR_TROUBLED = 2 ,&
                    TROUBLED           = 3 ,&
@@ -69,7 +70,7 @@ contains
     !----If any neighbour is troubled use FV scheme ---!
     if(isDG(data%troubled)) then
        if(neighbourTroubled(update1,update2,update3)) then
-          if(.not.data%troubled .eq. -NEIGHBOUR_TROUBLED)then
+          if(.not.data%troubled .eq. NEIGHBOUR_WAS_TROUBLED)then
              call apply_phi(data%Q(:)%h+data%Q(:)%b ,data%h)
              call apply_phi(data%Q(:)%p(1)          ,data%hu)
              call apply_phi(data%Q(:)%p(2)          ,data%hv)

@@ -185,57 +185,43 @@ MODULE SWE_DG_predictor
     if(.not.isCoast(element%cell%data_pers%troubled)) then
        associate(Q_DG => element%cell%data_pers%Q,&
             QFV  => element%cell%data_pers%QFV)
-         do edge = 1,3
-            select case(edge)
-            case (1) !right
-               QFV(edge,:,1) = matmul(phi_r,Q_DG%h+Q_DG%b)
-               QFV(edge,:,2) = matmul(phi_r,Q_DG%p(1))
-               QFV(edge,:,3) = matmul(phi_r,Q_DG%p(2))
-               QFV(edge,:,4) = matmul(phi_r,Q_DG%b)
-            case (2) !mid
-               QFV(edge,:,1) = matmul(phi_m,Q_DG%h+Q_DG%b)
-               QFV(edge,:,2) = matmul(phi_m,Q_DG%p(1))
-               QFV(edge,:,3) = matmul(phi_m,Q_DG%p(2))
-               QFV(edge,:,4) = matmul(phi_m,Q_DG%b)
-            case (3) !left
-               QFV(edge,:,1) = matmul(phi_l,Q_DG%h+Q_DG%b) 
-               QFV(edge,:,2) = matmul(phi_l,Q_DG%p(1))    
-               QFV(edge,:,3) = matmul(phi_l,Q_DG%p(2))    
-               QFV(edge,:,4) = matmul(phi_l,Q_DG%b)
-            end select
-         end do
+         
+         QFV(1,:,1) = matmul(phi_r,Q_DG%h+Q_DG%b)
+         QFV(1,:,2) = matmul(phi_r,Q_DG%p(1))
+         QFV(1,:,3) = matmul(phi_r,Q_DG%p(2))
+         QFV(1,:,4) = matmul(phi_r,Q_DG%b)
+
+         QFV(2,:,1) = matmul(phi_m,Q_DG%h+Q_DG%b)
+         QFV(2,:,2) = matmul(phi_m,Q_DG%p(1))
+         QFV(2,:,3) = matmul(phi_m,Q_DG%p(2))
+         QFV(2,:,4) = matmul(phi_m,Q_DG%b)
+
+         QFV(3,:,1) = matmul(phi_l,Q_DG%h+Q_DG%b) 
+         QFV(3,:,2) = matmul(phi_l,Q_DG%p(1))    
+         QFV(3,:,3) = matmul(phi_l,Q_DG%p(2))    
+         QFV(3,:,4) = matmul(phi_l,Q_DG%b)
        end associate
 
     else
        associate(data => element%cell%data_pers,&
-                 QFV  => element%cell%data_pers%QFV)
-         do edge = 1,3
-            select case (edge)       
-            case (3) !cells with id i*i+1 (left leg)
-               do i=0, _SWE_PATCH_ORDER - 1
-                  j=_SWE_PATCH_ORDER-1-i
-                  QFV(edge,i+1,1) = data%H(j*j + 1)
-                  QFV(edge,i+1,2) = data%HU(j*j + 1)
-                  QFV(edge,i+1,3) = data%HV(j*j + 1)
-                  QFV(edge,i+1,4) = data%B(j*j + 1)
-               end do
-            case (2) ! hypotenuse
-               do i=1, _SWE_PATCH_ORDER
-                  j=_SWE_PATCH_ORDER+1-i
-                  QFV(edge,i,1) = data%H ((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
-                  QFV(edge,i,2) = data%HU((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
-                  QFV(edge,i,3) = data%HV((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
-                  QFV(edge,i,4) = data%B ((_SWE_PATCH_ORDER-1)*(_SWE_PATCH_ORDER-1) + 2*j - 1)
-               end do
-            case (1) !cells with id i*i (right leg)
-               do i=1, _SWE_PATCH_ORDER
-                  QFV(edge,i,1) = data%H(i*i)
-                  QFV(edge,i,2) = data%HU(i*i)
-                  QFV(edge,i,3) = data%HV(i*i)
-                  QFV(edge,i,4) = data%B(i*i)
-               end do
-            end select
-         end do
+            QFV  => element%cell%data_pers%QFV)
+         
+         QFV(1,:,1) = matmul(project_FV(1,:,:),data%H(:))
+         QFV(1,:,2) = matmul(project_FV(1,:,:),data%HU(:))
+         QFV(1,:,3) = matmul(project_FV(1,:,:),data%HV(:))
+         QFV(1,:,4) = matmul(project_FV(1,:,:),data%B(:))
+
+         QFV(2,:,1) = matmul(project_FV(2,:,:),data%H(:))
+         QFV(2,:,2) = matmul(project_FV(2,:,:),data%HU(:))
+         QFV(2,:,3) = matmul(project_FV(2,:,:),data%HV(:))
+         QFV(2,:,4) = matmul(project_FV(2,:,:),data%B(:))
+
+         QFV(3,:,1) = matmul(project_FV(3,:,:),data%H(:))
+         QFV(3,:,2) = matmul(project_FV(3,:,:),data%HU(:))
+         QFV(3,:,3) = matmul(project_FV(3,:,:),data%HV(:))
+         QFV(3,:,4) = matmul(project_FV(3,:,:),data%B(:))
+
+
        end associate
     end if
   end subroutine writeFVBoundaryFields
@@ -507,21 +493,6 @@ subroutine initialise_riemann_arguments(cell, q_i_st, Q_DG)
         f_ref(:,i,:,:) = flux(q_i_st(:,i,:),_SWE_DG_DOFS)
      end do
   endif
-
-  ! print*,"Project"
-  ! do i = 1,3
-  !    do j = 1,_SWE_DG_DOFS
-  !       print*,q_i_st(j,:,i)
-  !    end do
-  ! end do
-  
-
-  ! print*
-  ! do i = 1,3
-  !    do j = 1,_SWE_DG_DOFS
-  !       print*,matmul(t_a,q_i_st(j,:,i))
-  !    end do
-  ! end do
   
   do j = 1,_SWE_DG_DOFS
      QP(  j,1:3) = reshape( matmul(t_a,q_i_st(j,:,:))  ,(/ 3 /))
@@ -531,23 +502,11 @@ subroutine initialise_riemann_arguments(cell, q_i_st, Q_DG)
   QP(:,4) = Q_DG(:)%B
 
   do j = 1,3
-     edge_type =  j
-     do i = 1,_SWE_DG_ORDER+1
-        select case(edge_type)
-        case(1) !right
-           indx=_SWE_DG_DOFS-(i+1)*(i)/2 +1
-        case(2) !mid
-           indx=_SWE_DG_DOFS-(_SWE_DG_ORDER-i+2)*(_SWE_DG_ORDER-i+1)/2
-        case(3) !left
-           indx=i
-        case default
-           stop
-        end select
-        cell%data_pers%QP(j,  i,:) = QP(indx,:)
-        cell%data_pers%FP(j,1,i,:) = FP(1,indx,:)               
-        cell%data_pers%FP(j,2,i,:) = FP(2,indx,:)
-     end do
+     cell%data_pers%QP(j,  :,:) = matmul(project_DG(j,:,:),QP(:,:))
+     cell%data_pers%FP(j,1,:,:) = matmul(project_DG(j,:,:),FP(1,:,:))
+     cell%data_pers%FP(j,2,:,:) = matmul(project_DG(j,:,:),FP(2,:,:))
   end do
+  
 end subroutine initialise_riemann_arguments
 
 END MODULE SWE_DG_predictor

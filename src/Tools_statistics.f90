@@ -285,7 +285,7 @@ module Tools_statistics
         class(t_statistics), intent(in)	:: s
         character (len = 512)		:: str
 
-        write(str,'(I0 ,";", I0, ";", F0.4,";", F0.4, ";", F0.4, ";", F0.4, ";", F0.4, ",", F0.4, ";", F0.4, ";", F0.4)'),&
+        write(str,'(I0 ,";", I0, ";", F0.4,";", F0.4, ";", F0.4, ";", F0.4, ";", F0.4, ";", F0.4, ";", F0.4, ";", F0.4)'),&
             s%get_counter(traversals), s%get_counter(predictor_iterations), &
             s%get_time(traversal_time),  &
             s%get_time(pre_compute_time) + s%get_time(inner_compute_time) + s%get_time(post_compute_time), &
@@ -297,7 +297,7 @@ module Tools_statistics
         class(t_adaptive_statistics), intent(in)	:: s
         character (len = 512)		:: str
 
-        write(str,'(I0 ,";", I0 ,";", F0.4 ";", F0.4,";", F0.4, ";", F0.4, ";", F0.4, ";", F0.4, ",", F0.4, ";", F0.4)'),&
+        write(str,'(I0 ,";", I0 ,";", F0.4 ";", F0.4,";", F0.4, ";", F0.4, ";", F0.4, ";", F0.4, ";", F0.4, ";", F0.4)'),&
             s%get_counter(traversals), s%get_counter(predictor_iterations),&
             s%get_time(traversal_time),  &
             s%get_time(pre_compute_time) + s%get_time(inner_compute_time) + s%get_time(post_compute_time), &

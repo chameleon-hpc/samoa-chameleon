@@ -157,7 +157,7 @@ MODULE SWE_DG_predictor
          end if
          !-------------------------------------------!
 
-         iterate = epsilon > cfg%max_picard_error .and.(.not.(cell%data_pers%troubled.eq.PREDICTOR_DIVERGED))
+         iterate = sqrt(epsilon) > cfg%max_picard_error .and.(.not.(cell%data_pers%troubled.eq.PREDICTOR_DIVERGED))
 
          !--------------Update predictor-------------!
          if (iterate) then
@@ -234,21 +234,24 @@ function compute_epsilon(q_i_st,q_temp_st) result(epsilon)
   real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER,3)    :: q_temp_st
   real(kind=GRID_SR)                         :: epsilon
   real(kind=GRID_SR)                         :: epsilon_a(_SWE_DG_DOFS,_SWE_DG_ORDER)
-  real(kind=GRID_SR)                         :: nominator(_SWE_DG_DOFS,_SWE_DG_ORDER)
+  real(kind=GRID_SR)                         :: denominator(_SWE_DG_DOFS,_SWE_DG_ORDER)
   integer i,j,k
 
-  nominator = 0.0_GRID_SR
+  denominator = 0.0_GRID_SR
+  epsilon_a = 0.0_GRID_SR
+  epsilon = 0.0_GRID_SR
+
   do j=1,_SWE_DG_DOFS
      !omp simd
      do i=1,_SWE_DG_ORDER
         do k=1,_SWE_DG_ORDER
-           nominator(j,i)=nominator(j,i)+(q_i_st(j,i+1,k) * q_i_st(j,i+1,k))
+           denominator(j,i)=denominator(j,i)+(q_i_st(j,i+1,k) * q_i_st(j,i+1,k))
         end do
      end do
   end do
 
-  where (nominator == 0.0_GRID_SR)
-     nominator = 1.0_GRID_SR
+  where (denominator == 0.0_GRID_SR)
+     denominator = 1.0_GRID_SR
   end where
   
   do j=1,_SWE_DG_DOFS
@@ -258,11 +261,11 @@ function compute_epsilon(q_i_st,q_temp_st) result(epsilon)
            epsilon_a(j,i)=epsilon_a(j,i) +&
                 (q_temp_st(j,i,k)-q_i_st(j,i+1,k))*(q_temp_st(j,i,k)-q_i_st(j,i+1,k))
         end do
-        epsilon_a(j,i)= epsilon_a(j,i)/nominator(j,i)
+        epsilon_a(j,i)= epsilon_a(j,i)/denominator(j,i)
      end do
   end do
 
-  epsilon = sqrt(maxval(epsilon_a))
+  epsilon = maxval(epsilon_a)
 
   ! epsilon=0.0_GRID_SR
   ! do j=1,_SWE_DG_DOFS

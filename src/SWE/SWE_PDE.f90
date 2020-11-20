@@ -15,11 +15,11 @@ MODULE SWE_PDE
 contains
 
 
-  function flux(q,N)
-    real(kind=GRID_SR)             :: flux(N,2,3)
-    real(kind=GRID_SR), intent(in) :: q(N,3)
-    integer                        :: N,k
-    real(kind=GRID_SR)             :: u(N), v(N)
+  function flux(q)
+    real(kind=GRID_SR)             :: flux(_SWE_DG_DOFS,2,3)
+    real(kind=GRID_SR), intent(in) :: q(_SWE_DG_DOFS,3)
+    integer                        :: k
+    real(kind=GRID_SR)             :: u(_SWE_DG_DOFS), v(_SWE_DG_DOFS)
 
     !$omp simd
     do k=1,_SWE_DG_DOFS
@@ -40,29 +40,11 @@ contains
        
   end function flux
 
-  function flux_1(q,N)
-    real(kind=GRID_SR)             ::flux_1(N,3)
-    real(kind=GRID_SR) ,intent(in) ::q(N,3)
-    integer :: N
-    flux_1(:,1) = q(:,2)
-    flux_1(:,2) = q(:,2)**2/q(:,1) + 0.5_GRID_SR * g * q(:,1)**2
-    flux_1(:,3) = q(:,2)*q(:,3)/q(:,1)
-  end function flux_1
-
-  function flux_2(q,N)
-    real(kind=GRID_SR)             ::flux_2(N,3)
-    real(kind=GRID_SR) ,intent(in) ::q(N,3)
-    integer :: N
-    flux_2(:,1) = q(:,3)
-    flux_2(:,2) = q(:,2)*q(:,3)/q(:,1)
-    flux_2(:,3) = q(:,3)**2/q(:,1) + 0.5_GRID_SR * g * q(:,1)**2
-  end function flux_2
-
-  function flux_no_grav(q,N)
-    real(kind=GRID_SR)             ::flux_no_grav(N,2,3)
-    real(kind=GRID_SR) ,intent(in) ::q(N,3)
-    integer :: N,k
-    real(kind=GRID_SR)             :: u(N), v(N)
+  function flux_no_grav(q)
+    real(kind=GRID_SR)             ::flux_no_grav(_SWE_DG_DOFS,2,3)
+    real(kind=GRID_SR) ,intent(in) ::q(_SWE_DG_DOFS,3)
+    integer :: k
+    real(kind=GRID_SR)             :: u(_SWE_DG_DOFS), v(_SWE_DG_DOFS)
 
     !$omp simd
     do k=1,_SWE_DG_DOFS

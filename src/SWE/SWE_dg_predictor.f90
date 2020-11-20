@@ -257,7 +257,7 @@ function compute_epsilon(q_i_st,q_temp_st) result(epsilon)
   do j=1,_SWE_DG_DOFS
      !omp simd
      do i=1,_SWE_DG_ORDER
-        do k=1,_SWE_DG_ORDER
+        do k=1,3
            epsilon_a(j,i)=epsilon_a(j,i) +&
                 (q_temp_st(j,i,k)-q_i_st(j,i+1,k))*(q_temp_st(j,i,k)-q_i_st(j,i+1,k))
         end do
@@ -376,7 +376,7 @@ subroutine compute_fref(f_ref,q_i_st)
   f_ref = 0
   !omp simd
   do i=1,_SWE_DG_ORDER+1
-     f_ref(:,i,:,:) = flux_no_grav(q_i_st(:,i,:),_SWE_DG_DOFS)
+     f_ref(:,i,:,:) = flux_no_grav(q_i_st(:,i,:))
   end do
   
 #if defined(_DEBUG)
@@ -526,7 +526,7 @@ subroutine initialise_riemann_arguments(cell, q_i_st, Q_DG)
   !!---- set values for riemannsolve and project on edges----!!
   if(isDG(cell%data_pers%troubled)) then
      do i=1,_SWE_DG_ORDER+1
-        f_ref(:,i,:,:) = flux(q_i_st(:,i,:),_SWE_DG_DOFS)
+        f_ref(:,i,:,:) = flux(q_i_st(:,i,:))
      end do
   endif
   

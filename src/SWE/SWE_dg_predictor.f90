@@ -130,7 +130,10 @@ MODULE SWE_DG_predictor
 
          q_temp_st = 0
 #if defined(_OPT_KERNELS)
-         call yateto_predictor_execute(q_temp_st, f_ref, q_0, s_ref, dtdx , cell_type-1)
+         do i=1,_SWE_DG_ORDER
+            q_temp_st(:,i,:) = q_0
+         end do
+         !call yateto_predictor_execute(q_temp_st, f_ref, q_0, s_ref, dtdx , cell_type-1)
 #else         
          call update_predictor(q_temp_st, q_0, dtdx, s_ref, f_ref, cell_type)
 #endif         
@@ -230,20 +233,49 @@ function compute_epsilon(q_i_st,q_temp_st) result(epsilon)
   real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3)  :: q_i_st
   real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER,3)    :: q_temp_st
   real(kind=GRID_SR)                         :: epsilon
-  integer i,j
-  
-  epsilon=0.0_GRID_SR
+  real(kind=GRID_SR)                         :: epsilon_a(_SWE_DG_DOFS,_SWE_DG_ORDER)
+  real(kind=GRID_SR)                         :: nominator(_SWE_DG_DOFS,_SWE_DG_ORDER)
+  integer i,j,k
+
+  nominator = 0.0_GRID_SR
   do j=1,_SWE_DG_DOFS
+     !omp simd
      do i=1,_SWE_DG_ORDER
-        if(.not.all(q_i_st(j,i+1,:).eq.0)) then
-           epsilon=max(epsilon, &
-                NORM2(q_temp_st(j,i,:)-q_i_st(j,i+1,:)) / &
-                NORM2(q_i_st(j,i+1,:)))
-        else if(.not.all(q_temp_st(j,i,:) .eq. 0)) then
-           epsilon=max(epsilon,1.0_GRID_SR)
-        end if
+        do k=1,_SWE_DG_ORDER
+           nominator(j,i)=nominator(j,i)+(q_i_st(j,i+1,k) * q_i_st(j,i+1,k))
+        end do
      end do
   end do
+
+  where (nominator == 0.0_GRID_SR)
+     nominator = 1.0_GRID_SR
+  end where
+  
+  do j=1,_SWE_DG_DOFS
+     !omp simd
+     do i=1,_SWE_DG_ORDER
+        do k=1,_SWE_DG_ORDER
+           epsilon_a(j,i)=epsilon_a(j,i) +&
+                (q_temp_st(j,i,k)-q_i_st(j,i+1,k))*(q_temp_st(j,i,k)-q_i_st(j,i+1,k))
+        end do
+        epsilon_a(j,i)= epsilon_a(j,i)/nominator(j,i)
+     end do
+  end do
+
+  epsilon = sqrt(maxval(epsilon_a))
+
+  ! epsilon=0.0_GRID_SR
+  ! do j=1,_SWE_DG_DOFS
+  !    do i=1,_SWE_DG_ORDER
+  !       if(.not.all(q_i_st(j,i+1,:).eq.0)) then
+  !          epsilon=max(epsilon, NORM2(q_temp_st(j,i,:)-q_i_st(j,i+1,:)) / NORM2(q_i_st(j,i+1,:)))
+  !       else if(.not.all(q_temp_st(j,i,:) .eq. 0)) then
+  !          epsilon=max(epsilon,1.0_GRID_SR)
+  !       end if
+  !    end do
+  ! end do
+
+
 end function compute_epsilon
 
 subroutine initialise_predictor(Q_DG, cell, dt, dtdx, iteration, epsilon, q_0 , q_i_st)
@@ -339,6 +371,7 @@ subroutine compute_fref(f_ref,q_i_st)
   integer :: i,j
   
   f_ref = 0
+  !omp simd
   do i=1,_SWE_DG_ORDER+1
      f_ref(:,i,:,:) = flux_no_grav(q_i_st(:,i,:),_SWE_DG_DOFS)
   end do

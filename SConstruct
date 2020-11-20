@@ -222,8 +222,8 @@ elif env['mpi'] == 'openmpi':
   env['LINK'] = 'mpif90.openmpi'
 elif env['mpi'] == 'intel':
   fc_env_vars = 'I_MPI_F90=' + fc
-  env['F90'] = 'mpif90.intel'
-  env['LINK'] = 'mpif90.intel'
+  env['F90'] = 'mpiifort'
+  env['LINK'] = 'mpiifort'
 elif env['mpi'] == 'nompi':
   env['F90'] = fc
   env['LINK'] = fc
@@ -279,6 +279,7 @@ if env['openmp'] != 'noomp':
     env['F90FLAGS'] += ' -D_OPENMP_TASKS -D_OPENMP_TASKS_ADAPTIVITY'
 
   if env['compiler'] == 'intel':
+    env['F90FLAGS'] += ' -D_KMP_ALLOC'
     env['F90FLAGS'] += ' -qopenmp'
     env['LINKFLAGS'] += ' -qopenmp'
   elif env['compiler'] == 'gnu':
@@ -353,7 +354,7 @@ if env["yateto"]:
       #env.Append(F90FLAGS=["-align", "array32byte"])
     if env['arch'] == "dskx":
       env.Append(CXXFLAGS=['-xCORE-AVX512', '-fma',"-DALIGNMENT=64"])
-      env["F90FLAGS"] += " -align array64byte -DALIGNMENT=64"
+      env["F90FLAGS"] += " -align array64byte -DALIGNMENT=64 -xCORE-AVX512 -fma"
       #env.Append(F90LFAGS=['-align', 'array64byte'])
 print(env)
  
@@ -538,7 +539,7 @@ elif env['target'] == 'release':
   env.SetDefault(assertions = False)
 
   if env['compiler'] == 'intel':
-    env['F90FLAGS'] += ' -O3 -ipo -fno-alias -align all -inline-level=2 -funroll-loops -unroll'
+    env['F90FLAGS'] += ' -O3 -ipo -fno-alias -align all -inline-level=2 -funroll-loops -unroll -qopt-streaming-stores always'
     env['LINKFLAGS'] += ' -O3 -ip -ipo'
   elif  env['compiler'] == 'gnu':
     env['F90FLAGS'] += ' -Ofast -march=native -Wa,-q -malign-double -funroll-loops -fstrict-aliasing -finline-limit=2048'

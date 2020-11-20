@@ -18,16 +18,26 @@ contains
   function flux(q,N)
     real(kind=GRID_SR)             :: flux(N,2,3)
     real(kind=GRID_SR), intent(in) :: q(N,3)
-    integer                        :: N
+    integer                        :: N,k
+    real(kind=GRID_SR)             :: u(N), v(N)
 
-    flux(:,1,1) = q(:,2)
-    flux(:,1,2) = q(:,2)**2/q(:,1) + 0.5_GRID_SR * g * q(:,1)**2
-    flux(:,1,3) = q(:,2)*q(:,3)/q(:,1)
+    !$omp simd
+    do k=1,_SWE_DG_DOFS
+       u(k) = q(k,2)/q(k,1)
+       v(k) = q(k,3)/q(k,1)
+    end do
 
-    flux(:,2,1) = q(:,3)
-    flux(:,2,2) = q(:,2)*q(:,3)/q(:,1)
-    flux(:,2,3) = q(:,3)**2/q(:,1) + 0.5_GRID_SR * g * q(:,1)**2
-
+    !$omp simd
+    do k=1,_SWE_DG_DOFS       
+       flux(k,1,1) = q(k,2)
+       flux(k,1,2) = u(k)*q(k,2) + 0.5_GRID_SR * g * q(k,1)**2
+       flux(k,1,3) = u(k)*q(k,3)
+       
+       flux(k,2,1) = q(k,3)
+       flux(k,2,2) = v(k)*q(k,2)
+       flux(k,2,3) = v(k)*q(k,3) + 0.5_GRID_SR * g * q(k,1)**2
+    end do
+       
   end function flux
 
   function flux_1(q,N)
@@ -36,7 +46,6 @@ contains
     integer :: N
     flux_1(:,1) = q(:,2)
     flux_1(:,2) = q(:,2)**2/q(:,1) + 0.5_GRID_SR * g * q(:,1)**2
-    !flux_1(:,2) = q(:,2)**2/q(:,1)
     flux_1(:,3) = q(:,2)*q(:,3)/q(:,1)
   end function flux_1
 
@@ -47,21 +56,30 @@ contains
     flux_2(:,1) = q(:,3)
     flux_2(:,2) = q(:,2)*q(:,3)/q(:,1)
     flux_2(:,3) = q(:,3)**2/q(:,1) + 0.5_GRID_SR * g * q(:,1)**2
-    !flux_2(:,3) = q(:,3)**2/q(:,1)
   end function flux_2
 
   function flux_no_grav(q,N)
     real(kind=GRID_SR)             ::flux_no_grav(N,2,3)
     real(kind=GRID_SR) ,intent(in) ::q(N,3)
-    integer :: N
+    integer :: N,k
+    real(kind=GRID_SR)             :: u(N), v(N)
 
-    flux_no_grav(:,1,1) = q(:,2)
-    flux_no_grav(:,1,2) = q(:,2)**2/q(:,1)
-    flux_no_grav(:,1,3) = q(:,2)*q(:,3)/q(:,1)
+    !$omp simd
+    do k=1,_SWE_DG_DOFS
+       u(k) = q(k,2)/q(k,1)
+       v(k) = q(k,3)/q(k,1)
+    end do
 
-    flux_no_grav(:,2,1) = q(:,3)
-    flux_no_grav(:,2,2) = q(:,2)*q(:,3)/q(:,1)
-    flux_no_grav(:,2,3) = q(:,3)**2/q(:,1)
+    !$omp simd
+    do k=1,_SWE_DG_DOFS       
+       flux_no_grav(k,1,1) = q(k,2)
+       flux_no_grav(k,1,2) = u(k)*q(k,2)
+       flux_no_grav(k,1,3) = u(k)*q(k,3)
+       
+       flux_no_grav(k,2,1) = q(k,3)
+       flux_no_grav(k,2,2) = v(k)*q(k,2)
+       flux_no_grav(k,2,3) = v(k)*q(k,3) 
+    end do
 
   end function flux_no_grav
 

@@ -130,10 +130,7 @@ MODULE SWE_DG_predictor
 
          q_temp_st = 0
 #if defined(_OPT_KERNELS)
-         do i=1,_SWE_DG_ORDER
-            q_temp_st(:,i,:) = q_0
-         end do
-         !call yateto_predictor_execute(q_temp_st, f_ref, q_0, s_ref, dtdx , cell_type-1)
+         call yateto_predictor_execute(q_temp_st, f_ref, q_0, s_ref, dtdx , cell_type-1)
 #else         
          call update_predictor(q_temp_st, q_0, dtdx, s_ref, f_ref, cell_type)
 #endif         

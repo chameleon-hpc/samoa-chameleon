@@ -94,6 +94,17 @@ MODULE SWE_DG_predictor
     real(kind=GRID_SR)                         :: epsilon
     logical                                    :: iterate
 
+#if defined(_OPT_KERNELS)
+    !DIR$ PREFETCH element%cell%data_pers%Q
+    !DIR$ PREFETCH element%cell%data_pers%Q_DG_UPDATE
+    !DIR$ PREFETCH element%cell%data_pers%QP
+    !DIR$ PREFETCH element%cell%data_pers%FP
+    !DIR$ PREFETCH element%cell%data_pers%H
+    !DIR$ PREFETCH element%cell%data_pers%HU
+    !DIR$ PREFETCH element%cell%data_pers%HV
+    !DIR$ PREFETCH element%cell%data_pers%B
+#endif    
+
 
     associate(Q_DG        => element%cell%data_pers%Q,&
               Q_DG_UPDATE => element%cell%data_pers%Q_DG_UPDATE,&
@@ -186,42 +197,46 @@ MODULE SWE_DG_predictor
        associate(Q_DG => element%cell%data_pers%Q,&
             QFV  => element%cell%data_pers%QFV)
          
-         QFV(1,:,1) = matmul(phi_r,Q_DG%h+Q_DG%b)
+         QFV(1,:,1) = matmul(phi_r,Q_DG%h)
          QFV(1,:,2) = matmul(phi_r,Q_DG%p(1))
          QFV(1,:,3) = matmul(phi_r,Q_DG%p(2))
          QFV(1,:,4) = matmul(phi_r,Q_DG%b)
+         QFV(1,:,1) = QFV(1,:,1) + QFV(1,:,4)
 
-         QFV(2,:,1) = matmul(phi_m,Q_DG%h+Q_DG%b)
+         QFV(2,:,1) = matmul(phi_m,Q_DG%h)
          QFV(2,:,2) = matmul(phi_m,Q_DG%p(1))
          QFV(2,:,3) = matmul(phi_m,Q_DG%p(2))
          QFV(2,:,4) = matmul(phi_m,Q_DG%b)
 
-         QFV(3,:,1) = matmul(phi_l,Q_DG%h+Q_DG%b) 
+         QFV(2,:,1) = QFV(2,:,1) + QFV(2,:,4)
+
+         QFV(3,:,1) = matmul(phi_l,Q_DG%h) 
          QFV(3,:,2) = matmul(phi_l,Q_DG%p(1))    
          QFV(3,:,3) = matmul(phi_l,Q_DG%p(2))    
          QFV(3,:,4) = matmul(phi_l,Q_DG%b)
+
+         QFV(3,:,1) = QFV(3,:,1) + QFV(3,:,4)
        end associate
 
     else
        associate(data => element%cell%data_pers,&
-            QFV  => element%cell%data_pers%QFV)
-         
-         QFV(1,:,1) = matmul(project_FV(1,:,:),data%H(:))
-         QFV(1,:,2) = matmul(project_FV(1,:,:),data%HU(:))
-         QFV(1,:,3) = matmul(project_FV(1,:,:),data%HV(:))
-         QFV(1,:,4) = matmul(project_FV(1,:,:),data%B(:))
-
-         QFV(2,:,1) = matmul(project_FV(2,:,:),data%H(:))
-         QFV(2,:,2) = matmul(project_FV(2,:,:),data%HU(:))
-         QFV(2,:,3) = matmul(project_FV(2,:,:),data%HV(:))
-         QFV(2,:,4) = matmul(project_FV(2,:,:),data%B(:))
-
-         QFV(3,:,1) = matmul(project_FV(3,:,:),data%H(:))
-         QFV(3,:,2) = matmul(project_FV(3,:,:),data%HU(:))
-         QFV(3,:,3) = matmul(project_FV(3,:,:),data%HV(:))
-         QFV(3,:,4) = matmul(project_FV(3,:,:),data%B(:))
-
-
+                 QFV  => element%cell%data_pers%QFV)
+         do i=1,_SWE_PATCH_ORDER         
+            QFV(1,i,1) = data%H (idx_project_FV(1,i))
+            QFV(1,i,2) = data%HU(idx_project_FV(1,i))
+            QFV(1,i,3) = data%HV(idx_project_FV(1,i))
+            QFV(1,i,4) = data%B (idx_project_FV(1,i))
+            
+            QFV(2,i,1) = data%H (idx_project_FV(2,i))
+            QFV(2,i,2) = data%HU(idx_project_FV(2,i))
+            QFV(2,i,3) = data%HV(idx_project_FV(2,i))
+            QFV(2,i,4) = data%B (idx_project_FV(2,i))
+            
+            QFV(3,i,1) = data%H (idx_project_FV(3,i))
+            QFV(3,i,2) = data%HU(idx_project_FV(3,i))
+            QFV(3,i,3) = data%HV(idx_project_FV(3,i))
+            QFV(3,i,4) = data%B (idx_project_FV(3,i))
+         end do
        end associate
     end if
   end subroutine writeFVBoundaryFields

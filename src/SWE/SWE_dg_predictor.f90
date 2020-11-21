@@ -523,41 +523,17 @@ end subroutine compute_volume_update
 subroutine initialise_riemann_arguments(cell, q_i_st, Q_DG)
   type(t_cell_data_ptr),intent(inout)                                     :: cell
   real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3),intent(in) :: q_i_st
-  real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1,_SWE_DG_ORDER+1,3)            :: q_i_e
-  real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1,_SWE_DG_ORDER+1,2,3)          :: f_i_e
+  real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1,_SWE_DG_ORDER+1,3)         :: q_i_e
+  real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1,_SWE_DG_ORDER+1,2,3)       :: f_i_e
   type(t_state), DIMENSION(_SWE_DG_DOFS),intent(in)                       :: Q_DG
-  
-  !local variables
-  ! real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,2,3)  :: f_ref
-  ! real(kind=GRID_SR), DIMENSION(2,_SWE_DG_DOFS,3)  :: FP
-  ! real(kind=GRID_SR), DIMENSION(  _SWE_DG_DOFS,4)  :: QP
-  integer :: i,j,indx,edge_type 
+  integer :: i,j,indx,edge_type
 
-  ! FP = 0
-  ! QP = 0
-  ! f_ref = 0
-  
-  ! !!---- set values for riemannsolve and project on edges----!!
-  ! if(isDG(cell%data_pers%troubled)) then
-  !    do i=1,_SWE_DG_ORDER+1
-  !       f_ref(:,i,:,:) = flux(q_i_st(:,i,:))
-  !    end do
-  ! endif
-  
-  ! do j = 1,_SWE_DG_DOFS
-  !    QP(  j,1:3) = reshape( matmul(t_a,q_i_st(j,:,:))  ,(/ 3 /))
-  !    FP(1,j, : ) = reshape( matmul(t_a,f_ref (j,:,1,:)),(/ 3 /))
-  !    FP(2,j, : ) = reshape( matmul(t_a,f_ref (j,:,2,:)),(/ 3 /))
-  ! end do
-  ! QP(:,4) = Q_DG(:)%B
+#if defined(_OPT_KERNELS)
+    !dir$ attributes align:ALIGNMENT :: q_i_e
+    !dir$ attributes align:ALIGNMENT :: f_i_e
+#endif    
 
-  ! do j = 1,3
-  !    cell%data_pers%QP(j,  :,:) = matmul(project_DG(j,:,:),QP(:,:))
-  !    cell%data_pers%FP(j,1,:,:) = matmul(project_DG(j,:,:),FP(1,:,:))
-  !    cell%data_pers%FP(j,2,:,:) = matmul(project_DG(j,:,:),FP(2,:,:))
-  ! end do
 
-  
   ! iterate over edges
   do j = 1,3
      q_i_e = 0.0_GRID_SR

@@ -93,7 +93,8 @@ real(kind=GRID_SR) :: basis_der_x_hat(_SWE_DG_DOFS,_SWE_DG_DOFS)
 real(kind=GRID_SR) :: basis_der_y_hat(_SWE_DG_DOFS,_SWE_DG_DOFS)
 real(kind=GRID_SR) :: t_k_t_11_inv_x_t_k_t_10_hat(_SWE_DG_ORDER,1)
 
-real(kind=GRID_SR) :: project_DG(3,_SWE_DG_ORDER+1,_SWE_DG_DOFS)
+real(kind=GRID_SR)    :: project_DG(3,_SWE_DG_ORDER+1,_SWE_DG_DOFS)
+integer(kind=GRID_SR) :: idx_project_DG(3,_SWE_DG_ORDER+1)
 real(kind=GRID_SR) :: project_FV(3,_SWE_PATCH_ORDER,_SWE_PATCH_ORDER_SQUARE)
 
 real(kind=GRID_SR) :: norm_to_edge_type(8,-2:2,-2:2)      
@@ -287,6 +288,25 @@ subroutine init_projection()
 						project_DG(edge_type,i,indx) = 1.0_GRID_SR
 				 end do
 			end do
+
+
+			idx_project_DG = 0
+			do j = 1,3
+				 edge_type =  j
+				 do i = 1,_SWE_DG_ORDER+1
+						select case(edge_type)
+				    case(1)								!right
+							 idx_project_DG(j,i) = _SWE_DG_DOFS-(i+1)*(i)/2 +1
+						case(2)							!mid
+							 idx_project_DG(j,i) = _SWE_DG_DOFS-(_SWE_DG_ORDER-i+2)*(_SWE_DG_ORDER-i+1)/2
+						case(3)							!left
+							 idx_project_DG(j,i) = i
+						case default
+							 stop
+						end select
+				 end do
+			end do
+
 			
 			project_FV = 0.0_GRID_SR
 			

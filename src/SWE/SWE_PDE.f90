@@ -40,6 +40,32 @@ contains
        
   end function flux
 
+    function flux_(q)
+    real(kind=GRID_SR)             :: flux_(_SWE_DG_ORDER+1,2,3)
+    real(kind=GRID_SR), intent(in) :: q(_SWE_DG_ORDER+1,3)
+    integer                        :: k
+    real(kind=GRID_SR)             :: u(_SWE_DG_ORDER+1), v(_SWE_DG_ORDER+1)
+
+    !$omp simd
+    do k=1,_SWE_DG_ORDER+1
+       u(k) = q(k,2)/q(k,1)
+       v(k) = q(k,3)/q(k,1)
+    end do
+
+    !$omp simd
+    do k=1,_SWE_DG_ORDER+1       
+       flux_(k,1,1) = q(k,2)
+       flux_(k,1,2) = u(k)*q(k,2) + 0.5_GRID_SR * g * q(k,1)**2
+       flux_(k,1,3) = u(k)*q(k,3)
+       
+       flux_(k,2,1) = q(k,3)
+       flux_(k,2,2) = v(k)*q(k,2)
+       flux_(k,2,3) = v(k)*q(k,3) + 0.5_GRID_SR * g * q(k,1)**2
+    end do
+       
+  end function flux_
+
+
   function flux_no_grav(q)
     real(kind=GRID_SR)             ::flux_no_grav(_SWE_DG_DOFS,2,3)
     real(kind=GRID_SR) ,intent(in) ::q(_SWE_DG_DOFS,3)

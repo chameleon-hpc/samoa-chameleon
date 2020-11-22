@@ -75,13 +75,13 @@ MODULE SWE_data_types
   end type num_edge_data_pers
 
 !> persistent scenario data on a cell
-type num_cell_data_pers
+  type num_cell_data_pers
   real (kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER_SQUARE):: H, HU, HV, B
   type(t_state)        , DIMENSION(_SWE_DG_DOFS)           :: Q   !DG degrees of freedom
   real(kind=GRID_SR)   , DIMENSION(_SWE_DG_DOFS,3)         :: Q_DG_UPDATE !Predictor element update
   real(kind=GRID_SR)   , DIMENSION(3,  _SWE_DG_ORDER+1,4)  :: QP  !Predictor projections on edges
   real(kind=GRID_SR)   , DIMENSION(3,2,_SWE_DG_ORDER+1,3)  :: FP  !Predictor projections on edges
-  real(kind=GRID_SR)   , DIMENSION(3, _SWE_PATCH_ORDER,4)  :: QFV !FV projections on edges 
+ ! real(kind=GRID_SR)   , DIMENSION(3, _SWE_PATCH_ORDER,4)  :: QFV !FV projections on edges 
 
   integer :: troubled
 #if defined(_DEBUG)

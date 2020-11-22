@@ -39,7 +39,7 @@ MODULE SWE_DG_predictor
 # define _GT_CELL_TO_EDGE_OP        cell_to_edge_op_dg  
   
   public dg_predictor
-  public writeFVBoundaryFields
+
 #		include "SFC_generic_traversal_ringbuffer.f90"
   
   subroutine element_op(traversal, section, element)
@@ -54,9 +54,6 @@ MODULE SWE_DG_predictor
        call dg_predictor    (element,section%r_dt,iterations)
     end if
 
-    ! call writeFVBoundaryFields(element%cell%data_pers,element%cell%data_pers%QFV,1,isCoast(element%cell%data_pers%troubled))
-    ! call writeFVBoundaryFields(element%cell%data_pers,element%cell%data_pers%QFV,2,isCoast(element%cell%data_pers%troubled))
-    ! call writeFVBoundaryFields(element%cell%data_pers,element%cell%data_pers%QFV,3,isCoast(element%cell%data_pers%troubled))
     call traversal%stats%add_counter(predictor_iterations, iterations)
     !---------------------------------!
   end subroutine element_op
@@ -179,29 +176,6 @@ MODULE SWE_DG_predictor
       end if
     end associate
   end subroutine dg_predictor
-  
-  subroutine writeFVBoundaryFields(data,QFV,edge,is_coast)    
-    class(num_cell_data_pers), intent(in) :: data
-    real(KIND=GRID_SR), intent(inout)     :: QFV(3, _SWE_PATCH_ORDER,4)
-    integer, intent(in)                   :: edge
-    logical, intent(in)                   :: is_coast
-    integer                               :: i
-
-    if(.not.is_coast) then
-         QFV(edge,:,1) = matmul(phi_b(edge,:,:),data%Q%h)
-         QFV(edge,:,2) = matmul(phi_b(edge,:,:),data%Q%p(1))
-         QFV(edge,:,3) = matmul(phi_b(edge,:,:),data%Q%p(2))
-         QFV(edge,:,4) = matmul(phi_b(edge,:,:),data%Q%b)
-         QFV(edge,:,1) = QFV(1,:,1) + QFV(1,:,4)
-    else
-       do i=1,_SWE_PATCH_ORDER         
-          QFV(edge,i,1) = data%H (idx_project_FV(edge,i))
-          QFV(edge,i,2) = data%HU(idx_project_FV(edge,i))
-          QFV(edge,i,3) = data%HV(idx_project_FV(edge,i))
-          QFV(edge,i,4) = data%B (idx_project_FV(edge,i))
-         end do
-    end if
-  end subroutine writeFVBoundaryFields
 
 function compute_epsilon(q_i_st,q_temp_st) result(epsilon)
   real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3)  :: q_i_st

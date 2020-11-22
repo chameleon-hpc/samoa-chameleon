@@ -125,6 +125,32 @@ MODULE SWE_DG_solver
     type(t_element_base), intent(inout)						:: element
   end subroutine element_op_dg
 
+  subroutine writeFVBoundaryFields(data,H,HU,HV,B,edge,is_coast)    
+    class(num_cell_data_pers), intent(in) :: data
+    real(KIND=GRID_SR), intent(out)       :: H ( _SWE_PATCH_ORDER)
+    real(KIND=GRID_SR), intent(out)       :: HU( _SWE_PATCH_ORDER)
+    real(KIND=GRID_SR), intent(out)       :: HV( _SWE_PATCH_ORDER)
+    real(KIND=GRID_SR), intent(out)       :: B ( _SWE_PATCH_ORDER)    
+    integer, intent(in)                   :: edge
+    logical, intent(in)                   :: is_coast
+    integer                               :: i
+
+    if(.not.is_coast) then
+         H (:) = matmul(phi_b(edge,:,:),data%Q%h)
+         HU(:) = matmul(phi_b(edge,:,:),data%Q%p(1))
+         HV(:) = matmul(phi_b(edge,:,:),data%Q%p(2))
+         B (:) = matmul(phi_b(edge,:,:),data%Q%b)
+         H (:) = H + B
+    else
+       do i=1,_SWE_PATCH_ORDER         
+          H (i) = data%H (idx_project_FV(edge,i))
+          HU(i) = data%HU(idx_project_FV(edge,i))
+          HV(i) = data%HV(idx_project_FV(edge,i))
+          B (i) = data%B (idx_project_FV(edge,i))
+         end do
+    end if
+  end subroutine writeFVBoundaryFields
+
   function cell_to_edge_op_dg(element, edge) result(rep)
     type(t_element_base), intent(in)			    :: element
     type(t_edge_data), intent(in)			    :: edge
@@ -139,33 +165,12 @@ MODULE SWE_DG_solver
 #if defined (_DEBUG)
     rep%debug_flag = element%cell%data_pers%debug_flag
 #endif
-    ! associate(cell_edge => ref_plotter_data(abs(element%cell%geometry%i_plotter_type))%edges)
-    !   if(((edge%transform_data%normal(1) ==  cell_edge(2)%normal(1)) .and.&
-    !       (edge%transform_data%normal(2) ==  cell_edge(2)%normal(2))).or.&
-    !      ((edge%transform_data%normal(1) == -cell_edge(2)%normal(1)) .and.&
-    !       (edge%transform_data%normal(2) == -cell_edge(2)%normal(2)))) then
-    !      edge_type = 2
-    !   else if(((edge%transform_data%normal(1) ==  cell_edge(1)%normal(1)) .and.&
-    !            (edge%transform_data%normal(2) ==  cell_edge(1)%normal(2))).or.&
-    !           ((edge%transform_data%normal(1) == -cell_edge(1)%normal(1)) .and.&
-    !            (edge%transform_data%normal(2) == -cell_edge(1)%normal(2)))) then
-    !      edge_type = 1
-    !   else
-    !      edge_type = 3
-    !   endif
-    ! end associate
-
-!    call writeFVBoundaryFields(element)
-
     edge_type = get_edge_type(abs(element%cell%geometry%i_plotter_type),edge%transform_data%normal)
     
     rep%QP(:,:)   = element%cell%data_pers%QP(edge_type  ,:,:)
     rep%FP(:,:,:) = element%cell%data_pers%FP(edge_type,:,:,:)
-    
-    rep%H  = element%cell%data_pers%QFV(edge_type  ,:,1)
-    rep%HU = element%cell%data_pers%QFV(edge_type  ,:,2)
-    rep%HV = element%cell%data_pers%QFV(edge_type  ,:,3)
-    rep%B  = element%cell%data_pers%QFV(edge_type  ,:,4)
+
+    call writeFVBoundaryFields(element%cell%data_pers,rep%H,rep%HU,rep%HV,rep%B,edge_type,isCoast(element%cell%data_pers%troubled))
     
     rep%troubled=element%cell%data_pers%troubled
     call getObservableLimits(element%cell%data_pers%Q,rep%minObservables,rep%maxObservables)

@@ -142,13 +142,13 @@ MODULE SWE_DG_solver
           HV = matmul(phi_r(:,:),data%Q%p(2))
           B  = matmul(phi_r(:,:),data%Q%b)
        end if
-       if(edge == 1) then
+       if(edge == 2) then
           H  = matmul(phi_m(:,:),data%Q%h)
           HU = matmul(phi_m(:,:),data%Q%p(1))
           HV = matmul(phi_m(:,:),data%Q%p(2))
           B  = matmul(phi_m(:,:),data%Q%b)
        end if
-       if(edge == 1) then
+       if(edge == 3) then
           H  = matmul(phi_l(:,:),data%Q%h)
           HU = matmul(phi_l(:,:),data%Q%p(1))
           HV = matmul(phi_l(:,:),data%Q%p(2))

@@ -95,21 +95,15 @@
           real (kind = GRID_SR), dimension(_SWE_PATCH_ORDER_SQUARE)				:: H, HU, HV, B
           integer :: i
 
-          if(isFV(src_element%cell%data_pers%troubled) .or.&
-               src_element%cell%data_pers%troubled .eq. NEIGHBOUR_WAS_TROUBLED) then
             
-            dest_element%cell%data_pers%H = src_element%cell%data_pers%H
-            dest_element%cell%data_pers%HU = src_element%cell%data_pers%HU
-            dest_element%cell%data_pers%HV = src_element%cell%data_pers%HV
-            dest_element%cell%data_pers%B = src_element%cell%data_pers%B
-         end if
+          dest_element%cell%data_pers%H = src_element%cell%data_pers%H
+          dest_element%cell%data_pers%HU = src_element%cell%data_pers%HU
+          dest_element%cell%data_pers%HV = src_element%cell%data_pers%HV
+          dest_element%cell%data_pers%B = src_element%cell%data_pers%B
 
-         if(isDG(src_element%cell%data_pers%troubled) .or.&
-              src_element%cell%data_pers%troubled .eq. DRY) then
-            dest_element%cell%data_pers%Q            = src_element%cell%data_pers%Q
-         end if
+          dest_element%cell%data_pers%Q            = src_element%cell%data_pers%Q
           
-         dest_element%cell%data_pers%troubled=src_element%cell%data_pers%troubled
+          dest_element%cell%data_pers%troubled=src_element%cell%data_pers%troubled
         end subroutine transfer_op
 
 

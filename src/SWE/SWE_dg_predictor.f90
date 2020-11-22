@@ -173,6 +173,11 @@ MODULE SWE_DG_predictor
 #endif         
 
          call initialise_riemann_arguments(cell,q_i_st,Q_DG)
+      else
+         call apply_phi(cell%data_pers%Q(:)%h+cell%data_pers%Q(:)%b,cell%data_pers%h)
+         call apply_phi(cell%data_pers%Q(:)%p(1)                   ,cell%data_pers%hu)
+         call apply_phi(cell%data_pers%Q(:)%p(2)                   ,cell%data_pers%hv)
+         call apply_phi(cell%data_pers%Q(:)%b                      ,cell%data_pers%b)
       end if
     end associate
   end subroutine dg_predictor

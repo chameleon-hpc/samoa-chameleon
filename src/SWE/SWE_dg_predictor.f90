@@ -39,7 +39,7 @@ MODULE SWE_DG_predictor
 # define _GT_CELL_TO_EDGE_OP        cell_to_edge_op_dg  
   
   public dg_predictor
-  public writeFVBoundaryFields
+
 #		include "SFC_generic_traversal_ringbuffer.f90"
   
   subroutine element_op(traversal, section, element)
@@ -54,7 +54,6 @@ MODULE SWE_DG_predictor
        call dg_predictor    (element,section%r_dt,iterations)
     end if
 
-    call writeFVBoundaryFields(element)
     call traversal%stats%add_counter(predictor_iterations, iterations)
     !---------------------------------!
   end subroutine element_op
@@ -94,19 +93,10 @@ MODULE SWE_DG_predictor
     real(kind=GRID_SR)                         :: epsilon
     logical                                    :: iterate
 
-#if defined(_OPT_KERNELS)
-    call mm_prefetch(element%cell%data_pers%Q%h)
-    call mm_prefetch(element%cell%data_pers%Q%p(1))
-    call mm_prefetch(element%cell%data_pers%Q%p(2))
-    call mm_prefetch(element%cell%data_pers%Q%b)
-    call mm_prefetch(element%cell%data_pers%Q_DG_UPDATE)
-    call mm_prefetch(element%cell%data_pers%FP)
-    call mm_prefetch(element%cell%data_pers%QP)
-
-    call mm_prefetch(element%cell%data_pers%H)
-    call mm_prefetch(element%cell%data_pers%HU)
-    call mm_prefetch(element%cell%data_pers%HV)
-    call mm_prefetch(element%cell%data_pers%B)
+#if defined (_PREFETCH) 
+    call mm_prefetch(element%cell%data_pers%Q_DG_UPDATE,0)
+    call mm_prefetch(element%cell%data_pers%FP,0)
+    call mm_prefetch(element%cell%data_pers%QP,0)
 #endif    
 
     associate(Q_DG        => element%cell%data_pers%Q,&
@@ -192,57 +182,6 @@ MODULE SWE_DG_predictor
       end if
     end associate
   end subroutine dg_predictor
-  
-  subroutine writeFVBoundaryFields(element)
-    class(t_element_base), intent(inout)       :: element
-    integer                                    :: i,j,edge
-    if(.not.isCoast(element%cell%data_pers%troubled)) then
-       associate(Q_DG => element%cell%data_pers%Q,&
-            QFV  => element%cell%data_pers%QFV)
-         
-         QFV(1,:,1) = matmul(phi_r,Q_DG%h)
-         QFV(1,:,2) = matmul(phi_r,Q_DG%p(1))
-         QFV(1,:,3) = matmul(phi_r,Q_DG%p(2))
-         QFV(1,:,4) = matmul(phi_r,Q_DG%b)
-         QFV(1,:,1) = QFV(1,:,1) + QFV(1,:,4)
-
-         QFV(2,:,1) = matmul(phi_m,Q_DG%h)
-         QFV(2,:,2) = matmul(phi_m,Q_DG%p(1))
-         QFV(2,:,3) = matmul(phi_m,Q_DG%p(2))
-         QFV(2,:,4) = matmul(phi_m,Q_DG%b)
-
-         QFV(2,:,1) = QFV(2,:,1) + QFV(2,:,4)
-
-         QFV(3,:,1) = matmul(phi_l,Q_DG%h) 
-         QFV(3,:,2) = matmul(phi_l,Q_DG%p(1))    
-         QFV(3,:,3) = matmul(phi_l,Q_DG%p(2))    
-         QFV(3,:,4) = matmul(phi_l,Q_DG%b)
-
-         QFV(3,:,1) = QFV(3,:,1) + QFV(3,:,4)
-       end associate
-
-    else
-       associate(data => element%cell%data_pers,&
-                 QFV  => element%cell%data_pers%QFV)
-         do i=1,_SWE_PATCH_ORDER         
-            QFV(1,i,1) = data%H (idx_project_FV(1,i))
-            QFV(1,i,2) = data%HU(idx_project_FV(1,i))
-            QFV(1,i,3) = data%HV(idx_project_FV(1,i))
-            QFV(1,i,4) = data%B (idx_project_FV(1,i))
-            
-            QFV(2,i,1) = data%H (idx_project_FV(2,i))
-            QFV(2,i,2) = data%HU(idx_project_FV(2,i))
-            QFV(2,i,3) = data%HV(idx_project_FV(2,i))
-            QFV(2,i,4) = data%B (idx_project_FV(2,i))
-            
-            QFV(3,i,1) = data%H (idx_project_FV(3,i))
-            QFV(3,i,2) = data%HU(idx_project_FV(3,i))
-            QFV(3,i,3) = data%HV(idx_project_FV(3,i))
-            QFV(3,i,4) = data%B (idx_project_FV(3,i))
-         end do
-       end associate
-    end if
-  end subroutine writeFVBoundaryFields
 
 function compute_epsilon(q_i_st,q_temp_st) result(epsilon)
   real(kind=GRID_SR),Dimension(_SWE_DG_DOFS,_SWE_DG_ORDER+1,3)  :: q_i_st

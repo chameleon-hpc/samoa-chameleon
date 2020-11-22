@@ -96,8 +96,9 @@ real(kind=GRID_SR) :: t_k_t_11_inv_x_t_k_t_10_hat(_SWE_DG_ORDER,1)
 !real(kind=GRID_SR)    :: project_DG(3,_SWE_DG_ORDER+1,_SWE_DG_DOFS)
 integer(kind=GRID_SR) :: idx_project_DG(3,_SWE_DG_ORDER+1)
 integer(kind=GRID_SR) :: idx_project_FV(3,_SWE_PATCH_ORDER)
-!real(kind=GRID_SR) :: project_FV(3,_SWE_PATCH_ORDER,_SWE_PATCH_ORDER_SQUARE)
+!     real(kind=GRID_SR) :: project_FV(3,_SWE_PATCH_ORDER,_SWE_PATCH_ORDER_SQUARE)
 
+real(KIND=GRID_SR),Parameter :: phi_b(3,_SWE_PATCH_ORDER,_SWE_DG_DOFS) = (/ phi_r , phi_m , phi_l /)			
 real(kind=GRID_SR) :: norm_to_edge_type(8,-2:2,-2:2)      
 contains
 

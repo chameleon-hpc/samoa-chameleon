@@ -93,6 +93,12 @@ MODULE SWE_DG_predictor
     real(kind=GRID_SR)                         :: epsilon
     logical                                    :: iterate
 
+#if defined (_PREFETCH) 
+    call mm_prefetch(element%cell%data_pers%Q_DG_UPDATE,0)
+    call mm_prefetch(element%cell%data_pers%FP,0)
+    call mm_prefetch(element%cell%data_pers%QP,0)
+#endif    
+
     associate(Q_DG        => element%cell%data_pers%Q,&
               Q_DG_UPDATE => element%cell%data_pers%Q_DG_UPDATE,&
               cell  => element%cell,&
@@ -468,12 +474,6 @@ subroutine initialise_riemann_arguments(cell, q_i_st, Q_DG)
   real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1,_SWE_DG_ORDER+1,2,3)       :: f_i_e
   type(t_state), DIMENSION(_SWE_DG_DOFS),intent(in)                       :: Q_DG
   integer :: i,j,indx,edge_type
-
-#if defined(_OPT_KERNELS)
-    !dir$ attributes align:ALIGNMENT :: q_i_e
-    !dir$ attributes align:ALIGNMENT :: f_i_e
-#endif    
-
 
   ! iterate over edges
   do j = 1,3

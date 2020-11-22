@@ -176,6 +176,9 @@ MODULE SWE_DG_solver
     integer(kind=BYTE) :: orientation
     type(num_cell_rep) ::rep_fv
 
+#if defined (_PREFETCH) 
+    call mm_prefetch(element%cell%data_pers%Q_DG_UPDATE,0)
+#endif
 
 #if defined (_DEBUG)
     rep%debug_flag = element%cell%data_pers%debug_flag

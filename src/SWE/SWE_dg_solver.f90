@@ -136,11 +136,25 @@ MODULE SWE_DG_solver
     integer                               :: i
 
     if(.not.is_coast) then
-         H (:) = matmul(phi_b(edge,:,:),data%Q%h)
-         HU(:) = matmul(phi_b(edge,:,:),data%Q%p(1))
-         HV(:) = matmul(phi_b(edge,:,:),data%Q%p(2))
-         B (:) = matmul(phi_b(edge,:,:),data%Q%b)
-         H (:) = H + B
+       if(edge == 1) then
+          H  = matmul(phi_r(:,:),data%Q%h)
+          HU = matmul(phi_r(:,:),data%Q%p(1))
+          HV = matmul(phi_r(:,:),data%Q%p(2))
+          B  = matmul(phi_r(:,:),data%Q%b)
+       end if
+       if(edge == 1) then
+          H  = matmul(phi_m(:,:),data%Q%h)
+          HU = matmul(phi_m(:,:),data%Q%p(1))
+          HV = matmul(phi_m(:,:),data%Q%p(2))
+          B  = matmul(phi_m(:,:),data%Q%b)
+       end if
+       if(edge == 1) then
+          H  = matmul(phi_l(:,:),data%Q%h)
+          HU = matmul(phi_l(:,:),data%Q%p(1))
+          HV = matmul(phi_l(:,:),data%Q%p(2))
+          B  = matmul(phi_l(:,:),data%Q%b)
+       end if
+         H  = H + B
     else
        do i=1,_SWE_PATCH_ORDER         
           H (i) = data%H (idx_project_FV(edge,i))
@@ -154,6 +168,7 @@ MODULE SWE_DG_solver
   function cell_to_edge_op_dg(element, edge) result(rep)
     type(t_element_base), intent(in)			    :: element
     type(t_edge_data), intent(in)			    :: edge
+    
     type(num_cell_rep)				            :: rep
     integer                               :: edge_type !1=right, 2=hypotenuse, 3=left
     
@@ -171,6 +186,11 @@ MODULE SWE_DG_solver
     rep%FP(:,:,:) = element%cell%data_pers%FP(edge_type,:,:,:)
 
     call writeFVBoundaryFields(element%cell%data_pers,rep%H,rep%HU,rep%HV,rep%B,edge_type,isCoast(element%cell%data_pers%troubled))
+
+    ! rep%H = 0
+    ! rep%HU=0
+    ! rep%HV=0
+    ! rep%B=0
     
     rep%troubled=element%cell%data_pers%troubled
     call getObservableLimits(element%cell%data_pers%Q,rep%minObservables,rep%maxObservables)
@@ -1091,7 +1111,7 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                   call apply_mue(data%h ,data%Q%h)
                   call apply_mue(data%hu,data%Q%p(1))
                   call apply_mue(data%hv,data%Q%p(2))
-!                  call apply_mue(data%b ,data%Q%b)                                  
+                  call apply_mue(data%b ,data%Q%b)                                  
                   data%Q%h=data%Q%h-data%Q%b
                end if
           end associate

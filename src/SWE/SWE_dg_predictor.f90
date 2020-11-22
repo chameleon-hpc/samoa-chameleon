@@ -95,16 +95,19 @@ MODULE SWE_DG_predictor
     logical                                    :: iterate
 
 #if defined(_OPT_KERNELS)
-    !DIR$ PREFETCH element%cell%data_pers%Q
-    !DIR$ PREFETCH element%cell%data_pers%Q_DG_UPDATE
-    !DIR$ PREFETCH element%cell%data_pers%QP
-    !DIR$ PREFETCH element%cell%data_pers%FP
-    !DIR$ PREFETCH element%cell%data_pers%H
-    !DIR$ PREFETCH element%cell%data_pers%HU
-    !DIR$ PREFETCH element%cell%data_pers%HV
-    !DIR$ PREFETCH element%cell%data_pers%B
-#endif    
+    call mm_prefetch(element%cell%data_pers%Q%h)
+    call mm_prefetch(element%cell%data_pers%Q%p(1))
+    call mm_prefetch(element%cell%data_pers%Q%p(2))
+    call mm_prefetch(element%cell%data_pers%Q%b)
+    call mm_prefetch(element%cell%data_pers%Q_DG_UPDATE)
+    call mm_prefetch(element%cell%data_pers%FP)
+    call mm_prefetch(element%cell%data_pers%QP)
 
+    call mm_prefetch(element%cell%data_pers%H)
+    call mm_prefetch(element%cell%data_pers%HU)
+    call mm_prefetch(element%cell%data_pers%HV)
+    call mm_prefetch(element%cell%data_pers%B)
+#endif    
 
     associate(Q_DG        => element%cell%data_pers%Q,&
               Q_DG_UPDATE => element%cell%data_pers%Q_DG_UPDATE,&
@@ -527,12 +530,6 @@ subroutine initialise_riemann_arguments(cell, q_i_st, Q_DG)
   real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1,_SWE_DG_ORDER+1,2,3)       :: f_i_e
   type(t_state), DIMENSION(_SWE_DG_DOFS),intent(in)                       :: Q_DG
   integer :: i,j,indx,edge_type
-
-#if defined(_OPT_KERNELS)
-    !dir$ attributes align:ALIGNMENT :: q_i_e
-    !dir$ attributes align:ALIGNMENT :: f_i_e
-#endif    
-
 
   ! iterate over edges
   do j = 1,3

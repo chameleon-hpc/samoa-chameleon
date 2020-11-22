@@ -251,7 +251,16 @@
           
        end if
        
-       call writeFVBoundaryFields(dest_element)
+       ! call writeFVBoundaryFields(dest_element%cell%data_pers,dest_element%cell%data_pers%QFV,1,&
+       ! isCoast(dest_element%cell%data_pers%troubled))
+
+       ! call writeFVBoundaryFields(dest_element%cell%data_pers,dest_element%cell%data_pers%QFV,2,&
+       ! isCoast(dest_element%cell%data_pers%troubled))
+
+       ! call writeFVBoundaryFields(dest_element%cell%data_pers,dest_element%cell%data_pers%QFV,3,&
+       ! isCoast(dest_element%cell%data_pers%troubled))
+
+
        
 #if defined (_DEBUG)                        
            dest_element%cell%data_pers%debug_flag=-4

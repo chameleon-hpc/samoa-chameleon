@@ -155,6 +155,8 @@ MODULE SWE_DG_solver
     !   endif
     ! end associate
 
+!    call writeFVBoundaryFields(element)
+
     edge_type = get_edge_type(abs(element%cell%geometry%i_plotter_type),edge%transform_data%normal)
     
     rep%QP(:,:)   = element%cell%data_pers%QP(edge_type  ,:,:)

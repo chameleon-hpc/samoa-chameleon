@@ -520,7 +520,6 @@ edge_sizes=element%cell%geometry%get_edge_sizes()
 if(isDG(data%troubled)) then
    data%troubled = DG
    H_old  = data%Q%H
-   B_old  = data%Q%B
    HU_old = data%Q%p(1)
    HV_old = data%Q%p(2)
 
@@ -562,7 +561,6 @@ if(isDG(data%troubled)) then
       data%Q%H   = H_old
       data%Q%p(1)= HU_old
       data%Q%p(2)= HV_old
-      data%Q%B   = B_old
 
       call apply_phi(data%Q(:)%h+data%Q(:)%b,data%h)
       call apply_phi(data%Q(:)%p(1)         ,data%hu)
@@ -664,10 +662,6 @@ real(kind=GRID_SR)	          :: vL, vR, alpha
 integer                           :: i
 
 Fn_avg = 0.5_GRID_SR * ( FRn - FLn )
-! print*,"Fn_avg"
-! print*,Fn_avg(:,1)
-! print*,Fn_avg(:,2)
-! print*,Fn_avg(:,3)
 
 VelL(:) = QL(:,2)/QL(:,1) * normal(1) +  QL(:,3)/QL(:,1) * normal(2)
 VelR(:) = QR(:,2)/QR(:,1) * normal(1) +  QR(:,3)/QR(:,1) * normal(2)
@@ -760,9 +754,6 @@ subroutine dg_solver(element,update1,update2,update3,dt)
     do i=1,_SWE_DG_DOFS
        if(isnan(bnd_flux_l(i,1)).or.isnan(bnd_flux_m(i,1)).or.isnan(bnd_flux_r(i,1)))then
           !print*,"nan bnd"
-          !print*,bnd_flux_l(:,:)
-          !print*,bnd_flux_m(:,:)
-          !print*,bnd_flux_r(:,:)
           exit
        endif
     end do
@@ -774,7 +765,6 @@ subroutine dg_solver(element,update1,update2,update3,dt)
        end if
     end do
 #endif
-    
     !!----update dofs----!!
     q=q+(data%Q_DG_UPDATE - bnd_flux_l - bnd_flux_m - bnd_flux_r)* dt/dx
     !!-------------------!!
@@ -1114,7 +1104,7 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                   call apply_mue(data%h ,data%Q%h)
                   call apply_mue(data%hu,data%Q%p(1))
                   call apply_mue(data%hv,data%Q%p(2))
-                  call apply_mue(data%b ,data%Q%b)                                  
+                  !call apply_mue(data%b ,data%Q%b)                                  
                   data%Q%h=data%Q%h-data%Q%b
                end if
           end associate

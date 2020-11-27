@@ -209,9 +209,10 @@ MODULE SWE_Scenario_resting_lake
     function SWE_Scenario_get_bathymetry(x) result(bathymetry)
         real (kind = GRID_SR), intent(in) :: x(2)
         real (kind = GRID_SR) :: bathymetry
-        
-        bathymetry = max(0.0_GRID_SR, 0.25_GRID_SR - (5.0_GRID_SR * &
-            ( ((x(1) - 0.5_GRID_SR) ** 2) + ((x(2) - 0.5_GRID_SR) ** 2) ))) - 0.1_GRID_SR
+        bathymetry= exp(-((x(1)-0.5_GRID_SR)**2+(x(2)-0.5_GRID_SR)**2)*40.0_GRID_SR)*0.25_GRID_SR-&
+             0.1_GRID_SR
+       ! bathymetry = max(0.0_GRID_SR, 0.25_GRID_SR - (5.0_GRID_SR * &
+       !     ( ((x(1) - 0.5_GRID_SR) ** 2) + ((x(2) - 0.5_GRID_SR) ** 2) ))) - 0.1_GRID_SR
     end function
     
     function SWE_Scenario_get_initial_Q(x) result(Q)

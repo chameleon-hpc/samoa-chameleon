@@ -387,30 +387,30 @@ if(isDG(rep%troubled)) then
       end if
 #  endif
    call general_dg_riemannsolver(edge,rep,rep_bnd,update,update_bnd)  
-else if(isFV(rep%troubled)) then
+end if
 #  if defined(_BOUNDARY)
-      if(get_edge_boundary_align(normal)) then
-         ! Time-dependent condition, generate virtual wave from data or function
-         do i=1, _SWE_PATCH_ORDER
-            update%H(i) = rep%H(i)
-            update%B(i) = rep%B(i)
-            call get_edge_boundary_Q(grid%r_time, update%H(i), &
-               update%HU(i), update%HV(i), update%B(i), .false.)
-         end do
-      else
+if(get_edge_boundary_align(normal)) then
+   ! Time-dependent condition, generate virtual wave from data or function
+   do i=1, _SWE_PATCH_ORDER
+      update%H(i) = rep%H(i)
+      update%B(i) = rep%B(i)
+      call get_edge_boundary_Q(grid%r_time, update%H(i), &
+           update%HU(i), update%HV(i), update%B(i), .false.)
+   end do
+else
 #  endif
-         ! Generate mirrored wave to reflect out incoming wave
-         update%H=rep%H
-         update%B=rep%B
-         do i=1, _SWE_PATCH_ORDER
-            length_flux = dot_product([ rep%HU(i), rep%HV(i) ], normal)
-            update%HU(i)=rep%HU(i) - 2.0_GRID_SR*length_flux*normal(1)
-            update%HV(i)=rep%HV(i) - 2.0_GRID_SR*length_flux*normal(2)
-         end do
+   ! Generate mirrored wave to reflect out incoming wave
+   update%H=rep%H
+   update%B=rep%B
+   do i=1, _SWE_PATCH_ORDER
+      length_flux = dot_product([ rep%HU(i), rep%HV(i) ], normal)
+      update%HU(i)=rep%HU(i) - 2.0_GRID_SR*length_flux*normal(1)
+      update%HV(i)=rep%HV(i) - 2.0_GRID_SR*length_flux*normal(2)
+   end do
 #  if defined(_BOUNDARY)
-      end if
+end if
 #  endif
-end if   
+
 end subroutine bnd_skeleton_scalar_op_dg
 
 #if defined(_BOUNDARY)
@@ -691,26 +691,26 @@ FRn(:,1) = FRn(:,1)
 FRn(:,2) = FRn(:,2) - Djump * normal(1)
 FRn(:,3) = FRn(:,3) - Djump * normal(2)
 
-! if (any(abs(FLn(:,2)) > 10.0e-5)) then
+! if (any(abs(FLn(:,2)) > 10.0e-18)) then
 ! print*,"FLn1"   
 ! print*,FLn
 ! print*,"FRn2"   
 ! print*,FRn
-!    !print*,"QR"   
-!    !print*,QR(:,1)
-!    !print*,QR(:,2)
-!    !print*,QR(:,3)
-!    !print*,QR(:,4)
-!    !print*,"QL"   
-!    !print*,QL(:,1)
-!    !print*,QL(:,2)
-!    !print*,QL(:,3)
-!    !print*,QL(:,4)
-!    !print*,"Djump"
-!    !print*,Djump
-!    !print*,"Qrus"
-!    !print*,Q_rus
-!    !print*,"MARK"
+! print*,"QR"   
+! print*,QR(:,1)
+! print*,QR(:,2)
+! print*,QR(:,3)
+! print*,QR(:,4)
+! print*,"QL"   
+! print*,QL(:,1)
+! print*,QL(:,2)
+! print*,QL(:,3)
+! print*,QL(:,4)
+! print*,"Djump"
+! print*,Djump
+! print*,"Qrus"
+! print*,Q_rus
+! print*,"MARK"
 ! end if
 
 end subroutine compute_flux_pred

@@ -161,7 +161,7 @@ MODULE SWE_DG_predictor
          iterate = sqrt(epsilon) > cfg%max_picard_error .and.(.not.(cell%data_pers%troubled.eq.PREDICTOR_DIVERGED))
 
          !--------------Update predictor-------------!
-         if (iterate) then
+         if (.True.) then
             do i=2,_SWE_DG_ORDER+1
                q_i_st(:,i,:) = q_temp_st(:,i-1,:)
             end do
@@ -171,13 +171,14 @@ MODULE SWE_DG_predictor
 !      print*,"Iterations"
 !      print*,iteration
       if(.not.(cell%data_pers%troubled.eq.PREDICTOR_DIVERGED)) then
+         call compute_sref(s_ref,q_i_st(:,:,1),Q_DG%B)
+         call compute_fref(f_ref,q_i_st)
 #if defined(_OPT_KERNELS)
          call yateto_volume_execute(q_dg_update_t, f_ref, s_ref, cell_type - 1)
          Q_DG_UPDATE = q_dg_update_t
 #else
          call compute_volume_update(Q_DG_UPDATE, s_ref, f_ref, cell_type)
 #endif         
-
          call initialise_riemann_arguments(cell,q_i_st,Q_DG)
       else
          call apply_phi(cell%data_pers%Q(:)%h+cell%data_pers%Q(:)%b,cell%data_pers%h)

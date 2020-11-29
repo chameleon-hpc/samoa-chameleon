@@ -1072,7 +1072,8 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                ! velocity to zero
                where (data%H < data%B + cfg%dry_tolerance .and. dQ_H > 0.0_GRID_SR)
 #if defined (_ASAGI)                  
-                  data%H = min(0.0_GRID_SR,data%B)
+                  !data%H = min(0.0_GRID_SR,data%B)
+                  data%H = data%B + cfg%dry_tolerance 
 #else
                   !                  data%H = data%B + cfg%dry_tolerance
                   data%H = data%B + cfg%dry_tolerance 
@@ -1088,7 +1089,8 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                ! if the water level falls below the dry tolerance, set water level to 0 and velocity to 0          
                where (data%H < data%B + cfg%dry_tolerance)
 #if defined (_ASAGI)                  
-                  data%H = min(0.0_GRID_SR,data%B)
+!                  data%H = min(0.0_GRID_SR,data%B)
+                  data%H = data%B 
 #else
                  data%H = data%B 
 !                  data%H = data%B

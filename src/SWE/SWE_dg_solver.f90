@@ -364,8 +364,8 @@ if(isDG(rep%troubled)) then
                rep_bnd%QP(i,2), rep_bnd%QP(i,3), rep_bnd%QP(i,4), .true.)
          end do
 
-         rep_bnd%FP(1, :, :) = flux_1(rep_bnd%QP(:, 1:3), _SWE_DG_ORDER+1)
-         rep_bnd%FP(2, :, :) = flux_2(rep_bnd%QP(:, 1:3), _SWE_DG_ORDER+1)
+         rep_bnd%FP(1, :, :) = flux_1(rep_bnd%QP(:, 1:3))
+         rep_bnd%FP(2, :, :) = flux_2(rep_bnd%QP(:, 1:3))
       else
 #  endif
          ! Generate mirrored wave to reflect out incoming wave
@@ -397,6 +397,14 @@ if(get_edge_boundary_align(normal)) then
       call get_edge_boundary_Q(grid%r_time, update%H(i), &
            update%HU(i), update%HV(i), update%B(i), .false.)
    end do
+else if ((normal(1) .eq. 1.0_GRID_SR) .and. (normal(2) .eq. 0.0_GRID_SR))then
+   if(isDG(update%troubled))then
+      update%troubled=1
+   end if
+   update%H=rep%H
+   update%B=rep%B
+   update%HU=rep%HU
+   update%HV=rep%HV
 else
 #  endif
    ! Generate mirrored wave to reflect out incoming wave

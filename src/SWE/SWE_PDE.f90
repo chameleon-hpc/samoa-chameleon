@@ -91,6 +91,47 @@ contains
 
   end function flux_no_grav
 
+  function flux_1(q)
+    real(kind=GRID_SR), intent(in) :: q(_SWE_DG_ORDER+1,3)
+    real(kind=GRID_SR)             :: flux_1(_SWE_DG_ORDER+1,3)
+    real(kind=GRID_SR)             :: u(_SWE_DG_ORDER+1), v(_SWE_DG_ORDER+1)
+    integer                        :: k
+    
+    !$omp simd
+    do k=1,_SWE_DG_ORDER+1
+       u(k) = q(k,2)/q(k,1)
+       v(k) = q(k,3)/q(k,1)
+    end do
+    
+    !$omp simd
+    do k=1,_SWE_DG_ORDER+1       
+       flux_1(k,1) = q(k,2)
+       flux_1(k,2) = u(k)*q(k,2) + 0.5_GRID_SR * g * q(k,1)**2
+       flux_1(k,3) = u(k)*q(k,3)
+    end do
+  end function flux_1
+
+  function flux_2(q)
+    real(kind=GRID_SR), intent(in) :: q(_SWE_DG_ORDER+1,3)
+    real(kind=GRID_SR)             :: flux_2(_SWE_DG_ORDER+1,3)
+    real(kind=GRID_SR)             :: u(_SWE_DG_ORDER+1), v(_SWE_DG_ORDER+1)
+    integer                        :: k
+    
+    !$omp simd
+    do k=1,_SWE_DG_ORDER+1
+       u(k) = q(k,2)/q(k,1)
+       v(k) = q(k,3)/q(k,1)
+    end do
+    
+    !$omp simd
+    do k=1,_SWE_DG_ORDER+1
+       flux_2(k,1) = q(k,3)
+       flux_2(k,2) = v(k)*q(k,2)
+       flux_2(k,3) = v(k)*q(k,3) + 0.5_GRID_SR * g * q(k,1)**2
+    end do
+  end function flux_2
+
+
 end module SWE_PDE
 
 #endif

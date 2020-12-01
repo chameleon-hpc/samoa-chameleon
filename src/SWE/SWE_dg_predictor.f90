@@ -147,9 +147,9 @@ MODULE SWE_DG_predictor
          !--------------------------!
 
          !------Guard for diverging Picard Loop------!
-         if(iteration > cfg%max_picard_iterations) then                           
-            cell%data_pers%troubled=PREDICTOR_DIVERGED
-         end if
+         !if(iteration > cfg%max_picard_iterations) then                           
+            !cell%data_pers%troubled=PREDICTOR_DIVERGED
+         !end if
          !-------------------------------------------!
 
           !------Guard for negative water height------!
@@ -158,7 +158,7 @@ MODULE SWE_DG_predictor
          end if
          !-------------------------------------------!
 
-         iterate = sqrt(epsilon) > cfg%max_picard_error .and.(.not.(cell%data_pers%troubled.eq.PREDICTOR_DIVERGED))
+         iterate = sqrt(epsilon) > cfg%max_picard_error .and.(.not.(cell%data_pers%troubled.eq.PREDICTOR_DIVERGED)) .and. iteration > cfg%max_picard_iterations
 
          !--------------Update predictor-------------!
          if (.True.) then

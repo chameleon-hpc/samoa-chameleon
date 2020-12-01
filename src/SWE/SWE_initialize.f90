@@ -412,7 +412,8 @@ MODULE SWE_Initialize_Dofs
        element%cell%data_pers%troubled = DRY
     end if
 
-    if(any(abs(element%cell%data_pers%Q%B) < cfg%coast_height)) then
+    
+    if(any(element%cell%data_pers%Q%B > cfg%coast_height_min .and. element%cell%data_pers%Q%B < cfg%coast_height_max)) then
        element%cell%data_pers%troubled = COAST
     end if
 

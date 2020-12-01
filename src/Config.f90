@@ -118,7 +118,8 @@ module config
             double precision                    :: dry_tolerance                                    !< dry tolerance [m]
 #           if defined (_SWE_DG)
                 !< for a water height under this threshold a cell is considered as beeing at the coast [m]
-                double precision                :: coast_height
+            double precision                :: coast_height_min
+            double precision                :: coast_height_max
                 !< cells below this threshold are solved with a fv scheme by default
                 double precision                :: dry_dg_guard
 
@@ -221,7 +222,7 @@ module config
 #    	elif defined(_HEAT_EQ)
             write(arguments, '(A, A)') trim(arguments), " -dmin 0 -dmax 16 -dstart 0 -nmax -1 -tmax 1.0d0 -nout -1 -tout -1.0d0"
 #    	elif defined(_SWE)
-            write(arguments, '(A, A)') trim(arguments), " -dmin 0 -dmax 14 -dstart 0 -courant 0.45d0 -nmax -1 -tmax 3600.0d0 -nout -1 -tout -1.0d0 -drytolerance 0.01d0 -coastheight 1.0d0 -dry_dg_guard 0.1d0 -fbath data/tohoku_static/bath.nc -fdispl data/tohoku_static/displ.nc -max_picard_iterations 4 -max_picard_error 10.0d-12 -limiter_buffer 10.0d-3 -domain '' -static_displacement .false."
+            write(arguments, '(A, A)') trim(arguments), " -dmin 0 -dmax 14 -dstart 0 -courant 0.45d0 -nmax -1 -tmax 3600.0d0 -nout -1 -tout -1.0d0 -drytolerance 0.01d0 -coast_height_min -1.0d0 -coast_height_max 1.0d0 -dry_dg_guard 0.1d0 -fbath data/tohoku_static/bath.nc -fdispl data/tohoku_static/displ.nc -max_picard_iterations 4 -max_picard_error 10.0d-12 -limiter_buffer 10.0d-3 -domain '' -static_displacement .false."
 #	    elif defined(_FLASH)
             write(arguments, '(A, A)') trim(arguments), " -dmin 0 -dmax 14 -dstart 0 -courant 0.45d0 -nmax -1 -tmax 3600.0d0 -nout -1 -tout -1.0d0 -drytolerance 0.01d0 -fbath data/tohoku_static/bath.nc -fdispl data/tohoku_static/displ.nc"
 #    	elif defined(_NUMA)
@@ -355,7 +356,8 @@ module config
 
             config%dry_tolerance = rget('samoa_drytolerance')
 #           if defined(_SWE_DG)                
-                config%coast_height = rget('samoa_coastheight')
+            config%coast_height_min = rget('samoa_coast_height_min')
+            config%coast_height_max = rget('samoa_coast_height_max')
                 config%dry_dg_guard = rget('samoa_dry_dg_guard')
                 config%max_picard_iterations = rget('samoa_max_picard_iterations')
                 config%max_picard_error      = rget('samoa_max_picard_error')
@@ -488,7 +490,8 @@ module config
                     PRINT '(A, I0, A)', "	-asciioutput_width <value> width of ascii output (value: ", config%i_ascii_width, ")"
                     PRINT '(A, ES8.1, A)',  "	-drytolerance           dry tolerance, determines up to which water height a cell is considered dry (value: ", config%dry_tolerance, " m)"
                     !TODO: write me
-                    PRINT '(A, ES8.1, A)',  "	-coastheight           dry tolerance, determines up to which water height a cell is considered dry (value: ", config%dry_tolerance, " m)"
+                    PRINT '(A, ES8.1, A)',  "	-coast_height_min           dry tolerance, determines above which water height a cell is considered as coast (value: ", config%coast_height_min, " m)"
+                    PRINT '(A, ES8.1, A)',  "	-coast_height_max           dry tolerance, determines below which water height a cell is considered as coast (value: ", config%coast_height_max, " m)"
                     !TODO: write me 
                     PRINT '(A, ES8.1, A)',  "	-dry_dg_guard           dry tolerance, determines up to which water height a cell is considered dry (value: ", config%dry_tolerance, " m)"                                    
 #         	    elif defined(_FLASH)

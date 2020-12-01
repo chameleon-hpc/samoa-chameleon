@@ -81,9 +81,13 @@ MODULE SWE_data_types
   real(kind=GRID_SR)   , DIMENSION(_SWE_DG_DOFS,3)         :: Q_DG_UPDATE !Predictor element update
   real(kind=GRID_SR)   , DIMENSION(3,  _SWE_DG_ORDER+1,4)  :: QP  !Predictor projections on edges
   real(kind=GRID_SR)   , DIMENSION(3,2,_SWE_DG_ORDER+1,3)  :: FP  !Predictor projections on edges
- ! real(kind=GRID_SR)   , DIMENSION(3, _SWE_PATCH_ORDER,4)  :: QFV !FV projections on edges 
-
   integer :: troubled
+
+#if defined(_CELL_METRICS)
+  real(kind=GRID_SR)        , DIMENSION(_SWE_DG_DOFS)            :: dt    = 0.0
+  real(kind=GRID_SR)        , DIMENSION(_SWE_PATCH_ORDER_SQUARE) :: dt_fv = 0.0
+#endif
+  
 #if defined(_DEBUG)
   integer :: debug_flag = 0
 #endif                        

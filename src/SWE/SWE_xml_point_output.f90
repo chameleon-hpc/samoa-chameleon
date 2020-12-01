@@ -36,6 +36,10 @@ MODULE SWE_xml_point_output
      integer (kind=BYTE) :: troubled
 #endif
 
+#if defined(_CELL_METRICS)
+     real (kind = GRID_SR)     						                :: dt		!< position
+#endif     
+
      integer (kind = BYTE)                                   :: i_plotter_type
 #           if defined(_SWE_PATCH)          
      integer (kind = BYTE)                               :: id_in_patch
@@ -122,7 +126,10 @@ MODULE SWE_xml_point_output
        e_io = vtk%VTK_VAR_XML('water height', 1.0_GRID_SR, 1)
        e_io = vtk%VTK_VAR_XML('bathymetry', 1.0_GRID_SR, 1)
        e_io = vtk%VTK_VAR_XML('momentum', 1.0_GRID_SR, 3)
-
+#if defined(_CELL_METRICS)
+       e_io = vtk%VTK_VAR_XML('dt', 1.0_GRID_SR, 1)
+#endif       
+       
        e_io = vtk%VTK_VAR_XML('rank', 1_GRID_SI, 1)
        e_io = vtk%VTK_VAR_XML('section index', 1_GRID_SI, 1)
        e_io = vtk%VTK_VAR_XML('depth', 1_1, 1)
@@ -274,7 +281,9 @@ MODULE SWE_xml_point_output
     e_io = vtk%VTK_VAR_XML(i_real_points, 'water height', pack(traversal%point_data%Q%h, l_point_mask))
     e_io = vtk%VTK_VAR_XML(i_real_points, 'bathymetry', pack(traversal%point_data%Q%b, l_point_mask))
     e_io = vtk%VTK_VAR_XML(i_real_points, 'momentum',  pack(traversal%point_data%Q%p(1), l_point_mask), pack(traversal%point_data%Q%p(2), l_point_mask), r_empty(1:i_real_points))
-
+#if defined(_CELL_METRICS)
+    e_io = vtk%VTK_VAR_XML(i_real_points, 'dt', pack(traversal%point_data%dt, l_point_mask))
+#endif    
     e_io = vtk%VTK_VAR_XML(i_real_points, 'rank', pack(traversal%point_data%rank, l_point_mask))
     e_io = vtk%VTK_VAR_XML(i_real_points, 'section index', pack(traversal%point_data%section_index, l_point_mask))
     e_io = vtk%VTK_VAR_XML(i_real_points, 'depth', pack(traversal%point_data%depth, l_point_mask))
@@ -417,6 +426,9 @@ MODULE SWE_xml_point_output
              traversal%point_data(traversal%i_point_data_index + i - 1)%Q%p(1) = element%cell%data_pers%Q(cell_id)%p(1)
              traversal%point_data(traversal%i_point_data_index + i - 1)%Q%p(2) = element%cell%data_pers%Q(cell_id)%p(2)
              traversal%point_data(traversal%i_point_data_index + i - 1)%Q%h = element%cell%data_pers%Q(cell_id)%h
+#if defined(_CELL_METRICS)
+             traversal%point_data(traversal%i_point_data_index + i - 1)%dt = element%cell%data_pers%dt(cell_id)
+#endif             
           end do
 
           ! prepare for next cell
@@ -456,6 +468,10 @@ MODULE SWE_xml_point_output
              traversal%point_data(traversal%i_point_data_index + i - 1)%Q%p(2) = element%cell%data_pers%HV(cell_id)
              ! FV calculates H + B, DG only H -> we adjust FV output to match DG-Output.
              traversal%point_data(traversal%i_point_data_index + i - 1)%Q%h = element%cell%data_pers%H(cell_id) - element%cell%data_pers%B(cell_id)
+
+#if defined(_CELL_METRICS)
+             traversal%point_data(traversal%i_point_data_index + i - 1)%dt = element%cell%data_pers%dt_fv(cell_id)
+#endif             
           end do
 
           ! prepare for next cell

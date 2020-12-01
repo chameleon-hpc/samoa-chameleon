@@ -397,14 +397,14 @@ if(get_edge_boundary_align(normal)) then
       call get_edge_boundary_Q(grid%r_time, update%H(i), &
            update%HU(i), update%HV(i), update%B(i), .false.)
    end do
-else if ((normal(1) .eq. 1.0_GRID_SR) .and. (normal(2) .eq. 0.0_GRID_SR))then
-   if(isDG(update%troubled))then
-      update%troubled=1
-   end if
-   update%H=rep%H
-   update%B=rep%B
-   update%HU=rep%HU
-   update%HV=rep%HV
+! else if ((normal(1) .eq. 1.0_GRID_SR) .and. (normal(2) .eq. 0.0_GRID_SR))then
+!    if(isDG(update%troubled))then
+!       update%troubled=1
+!    end if
+!    update%H=rep%H
+!    update%B=rep%B
+!    update%HU=rep%HU
+!    update%HV=rep%HV
 else
 #  endif
    ! Generate mirrored wave to reflect out incoming wave
@@ -589,24 +589,32 @@ call updateCellStatus(data)
 dx = cfg%scaling *  edge_sizes(1)
 if(isDG(data%troubled)) then
    do i=1,_SWE_DG_DOFS
-      ! if(get_next_time_step_size(data%Q(i)%h,data%Q(i)%p(1),data%Q(i)%p(2),dx,cfg%dry_tolerance) < section%r_dt_new)then
-      !    print*,"DG"
-      !    print*,data%troubled
-      !    print*,data%Q(i)%h,data%Q(i)%p(1),data%Q(i)%p(2)
-      !    print*,get_next_time_step_size(data%Q(i)%h,data%Q(i)%p(1),data%Q(i)%p(2),dx,cfg%dry_tolerance)
-      ! endif
       section%r_dt_new = min(section%r_dt_new, get_next_time_step_size(data%Q(i)%h,data%Q(i)%p(1),data%Q(i)%p(2),dx,cfg%dry_tolerance))
    end do
 else
    do i=1,_SWE_PATCH_ORDER_SQUARE
-      ! if(get_next_time_step_size(data%h(i)-data%b(i),data%hu(i),data%hv(i),dx,cfg%dry_tolerance) < section%r_dt_new)then
-      !    print*,"FV"
-      !    print*,data%h(i)-data%b(i),data%hu(i),data%hv(i)
-      !    print*,get_next_time_step_size(data%h(i)-data%b(i),data%hu(i),data%hv(i),dx,cfg%dry_tolerance)
-      ! endif
       section%r_dt_new = min(section%r_dt_new, get_next_time_step_size(data%h(i)-data%b(i),data%hu(i),data%hv(i),dx,cfg%dry_tolerance))
 end do
 endif
+
+#if defined(_CELL_METRICS)
+do i=1,_SWE_DG_DOFS
+   dt = get_next_time_step_size(data%Q(i)%h,data%Q(i)%p(1),data%Q(i)%p(2),dx,cfg%dry_tolerance)
+   if (dt == huge(1.0_GRID_SR) .or. dt == huge(0.0_GRID_SR)) then
+      dt = -1.0_GRID_SR
+   end if
+   data%dt(i)    = dt * cfg%courant_number
+end do
+
+do i=1,_SWE_PATCH_ORDER_SQUARE
+   dt = get_next_time_step_size(data%h(i)-data%b(i),data%hu(i),data%hv(i),dx,cfg%dry_tolerance)
+   
+   if (dt == huge(1.0_GRID_SR) .or. dt == huge(0.0_GRID_SR)) then
+      dt = -1.0_GRID_SR
+   end if
+   data%dt_fv(i) =  dt * cfg%courant_number
+end do
+#endif  
 !------------------------------------------------------------------!
 
 !----------- Refinement ------------!

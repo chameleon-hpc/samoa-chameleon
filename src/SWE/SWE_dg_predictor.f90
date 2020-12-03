@@ -145,12 +145,14 @@ MODULE SWE_DG_predictor
 !         print*,"epsilon"
 !         print*,epsilon
          !--------------------------!
-
+         
+#if defined(_SWE_DG_LIMITER_UNLIMITED)
          !------Guard for diverging Picard Loop------!
-         !if(iteration > cfg%max_picard_iterations) then                           
-            !cell%data_pers%troubled=PREDICTOR_DIVERGED
-         !end if
+         if(iteration > cfg%max_picard_iterations) then                           
+            cell%data_pers%troubled=PREDICTOR_DIVERGED
+         end if
          !-------------------------------------------!
+#endif         
 
           !------Guard for negative water height------!
          if (any(q_temp_st(:,:,1).le.0)) then

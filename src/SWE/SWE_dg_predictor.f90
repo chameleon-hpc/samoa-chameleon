@@ -50,9 +50,15 @@ MODULE SWE_DG_predictor
 
     iterations = 0
     !-------Compute predictor --------!
-    if(isDG(element%cell%data_pers%troubled)) then
+    if(isDG(element%cell%data_pers%troubled).and.(.not.isDry(element%cell%data_pers%troubled)))then
        call dg_predictor    (element,section%r_dt,iterations)
     end if
+    
+#if defined(_CELL_METRICS)
+    if(isDry(element%cell%data_pers%troubled))then
+       element%cell%data_pers%QP_avg = 0.0_GRID_SR
+    endif
+#endif    
 
     call traversal%stats%add_counter(predictor_iterations, iterations)
     !---------------------------------!
@@ -139,11 +145,7 @@ MODULE SWE_DG_predictor
          call update_predictor(q_temp_st, q_0, dtdx, s_ref, f_ref, cell_type)
 #endif         
          !------ compute error ------!
-         ! print*,q_i_st
-         ! print*,q_temp_st
          epsilon =  compute_epsilon(q_i_st,q_temp_st)
-!         print*,"epsilon"
-!         print*,epsilon
          !--------------------------!
          
 #if defined(_SWE_DG_LIMITER_UNLIMITED)
@@ -170,8 +172,7 @@ MODULE SWE_DG_predictor
          end if
          !-------------------------------------------!
       end do
-!      print*,"Iterations"
-!      print*,iteration
+
       if(.not.(cell%data_pers%troubled.eq.PREDICTOR_DIVERGED)) then
          call compute_sref(s_ref,q_i_st(:,:,1),Q_DG%B)
          call compute_fref(f_ref,q_i_st)
@@ -199,47 +200,17 @@ function compute_epsilon(q_i_st,q_temp_st) result(epsilon)
   real(kind=GRID_SR)                         :: denominator(_SWE_DG_DOFS,_SWE_DG_ORDER)
   integer i,j,k
 
-  denominator = 0.0_GRID_SR
-  epsilon_a = 0.0_GRID_SR
-  epsilon = 0.0_GRID_SR
-
   do j=1,_SWE_DG_DOFS
      !omp simd
      do i=1,_SWE_DG_ORDER
-        do k=1,_SWE_DG_ORDER
-           denominator(j,i)=denominator(j,i)+(q_i_st(j,i+1,k) * q_i_st(j,i+1,k))
-        end do
-     end do
-  end do
-
-  where (denominator == 0.0_GRID_SR)
-     denominator = 1.0_GRID_SR
-  end where
-  
-  do j=1,_SWE_DG_DOFS
-     !omp simd
-     do i=1,_SWE_DG_ORDER
-        do k=1,3
+        do k = 1,3
            epsilon_a(j,i)=epsilon_a(j,i) +&
                 (q_temp_st(j,i,k)-q_i_st(j,i+1,k))*(q_temp_st(j,i,k)-q_i_st(j,i+1,k))
         end do
-        epsilon_a(j,i)= epsilon_a(j,i)/denominator(j,i)
      end do
   end do
-
+  
   epsilon = maxval(epsilon_a)
-
-  ! epsilon=0.0_GRID_SR
-  ! do j=1,_SWE_DG_DOFS
-  !    do i=1,_SWE_DG_ORDER
-  !       if(.not.all(q_i_st(j,i+1,:).eq.0)) then
-  !          epsilon=max(epsilon, NORM2(q_temp_st(j,i,:)-q_i_st(j,i+1,:)) / NORM2(q_i_st(j,i+1,:)))
-  !       else if(.not.all(q_temp_st(j,i,:) .eq. 0)) then
-  !          epsilon=max(epsilon,1.0_GRID_SR)
-  !       end if
-  !    end do
-  ! end do
-
 
 end function compute_epsilon
 
@@ -478,6 +449,12 @@ subroutine initialise_riemann_arguments(cell, q_i_st, Q_DG)
   type(t_state), DIMENSION(_SWE_DG_DOFS),intent(in)                       :: Q_DG
   integer :: i,j,indx,edge_type
 
+#if defined(_CELL_METRICS)
+  do i = 1,_SWE_DG_DOFS
+     cell%data_pers%QP_avg(i,:) =  reshape(matmul(t_a,q_i_st(i,:,:)) ,(/ 3 /))
+  end do
+#endif  
+
   ! iterate over edges
   do j = 1,3
      q_i_e = 0.0_GRID_SR
@@ -505,7 +482,5 @@ subroutine initialise_riemann_arguments(cell, q_i_st, Q_DG)
 
   
 end subroutine initialise_riemann_arguments
-
 END MODULE SWE_DG_predictor
-
 #endif

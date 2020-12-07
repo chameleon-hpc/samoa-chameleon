@@ -84,8 +84,9 @@ MODULE SWE_data_types
   integer :: troubled
 
 #if defined(_CELL_METRICS)
-  real(kind=GRID_SR)        , DIMENSION(_SWE_DG_DOFS)            :: dt    = 0.0
-  real(kind=GRID_SR)        , DIMENSION(_SWE_PATCH_ORDER_SQUARE) :: dt_fv = 0.0
+  real(kind=GRID_SR)   , DIMENSION(_SWE_DG_DOFS)            :: dt    = 0.0
+  real(kind=GRID_SR)   , DIMENSION(_SWE_PATCH_ORDER_SQUARE) :: dt_fv = 0.0
+  real(kind=GRID_SR)   , DIMENSION(_SWE_DG_DOFS,3)          :: QP_avg = 0.0
 #endif
   
 #if defined(_DEBUG)
@@ -169,20 +170,37 @@ type num_cell_rep
 
 		contains
 
-                 subroutine apply_phi(dg,fv)
-                   real(kind=GRID_SR),intent(out) :: fv(_SWE_PATCH_ORDER_SQUARE)
-                   real(kind=GRID_SR),intent(in)  :: dg(_SWE_DG_DOFS)
-                   fv=matmul(phi_hat,dg)
-                 end subroutine apply_phi
-
-                 subroutine apply_mue(fv,dg)
-                   real(kind=GRID_SR),intent(in) :: fv(_SWE_PATCH_ORDER_SQUARE)
-                   real(kind=GRID_SR),intent(out)  :: dg(_SWE_DG_DOFS)
-                   real(kind=GRID_SR)             :: q_temp(_SWE_DG_DOFS+1)                   
-                   dg= matmul(mue_inv,fv)
-                 end subroutine apply_mue
-
-
+    subroutine apply_phi(dg,fv)
+      real(kind=GRID_SR),intent(out) :: fv(_SWE_PATCH_ORDER_SQUARE)
+      real(kind=GRID_SR),intent(in)  :: dg(_SWE_DG_DOFS)
+      fv=matmul(phi_hat,dg)
+    end subroutine apply_phi
+    
+    subroutine apply_mue(fv,dg)
+      real(kind=GRID_SR),intent(in) :: fv(_SWE_PATCH_ORDER_SQUARE)
+      real(kind=GRID_SR),intent(out)  :: dg(_SWE_DG_DOFS)
+      real(kind=GRID_SR)             :: q_temp(_SWE_DG_DOFS+1)                   
+      dg= matmul(mue_inv,fv)
+    end subroutine apply_mue
+    
+    subroutine apply_mue_sample(fv,dg)
+      real(kind=GRID_SR),intent(in) :: fv(_SWE_PATCH_ORDER_SQUARE)
+      real(kind=GRID_SR),intent(out)  :: dg(_SWE_DG_DOFS)
+      real(kind=GRID_SR)             :: q_temp(_SWE_DG_DOFS+1)
+      real(kind=GRID_SR)             :: fv_max
+      real(kind=GRID_SR)             :: fv_min
+      real(kind=GRID_SR)             :: int,alpha
+      
+      !      dg= matmul(sample_fv,fv)
+      dg= matmul(mue_inv,fv)
+      fv_max = maxval(fv)
+      fv_min = minval(fv)
+      int = sum(fv) * _REF_TRIANGLE_SIZE
+      alpha = max( (maxval(dg) - int) / (fv_max - int) , (minval(dg) - int) / (fv_min - int))
+      dg = (dg - int) / alpha + int
+      
+    end subroutine apply_mue_sample
+    
 		!adds two state vectors
 		elemental function state_add(Q1, Q2)	result(Q_out)
 			class (t_state), intent(in)		:: Q1

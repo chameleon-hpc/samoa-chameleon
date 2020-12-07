@@ -188,13 +188,8 @@ MODULE SWE_DG_solver
     rep%QP(:,:)   = element%cell%data_pers%QP(edge_type  ,:,:)
     rep%FP(:,:,:) = element%cell%data_pers%FP(edge_type,:,:,:)
 
-    call writeFVBoundaryFields(element%cell%data_pers,rep%H,rep%HU,rep%HV,rep%B,edge_type,isCoast(element%cell%data_pers%troubled))
+    call writeFVBoundaryFields(element%cell%data_pers,rep%H,rep%HU,rep%HV,rep%B,edge_type,isCoast(element%cell%data_pers%troubled) .or. element%cell%data_pers%troubled .eq. -NEIGHBOUR_TROUBLED)
 
-    ! rep%H = 0
-    ! rep%HU=0
-    ! rep%HV=0
-    ! rep%B=0
-    
     rep%troubled=element%cell%data_pers%troubled
     call getObservableLimits(element%cell%data_pers%Q,rep%minObservables,rep%maxObservables)
     
@@ -271,6 +266,7 @@ subroutine general_dg_riemannsolver(edge,rep1,rep2,update1,update2)
   update2%flux%h    = FRn(:,1)
   update2%flux%p(1) = FRn(:,2)
   update2%flux%p(2) = FRn(:,3)
+  
 end subroutine
 
 subroutine skeleton_scalar_op_dg(traversal, grid, edge, rep1, rep2, update1, update2)
@@ -533,23 +529,6 @@ if(isDG(data%troubled)) then
 
    call getObservableLimits(element%cell%data_pers%Q,minVals,maxVals)
 
-   ! !print*,"update1"
-   ! !print*,update1%flux(:)%h
-   ! !print*,update1%flux(:)%p(1)
-   ! !print*,update1%flux(:)%p(2)
-   ! !print*,"update2"
-   ! !print*,update2%flux(:)%h
-   ! !print*,update2%flux(:)%p(1)
-   ! !print*,update2%flux(:)%p(2)
-   ! !print*,"update3"
-   ! !print*,update3%flux(:)%h
-   ! !print*,update3%flux(:)%p(1)
-   ! !print*,update3%flux(:)%p(2)
-   
-   ! if(any(abs(update1%flux%p(1)+update2%flux%p(1)+update3%flux%p(1)) > 1.5d-4))then
-   !    stop
-   ! endif
-
    do i = 1,_SWE_DG_ORDER+1
       tmp%flux(i) = update3%flux(_SWE_DG_ORDER+2-i)
    end do
@@ -630,11 +609,6 @@ if (.not.isCoast(element%cell%data_pers%troubled))then
    if(error < section%max_error * coarsen_factor) then
       coarsen = .true.
    endif
-   ! if(error > 10.d-8) then
-   !    !print*,"error"
-   !    !print*,error
-   !    !print*,section%max_error
-   ! end if
    
    i_depth = element%cell%geometry%i_depth
    
@@ -690,8 +664,6 @@ bm    = max(QR(:,4),QL(:,4))
 Deta  = max(QR(:,1) + QR(:,4) - bm, 0.0) - max(QL(:,1) + QL(:,4) - bm, 0.0)
 
 Djump = 0.5_GRID_SR * g * hRoe * Deta
-!print*,"Djump"
-!print*,Djump
 
 Q_rus(:,  1) = 0.5_GRID_SR * alpha * Deta
 Q_rus(:,2:3) = 0.5_GRID_SR * alpha * (QR(:,2:3) - QL(:,2:3))
@@ -706,28 +678,6 @@ FLn(:,3) = FLn(:,3) + Djump * normal(2)
 FRn(:,1) = FRn(:,1)    
 FRn(:,2) = FRn(:,2) - Djump * normal(1)
 FRn(:,3) = FRn(:,3) - Djump * normal(2)
-
-! if (any(abs(FLn(:,2)) > 10.0e-18)) then
-! print*,"FLn1"   
-! print*,FLn
-! print*,"FRn2"   
-! print*,FRn
-! print*,"QR"   
-! print*,QR(:,1)
-! print*,QR(:,2)
-! print*,QR(:,3)
-! print*,QR(:,4)
-! print*,"QL"   
-! print*,QL(:,1)
-! print*,QL(:,2)
-! print*,QL(:,3)
-! print*,QL(:,4)
-! print*,"Djump"
-! print*,Djump
-! print*,"Qrus"
-! print*,Q_rus
-! print*,"MARK"
-! end if
 
 end subroutine compute_flux_pred
 
@@ -1117,14 +1067,19 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                !       data%HV = 0.0_GRID_SR
                !    end where
                ! end if
-               
-               if(.not.isCoast(element%cell%data_pers%troubled)) then
+                if(NEIGHBOUR_TROUBLED .eq. element%cell%data_pers%troubled)then
+                   call apply_mue(data%h ,data%Q%h)
+                   call apply_mue_sample(data%hu,data%Q%p(1))
+                   call apply_mue_sample(data%hv,data%Q%p(2))
+                   data%Q%h=data%Q%h-data%Q%b
+                else if(.not.isCoast(element%cell%data_pers%troubled)) then
                   call apply_mue(data%h ,data%Q%h)
                   call apply_mue(data%hu,data%Q%p(1))
                   call apply_mue(data%hv,data%Q%p(2))
                   !call apply_mue(data%b ,data%Q%b)                                  
                   data%Q%h=data%Q%h-data%Q%b
                end if
+
           end associate
 
         end subroutine fv_patch_solver

@@ -205,6 +205,7 @@
 
 !> DG specific
 #define _REF_TRIANGLE_SIZE_INV  (2.0q0 * real(_SWE_PATCH_ORDER_SQUARE,kind=kind(1.0q0)))
+#define _REF_TRIANGLE_SIZE 1.0q0/(2.0q0 * real(_SWE_PATCH_ORDER_SQUARE,kind=kind(1.0q0)))
 
 #if defined(_SWE_DG_LIMITER_UNLIMITED)
 #define _DMP_NUM_OBSERVABLES 0

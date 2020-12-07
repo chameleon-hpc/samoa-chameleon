@@ -246,4 +246,13 @@ contains
     error = abs(max_h-min_h)
   end function get_error_estimate
 
+  function plotFV(troubled)
+    integer :: troubled
+    logical :: plotFV
+    
+    !plotFV = isCoast(troubled) .or. (troubled .eq. -NEIGHBOUR_TROUBLED)
+    plotFV = isCoast(troubled)
+  end function plotFV
+
+
 END MODULE SWE_DG_Limiter

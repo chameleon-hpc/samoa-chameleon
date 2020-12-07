@@ -25,24 +25,25 @@ MODULE SWE_xml_point_output
 
   !> Output point data
   type t_output_point_data
-     type(t_state)											:: Q
-     real (kind = GRID_SR), dimension(2)						:: coords		!< position
-     integer (kind = GRID_SI)								:: rank
-     integer (kind = GRID_SI)								:: section_index
-     integer (kind = BYTE)									:: depth
-     integer (kind = BYTE)									:: refinement
+     type(t_state)											 :: Q
+     real (kind = GRID_SR), dimension(2) :: coords		!< position
+     integer (kind = GRID_SI)						 :: rank
+     integer (kind = GRID_SI)						 :: section_index
+     integer (kind = BYTE)							 :: depth
+     integer (kind = BYTE)							 :: refinement
 
 #if defined(_SWE_DG)
      integer (kind=BYTE) :: troubled
 #endif
 
 #if defined(_CELL_METRICS)
-     real (kind = GRID_SR)     						                :: dt		!< position
+     real(kind = GRID_SR)     					 :: dt
+     real(kind=GRID_SR)   , DIMENSION(3) :: QP_avg
 #endif     
 
-     integer (kind = BYTE)                                   :: i_plotter_type
+     integer (kind = BYTE) :: i_plotter_type
 #           if defined(_SWE_PATCH)          
-     integer (kind = BYTE)                               :: id_in_patch
+     integer (kind = BYTE) :: id_in_patch
 #           endif
   end type t_output_point_data
 
@@ -128,6 +129,7 @@ MODULE SWE_xml_point_output
        e_io = vtk%VTK_VAR_XML('momentum', 1.0_GRID_SR, 3)
 #if defined(_CELL_METRICS)
        e_io = vtk%VTK_VAR_XML('dt', 1.0_GRID_SR, 1)
+       e_io = vtk%VTK_VAR_XML('pred', 1.0_GRID_SR, 3)
 #endif       
        
        e_io = vtk%VTK_VAR_XML('rank', 1_GRID_SI, 1)
@@ -229,7 +231,7 @@ MODULE SWE_xml_point_output
 
     ! Iterate over all elements to count stuff correctly.
     do i=1, grid_info%i_cells
-       if (.not.isCoast(int(traversal%troubled(i), 4))) then
+       if (.not.plotFV(int(traversal%troubled(i), 4))) then
        !if (traversal%troubled(i).le.0) then       
           l_point_mask(i_real_points + 1 : i_real_points + _SWE_DG_DOFS) = .true.
           l_cell_mask(i_real_cells + 1: i_real_cells + i_cells_per_dg) = .true.
@@ -283,6 +285,12 @@ MODULE SWE_xml_point_output
     e_io = vtk%VTK_VAR_XML(i_real_points, 'momentum',  pack(traversal%point_data%Q%p(1), l_point_mask), pack(traversal%point_data%Q%p(2), l_point_mask), r_empty(1:i_real_points))
 #if defined(_CELL_METRICS)
     e_io = vtk%VTK_VAR_XML(i_real_points, 'dt', pack(traversal%point_data%dt, l_point_mask))
+
+    e_io = vtk%VTK_VAR_XML(i_real_points, 'pred',&
+    pack(traversal%point_data%QP_avg(1), l_point_mask),&
+    pack(traversal%point_data%QP_avg(2), l_point_mask),&
+    pack(traversal%point_data%QP_avg(3), l_point_mask))
+
 #endif    
     e_io = vtk%VTK_VAR_XML(i_real_points, 'rank', pack(traversal%point_data%rank, l_point_mask))
     e_io = vtk%VTK_VAR_XML(i_real_points, 'section index', pack(traversal%point_data%section_index, l_point_mask))
@@ -346,7 +354,7 @@ MODULE SWE_xml_point_output
 
     ! We need this to count the number of valid cells in the post-traversal op.
     traversal%troubled(traversal%i_element_data_index) = element%cell%data_pers%troubled
-    if (.not.isCoast(element%cell%data_pers%troubled)) then
+    if (.not.plotFV(element%cell%data_pers%troubled)) then
 !    if (element%cell%data_pers%troubled.le.0 .or. element%cell%data_pers%troubled.ge.5) then
 !    if (element%cell%data_pers%troubled.le.0) then    
        ! Calulated by DG.
@@ -370,42 +378,6 @@ MODULE SWE_xml_point_output
           end do
        end do
 
-!        traversal%cell_data(traversal%i_cell_data_index +  0)%connectivity(:) = [ 1, 2, 3] + traversal%i_point_data_index - 2
-! # if (_SWE_DG_ORDER == 1)
-!           traversal%cell_data(traversal%i_cell_data_index +  0)%connectivity(:) = [ 1, 2, 3] + traversal%i_point_data_index - 2
-! # elif (_SWE_DG_ORDER == 2)
-!           traversal%cell_data(traversal%i_cell_data_index +  0)%connectivity(:) = [ 1, 2, 4] + traversal%i_point_data_index - 2
-!           traversal%cell_data(traversal%i_cell_data_index +  1)%connectivity(:) = [ 2, 3, 5] + traversal%i_point_data_index - 2
-!           traversal%cell_data(traversal%i_cell_data_index +  2)%connectivity(:) = [ 4, 5, 2] + traversal%i_point_data_index - 2
-!           traversal%cell_data(traversal%i_cell_data_index +  3)%connectivity(:) = [ 4, 5, 6] + traversal%i_point_data_index - 2
-! # elif (_SWE_DG_ORDER == 3)
-!           traversal%cell_data(traversal%i_cell_data_index +  0)%connectivity(:) = [ 1, 2, 5] + traversal%i_point_data_index - 2
-!           traversal%cell_data(traversal%i_cell_data_index +  1)%connectivity(:) = [ 2, 3, 6] + traversal%i_point_data_index - 2
-!           traversal%cell_data(traversal%i_cell_data_index +  2)%connectivity(:) = [ 3, 4, 7] + traversal%i_point_data_index - 2
-!           traversal%cell_data(traversal%i_cell_data_index +  3)%connectivity(:) = [ 5, 6, 2] + traversal%i_point_data_index - 2
-!           traversal%cell_data(traversal%i_cell_data_index +  4)%connectivity(:) = [ 5, 6, 8] + traversal%i_point_data_index - 2
-!           traversal%cell_data(traversal%i_cell_data_index +  5)%connectivity(:) = [ 6, 7, 3] + traversal%i_point_data_index - 2
-!           traversal%cell_data(traversal%i_cell_data_index +  6)%connectivity(:) = [ 6, 7, 9] + traversal%i_point_data_index - 2
-!           traversal%cell_data(traversal%i_cell_data_index +  7)%connectivity(:) = [ 8, 9, 6] + traversal%i_point_data_index - 2
-!           traversal%cell_data(traversal%i_cell_data_index +  8)%connectivity(:) = [ 8, 9,10] + traversal%i_point_data_index - 2
-! # elif (_SWE_DG_ORDER == 4)
-!           traversal%cell_data(traversal%i_cell_data_index +  0)%connectivity(:) = [ 1, 2, 6] + traversal%i_point_data_index - 2
-!           traversal%cell_data(traversal%i_cell_data_index +  1)%connectivity(:) = [ 2, 3, 7] + traversal%i_point_data_index - 2
-!           traversal%cell_data(traversal%i_cell_data_index +  2)%connectivity(:) = [ 3, 4, 8] + traversal%i_point_data_index - 2
-!           traversal%cell_data(traversal%i_cell_data_index +  3)%connectivity(:) = [ 4, 5, 9] + traversal%i_point_data_index - 2
-!           traversal%cell_data(traversal%i_cell_data_index +  4)%connectivity(:) = [ 6, 7, 2] + traversal%i_point_data_index - 2
-!           traversal%cell_data(traversal%i_cell_data_index +  5)%connectivity(:) = [ 7, 8, 3] + traversal%i_point_data_index - 2
-!           traversal%cell_data(traversal%i_cell_data_index +  6)%connectivity(:) = [ 8, 9, 4] + traversal%i_point_data_index - 2
-!           traversal%cell_data(traversal%i_cell_data_index +  7)%connectivity(:) = [ 6, 7,10] + traversal%i_point_data_index - 2
-!           traversal%cell_data(traversal%i_cell_data_index +  8)%connectivity(:) = [ 7, 8,11] + traversal%i_point_data_index - 2
-!           traversal%cell_data(traversal%i_cell_data_index +  9)%connectivity(:) = [ 8, 9,12] + traversal%i_point_data_index - 2
-!           traversal%cell_data(traversal%i_cell_data_index + 10)%connectivity(:) = [10,11, 7] + traversal%i_point_data_index - 2
-!           traversal%cell_data(traversal%i_cell_data_index + 11)%connectivity(:) = [11,12, 8] + traversal%i_point_data_index - 2
-!           traversal%cell_data(traversal%i_cell_data_index + 12)%connectivity(:) = [10,11,13] + traversal%i_point_data_index - 2
-!           traversal%cell_data(traversal%i_cell_data_index + 13)%connectivity(:) = [11,12,14] + traversal%i_point_data_index - 2
-!           traversal%cell_data(traversal%i_cell_data_index + 14)%connectivity(:) = [13,14,11] + traversal%i_point_data_index - 2
-!           traversal%cell_data(traversal%i_cell_data_index + 15)%connectivity(:) = [13,14,15] + traversal%i_point_data_index - 2
-! # endif
           do i=1, _SWE_DG_DOFS
              ! Ever second output all cells are mirrored, this fixes it.
              if (element%cell%geometry%i_plotter_type > 0) then 
@@ -427,6 +399,9 @@ MODULE SWE_xml_point_output
              traversal%point_data(traversal%i_point_data_index + i - 1)%Q%p(2) = element%cell%data_pers%Q(cell_id)%p(2)
              traversal%point_data(traversal%i_point_data_index + i - 1)%Q%h = element%cell%data_pers%Q(cell_id)%h
 #if defined(_CELL_METRICS)
+             traversal%point_data(traversal%i_point_data_index + i - 1)%QP_avg(1) = element%cell%data_pers%QP_avg(cell_id,1)
+             traversal%point_data(traversal%i_point_data_index + i - 1)%QP_avg(2) = element%cell%data_pers%QP_avg(cell_id,2)
+             traversal%point_data(traversal%i_point_data_index + i - 1)%QP_avg(3) = element%cell%data_pers%QP_avg(cell_id,3)
              traversal%point_data(traversal%i_point_data_index + i - 1)%dt = element%cell%data_pers%dt(cell_id)
 #endif             
           end do
@@ -471,6 +446,9 @@ MODULE SWE_xml_point_output
 
 #if defined(_CELL_METRICS)
              traversal%point_data(traversal%i_point_data_index + i - 1)%dt = element%cell%data_pers%dt_fv(cell_id)
+             traversal%point_data(traversal%i_point_data_index + i - 1)%QP_avg(1) = 0.0_GRID_SR
+             traversal%point_data(traversal%i_point_data_index + i - 1)%QP_avg(2) = 0.0_GRID_SR
+             traversal%point_data(traversal%i_point_data_index + i - 1)%QP_avg(3) = 0.0_GRID_SR
 #endif             
           end do
 

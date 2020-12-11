@@ -162,7 +162,9 @@ MODULE SWE_DG_predictor
          end if
          !-------------------------------------------!
 
-         iterate = sqrt(epsilon) > cfg%max_picard_error .and.(.not.(cell%data_pers%troubled.eq.PREDICTOR_DIVERGED)) .and. iteration > cfg%max_picard_iterations
+         iterate = sqrt(epsilon) > cfg%max_picard_error .and.&
+              (.not.(cell%data_pers%troubled.eq.PREDICTOR_DIVERGED)) .and.&
+              iteration < cfg%max_picard_iterations
 
          !--------------Update predictor-------------!
          if (.True.) then

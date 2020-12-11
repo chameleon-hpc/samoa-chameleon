@@ -210,15 +210,15 @@ c        !find bounds in case of critical state resonance, or negative states
          del(2)=delhu
          del(3)=delphi-deldelphi
 
-         error_tol = 1.0d-10
-         error_tol = error_tol * merge(max(abs(bL),abs(bR)),1.0,max(abs(bL),abs(bR)) > 1.0d-14)
+         error_tol = 1.0d-15
+!         error_tol = error_tol * merge(max(abs(bL),abs(bR)),1.0,max(abs(bL),abs(bR)) > 1.0d-14)
 
-c$$$         do m = 1,3
-c$$$            if(del(m) < error_tol) then
-c$$$               del(m) = (del(m) / error_tol)**16 * error_tol
-c$$$!               del(m) = 0.0d0
-c$$$            end if
-c$$$         end do
+         do m = 1,3
+            if(abs(del(m)) < error_tol) then
+               del(m) = (del(m) / error_tol)**5 * error_tol
+         !      del(m) = 0.0d0
+            end if
+         end do
 
 c        !Determine determinant of eigenvector matrix========
          det1=r(1,1)*(r(2,2)*r(3,3)-r(2,3)*r(3,2))

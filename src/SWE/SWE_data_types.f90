@@ -192,12 +192,14 @@ type num_cell_rep
       real(kind=GRID_SR)             :: int,alpha
       
       !      dg= matmul(sample_fv,fv)
-      dg= matmul(mue_inv,fv)
-      fv_max = maxval(fv)
-      fv_min = minval(fv)
-      int = sum(fv) * _REF_TRIANGLE_SIZE
-      alpha = max( (maxval(dg) - int) / (fv_max - int) , (minval(dg) - int) / (fv_min - int))
-      dg = (dg - int) / alpha + int
+
+      dg= matmul(mue_inv_slope,fv)
+      ! dg= matmul(mue_inv,fv)
+      ! fv_max = maxval(fv)
+      ! fv_min = minval(fv)
+      ! int = sum(fv) * _REF_TRIANGLE_SIZE
+      ! alpha = max( (maxval(dg) - int) / (fv_max - int) , (minval(dg) - int) / (fv_min - int)) 
+      ! dg = (dg - int) / alpha + int
       
     end subroutine apply_mue_sample
     

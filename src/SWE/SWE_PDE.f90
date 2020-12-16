@@ -55,12 +55,12 @@ contains
     !$omp simd
     do k=1,_SWE_DG_ORDER+1       
        flux_(k,1,1) = q(k,2)
-       flux_(k,1,2) = u(k)*q(k,2) + 0.5_GRID_SR * g * q(k,1)**2
+       flux_(k,1,2) = u(k)*q(k,2)
        flux_(k,1,3) = u(k)*q(k,3)
        
        flux_(k,2,1) = q(k,3)
        flux_(k,2,2) = v(k)*q(k,2)
-       flux_(k,2,3) = v(k)*q(k,3) + 0.5_GRID_SR * g * q(k,1)**2
+       flux_(k,2,3) = v(k)*q(k,3)
     end do
        
   end function flux_

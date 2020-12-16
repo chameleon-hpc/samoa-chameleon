@@ -179,8 +179,8 @@ MODULE SWE_DG_predictor
          call compute_sref(s_ref,q_i_st(:,:,1),Q_DG%B)
          call compute_fref(f_ref,q_i_st)
 #if defined(_OPT_KERNELS)
-         call yateto_volume_execute(q_dg_update_t, f_ref, s_ref, cell_type - 1)
-         Q_DG_UPDATE = q_dg_update_t
+         call yateto_volume_execute(Q_DG_UPDATE, f_ref, s_ref, cell_type - 1)
+         !Q_DG_UPDATE = q_dg_update_t
 #else
          call compute_volume_update(Q_DG_UPDATE, s_ref, f_ref, cell_type)
 #endif         
@@ -417,8 +417,8 @@ subroutine compute_volume_update(Q_DG_UPDATE, s_ref, f_ref, cell_type)
              jacobian_inv(2,2,cell_type) * f_ref_a(:,2,:)
   
   volume_flux(:,:) = matmul(s_m_inv, &
-       matmul(s_k_x_s_b_3_s_b_2, f(:,1,:)) + &
-       matmul(s_k_y_s_b_1_s_b_2, f(:,2,:)))
+       matmul(s_k_x_t, f(:,1,:)) + &
+       matmul(s_k_y_t, f(:,2,:)))
   
   source_st(:,2) = -s_ref_a(:,1) * jacobian(1,1,cell_type)&
                    -s_ref_a(:,2) * jacobian(1,2,cell_type)
@@ -437,7 +437,6 @@ subroutine compute_volume_update(Q_DG_UPDATE, s_ref, f_ref, cell_type)
      end if
   end do
 #endif
-  
   Q_DG_UPDATE = volume_flux + source_st
 
   !!------------------------------!!  
@@ -470,7 +469,7 @@ subroutine initialise_riemann_arguments(cell, q_i_st, Q_DG)
      
      if(isDG(cell%data_pers%troubled)) then
         do i=1,_SWE_DG_ORDER+1
-           f_i_e(i,:,:,:) = flux_(q_i_e(i,:,:))
+          f_i_e(i,:,:,:) = flux_(q_i_e(i,:,:))
         end do
      endif
      do i = 1,3

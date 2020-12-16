@@ -639,7 +639,7 @@ real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1,3), intent(inout) :: FLn
 real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1,3), intent(inout) :: FRn
 real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1)                  :: VelL
 real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1)                  :: VelR
-real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1)                  :: hRoe,bm
+real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1)                  :: hRoe,bm,bml,bmr
 real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1)                  :: Deta
 real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1)                  :: Djump
 real(kind=GRID_SR),Dimension(_SWE_DG_ORDER+1,3)                :: Fn_avg
@@ -661,23 +661,27 @@ alpha=max(maxval(abs(VelL) + sqrt(g * QL(:,1))),&
 
 hRoe  = 0.5_GRID_SR * (QR(:,1) + QL(:,1))
 bm    = max(QR(:,4),QL(:,4))
-Deta  = max(QR(:,1) + QR(:,4) - bm, 0.0) - max(QL(:,1) + QL(:,4) - bm, 0.0)
+bmr   = merge(0.0_GRID_SR, QR(:,4) - bm , abs(QR(:,4) - bm) < 1.0e-16)
+bml   = merge(0.0_GRID_SR, QL(:,4) - bm , abs(QL(:,4) - bm) < 1.0e-16)
+Deta  = max(QR(:,1) + bmr, 0.0) - max(QL(:,1) + bml, 0.0)
+Deta  = merge(Deta, 0.0_GRID_SR, abs(Deta) > 1.0e-16)
 
 Djump = 0.5_GRID_SR * g * hRoe * Deta
 
 Q_rus(:,  1) = 0.5_GRID_SR * alpha * Deta
 Q_rus(:,2:3) = 0.5_GRID_SR * alpha * (QR(:,2:3) - QL(:,2:3))
 
-FLn    =  Fn_avg - Q_rus
-FRn    =  Fn_avg + Q_rus
+
+FLn = Fn_avg - Q_rus
+FRn = Fn_avg + Q_rus
 
 FLn(:,1) = FLn(:,1) 
 FLn(:,2) = FLn(:,2) + Djump * normal(1)
 FLn(:,3) = FLn(:,3) + Djump * normal(2)
 
 FRn(:,1) = FRn(:,1)    
-FRn(:,2) = FRn(:,2) - Djump * normal(1)
-FRn(:,3) = FRn(:,3) - Djump * normal(2)
+FRn(:,2) = FRn(:,2) + Djump * normal(1)
+FRn(:,3) = FRn(:,3) + Djump * normal(2)
 
 end subroutine compute_flux_pred
 

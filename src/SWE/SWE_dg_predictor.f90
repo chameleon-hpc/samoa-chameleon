@@ -179,8 +179,8 @@ MODULE SWE_DG_predictor
          call compute_sref(s_ref,q_i_st(:,:,1),Q_DG%B)
          call compute_fref(f_ref,q_i_st)
 #if defined(_OPT_KERNELS)
-         call yateto_volume_execute(Q_DG_UPDATE, f_ref, s_ref, cell_type - 1)
-         !Q_DG_UPDATE = q_dg_update_t
+         call yateto_volume_execute(q_dg_update_t, f_ref, s_ref, cell_type - 1)
+         Q_DG_UPDATE = q_dg_update_t
 #else
          call compute_volume_update(Q_DG_UPDATE, s_ref, f_ref, cell_type)
 #endif         

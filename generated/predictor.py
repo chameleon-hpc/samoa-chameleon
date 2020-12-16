@@ -30,8 +30,8 @@ class VolumeUpdateGenerator():
 
 
         def volume_generator(i):
-            return U["lq"] <= db_t.s_k_s_b_J_inv[i]["ljd"] * db_m.t_a["J"]   * F["jJdq"] +\
-                                          db_m.J[i]["mq"]  * db_m.n_t_a["J"] * S["lJm"]
+            return U["lq"] <= db_t.n_s_k_t_J_inv[i]["ljd"] * db_m.t_a["J"]   * F["jJdq"] +\
+                                           db_m.J[i]["mq"]  * db_m.n_t_a["J"] * S["lJm"]
         
         g.addFamily('volume', simpleParameterSpace(8),volume_generator)
             

@@ -501,9 +501,13 @@ associate(data => element%cell%data_pers)
 
 !----If a cell is dry and all neighbours are we can skip the solver step---!
  if(isDry(data%troubled)) then
-      if(allNeighboursDry(update1,update2,update3))then
-         return
-      end if
+    if(allNeighboursDry(update1,update2,update3))then
+#if defined(_CELL_METRICS)
+      data%dt(:)    = -1.0_GRID_SR
+      data%dt_fv(:) = -1.0_GRID_SR
+#endif      
+      return         
+   end if
 end if
 !--------------------------------------------------------------------------!
 
@@ -561,40 +565,52 @@ if(isFV(data%troubled)) then
    call fv_patch_solver(traversal, section, element, update1, update2, update3)
 end if
 
-
-!------- Update cell status and compute next timestep size --------!
+!------ Update cell status------!
 call updateCellStatus(data)
+!------------------------------------!
 
+
+!-------compute next timestep size --------!
 dx = cfg%scaling *  edge_sizes(1)
-if(isDG(data%troubled)) then
-   do i=1,_SWE_DG_DOFS
-      section%r_dt_new = min(section%r_dt_new, get_next_time_step_size(data%Q(i)%h,data%Q(i)%p(1),data%Q(i)%p(2),dx,cfg%dry_tolerance))
-   end do
+if(.not.isDry(data%troubled)) then
+   if(isDG(data%troubled))then
+      do i=1,_SWE_DG_DOFS
+         section%r_dt_new = min(section%r_dt_new, get_next_time_step_size(data%Q(i)%h,data%Q(i)%p(1),data%Q(i)%p(2),dx,cfg%dry_tolerance))
+      end do
+   else
+      do i=1,_SWE_PATCH_ORDER_SQUARE
+         section%r_dt_new = min(section%r_dt_new, get_next_time_step_size(data%h(i)-data%b(i),data%hu(i),data%hv(i),dx,cfg%dry_tolerance))
+      end do
+   endif
 else
-   do i=1,_SWE_PATCH_ORDER_SQUARE
-      section%r_dt_new = min(section%r_dt_new, get_next_time_step_size(data%h(i)-data%b(i),data%hu(i),data%hv(i),dx,cfg%dry_tolerance))
-end do
+   section%r_dt_new = min(section%r_dt_new,1000.0_GRID_SR)
 endif
 
 #if defined(_CELL_METRICS)
-do i=1,_SWE_DG_DOFS
-   dt = get_next_time_step_size(data%Q(i)%h,data%Q(i)%p(1),data%Q(i)%p(2),dx,cfg%dry_tolerance)
-   if (dt == huge(1.0_GRID_SR) .or. dt == huge(0.0_GRID_SR)) then
-      dt = -1.0_GRID_SR
-   end if
-   data%dt(i)    = dt * cfg%courant_number
-end do
-
-do i=1,_SWE_PATCH_ORDER_SQUARE
-   dt = get_next_time_step_size(data%h(i)-data%b(i),data%hu(i),data%hv(i),dx,cfg%dry_tolerance)
+if(.not.isDry(data%troubled)) then
+   do i=1,_SWE_DG_DOFS
+      dt = get_next_time_step_size(data%Q(i)%h,data%Q(i)%p(1),data%Q(i)%p(2),dx,cfg%dry_tolerance)
+      if (dt == huge(1.0_GRID_SR) .or. dt == huge(0.0_GRID_SR)) then
+         dt = -1.0_GRID_SR
+      end if
+      data%dt(i)    = dt * cfg%courant_number * 1000 * 1000
+   end do
    
-   if (dt == huge(1.0_GRID_SR) .or. dt == huge(0.0_GRID_SR)) then
-      dt = -1.0_GRID_SR
-   end if
-   data%dt_fv(i) =  dt * cfg%courant_number
-end do
+   do i=1,_SWE_PATCH_ORDER_SQUARE
+      dt = get_next_time_step_size(data%h(i)-data%b(i),data%hu(i),data%hv(i),dx,cfg%dry_tolerance)
+      
+      if (dt == huge(1.0_GRID_SR) .or. dt == huge(0.0_GRID_SR)) then
+         dt = -1.0_GRID_SR
+      end if
+      data%dt_fv(i) =  dt * cfg%courant_number * 1000 * 1000
+   end do
+else
+   data%dt(:)    = -1.0_GRID_SR
+   data%dt_fv(:) = -1.0_GRID_SR
+endif
 #endif  
 !------------------------------------------------------------------!
+
 
 !----------- Refinement ------------!
 element%cell%geometry%refinement = 0
@@ -1032,17 +1048,19 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
 
                ! if land is flooded, init water height to dry tolerance and
                ! velocity to zero
-               where (data%H < data%B + cfg%dry_tolerance .and. dQ_H > 0.0_GRID_SR)
-#if defined (_ASAGI)                  
-                  !data%H = min(0.0_GRID_SR,data%B)
-                  data%H = data%B + cfg%dry_tolerance 
-#else
-                  !                  data%H = data%B + cfg%dry_tolerance
-                  data%H = data%B + cfg%dry_tolerance 
-#endif                  
-                  data%HU = 0.0_GRID_SR
-                  data%HV = 0.0_GRID_SR
-               end where
+                where (data%H < data%B + cfg%dry_tolerance .and. dQ_H > 0.0_GRID_SR)
+! #if defined (_ASAGI)                  
+!                   !data%H = min(0.0_GRID_SR,data%B)
+!                   data%H = data%B + cfg%dry_tolerance 
+! #else
+!                   !                  data%H = data%B + cfg%dry_tolerance
+! !                  data%H = data%B + cfg%dry_tolerance
+!                   data%H = data%B 
+                   ! #endif
+                   data%H = data%B + cfg%dry_tolerance 
+                   data%HU = 0.0_GRID_SR
+                   data%HV = 0.0_GRID_SR
+                end where
 
                data%H  = data%H + dQ_H
                data%HU = data%HU + dQ_HU
@@ -1050,14 +1068,15 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                
                ! if the water level falls below the dry tolerance, set water level to 0 and velocity to 0          
                where (data%H < data%B + cfg%dry_tolerance)
-#if defined (_ASAGI)                  
-!                  data%H = min(0.0_GRID_SR,data%B)
-                  data%H = data%B 
-#else
-                 data%H = data%B 
-!                  data%H = data%B
+! #if defined (_ASAGI)                  
+! !                  data%H = min(0.0_GRID_SR,data%B)
 
-#endif                  
+! #else
+!                  data%H = data%B 
+! !                  data%H = data%B
+
+                  ! #endif
+                  data%H = data%B 
                   data%HU = 0.0_GRID_SR
                   data%HV = 0.0_GRID_SR
                end where
@@ -1075,6 +1094,8 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                    call apply_mue(data%h ,data%Q%h)
                    call apply_mue_sample(data%hu,data%Q%p(1))
                    call apply_mue_sample(data%hv,data%Q%p(2))
+!                   call apply_mue(data%hu,data%Q%p(1))
+!                   call apply_mue(data%hv,data%Q%p(2))
                    data%Q%h=data%Q%h-data%Q%b
                 else if(.not.isCoast(element%cell%data_pers%troubled)) then
                   call apply_mue(data%h ,data%Q%h)

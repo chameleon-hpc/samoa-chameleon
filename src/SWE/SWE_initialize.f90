@@ -46,7 +46,7 @@ MODULE SWE_Initialize_Bathymetry
     grid%r_time = 0.0_GRID_SR
     grid%r_dt = 0.0_GRID_SR
     grid%r_dt_new = 0.0_GRID_SR
-
+    grid%min_courant = cfg%courant_number
     call scatter(grid%r_time, grid%sections%elements_alloc%r_time)
   end subroutine pre_traversal_grid_op
 
@@ -459,6 +459,12 @@ MODULE SWE_Initialize_Dofs
     integer                             :: i, index
     integer                             :: bathy_depth
     real (kind = GRID_SR)               :: dQ_norm
+    real (kind = GRID_SR)               :: center(2)
+
+    center=samoa_barycentric_to_world_point(element%transform_data, [0.0_GRID_SR,0.0_GRID_SR])
+    center=center + samoa_barycentric_to_world_point(element%transform_data, [0.0_GRID_SR,1.0_GRID_SR])
+    center=center + samoa_barycentric_to_world_point(element%transform_data, [1.0_GRID_SR,0.0_GRID_SR])
+    center = center/3.0_GRID_SR
     
     !evaluate initial DoFs (not the bathymetry!)
     do i=1,_SWE_DG_DOFS
@@ -468,6 +474,7 @@ MODULE SWE_Initialize_Dofs
           index = mirrored_coords(i)
        end if
        x = samoa_barycentric_to_world_point(element%transform_data, coords(:,index))
+       
        Q(i)%t_dof_state = get_initial_dof_state_at_position(section,x)
     end do
     
@@ -534,6 +541,8 @@ MODULE SWE_Initialize_Dofs
           row = row + 1
        end if
     end do
+
+    Q%H = Q%H -get_bathymetry_at_patch(section, element, section%r_time) + Q%B
     
     !estimate initial time step
     where (Q%h - Q%b > 0.0_GRID_SR)

@@ -80,6 +80,8 @@ MODULE SWE_DG_solver
     
     call reduce(traversal%i_refinements_issued, traversal%sections%i_refinements_issued, MPI_SUM, .true.)
     call reduce(grid%r_dt_new, grid%sections%elements_alloc%r_dt_new, MPI_MIN, .true.)
+
+    grid%min_courant = min(grid%r_dt_new / grid%r_dt , grid%min_courant)
     
     grid%r_dt_new = cfg%courant_number * grid%r_dt_new
 
@@ -188,7 +190,7 @@ MODULE SWE_DG_solver
     rep%QP(:,:)   = element%cell%data_pers%QP(edge_type  ,:,:)
     rep%FP(:,:,:) = element%cell%data_pers%FP(edge_type,:,:,:)
 
-    call writeFVBoundaryFields(element%cell%data_pers,rep%H,rep%HU,rep%HV,rep%B,edge_type,isCoast(element%cell%data_pers%troubled) .or. element%cell%data_pers%troubled .eq. -NEIGHBOUR_TROUBLED)
+    call writeFVBoundaryFields(element%cell%data_pers,rep%H,rep%HU,rep%HV,rep%B,edge_type,isCoast(element%cell%data_pers%troubled) .or. element%cell%data_pers%troubled .eq. NEIGHBOUR_WAS_TROUBLED)
 
     rep%troubled=element%cell%data_pers%troubled
     call getObservableLimits(element%cell%data_pers%Q,rep%minObservables,rep%maxObservables)
@@ -553,10 +555,12 @@ if(isDG(data%troubled)) then
       data%Q%p(1)= HU_old
       data%Q%p(2)= HV_old
 
-      call apply_phi(data%Q(:)%h+data%Q(:)%b,data%h)
-      call apply_phi(data%Q(:)%p(1)         ,data%hu)
-      call apply_phi(data%Q(:)%p(2)         ,data%hv)
-      call apply_phi(data%Q(:)%b            ,data%b)
+      call apply_phi_cons(data%Q(:)%h,data%Q(:)%p(1),data%Q(:)%p(2),&
+                          data%H(:),data%HU(:),data%HV(:))             
+      call apply_phi(data%Q(:)%b    ,data%b)
+      
+      data%H = data%H + data%b
+      print*,"troubled"
    end if
 end if
 
@@ -564,7 +568,6 @@ if(isFV(data%troubled)) then
    !-----Call FV patch solver----!    
    call fv_patch_solver(traversal, section, element, update1, update2, update3)
 end if
-
 !------ Update cell status------!
 call updateCellStatus(data)
 !------------------------------------!
@@ -790,7 +793,6 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
             logical :: drying,troubled,coarsen,refine
             real (kind=GRID_SR) :: refinement_threshold = 0.50_GRID_SR
             real(kind = GRID_SR), DIMENSION(_SWE_PATCH_SOLVER_CHUNK_SIZE)                :: normals_x, normals_y
-
 
 #if defined(_OPT_KERNELS)            
             !DIR$ ASSUME_ALIGNED hL: ALIGNMENT
@@ -1057,7 +1059,7 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
 ! !                  data%H = data%B + cfg%dry_tolerance
 !                   data%H = data%B 
                    ! #endif
-                   data%H = data%B + cfg%dry_tolerance 
+!                   data%H = data%B + cfg%dry_tolerance 
                    data%HU = 0.0_GRID_SR
                    data%HV = 0.0_GRID_SR
                 end where
@@ -1076,11 +1078,14 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
 ! !                  data%H = data%B
 
                   ! #endif
-                  data%H = data%B 
+!                  data%H = data%B 
                   data%HU = 0.0_GRID_SR
                   data%HV = 0.0_GRID_SR
                end where
-
+               
+               where (data%H < data%B)
+                  data%H = data%B 
+               end where
 
                ! if(all(data%h - data%b < cfg%dry_tolerance * 10.0d4)) then
                !    where (data%HU > cfg%dry_tolerance * 10.0d-2) 
@@ -1090,19 +1095,20 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                !       data%HV = 0.0_GRID_SR
                !    end where
                ! end if
+               
                 if(NEIGHBOUR_TROUBLED .eq. element%cell%data_pers%troubled)then
-                   call apply_mue(data%h ,data%Q%h)
+                   call apply_mue(data%h-data%b ,data%Q%h)
                    call apply_mue_sample(data%hu,data%Q%p(1))
                    call apply_mue_sample(data%hv,data%Q%p(2))
 !                   call apply_mue(data%hu,data%Q%p(1))
 !                   call apply_mue(data%hv,data%Q%p(2))
-                   data%Q%h=data%Q%h-data%Q%b
+!                   data%Q%h=data%Q%h
                 else if(.not.isCoast(element%cell%data_pers%troubled)) then
-                  call apply_mue(data%h ,data%Q%h)
+                  call apply_mue(data%h-data%b ,data%Q%h)
                   call apply_mue(data%hu,data%Q%p(1))
                   call apply_mue(data%hv,data%Q%p(2))
                   !call apply_mue(data%b ,data%Q%b)                                  
-                  data%Q%h=data%Q%h-data%Q%b
+!                  data%Q%h=data%Q%h
                end if
 
           end associate

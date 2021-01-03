@@ -158,7 +158,7 @@
                dest%Q%B = get_bathymetry_at_dg_patch(section, dest_element%t_element_base, section%r_time)
                dest%Q%H   = dest%Q%H-dest%Q%B
                dest%troubled = src%troubled
-               call updateCellStatus(dest)
+!               call updateCellStatus(dest)
                if(isDG(dest%troubled))then
                   call dg_predictor(dest_element,section%r_dt,iterations)
                end if
@@ -301,7 +301,7 @@
 
                   dest%Q%H = dest%Q%H-dest%Q%B
                   dest%troubled = src%troubled
-                  call updateCellStatus(dest)
+!                  call updateCellStatus(dest)
                   
                   if(isFV(dest%troubled)) then
                      call apply_phi(dest%Q(:)%h+dest%Q(:)%b ,dest%h)

@@ -191,6 +191,7 @@ MODULE SWE_DG_solver
     rep%FP(:,:,:) = element%cell%data_pers%FP(edge_type,:,:,:)
 
     call writeFVBoundaryFields(element%cell%data_pers,rep%H,rep%HU,rep%HV,rep%B,edge_type,isCoast(element%cell%data_pers%troubled) .or. element%cell%data_pers%troubled .eq. NEIGHBOUR_WAS_TROUBLED)
+    !call writeFVBoundaryFields(element%cell%data_pers,rep%H,rep%HU,rep%HV,rep%B,edge_type,isCoast(element%cell%data_pers%troubled))
 
     rep%troubled=element%cell%data_pers%troubled
     call getObservableLimits(element%cell%data_pers%Q,rep%minObservables,rep%maxObservables)
@@ -254,7 +255,6 @@ subroutine general_dg_riemannsolver(edge,rep1,rep2,update1,update2)
   
   QR = rep2%QP
   FR = rep2%FP
-
 
   FLn = FL(1,:,:) * normal(1) + FL(2,:,:) * normal(2)
   FRn = FR(1,:,:) * normal(1) + FR(2,:,:) * normal(2)
@@ -519,6 +519,11 @@ if (element%cell%geometry%i_plotter_type > 0) then !
    tmp=update1
    update1=update3
    update3=tmp
+
+   do i = 1,_SWE_DG_ORDER+1
+      tmp%flux(i) = update3%flux(_SWE_DG_ORDER+2-i)
+   end do
+   update3%flux = tmp%flux
 end if
 !--------------------------------------------------------------------------!
 
@@ -534,12 +539,6 @@ if(isDG(data%troubled)) then
    HV_old = data%Q%p(2)
 
    call getObservableLimits(element%cell%data_pers%Q,minVals,maxVals)
-
-   do i = 1,_SWE_DG_ORDER+1
-      tmp%flux(i) = update3%flux(_SWE_DG_ORDER+2-i)
-   end do
-   update3%flux = tmp%flux
-
 
    call dg_solver(element,update1%flux,update2%flux,update3%flux,section%r_dt)
    
@@ -560,7 +559,6 @@ if(isDG(data%troubled)) then
       call apply_phi(data%Q(:)%b    ,data%b)
       
       data%H = data%H + data%b
-      print*,"troubled"
    end if
 end if
 
@@ -757,9 +755,7 @@ subroutine dg_solver(element,update1,update2,update3,dt)
     !!----update dofs----!!
     q=q+(data%Q_DG_UPDATE - bnd_flux_l - bnd_flux_m - bnd_flux_r)* dt/dx
     !!-------------------!!
-
     call data%set_dofs_dg(q)
-    
   end associate
   
 end subroutine dg_solver
@@ -769,7 +765,7 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
             type(t_grid_section), intent(inout)	  :: section
             type(t_element_base), intent(inout)	  :: element
             type(num_cell_update), intent(inout)  :: update1, update2, update3
-            integer                               :: i, j, ind
+            integer                               :: i, j, ind, index_bnd
             type(num_cell_update)                 :: tmp !> ghost cells in correct order 
             real(kind = GRID_SR)                  :: volume, edge_lengths(3), maxWaveSpeed, dQ_max_norm, dt_div_volume, maxWaveSpeedLocal, maxWaveSpeed_node
 
@@ -793,7 +789,32 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
             logical :: drying,troubled,coarsen,refine
             real (kind=GRID_SR) :: refinement_threshold = 0.50_GRID_SR
             real(kind = GRID_SR), DIMENSION(_SWE_PATCH_SOLVER_CHUNK_SIZE)                :: normals_x, normals_y
+            real(kind=GRID_SR),Dimension(_SWE_PATCH_ORDER_SQUARE,3) :: bnd_flux_l,bnd_flux_m,bnd_flux_r
+            real(kind=GRID_SR),Dimension(3) :: edge_sizes
 
+            dt =section%r_dt
+
+            bnd_flux_l=0.0_GRID_SR
+            bnd_flux_m=0.0_GRID_SR
+            bnd_flux_r=0.0_GRID_SR
+            !---------compute boundary integrals------------------!
+            if(update1%troubled.eq.DG) then
+               bnd_flux_l(:,1) = matmul(phi,matmul(s_m_inv,matmul(s_b_1_l,update1%flux(:)%h   )))
+               bnd_flux_l(:,2) = matmul(phi,matmul(s_m_inv,matmul(s_b_1_l,update1%flux(:)%p(1))))
+               bnd_flux_l(:,3) = matmul(phi,matmul(s_m_inv,matmul(s_b_1_l,update1%flux(:)%p(2))))
+            end if                                                                       
+            if(update2%troubled.eq.DG) then                                              
+               bnd_flux_m(:,1) = matmul(phi,matmul(s_m_inv,matmul(s_b_2_m,update2%flux(:)%h   )))
+               bnd_flux_m(:,2) = matmul(phi,matmul(s_m_inv,matmul(s_b_2_m,update2%flux(:)%p(1))))
+               bnd_flux_m(:,3) = matmul(phi,matmul(s_m_inv,matmul(s_b_2_m,update2%flux(:)%p(2))))
+            end if                                                                       
+            if(update3%troubled.eq.DG) then
+               bnd_flux_r(:,1) = matmul(phi,matmul(s_m_inv,matmul(s_b_3_r,update3%flux(:)%h   )))
+               bnd_flux_r(:,2) = matmul(phi,matmul(s_m_inv,matmul(s_b_3_r,update3%flux(:)%p(1))))
+               bnd_flux_r(:,3) = matmul(phi,matmul(s_m_inv,matmul(s_b_3_r,update3%flux(:)%p(2))))
+            end if
+            !-----------------------------------------------------!
+            
 #if defined(_OPT_KERNELS)            
             !DIR$ ASSUME_ALIGNED hL: ALIGNMENT
             !DIR$ ASSUME_ALIGNED hR: ALIGNMENT
@@ -841,17 +862,10 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
             volume = cfg%scaling * cfg%scaling * element%cell%geometry%get_volume() / (_SWE_PATCH_ORDER_SQUARE)
             dt_div_volume = section%r_dt / volume
             edge_lengths = cfg%scaling * element%cell%geometry%get_edge_sizes() / _SWE_PATCH_ORDER
+            edge_sizes=element%cell%geometry%get_edge_sizes()
+            dx=edge_sizes(1)*cfg%scaling
 
             associate(data => element%cell%data_pers, geom => SWE_PATCH_geometry)
-
-              ! if(element%cell%data_pers%troubled .eq. 2) then
-              !    print*,"patch start"
-              !    print*,data%h 
-              !    print*,data%hu
-              !    print*,data%hv
-              !    print*,data%b 
-              ! endif
-
 
               ! copy cell values to arrays edges_a and edges_b
               ! obs: cells with id > number of cells are actually ghost cells and come from edges "updates"
@@ -889,12 +903,12 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                        huL(j) = update1%HU(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE)
                        hvL(j) = update1%HV(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE)
                        bL(j) = update1%B(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE)
-                    else if (geom%edges_a(ind) <= _SWE_PATCH_ORDER_SQUARE + 2*_SWE_PATCH_ORDER) then
-                       hL(j) = update2%H(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
-                       huL(j) = update2%HU(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
-                       hvL(j) = update2%HV(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
-                       bL(j) = update2%B(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
-                    else 
+                    else if (geom%edges_a(ind) <= _SWE_PATCH_ORDER_SQUARE + 2*_SWE_PATCH_ORDER)then
+                       hL(j) =update2%H(geom%edges_a(ind)-_SWE_PATCH_ORDER_SQUARE-_SWE_PATCH_ORDER)
+                       huL(j)=update2%HU(geom%edges_a(ind)-_SWE_PATCH_ORDER_SQUARE-_SWE_PATCH_ORDER)
+                       hvL(j)=update2%HV(geom%edges_a(ind)-_SWE_PATCH_ORDER_SQUARE-_SWE_PATCH_ORDER)
+                       bL(j) =update2%B(geom%edges_a(ind)-_SWE_PATCH_ORDER_SQUARE-_SWE_PATCH_ORDER)
+                    else
                        hL(j) = update3%H(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
                        huL(j) = update3%HU(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
                        hvL(j) = update3%HV(geom%edges_a(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
@@ -917,7 +931,7 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                        huR(j) = update2%HU(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
                        hvR(j) = update2%HV(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
                        bR(j) = update2%B(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - _SWE_PATCH_ORDER)
-                    else 
+                    else
                        hR(j) = update3%H(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
                        huR(j) = update3%HU(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
                        hvR(j) = update3%HV(geom%edges_b(ind) - _SWE_PATCH_ORDER_SQUARE - 2*_SWE_PATCH_ORDER)
@@ -944,7 +958,6 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
 
 #else 
                  ! using original geoclaw solver
-                                     
                  do j=1, min(edgesLeft,_SWE_PATCH_SOLVER_CHUNK_SIZE) !j -> position inside chunk
                     ind = i + j - 1 ! actual index
 
@@ -959,7 +972,6 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                     maxWaveSpeedLocal = 0.0_GRID_SR
                     call compute_geoclaw_flux(normals(:,geom%edges_orientation(ind)), edges_a(j), edges_b(j), update_a, update_b, maxWaveSpeedLocal)
                     maxWaveSpeed=max(maxWaveSpeed,maxWaveSpeedLocal)
-                    
 
                     upd_hL(j)  = update_a%h
                     upd_huL(j) = update_a%p(1)
@@ -969,9 +981,42 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                     upd_hvR(j) = update_b%p(2)
                  end do
 #                       endif
+                 
                   ! compute dQ
                   do j=1, min(edgesLeft,_SWE_PATCH_SOLVER_CHUNK_SIZE)
                      ind = i + j - 1 ! actual index
+                     if(data%troubled.eq.NEIGHBOUR_TROUBLED) then
+                        if(update3%troubled.eq.DG) then
+                           if(any(ind == geom%right_bnd))then
+                              upd_hL(j) = 0.0
+                              upd_hR(j) = 0.0
+                              upd_huL(j) = 0.0
+                              upd_huR(j) = 0.0
+                              upd_hvL(j) = 0.0
+                              upd_hvR(j) = 0.0
+                           end if
+                        end if
+                        if(update2%troubled.eq.DG) then
+                           if(any(ind == geom%mid_bnd))then
+                              upd_hL(j) = 0.0
+                              upd_hR(j) = 0.0
+                              upd_huL(j) = 0.0
+                              upd_huR(j) = 0.0
+                              upd_hvL(j) = 0.0
+                              upd_hvR(j) = 0.0
+                           end if
+                        end if
+                        if(update1%troubled.eq.DG) then
+                           if(any(ind == geom%left_bnd))then
+                              upd_hL(j) = 0.0
+                              upd_hR(j) = 0.0
+                              upd_huL(j) = 0.0
+                              upd_huR(j) = 0.0
+                              upd_hvL(j) = 0.0
+                              upd_hvR(j) = 0.0
+                           end if
+                        end if
+                     end if
 
                      if (geom%edges_a(ind) <= _SWE_PATCH_ORDER_SQUARE) then !ignore ghost cells
                         dQ_H(geom%edges_a(ind)) = dQ_H(geom%edges_a(ind)) + upd_hL(j) * edge_lengths(geom%edges_orientation(ind))
@@ -990,95 +1035,41 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                element%cell%geometry%refinement = 0
                dQ_max_norm = maxval(abs(dQ_H))
 
-               ! ! if the water level falls below the dry tolerance, set water surface to 0 and velocity to 0
-                              
                dQ_H  = dQ_H * (-dt_div_volume)
                dQ_HU = dQ_HU * (-dt_div_volume)
                dQ_HV = dQ_HV * (-dt_div_volume)
 
-            !    if(data%troubled == 4)then
-            !    if(update1%troubled == -2)then
-            !       print*,"data"
-            !       print*,data%H 
-            !       print*,data%HU
-            !       print*,data%HV
-            !       print*,"update1"
-            !       print*,update1%H(:)
-            !       print*,update1%HU(:)
-            !       print*,update1%HV(:)
-            !       print*,update1%B(:)
-            !       print*,"dQ"
-            !       print*,dQ_H
-            !       print*,dQ_HU
-            !       print*,dQ_HV
-            !    end if
-            !    if(update2%troubled == -2)then
-            !       print*,"data"
-            !       print*,data%H 
-            !       print*,data%HU
-            !       print*,data%HV
-            !       print*,"update2"
-            !       print*,update2%H(:)
-            !       print*,update2%HU(:)
-            !       print*,update2%HV(:)
-            !       print*,update2%B(:)
-            !       print*,"dQ"
-            !       print*,dQ_H
-            !       print*,dQ_HU
-            !       print*,dQ_HV
-            !    end if
-            !    if(update3%troubled == -2)then
-            !       print*,"data"
-            !       print*,data%H 
-            !       print*,data%HU
-            !       print*,data%HV
-            !       print*,"update3"
-            !       print*,update3%H(:)
-            !       print*,update3%HU(:)
-            !       print*,update3%HV(:)
-            !       print*,update3%B(:)
-            !       print*,"dQ"
-            !       print*,dQ_H
-            !       print*,dQ_HU
-            !       print*,dQ_HV                  
-            !    end if
-            ! end if
-
-            ! if(any(abs(dQ_HU) > 10.0e-8))then
-            !    stop
-            ! end if
-
                ! if land is flooded, init water height to dry tolerance and
                ! velocity to zero
                 where (data%H < data%B + cfg%dry_tolerance .and. dQ_H > 0.0_GRID_SR)
-! #if defined (_ASAGI)                  
-!                   !data%H = min(0.0_GRID_SR,data%B)
-!                   data%H = data%B + cfg%dry_tolerance 
-! #else
-!                   !                  data%H = data%B + cfg%dry_tolerance
-! !                  data%H = data%B + cfg%dry_tolerance
-!                   data%H = data%B 
-                   ! #endif
-!                   data%H = data%B + cfg%dry_tolerance 
                    data%HU = 0.0_GRID_SR
                    data%HV = 0.0_GRID_SR
                 end where
 
-               data%H  = data%H + dQ_H
-               data%HU = data%HU + dQ_HU
-               data%HV = data%HV + dQ_HV
-               
+                data%H  = data%H  + dQ_H
+                data%HU = data%HU + dQ_HU
+                data%HV = data%HV + dQ_HV
+
+                if(data%troubled.eq.NEIGHBOUR_TROUBLED) then
+                   if(update1%troubled.eq.DG) then
+                      data%H =data%H +bnd_flux_l(:,1)*(-dt/dx)
+                      data%HU=data%HU+bnd_flux_l(:,2)*(-dt/dx)
+                      data%HV=data%HV+bnd_flux_l(:,3)*(-dt/dx)
+                   end if
+                   if(update2%troubled.eq.DG) then
+                      data%H =data%H +bnd_flux_m(:,1)*(-dt/dx) 
+                      data%HU=data%HU+bnd_flux_m(:,2)*(-dt/dx)
+                      data%HV=data%HV+bnd_flux_m(:,3)*(-dt/dx)
+                   end if
+                   if(update3%troubled.eq.DG) then
+                      data%H =data%H +bnd_flux_r(:,1)*(-dt/dx) 
+                      data%HU=data%HU+bnd_flux_r(:,2)*(-dt/dx)
+                      data%HV=data%HV+bnd_flux_r(:,3)*(-dt/dx)
+                   end if
+                end if
+
                ! if the water level falls below the dry tolerance, set water level to 0 and velocity to 0          
                where (data%H < data%B + cfg%dry_tolerance)
-! #if defined (_ASAGI)                  
-! !                  data%H = min(0.0_GRID_SR,data%B)
-
-! #else
-!                  data%H = data%B 
-! !                  data%H = data%B
-
-                  ! #endif
-!                  data%H = data%B 
                   data%HU = 0.0_GRID_SR
                   data%HV = 0.0_GRID_SR
                end where
@@ -1087,28 +1078,16 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                   data%H = data%B 
                end where
 
-               ! if(all(data%h - data%b < cfg%dry_tolerance * 10.0d4)) then
-               !    where (data%HU > cfg%dry_tolerance * 10.0d-2) 
-               !       data%HU = 0.0_GRID_SR
-               !    end where
-               !    where (data%HV > cfg%dry_tolerance * 10.0d-2) 
-               !       data%HV = 0.0_GRID_SR
-               !    end where
-               ! end if
-               
-                if(NEIGHBOUR_TROUBLED .eq. element%cell%data_pers%troubled)then
-                   call apply_mue(data%h-data%b ,data%Q%h)
+               if(NEIGHBOUR_TROUBLED .eq. element%cell%data_pers%troubled)then
+                   call apply_mue(data%h,data%Q%h)
                    call apply_mue_sample(data%hu,data%Q%p(1))
                    call apply_mue_sample(data%hv,data%Q%p(2))
-!                   call apply_mue(data%hu,data%Q%p(1))
-!                   call apply_mue(data%hv,data%Q%p(2))
-!                   data%Q%h=data%Q%h
+                   data%Q%h = data%Q%h - data%Q%b
                 else if(.not.isCoast(element%cell%data_pers%troubled)) then
-                  call apply_mue(data%h-data%b ,data%Q%h)
+                  call apply_mue(data%h,data%Q%h)
                   call apply_mue(data%hu,data%Q%p(1))
                   call apply_mue(data%hv,data%Q%p(2))
-                  !call apply_mue(data%b ,data%Q%b)                                  
-!                  data%Q%h=data%Q%h
+                  data%Q%h = data%Q%h - data%Q%b
                end if
 
           end associate

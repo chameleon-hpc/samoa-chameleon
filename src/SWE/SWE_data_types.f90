@@ -233,11 +233,6 @@ type num_cell_rep
          end do
       endif
       
-      if(negative_mass > 0.0_GRID_SR) then
-         print*,negative_mass
-         print*,num_cells_positive_mass
-      endif
-
       where(h_fv_orig > 0.0_GRID_SR)
          hu_fv = hu_fv * (h_fv/h_fv_orig)
          hv_fv = hv_fv * (h_fv/h_fv_orig)

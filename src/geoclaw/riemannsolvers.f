@@ -105,7 +105,8 @@ c         lambda(2) = max(min(0.5d0*(s1m+s2m),sE2),sE1)
 c     !---------------------------------------------------
 
 c     !determine the steady state wave -------------------
-      criticaltol = 1.d-6
+!     criticaltol = 1.d-6
+      criticaltol = drytol * 1.0d-3
       deldelh = -delb
       deldelphi = -g*0.5d0*(hR+hL)*delb
 

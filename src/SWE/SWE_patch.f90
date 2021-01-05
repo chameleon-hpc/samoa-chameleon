@@ -20,7 +20,16 @@ MODULE SWE_PATCH
 		! This means that triangles with ids edges_a[i] and edges_b[i] are neighbors, and edge number i is between them.
 		INTEGER, DIMENSION(_SWE_PATCH_NUM_EDGES) :: edges_a, edges_b
 		! Describes edge orientation: 1 = parallel to left leg, 2 = to hypotenuse, 3 = to right leg
-		INTEGER, DIMENSION(_SWE_PATCH_NUM_EDGES)	:: edges_orientation
+    INTEGER, DIMENSION(_SWE_PATCH_NUM_EDGES)	:: edges_orientation
+
+    INTEGER, DIMENSION(_SWE_PATCH_ORDER*_SWE_PATCH_ORDER+ 3*_SWE_PATCH_ORDER) :: cell_to_hyp
+    INTEGER, DIMENSION(_SWE_PATCH_ORDER*_SWE_PATCH_ORDER+ 3*_SWE_PATCH_ORDER) :: cell_to_vert
+    INTEGER, DIMENSION(_SWE_PATCH_ORDER*_SWE_PATCH_ORDER+ 3*_SWE_PATCH_ORDER) :: cell_to_hor
+
+    INTEGER, DIMENSION(_SWE_PATCH_ORDER) :: left_bnd
+    INTEGER, DIMENSION(_SWE_PATCH_ORDER) :: mid_bnd
+    INTEGER, DIMENSION(_SWE_PATCH_ORDER) :: right_bnd
+
 		
 		! coordinates of cells vertices, used for producing visual output.
 		REAL (kind = GRID_SR), DIMENSION(2,3,(_SWE_PATCH_ORDER*_SWE_PATCH_ORDER)) :: coords
@@ -85,7 +94,49 @@ MODULE SWE_PATCH
 
 		! compute relationships between parent cells and children cells
 		call geom%compute_adaptivity()
-	
+
+  !check edge maps
+  do i=1,_SWE_PATCH_NUM_EDGES
+     if(geom%edges_orientation(i) .eq. 1 )then
+        if( .not.geom%cell_to_hor(geom%edges_a(i)).eq.geom%cell_to_hor(geom%edges_b(i)))then
+           print*,"Error in Cell to Edge Horizontal"
+           print*,i
+           print*,geom%edges_a(i)
+           print*,geom%edges_b(i)
+           print*,geom%cell_to_hor(geom%edges_a(i))
+           print*,geom%cell_to_hor(geom%edges_b(i))
+           stop
+        end if
+     end if
+     if(geom%edges_orientation(i) .eq. 2 )then
+        if( .not.geom%cell_to_hyp(geom%edges_a(i)).eq.geom%cell_to_hyp(geom%edges_b(i)))then
+           print*,"Error in Cell to Edge Hypothenuse"
+           print*,i
+           print*,geom%edges_a(i)
+           print*,geom%edges_b(i)
+           print*,geom%cell_to_hyp(geom%edges_a(i))
+           print*,geom%cell_to_hyp(geom%edges_b(i))
+           stop
+        end if
+     end if
+     if(geom%edges_orientation(i) .eq. 3 )then
+        if( .not.geom%cell_to_vert(geom%edges_a(i)).eq.geom%cell_to_vert(geom%edges_b(i)))then
+           print*,"Error in Cell to Edge Vertical"
+           print*,i
+           print*,geom%edges_a(i)
+           print*,geom%edges_b(i)
+           print*,geom%cell_to_vert(geom%edges_a(i))
+           print*,geom%cell_to_vert(geom%edges_b(i))
+           stop
+        end if
+     end if
+  end do
+  
+  print*,"bnd"
+  print*,geom%left_bnd
+  print*,geom%mid_bnd
+  print*,geom%right_bnd
+
 	END SUBROUTINE	
 
     !> @brief Adds "horizontal" edges to geom (e.g.: 1-3, 2-6, 4-8, etc.)
@@ -106,15 +157,18 @@ MODULE SWE_PATCH
 			!print *, "edge: ", i, " - ", i+step
 			geom%edges_a(edges_computed) = i
 			geom%edges_b(edges_computed) = i+step
-			geom%edges_orientation(edges_computed) = 2 ! these edges are always parallel to the hypotenuse
+   geom%edges_orientation(edges_computed) = 2 ! these edges are always parallel to the hypotenuse
+   geom%cell_to_hyp(i)      = edges_computed
+   geom%cell_to_hyp(i+step) = edges_computed
+
 			IF (i == last_of_row) THEN
 				last_of_row = last_of_row + step + 1
 				step = step + 2
 				i = i + 1
 			ELSE
 				i = i + 2
-			END IF
-		END DO		
+      END IF
+   END DO
 	END SUBROUTINE
 	
     !> @brief Adds "diagonal" edges to geom (e.g.: 2-3, 3-4, 5-6, etc.)
@@ -131,13 +185,18 @@ MODULE SWE_PATCH
  			IF (isPerfectSquare(i) == 0) THEN
 				edges_computed = edges_computed + 1
 				geom%edges_a(edges_computed) = i
-				geom%edges_b(edges_computed) = i+1
+        geom%edges_b(edges_computed) = i+1
+        if(edge_type == 3) then
+           geom%cell_to_vert(i)   = edges_computed
+           geom%cell_to_vert(i+1) = edges_computed
+        else
+           geom%cell_to_hor(i)    = edges_computed
+           geom%cell_to_hor(i+1) = edges_computed
+        endif        
 				geom%edges_orientation(edges_computed) = edge_type
 				edge_type = mod(edge_type+2, 4) ! 1 becomes 3, 3 becomes 1
- 			END IF
- 		END DO
-		
-		
+      END IF
+   END DO
 	END SUBROUTINE
 
     !> @brief Return true if n is a perfect square, false otherwise
@@ -179,7 +238,7 @@ MODULE SWE_PATCH
 		IMPLICIT NONE
 		CLASS(t_SWE_PATCH_geometry), INTENT(INOUT) :: geom
 		INTEGER, INTENT (INOUT) :: edges_computed
-		INTEGER :: i, j, cell, d
+		INTEGER :: i, j, k, cell, d
 		
 		d = geom%d
 		
@@ -189,20 +248,27 @@ MODULE SWE_PATCH
 			edges_computed = edges_computed + 1
 			geom%edges_a(edges_computed) = d*d+i
 			geom%edges_b(edges_computed) = cell
-			geom%edges_orientation(edges_computed) = 1
+      geom%edges_orientation(edges_computed) = 1
+      geom%cell_to_hor(cell)  = edges_computed
+      geom%cell_to_hor(d*d+i) = edges_computed
+      geom%left_bnd(i) = edges_computed
  		END DO
  		
  		! hypotenuse (bottom) boundary
  		i = (d-1)*(d-1)+1 ! 1st cell of last row
- 		j = d*d+d+1 ! 1st cell of hypotenuse ghost cells
+    j = d*d+d+1 ! 1st cell of hypotenuse ghost cells
+    k = 1
  		DO WHILE (i<=d*d)
 			edges_computed = edges_computed + 1
 			geom%edges_a(edges_computed) = i
 			geom%edges_b(edges_computed) = j
 			geom%edges_orientation(edges_computed) = 2
- 		
+      geom%cell_to_hyp(i) = edges_computed
+      geom%cell_to_hyp(j) = edges_computed
+      geom%mid_bnd(k) = edges_computed
 			i = i + 2
-			j = j + 1
+      j = j + 1
+      k = k + 1
  		END DO
  		
 		! right boundary --> last of i_th row is neighbor of cell d*d + 3*d + 1 - i
@@ -210,11 +276,12 @@ MODULE SWE_PATCH
 			cell = i*i
 			edges_computed = edges_computed + 1
 			geom%edges_a(edges_computed) = cell
-			geom%edges_b(edges_computed) = d*d + 3*d + 1 - i
-			geom%edges_orientation(edges_computed) = 3
+      geom%edges_b(edges_computed) = d*d + 3*d + 1 - i
+      geom%edges_orientation(edges_computed) = 3
+      geom%cell_to_vert(cell)              = edges_computed
+      geom%cell_to_vert(d*d + 3*d + 1 - i) = edges_computed
+      geom%right_bnd(i) = edges_computed
  		END DO
-		
-		
 	END SUBROUTINE
 	
 	

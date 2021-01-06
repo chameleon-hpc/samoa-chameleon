@@ -66,7 +66,7 @@ MODULE SWE_DG_solver
 #		define _GT_ELEMENT_OP                   element_op_dg
 
 #		define _GT_CELL_UPDATE_OP		cell_update_op_dg
-#		define _GT_CELL_TO_EDGE_OP		cell_to_edge_op_dg
+#		define _GT_CELL_TO_EDGE_OP	cell_to_edge_op_dg
 
   public cell_to_edge_op_dg
 
@@ -520,12 +520,13 @@ if (element%cell%geometry%i_plotter_type > 0) then !
    update1=update3
    update3=tmp
 
-   do i = 1,_SWE_DG_ORDER+1
-      tmp%flux(i) = update3%flux(_SWE_DG_ORDER+2-i)
-   end do
-   update3%flux = tmp%flux
 end if
 !--------------------------------------------------------------------------!
+
+do i = 1,_SWE_DG_ORDER+1
+   tmp%flux(i) = update3%flux(_SWE_DG_ORDER+2-i)
+end do
+update3%flux = tmp%flux
 
 !------- Update cell status and compute next timestep size --------!
 call updateCellStatusPre(data,update1,update2,update3)
@@ -1080,8 +1081,8 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
 
                if(NEIGHBOUR_TROUBLED .eq. element%cell%data_pers%troubled)then
                    call apply_mue(data%h,data%Q%h)
-                   call apply_mue_sample(data%hu,data%Q%p(1))
-                   call apply_mue_sample(data%hv,data%Q%p(2))
+                   call apply_mue(data%hu,data%Q%p(1))
+                   call apply_mue(data%hv,data%Q%p(2))
                    data%Q%h = data%Q%h - data%Q%b
                 else if(.not.isCoast(element%cell%data_pers%troubled)) then
                   call apply_mue(data%h,data%Q%h)

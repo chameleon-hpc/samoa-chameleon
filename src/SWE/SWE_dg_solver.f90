@@ -1042,10 +1042,11 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
 
                ! if land is flooded, init water height to dry tolerance and
                ! velocity to zero
-                where (data%H < data%B + cfg%dry_tolerance .and. dQ_H > 0.0_GRID_SR)
-                   data%HU = 0.0_GRID_SR
-                   data%HV = 0.0_GRID_SR
-                end where
+               where (data%H < data%B + cfg%dry_tolerance .and. dQ_H > 0.0_GRID_SR)
+                  data%H  = data%B + cfg%dry_tolerance
+                  data%HU = 0.0_GRID_SR
+                  data%HV = 0.0_GRID_SR
+               end where
 
                 data%H  = data%H  + dQ_H
                 data%HU = data%HU + dQ_HU
@@ -1070,26 +1071,30 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                 end if
 
                ! if the water level falls below the dry tolerance, set water level to 0 and velocity to 0          
-               where (data%H < data%B + cfg%dry_tolerance)
-                  data%HU = 0.0_GRID_SR
-                  data%HV = 0.0_GRID_SR
-               end where
-               
-               where (data%H < data%B)
-                  data%H = data%B 
-               end where
+                where (data%H < data%B + cfg%dry_tolerance)
+                   data%H = data%B 
+                   data%HU = 0.0_GRID_SR
+                   data%HV = 0.0_GRID_SR
+                end where
 
-               if(NEIGHBOUR_TROUBLED .eq. element%cell%data_pers%troubled)then
-                   call apply_mue(data%h,data%Q%h)
-                   call apply_mue(data%hu,data%Q%p(1))
-                   call apply_mue(data%hv,data%Q%p(2))
-                   data%Q%h = data%Q%h - data%Q%b
-                else if(.not.isCoast(element%cell%data_pers%troubled)) then
+               if(.not.isCoast(element%cell%data_pers%troubled)) then
                   call apply_mue(data%h,data%Q%h)
                   call apply_mue(data%hu,data%Q%p(1))
                   call apply_mue(data%hv,data%Q%p(2))
                   data%Q%h = data%Q%h - data%Q%b
-               end if
+               endif
+
+               ! if(NEIGHBOUR_TROUBLED .eq. element%cell%data_pers%troubled)then
+               !     call apply_mue_sample(data%h,data%Q%h)
+               !     call apply_mue_sample(data%hu,data%Q%p(1))
+               !     call apply_mue_sample(data%hv,data%Q%p(2))
+               !     data%Q%h = data%Q%h - data%Q%b
+               !  else if(.not.isCoast(element%cell%data_pers%troubled)) then
+               !    call apply_mue(data%h,data%Q%h)
+               !    call apply_mue(data%hu,data%Q%p(1))
+               !    call apply_mue(data%hv,data%Q%p(2))
+               !    data%Q%h = data%Q%h - data%Q%b
+               ! end if
 
           end associate
 

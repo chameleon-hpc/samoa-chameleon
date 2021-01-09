@@ -182,7 +182,6 @@ type num_cell_rep
       if(abs(int_fv) > 0.0_GRID_SR) then
          fv = fv * int_dg/int_fv
       end if
-
     end subroutine apply_phi
     
     subroutine apply_phi_cons(h_dg,hu_dg,hv_dg,h_fv,hu_fv,hv_fv)
@@ -237,9 +236,7 @@ type num_cell_rep
          hu_fv = hu_fv * (h_fv/h_fv_orig)
          hv_fv = hv_fv * (h_fv/h_fv_orig)
       end where
-      
     end subroutine apply_phi_cons
-
     
     subroutine apply_mue(fv,dg)
       real(kind=GRID_SR),intent(in) :: fv(_SWE_PATCH_ORDER_SQUARE)
@@ -253,32 +250,30 @@ type num_cell_rep
          dg = dg * (int_fv/int_dg)
       end if
     end subroutine apply_mue
-    
-    subroutine apply_mue_sample(fv,dg)
-      real(kind=GRID_SR),intent(in) :: fv(_SWE_PATCH_ORDER_SQUARE)
-      real(kind=GRID_SR),intent(out)  :: dg(_SWE_DG_DOFS)
-      real(kind=GRID_SR)             :: q_temp(_SWE_DG_DOFS+1)
-      real(kind=GRID_SR)             :: fv_max
-      real(kind=GRID_SR)             :: fv_min
-      real(kind=GRID_SR)             :: int,alpha
-      real(kind=GRID_SR)             :: int_dg,int_fv
-      !      dg= matmul(sample_fv,fv)
 
-      dg= matmul(mue_inv_slope,fv)
-      int_dg = dot_product(weights,dg)
-      int_fv = sum(fv) * _REF_TRIANGLE_SIZE
-      if(abs(int_dg) > 0.0_GRID_SR) then
-         dg = dg * (int_fv/int_dg)
-      end if
-
-      ! dg= matmul(mue_inv,fv)
-      ! fv_max = maxval(fv)
-      ! fv_min = minval(fv)
-      ! int = sum(fv) * _REF_TRIANGLE_SIZE
-      ! alpha = max( (maxval(dg) - int) / (fv_max - int) , (minval(dg) - int) / (fv_min - int)) 
-      ! dg = (dg - int) / alpha + int
+    subroutine apply_mue_h(fv_h,fv_b,dg_h,dg_b)
+      real(kind=GRID_SR),intent(in)  :: fv_h(_SWE_PATCH_ORDER_SQUARE)
+      real(kind=GRID_SR),intent(in)  :: fv_b(_SWE_PATCH_ORDER_SQUARE)
+      real(kind=GRID_SR),intent(out) :: dg_h(_SWE_DG_DOFS)
+      real(kind=GRID_SR),intent(in)  :: dg_b(_SWE_DG_DOFS)
       
-    end subroutine apply_mue_sample
+      real(kind=GRID_SR)             :: fv_c(_SWE_PATCH_ORDER_SQUARE)
+      real(kind=GRID_SR)             :: int_dg,int_fv
+
+      ! compute dg water column
+      dg_h= matmul(mue_inv,fv_h)
+      dg_h = dg_h - dg_b
+
+      ! compute fv water column
+      fv_c = fv_h - fv_b
+      
+      int_dg = dot_product(weights,dg_h)
+      int_fv = sum(fv_c) * _REF_TRIANGLE_SIZE
+      
+      if(abs(int_dg) > 0.0_GRID_SR) then
+         dg_h = dg_h * (int_fv/int_dg)
+      end if
+    end subroutine apply_mue_h
     
 		!adds two state vectors
 		elemental function state_add(Q1, Q2)	result(Q_out)

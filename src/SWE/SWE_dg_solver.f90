@@ -1078,10 +1078,10 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                 end where
 
                if(.not.isCoast(element%cell%data_pers%troubled)) then
-                  call apply_mue(data%h,data%Q%h)
+                  call apply_mue_h(data%h,data%b,data%Q%h,data%Q%b)
                   call apply_mue(data%hu,data%Q%p(1))
                   call apply_mue(data%hv,data%Q%p(2))
-                  data%Q%h = data%Q%h - data%Q%b
+!                  data%Q%h = data%Q%h - data%Q%b
                endif
 
                ! if(NEIGHBOUR_TROUBLED .eq. element%cell%data_pers%troubled)then

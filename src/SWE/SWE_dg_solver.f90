@@ -800,19 +800,19 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
             bnd_flux_r=0.0_GRID_SR
             !---------compute boundary integrals------------------!
             if(update1%troubled.eq.DG) then
-               bnd_flux_l(:,1) = matmul(phi,matmul(s_m_inv,matmul(s_b_1_l,update1%flux(:)%h   )))
-               bnd_flux_l(:,2) = matmul(phi,matmul(s_m_inv,matmul(s_b_1_l,update1%flux(:)%p(1))))
-               bnd_flux_l(:,3) = matmul(phi,matmul(s_m_inv,matmul(s_b_1_l,update1%flux(:)%p(2))))
+               call apply_phi(matmul(s_m_inv,matmul(s_b_1_l,update1%flux(:)%h   )),bnd_flux_l(:,1))
+               call apply_phi(matmul(s_m_inv,matmul(s_b_1_l,update1%flux(:)%p(1))),bnd_flux_l(:,2))
+               call apply_phi(matmul(s_m_inv,matmul(s_b_1_l,update1%flux(:)%p(2))),bnd_flux_l(:,3))
             end if                                                                       
             if(update2%troubled.eq.DG) then                                              
-               bnd_flux_m(:,1) = matmul(phi,matmul(s_m_inv,matmul(s_b_2_m,update2%flux(:)%h   )))
-               bnd_flux_m(:,2) = matmul(phi,matmul(s_m_inv,matmul(s_b_2_m,update2%flux(:)%p(1))))
-               bnd_flux_m(:,3) = matmul(phi,matmul(s_m_inv,matmul(s_b_2_m,update2%flux(:)%p(2))))
+               call apply_phi(matmul(s_m_inv,matmul(s_b_2_m,update2%flux(:)%h   )),bnd_flux_m(:,1))
+               call apply_phi(matmul(s_m_inv,matmul(s_b_2_m,update2%flux(:)%p(1))),bnd_flux_m(:,2))
+               call apply_phi(matmul(s_m_inv,matmul(s_b_2_m,update2%flux(:)%p(2))),bnd_flux_m(:,3))
             end if                                                                       
             if(update3%troubled.eq.DG) then
-               bnd_flux_r(:,1) = matmul(phi,matmul(s_m_inv,matmul(s_b_3_r,update3%flux(:)%h   )))
-               bnd_flux_r(:,2) = matmul(phi,matmul(s_m_inv,matmul(s_b_3_r,update3%flux(:)%p(1))))
-               bnd_flux_r(:,3) = matmul(phi,matmul(s_m_inv,matmul(s_b_3_r,update3%flux(:)%p(2))))
+               call apply_phi(matmul(s_m_inv,matmul(s_b_3_r,update3%flux(:)%h   )),bnd_flux_r(:,1))
+               call apply_phi(matmul(s_m_inv,matmul(s_b_3_r,update3%flux(:)%p(1))),bnd_flux_r(:,2))
+               call apply_phi(matmul(s_m_inv,matmul(s_b_3_r,update3%flux(:)%p(2))),bnd_flux_r(:,3))
             end if
             !-----------------------------------------------------!
             
@@ -1043,8 +1043,8 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                ! if land is flooded, init water height to dry tolerance and
                ! velocity to zero
                where (data%H < data%B + cfg%dry_tolerance .and. dQ_H > 0.0_GRID_SR)
-                  data%H  = data%B + cfg%dry_tolerance
-                  data%HU = 0.0_GRID_SR
+                  !                  data%H  = data%B + cfg%dry_tolerance
+                   data%HU = 0.0_GRID_SR
                   data%HV = 0.0_GRID_SR
                end where
 
@@ -1072,7 +1072,7 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
 
                ! if the water level falls below the dry tolerance, set water level to 0 and velocity to 0          
                 where (data%H < data%B + cfg%dry_tolerance)
-                   data%H = data%B 
+ !                  data%H = data%B 
                    data%HU = 0.0_GRID_SR
                    data%HV = 0.0_GRID_SR
                 end where

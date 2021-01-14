@@ -137,34 +137,34 @@ MODULE SWE_DG_solver
     logical, intent(in)                   :: is_coast
     integer                               :: i
 
-    if(.not.is_coast) then
-       if(edge == 1) then
-          H  = matmul(phi_r(:,:),data%Q%h)
-          HU = matmul(phi_r(:,:),data%Q%p(1))
-          HV = matmul(phi_r(:,:),data%Q%p(2))
-          B  = matmul(phi_r(:,:),data%Q%b)
-       end if
-       if(edge == 2) then
-          H  = matmul(phi_m(:,:),data%Q%h)
-          HU = matmul(phi_m(:,:),data%Q%p(1))
-          HV = matmul(phi_m(:,:),data%Q%p(2))
-          B  = matmul(phi_m(:,:),data%Q%b)
-       end if
-       if(edge == 3) then
-          H  = matmul(phi_l(:,:),data%Q%h)
-          HU = matmul(phi_l(:,:),data%Q%p(1))
-          HV = matmul(phi_l(:,:),data%Q%p(2))
-          B  = matmul(phi_l(:,:),data%Q%b)
-       end if
-         H  = H + B
-    else
-       do i=1,_SWE_PATCH_ORDER         
-          H (i) = data%H (idx_project_FV(edge,i))
-          HU(i) = data%HU(idx_project_FV(edge,i))
-          HV(i) = data%HV(idx_project_FV(edge,i))
-          B (i) = data%B (idx_project_FV(edge,i))
-         end do
-    end if
+    ! if(.not.is_coast) then
+    !    if(edge == 1) then
+    !       H  = matmul(phi_r(:,:),data%Q%h)
+    !       HU = matmul(phi_r(:,:),data%Q%p(1))
+    !       HV = matmul(phi_r(:,:),data%Q%p(2))
+    !       B  = matmul(phi_r(:,:),data%Q%b)
+    !    end if
+    !    if(edge == 2) then
+    !       H  = matmul(phi_m(:,:),data%Q%h)
+    !       HU = matmul(phi_m(:,:),data%Q%p(1))
+    !       HV = matmul(phi_m(:,:),data%Q%p(2))
+    !       B  = matmul(phi_m(:,:),data%Q%b)
+    !    end if
+    !    if(edge == 3) then
+    !       H  = matmul(phi_l(:,:),data%Q%h)
+    !       HU = matmul(phi_l(:,:),data%Q%p(1))
+    !       HV = matmul(phi_l(:,:),data%Q%p(2))
+    !       B  = matmul(phi_l(:,:),data%Q%b)
+    !    end if
+    !      H  = H + B
+    ! else
+    do i=1,_SWE_PATCH_ORDER         
+       H (i) = data%H (idx_project_FV(edge,i))
+       HU(i) = data%HU(idx_project_FV(edge,i))
+       HV(i) = data%HV(idx_project_FV(edge,i))
+       B (i) = data%B (idx_project_FV(edge,i))
+    end do
+!    end if
   end subroutine writeFVBoundaryFields
 
   function cell_to_edge_op_dg(element, edge) result(rep)
@@ -190,11 +190,14 @@ MODULE SWE_DG_solver
     rep%QP(:,:)   = element%cell%data_pers%QP(edge_type  ,:,:)
     rep%FP(:,:,:) = element%cell%data_pers%FP(edge_type,:,:,:)
 
-    call writeFVBoundaryFields(element%cell%data_pers,rep%H,rep%HU,rep%HV,rep%B,edge_type,isCoast(element%cell%data_pers%troubled) .or. element%cell%data_pers%troubled .eq. NEIGHBOUR_WAS_TROUBLED)
+    call writeFVBoundaryFields(element%cell%data_pers,rep%H,rep%HU,rep%HV,rep%B,edge_type,&
+    isCoast(element%cell%data_pers%troubled) .or.&
+    element%cell%data_pers%troubled .eq. NEIGHBOUR_WAS_TROUBLED .or.&
+    element%cell%data_pers%troubled .eq. WET_DRY_INTERFACE)
     !call writeFVBoundaryFields(element%cell%data_pers,rep%H,rep%HU,rep%HV,rep%B,edge_type,isCoast(element%cell%data_pers%troubled))
 
     rep%troubled=element%cell%data_pers%troubled
-    call getObservableLimits(element%cell%data_pers%Q,rep%minObservables,rep%maxObservables)
+    call getObservableLimits(element%cell%data_pers,rep%minObservables,rep%maxObservables)
     
   end function cell_to_edge_op_dg
 
@@ -487,7 +490,7 @@ real(kind= GRID_SR) :: dt,dx,delta(3),max_neighbour(3),min_neighbour(3),data_max
 integer :: indx,indx_mir,k,i,j
 real (kind=GRID_SR) :: max_wave_speed, wave_speed=0,dQ_norm,b_min,b_max
 real (kind=GRID_SR) :: refinement_threshold = 10.25_GRID_SR/_SWE_DG_ORDER
-real (kind = GRID_SR), dimension (_SWE_DG_DOFS) :: H_old, HU_old, HV_old, B_old
+real (kind = GRID_SR), dimension (_SWE_PATCH_ORDER_SQUARE) :: H_old, HU_old, HV_old, B_old
 real (kind = GRID_SR), dimension (_SWE_PATCH_ORDER_SQUARE) :: H, HU, HV
 logical :: refine,coarsen
 integer :: i_depth,bathy_depth
@@ -535,31 +538,38 @@ edge_sizes=element%cell%geometry%get_edge_sizes()
 
 if(isDG(data%troubled)) then
    data%troubled = DG
-   H_old  = data%Q%H
-   HU_old = data%Q%p(1)
-   HV_old = data%Q%p(2)
+   H_old  = data%H
+   HU_old = data%HU
+   HV_old = data%HV
+   B_old  = data%B
 
-   call getObservableLimits(element%cell%data_pers%Q,minVals,maxVals)
+   call getObservableLimits(element%cell%data_pers,minVals,maxVals)
 
    call dg_solver(element,update1%flux,update2%flux,update3%flux,section%r_dt)
+
+   call apply_phi_cons(data%Q(:)%h,data%Q(:)%p(1),data%Q(:)%p(2),&
+                       data%H(:),data%HU(:),data%HV(:))             
+   call apply_phi(data%Q(:)%b    ,data%b)
+   
+   data%h = data%h + data%b
    
    if(isWetDryInterface(data%Q%H)) then
       data%troubled = WET_DRY_INTERFACE
-   else if(checkDMP(element%cell%data_pers%Q,minVals,maxVals,update1,update2,update3)) then
+   else if(checkDMP(element%cell%data_pers,minVals,maxVals,update1,update2,update3)) then
       data%troubled = TROUBLED
    end if
    
    if(isFV(data%troubled)) then
       !--if troubled or drying perform rollback--!
-      data%Q%H   = H_old
-      data%Q%p(1)= HU_old
-      data%Q%p(2)= HV_old
+      data%H  = H_old
+      data%HU = HU_old
+      data%HV = HV_old
+      data%B  = B_old
 
-      call apply_phi_cons(data%Q(:)%h,data%Q(:)%p(1),data%Q(:)%p(2),&
-                          data%H(:),data%HU(:),data%HV(:))             
-      call apply_phi(data%Q(:)%b    ,data%b)
-      
-      data%H = data%H + data%b
+      ! call apply_phi_cons(data%Q(:)%h,data%Q(:)%p(1),data%Q(:)%p(2),&
+      !                     data%H(:),data%HU(:),data%HV(:))             
+      ! call apply_phi(data%Q(:)%b    ,data%b)
+      !data%H = data%H + data%b
    end if
 end if
 

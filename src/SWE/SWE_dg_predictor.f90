@@ -55,7 +55,7 @@ MODULE SWE_DG_predictor
     end if
     
 #if defined(_CELL_METRICS)
-    if(isDry(element%cell%data_pers%troubled))then
+    if(isFV(element%cell%data_pers%troubled))then
        element%cell%data_pers%QP_avg = 0.0_GRID_SR
     endif
 #endif    
@@ -186,10 +186,10 @@ MODULE SWE_DG_predictor
 #endif         
          call initialise_riemann_arguments(cell,q_i_st,Q_DG)
       else
-         call apply_phi(cell%data_pers%Q(:)%h+cell%data_pers%Q(:)%b,cell%data_pers%h)
-         call apply_phi(cell%data_pers%Q(:)%p(1)                   ,cell%data_pers%hu)
-         call apply_phi(cell%data_pers%Q(:)%p(2)                   ,cell%data_pers%hv)
-         call apply_phi(cell%data_pers%Q(:)%b                      ,cell%data_pers%b)
+         ! call apply_phi(cell%data_pers%Q(:)%h+cell%data_pers%Q(:)%b,cell%data_pers%h)
+         ! call apply_phi(cell%data_pers%Q(:)%p(1)                   ,cell%data_pers%hu)
+         ! call apply_phi(cell%data_pers%Q(:)%p(2)                   ,celSl%data_pers%hv)
+         ! call apply_phi(cell%data_pers%Q(:)%b                      ,cell%data_pers%b)
       end if
     end associate
   end subroutine dg_predictor

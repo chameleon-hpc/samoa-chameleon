@@ -440,6 +440,17 @@ MODULE SWE_Initialize_Dofs
        section%min_error_new = min(error,section%min_error_new)
        section%max_error_new = max(error,section%max_error_new)
        !---------------------------------------------!
+
+       !----- Compute initial FV representation -----!
+       call apply_phi_cons(element%cell%data_pers%Q(:)%h,&
+            element%cell%data_pers%Q(:)%p(1),&
+            element%cell%data_pers%Q(:)%p(2),&
+            element%cell%data_pers%H(:),&
+            element%cell%data_pers%HU(:),&
+            element%cell%data_pers%HV(:))
+       
+       element%cell%data_pers%h = element%cell%data_pers%h + element%cell%data_pers%b
+       
     end if
     
   end subroutine element_op

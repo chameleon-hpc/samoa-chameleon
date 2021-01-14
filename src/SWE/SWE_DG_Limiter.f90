@@ -71,10 +71,10 @@ contains
     if(isDG(data%troubled)) then
        if(neighbourTroubled(update1,update2,update3)) then
           if(.not.data%troubled .eq. NEIGHBOUR_WAS_TROUBLED)then
-             call apply_phi_cons(data%Q(:)%h,data%Q(:)%p(1),data%Q(:)%p(2),&
-                                 data%H(:),data%HU(:),data%HV(:))             
-             call apply_phi(data%Q(:)%b    ,data%b)
-             data%h = data%h + data%b
+             ! call apply_phi_cons(data%Q(:)%h,data%Q(:)%p(1),data%Q(:)%p(2),&
+             !                     data%H(:),data%HU(:),data%HV(:))             
+             ! call apply_phi(data%Q(:)%b    ,data%b)
+             ! data%h = data%h + data%b
           end if
           data%troubled = NEIGHBOUR_TROUBLED
        end if
@@ -105,20 +105,20 @@ contains
     
     if(isWetDryInterface(data%Q%H))then
        if(isDG(data%troubled))then
-          call apply_phi_cons(data%Q(:)%h,data%Q(:)%p(1),data%Q(:)%p(2),&
-                              data%H(:),data%HU(:),data%HV(:))
-          call apply_phi(data%Q(:)%b,data%b(:))
-          data%h = data%h + data%b
+          ! call apply_phi_cons(data%Q(:)%h,data%Q(:)%p(1),data%Q(:)%p(2),&
+          !                     data%H(:),data%HU(:),data%HV(:))
+          ! call apply_phi(data%Q(:)%b,data%b(:))
+          ! data%h = data%h + data%b
        end if
        data%troubled = WET_DRY_INTERFACE
     end if
     
     if(checkIfCellIsDry(data%Q%H)) then
        if(isDG(data%troubled))then
-          call apply_phi_cons(data%Q(:)%h,data%Q(:)%p(1),data%Q(:)%p(2),&
-                              data%H(:),data%HU(:),data%HV(:))
-          call apply_phi(data%Q(:)%b,data%b(:))
-          data%h = data%h + data%b
+          ! call apply_phi_cons(data%Q(:)%h,data%Q(:)%p(1),data%Q(:)%p(2),&
+          !                     data%H(:),data%HU(:),data%HV(:))
+          ! call apply_phi(data%Q(:)%b,data%b(:))
+          ! data%h = data%h + data%b
        end if
        data%troubled = DRY
     end if
@@ -157,22 +157,22 @@ contains
   end function neighbourTroubled
 
 
-  subroutine getObservables(Q,observables)
-    type(t_state)      :: Q
-    real(kind=GRID_SR) :: observables(_DMP_NUM_OBSERVABLES)
+  subroutine getObservables(H,HU,HV,B,observables)
+    real(kind=GRID_SR), intent(in)	:: H,HU,HV,B
+    real(kind=GRID_SR), intent(out) :: observables(_DMP_NUM_OBSERVABLES)
 #if defined(_SWE_DG_LIMITER_UNLIMITED)
     return
 #elif defined(_SWE_DG_LIMITER_HEIGHT)
-    observables(1) = Q%h
+    observables(1) = H - B
 #elif defined(_SWE_DG_LIMITER_ALL)
-    observables(1) = Q%h
-    observables(2) = Q%p(1)
-    observables(3) = Q%p(2)
+    observables(1) = H - B
+    observables(2) = HU
+    observables(3) = HV
 #endif
   end subroutine getObservables
 
-  subroutine getObservableLimits(Q,minVals,maxVals)
-    type(t_state)     , dimension(_SWE_DG_DOFS),intent(in)          :: Q
+  subroutine getObservableLimits(data,minVals,maxVals)
+    class (num_cell_data_pers),intent(in) :: data
     real(kind=GRID_SR), dimension(_DMP_NUM_OBSERVABLES),intent(out) :: minVals
     real(kind=GRID_SR), dimension(_DMP_NUM_OBSERVABLES),intent(out) :: maxVals
     real(kind=GRID_SR), dimension(_DMP_NUM_OBSERVABLES)             :: observables
@@ -180,9 +180,9 @@ contains
 
     minVals(:) =  Huge(1.0_GRID_SR)
     maxVals(:) = -Huge(1.0_GRID_SR)
-    do i = 1,_SWE_DG_DOFS
-       observables = 0
-       call getObservables(Q(i),observables)
+
+    do i = 1,_SWE_PATCH_ORDER_SQUARE
+       call getObservables(data%H(i),data%HU(i),data%HV(i),data%B(i),observables)
        do j = 1,_DMP_NUM_OBSERVABLES
           minVals(j) = min(minVals(j),observables(j))
           maxVals(j) = max(maxVals(j),observables(j))
@@ -190,8 +190,8 @@ contains
     end do
   end subroutine getObservableLimits
 
-  function checkDMP(Q,minVals,maxVals,update1,update2,update3) result(troubled)
-    type(t_state)         , intent(in) :: Q(_SWE_DG_DOFS)
+  function checkDMP(data,minVals,maxVals,update1,update2,update3) result(troubled)
+    class(num_cell_data_pers),intent(in) :: data
     type(num_cell_update) , intent(in) :: update1
     type(num_cell_update) , intent(in) :: update2
     type(num_cell_update) , intent(in) :: update3
@@ -219,11 +219,11 @@ contains
     end do
 
     do i = 1,_DMP_NUM_OBSERVABLES
-       delta(i) = max(0.0000001_GRID_SR,maxNeighbour(i)-minNeighbour(i))*cfg%limiter_buffer
+       delta(i) = max(0.0000001_GRID_SR,maxNeighbour(i) - minNeighbour(i)) * cfg%limiter_buffer
     end do
 
-    do i = 1,_SWE_DG_DOFS
-       call getObservables(Q(i),observables)
+    do i = 1,_SWE_PATCH_ORDER_SQUARE
+       call getObservables(data%H(i),data%HU(i),data%HV(i),data%B(i),observables)
        do j = 1,_DMP_NUM_OBSERVABLES
           troubled = troubled .or. observables(j) > maxNeighbour(j)+delta(j) &
                               .or. observables(j) < minNeighbour(j)-delta(j)

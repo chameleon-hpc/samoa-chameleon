@@ -195,12 +195,22 @@ type num_cell_rep
       integer :: num_cells_positive_mass,i,j
       integer :: surface_indeces(_SWE_PATCH_ORDER_SQUARE)
       logical :: surface_mask(_SWE_PATCH_ORDER_SQUARE)
+      real(kind=GRID_SR)             :: int_dg,int_fv
+      
       u_dg = 0.0_GRID_SR
       v_dg = 0.0_GRID_SR
       
       call apply_phi(h_dg,h_fv)
       call apply_phi(hv_dg,hv_fv)
       call apply_phi(hu_dg,hu_fv)
+
+      int_dg = dot_product(weights,h_dg)
+      int_fv = sum(h_fv) * _REF_TRIANGLE_SIZE
+      
+      if(abs(int_fv) > 0.0_GRID_SR) then
+         h_fv = h_fv * int_dg/int_fv
+      end if
+
       h_fv_orig = h_fv
       
       num_cells_positive_mass = 0
@@ -231,6 +241,7 @@ type num_cell_rep
             end if
          end do
       endif
+
       
       where(h_fv_orig > 0.0_GRID_SR)
          hu_fv = hu_fv * (h_fv/h_fv_orig)
@@ -273,6 +284,8 @@ type num_cell_rep
       if(abs(int_dg) > 0.0_GRID_SR) then
          dg_h = dg_h * (int_fv/int_dg)
       end if
+      int_dg = dot_product(weights,dg_h)
+
     end subroutine apply_mue_h
     
 		!adds two state vectors

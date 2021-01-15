@@ -1,8 +1,6 @@
-
 ! Sam(oa)² - SFCs and Adaptive Meshes for Oceanic And Other Applications
 ! Copyright (C) 2010 Oliver Meister, Kaveh Rahnema
-! This program is licensed under the GPL, for details see the file LICENSE
-
+! This program is licensed under the GPL, for details see the file LICENSEn
 
 #include "Compilation_control.f90"
 
@@ -309,6 +307,7 @@ MODULE SWE_Initialize_Dofs
 
 #		include "SFC_generic_traversal_ringbuffer.f90"
 
+
   subroutine pre_traversal_grid_op(traversal, grid)
     type(t_swe_init_dofs_traversal), intent(inout)		        :: traversal
     type(t_grid), intent(inout)							    :: grid
@@ -420,17 +419,17 @@ MODULE SWE_Initialize_Dofs
     !----------------------------------------------------!
 
     !----------- set initial dofs for FV cells ----------!
-    if(isFV(element%cell%data_pers%troubled))then
-       if(isCoast(element%cell%data_pers%troubled)) then
-          element%cell%data_pers%B = get_bathymetry_at_patch(section, element, section%r_time)
-       else
-          call apply_phi(element%cell%data_pers%Q%B,element%cell%data_pers%B)
-       end if
-       call alpha_volume_op(traversal, section, element, Q)
-       element%cell%data_pers%H    = Q(:)%h
-       element%cell%data_pers%HU   = Q(:)%p(1)
-       element%cell%data_pers%HV   = Q(:)%p(2)
+!    if(isFV(element%cell%data_pers%troubled))then
+    if(isCoast(element%cell%data_pers%troubled)) then
+       element%cell%data_pers%B = get_bathymetry_at_patch(section, element, section%r_time)
+    else
+       call apply_phi(element%cell%data_pers%Q%B,element%cell%data_pers%B)
     end if
+    call alpha_volume_op(traversal, section, element, Q)
+    element%cell%data_pers%H    = Q(:)%h
+    element%cell%data_pers%HU   = Q(:)%p(1)
+    element%cell%data_pers%HV   = Q(:)%p(2)
+!x    end if
 
     call check_initial_refinement(traversal,section,element)
     

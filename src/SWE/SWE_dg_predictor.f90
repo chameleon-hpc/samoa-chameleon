@@ -36,7 +36,14 @@ MODULE SWE_DG_predictor
 !# define _GT_EDGE_MPI_TYPE
 
 # define _GT_ELEMENT_OP             element_op
-# define _GT_CELL_TO_EDGE_OP        cell_to_edge_op_dg  
+# define _GT_CELL_TO_EDGE_OP        cell_to_edge_op_dg
+
+#if defined(_SWE_DG_LIMITER_ALL) || defined(_SWE_DG_LIMITER_HEIGHT)
+#   define _GT_NODES
+#   define _GT_ELEMENT_OP               element_op
+#   define _GT_NODE_FIRST_TOUCH_OP      node_first_touch_op
+#   define _GT_NODE_MERGE_OP            node_merge_op
+#endif
   
   public dg_predictor
 
@@ -48,6 +55,10 @@ MODULE SWE_DG_predictor
     type(t_element_base), intent(inout)		      :: element
     integer(kind = selected_int_kind(16))             :: iterations
 
+    integer                                             :: i,j
+    real(kind=GRID_SR), dimension(_DMP_NUM_OBSERVABLES) :: minVals
+    real(kind=GRID_SR), dimension(_DMP_NUM_OBSERVABLES) :: maxVals
+              
     iterations = 0
     !-------Compute predictor --------!
     if(isDG(element%cell%data_pers%troubled).and.(.not.isDry(element%cell%data_pers%troubled)))then
@@ -61,6 +72,21 @@ MODULE SWE_DG_predictor
 #endif    
 
     call traversal%stats%add_counter(predictor_iterations, iterations)
+
+#if defined(_SWE_DG_LIMITER_ALL) || defined(_SWE_DG_LIMITER_HEIGHT)    
+    call getObservableLimits(element%cell%data_pers,minVals,maxVals)
+
+    do i=1,3
+       associate( node => element%nodes(i)%ptr%data_pers)
+         do j = 1,_DMP_NUM_OBSERVABLES
+            node%minObservables(j) = min(node%minObservables(j),minVals(j))
+            node%maxObservables(j) = max(node%maxObservables(j),maxVals(j))
+         end do
+       end associate
+    end do
+    
+#endif    
+    
     !---------------------------------!
   end subroutine element_op
 
@@ -479,9 +505,37 @@ subroutine initialise_riemann_arguments(cell, q_i_st, Q_DG)
      end do
 
   end do
-
-
-  
 end subroutine initialise_riemann_arguments
+
+#if defined(_SWE_DG_LIMITER_ALL) || defined(_SWE_DG_LIMITER_HEIGHT)
+
+elemental subroutine node_merge_op(local_node, neighbor_node)
+  type(t_node_data), intent(inout)		:: local_node
+  type(t_node_data), intent(in)		    :: neighbor_node
+  integer :: i
+  
+  do i = 1,_DMP_NUM_OBSERVABLES
+     local_node%data_pers%minObservables(i) = &
+          min(local_node%data_pers%minObservables(i),&
+          neighbor_node%data_pers%maxObservables(i))
+     local_node%data_pers%maxObservables(i) = &
+          max(local_node%data_pers%maxObservables(i),&
+          neighbor_node%data_pers%maxObservables(i))
+  end do
+  
+end subroutine node_merge_op
+
+
+elemental subroutine node_first_touch_op(traversal, section, node)
+  type(t_swe_dg_predictor_traversal), intent(inout) :: traversal
+  type(t_grid_section), intent(in)                   :: section
+  type(t_node_data), intent(inout)                   :: node
+  
+  node%data_pers%minObservables(:) =  Huge(1.0_GRID_SR)
+  node%data_pers%maxObservables(:) = -Huge(1.0_GRID_SR)
+  
+end subroutine node_first_touch_op
+#endif
+  
 END MODULE SWE_DG_predictor
 #endif

@@ -13,6 +13,7 @@ MODULE SWE_DG_Limiter
   !States for Troubled cells!
   !*************************!
   public DG,TROUBLED,NEIGHBOUR_TROUBLED,NEIGHBOUR_WAS_TROUBLED,COAST,DRY
+  public node_fist_touch, node_merge
 
   enum,bind( C )
      enumerator :: NEIGHBOUR_WAS_TROUBLED = -2 ,&
@@ -190,36 +191,39 @@ contains
     end do
   end subroutine getObservableLimits
 
-  function checkDMP(data,minVals,maxVals,update1,update2,update3) result(troubled)
+  function checkDMP(data,minVals,maxVals,node1,node2,node3) result(troubled)
     class(num_cell_data_pers),intent(in) :: data
-    type(num_cell_update) , intent(in) :: update1
-    type(num_cell_update) , intent(in) :: update2
-    type(num_cell_update) , intent(in) :: update3
-    real(kind=GRID_SR)    , intent(in) :: maxVals(_DMP_NUM_OBSERVABLES)
-    real(kind=GRID_SR)    , intent(in) :: minVals(_DMP_NUM_OBSERVABLES)
-    real(kind=GRID_SR)                 :: maxNeighbour(_DMP_NUM_OBSERVABLES)
-    real(kind=GRID_SR)                 :: minNeighbour(_DMP_NUM_OBSERVABLES)
-    real(kind=GRID_SR)                 :: delta(_DMP_NUM_OBSERVABLES)
-    real(kind=GRID_SR)                 :: observables(_DMP_NUM_OBSERVABLES)
-    integer                            :: i,j
-    logical                            :: troubled
+    ! type(num_cell_update) , intent(in) :: update1
+    ! type(num_cell_update) , intent(in) :: update2
+    ! type(num_cell_update) , intent(in) :: update3
+    type(num_node_data_pers) , intent(in) :: node1
+    type(num_node_data_pers) , intent(in) :: node2
+    type(num_node_data_pers) , intent(in) :: node3
+    real(kind=GRID_SR)    , intent(in)    :: maxVals(_DMP_NUM_OBSERVABLES)
+    real(kind=GRID_SR)    , intent(in)    :: minVals(_DMP_NUM_OBSERVABLES)
+    real(kind=GRID_SR)                    :: maxNeighbour(_DMP_NUM_OBSERVABLES)
+    real(kind=GRID_SR)                    :: minNeighbour(_DMP_NUM_OBSERVABLES)
+    real(kind=GRID_SR)                    :: delta(_DMP_NUM_OBSERVABLES)
+    real(kind=GRID_SR)                    :: observables(_DMP_NUM_OBSERVABLES)
+    integer                               :: i,j
+    logical                               :: troubled
 
     troubled = .FALSE.
     
     do i = 1,_DMP_NUM_OBSERVABLES
        maxNeighbour(i) = maxVals(i)
-       maxNeighbour(i) = max(maxNeighbour(i),update1%maxObservables(i))
-       maxNeighbour(i) = max(maxNeighbour(i),update2%maxObservables(i))
-       maxNeighbour(i) = max(maxNeighbour(i),update3%maxObservables(i))
+       maxNeighbour(i) = max(maxNeighbour(i),node1%maxObservables(i))
+       maxNeighbour(i) = max(maxNeighbour(i),node2%maxObservables(i))
+       maxNeighbour(i) = max(maxNeighbour(i),node3%maxObservables(i))
 
        minNeighbour(i) = minVals(i)
-       minNeighbour(i) = min(minNeighbour(i),update1%minObservables(i))
-       minNeighbour(i) = min(minNeighbour(i),update2%minObservables(i))
-       minNeighbour(i) = min(minNeighbour(i),update3%minObservables(i))
+       minNeighbour(i) = min(minNeighbour(i),node1%minObservables(i))
+       minNeighbour(i) = min(minNeighbour(i),node2%minObservables(i))
+       minNeighbour(i) = min(minNeighbour(i),node3%minObservables(i))
     end do
 
     do i = 1,_DMP_NUM_OBSERVABLES
-       delta(i) = max(0.0000001_GRID_SR,maxNeighbour(i) - minNeighbour(i)) * cfg%limiter_buffer
+       delta(i) = max(0.01_GRID_SR,maxNeighbour(i) - minNeighbour(i)) * cfg%limiter_buffer
     end do
 
     do i = 1,_SWE_PATCH_ORDER_SQUARE
@@ -255,5 +259,16 @@ contains
     plotFV = isCoast(troubled)
   end function plotFV
 
+  subroutine node_first_touch(node)
+    type(t_node_data), intent(inout)                   :: node
+    
+  end subroutine node_first_touch
+
+  
+  subroutine node_merge(local_node, neighbor_node)
+    type(t_node_data), intent(inout)		:: local_node
+    type(t_node_data), intent(in)		    :: neighbor_node
+
+  end subroutine node_merge
 
 END MODULE SWE_DG_Limiter

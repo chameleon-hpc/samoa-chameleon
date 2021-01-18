@@ -63,7 +63,9 @@ MODULE SWE_data_types
   
   !> persistent scenario data on a node
   type num_node_data_pers
-    integer (kind = BYTE)  :: dummy !< no data
+     integer (kind = BYTE)  :: dummy !< no data
+     real (kind = GRID_SR), dimension (_DMP_NUM_OBSERVABLES) :: minObservables
+     real (kind = GRID_SR), dimension (_DMP_NUM_OBSERVABLES) :: maxObservables
   END type num_node_data_pers
 
 		!> persistent scenario data on an edge
@@ -103,8 +105,6 @@ type num_cell_rep
     real(kind=GRID_SR), DIMENSION(_SWE_DG_ORDER+1,4)        :: QP
     real(kind=GRID_SR), DIMENSION(2,_SWE_DG_ORDER+1,3)      :: FP
     real (kind = GRID_SR), dimension (_SWE_PATCH_ORDER)     :: H, HU, HV, B
-    real (kind = GRID_SR), dimension (_DMP_NUM_OBSERVABLES) :: minObservables
-    real (kind = GRID_SR), dimension (_DMP_NUM_OBSERVABLES) :: maxObservables
     integer :: troubled
 #if defined(_DEBUG)   
     integer :: debug_flag = 0.0_GRID_SR
@@ -201,8 +201,9 @@ type num_cell_rep
       v_dg = 0.0_GRID_SR
       
       call apply_phi(h_dg,h_fv)
-      call apply_phi(hv_dg,hv_fv)
       call apply_phi(hu_dg,hu_fv)
+      call apply_phi(hv_dg,hv_fv)
+
 
       int_dg = dot_product(weights,h_dg)
       int_fv = sum(h_fv) * _REF_TRIANGLE_SIZE

@@ -500,23 +500,26 @@ MODULE SWE_Scenario_radial_dam_break
         real (kind = GRID_SR), intent(in) :: x(2)
         real (kind = GRID_SR) :: bathymetry
         
-        if (x(1)*x(1) + x(2)*x(2) < 9.0_GRID_SR) then
-            bathymetry = -20.0_GRID_SR
-        else 
-            bathymetry = -22.0_GRID_SR
-        end if
-    end function
+        ! if (x(1)*x(1) + x(2)*x(2) < 9.0_GRID_SR) then
+        !     bathymetry = -20.0_GRID_SR
+        ! else 
+        !     bathymetry = -22.0_GRID_SR
+        ! end if
+        bathymetry = -1.0_GRID_SR
+      end function SWE_Scenario_get_bathymetry
+      
     
     function SWE_Scenario_get_initial_Q(x) result(Q)
-        real (kind = GRID_SR), intent(in) :: x(2)
+      real (kind = GRID_SR), intent(in) :: x(2)
+      real (kind = GRID_SR) :: r = 5.0
         type(t_dof_state) :: Q
         
         Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
         
-        if (x(1)*x(1) + x(2)*x(2) < 4.5_GRID_SR) then
-            Q%h = 20.0_GRID_SR
+        if (x(1)*x(1) + x(2)*x(2) < r*r) then
+            Q%h = 6.0_GRID_SR
         else 
-            Q%h = 0.0_GRID_SR
+            Q%h = 3.0_GRID_SR
         end if
     end function
 
@@ -546,7 +549,7 @@ MODULE SWE_Scenario_linear_dam_break
     function SWE_Scenario_get_scaling() result(scaling)
         real (kind = GRID_SR) :: scaling
         
-        scaling = 100.0_GRID_SR
+        scaling = 20.0_GRID_SR
     end function
 
     function SWE_Scenario_get_offset() result(offset)
@@ -559,19 +562,18 @@ MODULE SWE_Scenario_linear_dam_break
         real (kind = GRID_SR), intent(in) :: x(2)
         real (kind = GRID_SR) :: bathymetry
         
-        bathymetry = 0.0_GRID_SR
+        bathymetry = -10.0_GRID_SR
     end function
     
     function SWE_Scenario_get_initial_Q(x) result(Q)
-        real (kind = GRID_SR), intent(in) :: x(2)
+      real (kind = GRID_SR), intent(in) :: x(2)
         type(t_dof_state) :: Q
         
         real (kind = GRID_SR), parameter :: hL = 0.005_GRID_SR, hR = 0.001_GRID_SR
-        
+        Q%h = 1.0_GRID_SR
         Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
         
-!        if (x(1) < 0.0_GRID_SR) then
-        if ( x(1) < 5.0_GRID_SR ) then
+        if ( x(1) < 0.0_GRID_SR ) then
             Q%h = hL
         else 
             Q%h = hR
@@ -756,7 +758,7 @@ MODULE SWE_Scenario_single_wave_on_the_beach
         Q%h = max((((0.006_GRID_SR * exp(-0.4444_GRID_SR    * (((x(1) / 5000.0_GRID_SR) - 4.1209_GRID_SR) ** 2))) - & ! Two gaussian terms of the submarine landslide n-wave
                     (0.018_GRID_SR * exp(-4.0_GRID_SR       * (((x(1) / 5000.0_GRID_SR) - 1.6384_GRID_SR) ** 2)))) &  ! x / L transforms x to non-dimensional form
                   * 500.0_GRID_SR) &                                                                     ! Backtransform eta: x *= alpha * L
-                    , SWE_Scenario_get_bathymetry(x))                                                     ! Water level to water height
+                  , SWE_Scenario_get_bathymetry(x))                                                     ! Water level to water height
     end function SWE_Scenario_get_initial_Q
 
 END MODULE SWE_Scenario_single_wave_on_the_beach

@@ -1,8 +1,6 @@
-
 ! Sam(oa)² - SFCs and Adaptive Meshes for Oceanic And Other Applications
 ! Copyright (C) 2010 Oliver Meister, Kaveh Rahnema
-! This program is licensed under the GPL, for details see the file LICENSE
-
+! This program is licensed under the GPL, for details see the file LICENSEn
 
 #include "Compilation_control.f90"
 
@@ -46,7 +44,7 @@ MODULE SWE_Initialize_Bathymetry
     grid%r_time = 0.0_GRID_SR
     grid%r_dt = 0.0_GRID_SR
     grid%r_dt_new = 0.0_GRID_SR
-
+    grid%min_courant = cfg%courant_number
     call scatter(grid%r_time, grid%sections%elements_alloc%r_time)
   end subroutine pre_traversal_grid_op
 
@@ -309,6 +307,7 @@ MODULE SWE_Initialize_Dofs
 
 #		include "SFC_generic_traversal_ringbuffer.f90"
 
+
   subroutine pre_traversal_grid_op(traversal, grid)
     type(t_swe_init_dofs_traversal), intent(inout)		        :: traversal
     type(t_grid), intent(inout)							    :: grid
@@ -420,17 +419,17 @@ MODULE SWE_Initialize_Dofs
     !----------------------------------------------------!
 
     !----------- set initial dofs for FV cells ----------!
-    if(isFV(element%cell%data_pers%troubled))then
-       if(isCoast(element%cell%data_pers%troubled)) then
-          element%cell%data_pers%B = get_bathymetry_at_patch(section, element, section%r_time)
-       else
-          call apply_phi(element%cell%data_pers%Q%B,element%cell%data_pers%B)
-       end if
-       call alpha_volume_op(traversal, section, element, Q)
-       element%cell%data_pers%H    = Q(:)%h
-       element%cell%data_pers%HU   = Q(:)%p(1)
-       element%cell%data_pers%HV   = Q(:)%p(2)
+!    if(isFV(element%cell%data_pers%troubled))then
+    if(isCoast(element%cell%data_pers%troubled)) then
+       element%cell%data_pers%B = get_bathymetry_at_patch(section, element, section%r_time)
+    else
+       call apply_phi(element%cell%data_pers%Q%B,element%cell%data_pers%B)
     end if
+    call alpha_volume_op(traversal, section, element, Q)
+    element%cell%data_pers%H    = Q(:)%h
+    element%cell%data_pers%HU   = Q(:)%p(1)
+    element%cell%data_pers%HV   = Q(:)%p(2)
+!x    end if
 
     call check_initial_refinement(traversal,section,element)
     
@@ -440,6 +439,17 @@ MODULE SWE_Initialize_Dofs
        section%min_error_new = min(error,section%min_error_new)
        section%max_error_new = max(error,section%max_error_new)
        !---------------------------------------------!
+
+       !----- Compute initial FV representation -----!
+       call apply_phi_cons(element%cell%data_pers%Q(:)%h,&
+            element%cell%data_pers%Q(:)%p(1),&
+            element%cell%data_pers%Q(:)%p(2),&
+            element%cell%data_pers%H(:),&
+            element%cell%data_pers%HU(:),&
+            element%cell%data_pers%HV(:))
+       
+       element%cell%data_pers%h = element%cell%data_pers%h + element%cell%data_pers%b
+       
     end if
     
   end subroutine element_op
@@ -459,6 +469,12 @@ MODULE SWE_Initialize_Dofs
     integer                             :: i, index
     integer                             :: bathy_depth
     real (kind = GRID_SR)               :: dQ_norm
+    real (kind = GRID_SR)               :: center(2)
+
+    center=samoa_barycentric_to_world_point(element%transform_data, [0.0_GRID_SR,0.0_GRID_SR])
+    center=center + samoa_barycentric_to_world_point(element%transform_data, [0.0_GRID_SR,1.0_GRID_SR])
+    center=center + samoa_barycentric_to_world_point(element%transform_data, [1.0_GRID_SR,0.0_GRID_SR])
+    center = center/3.0_GRID_SR
     
     !evaluate initial DoFs (not the bathymetry!)
     do i=1,_SWE_DG_DOFS
@@ -468,6 +484,7 @@ MODULE SWE_Initialize_Dofs
           index = mirrored_coords(i)
        end if
        x = samoa_barycentric_to_world_point(element%transform_data, coords(:,index))
+       
        Q(i)%t_dof_state = get_initial_dof_state_at_position(section,x)
     end do
     
@@ -534,6 +551,8 @@ MODULE SWE_Initialize_Dofs
           row = row + 1
        end if
     end do
+
+    Q%H = Q%H -get_bathymetry_at_patch(section, element, section%r_time) + Q%B
     
     !estimate initial time step
     where (Q%h - Q%b > 0.0_GRID_SR)

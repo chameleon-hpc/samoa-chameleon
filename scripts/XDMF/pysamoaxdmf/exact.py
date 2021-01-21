@@ -32,7 +32,3 @@ class ExactQuadRule:
 
     def dof_to_order(self, dof):
         return int(0.5 * (-3.0 + math.sqrt((8.0 * dof) + 1.0)))
-<<<<<<< HEAD
-=======
-
->>>>>>> a6fd7dcce4fc601164dad7e3eeaedf752a16d985

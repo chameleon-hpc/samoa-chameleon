@@ -832,7 +832,7 @@ MODULE SWE_Scenario_smooth_wave
         real (kind = GRID_SR), intent(in) :: x(2)
         real (kind = GRID_SR) :: bathymetry
         
-        bathymetry = 0.0_GRID_SR
+        bathymetry = -1.0_GRID_SR
     end function
     
     function SWE_Scenario_get_initial_Q(x) result(Q)
@@ -847,7 +847,7 @@ MODULE SWE_Scenario_smooth_wave
 
         if(NORM2(x)<8.0_GRID_SR) then
            flatten = 1/6.28 * exp(-0.1_GRID_SR*(x(1)**2+x(2)**2)) * 8.0_GRID_SR *curve_height + height_offset
-           Q%h = sin(x(1)*pi) * cos(x(2)*pi) * flatten
+           Q%h = sin(x(1)*pi) * cos(x(2)*pi) * flatten / 12.0_GRID_SR
         else
            Q%h=height_offset
         end if

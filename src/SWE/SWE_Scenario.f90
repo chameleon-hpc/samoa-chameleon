@@ -814,51 +814,43 @@ END MODULE SWE_Convergence_test
 MODULE SWE_Scenario_smooth_wave
     use Samoa_swe
     public SWE_Scenario_get_scaling, SWE_Scenario_get_offset, SWE_Scenario_get_bathymetry, SWE_Scenario_get_initial_Q
-    contains
+  contains
 
-    function SWE_Scenario_get_scaling() result(scaling)
+        function SWE_Scenario_get_scaling() result(scaling)
         real (kind = GRID_SR) :: scaling
         
-        scaling = 4.0_GRID_SR
+        scaling = 20.0_GRID_SR
     end function
 
     function SWE_Scenario_get_offset() result(offset)
         real (kind = GRID_SR) :: offset(2)
         
-        offset = SWE_Scenario_get_scaling() * [0.5_GRID_SR, 0.5_GRID_SR]
+        offset = SWE_Scenario_get_scaling() * [-0.5_GRID_SR, -0.5_GRID_SR]
     end function
     
     function SWE_Scenario_get_bathymetry(x) result(bathymetry)
-      real (kind = GRID_SR), intent(in) :: x(2)
-      real (kind = GRID_SR):: x_temp      
-      real (kind = GRID_SR) :: bathymetry
-
-      x_temp=(x(1)+x(2))/sqrt(2.0_GRID_SR)
-      x_temp=x(1)
-
-      bathymetry = -(0.5*x_temp**2/g + g/x_temp)
-    end function SWE_Scenario_get_bathymetry
+        real (kind = GRID_SR), intent(in) :: x(2)
+        real (kind = GRID_SR) :: bathymetry
+        
+        bathymetry = 0.0_GRID_SR
+    end function
     
     function SWE_Scenario_get_initial_Q(x) result(Q)
         real (kind = GRID_SR), intent(in) :: x(2)
+        real (kind = GRID_SR) :: height_offset=0.0_GRID_SR
+        real (kind = GRID_SR) :: curve_height=1.0_GRID_SR
+        real (kind = GRID_SR) :: flatten
+        real (kind = GRID_SR) :: pi = 3.141592653589_GRID_SR
         type(t_dof_state) :: Q
-        double precision :: w, t, sinwt, coswt, b
-        double precision :: x_scal(2)
-        real (kind = GRID_SR):: x_temp      
-
-        b = SWE_Scenario_get_bathymetry(x)        
-        t = 0.0
-
-        x_temp=(x(1)+x(2))*sqrt(2.0_GRID_SR)/2.0_GRID_SR
-        x_temp=x(1)
-        Q%h = (1.0_GRID_SR/x_temp + 1.0_GRID_SR)*g
-
-        Q%p(1) = g+x_temp*g
-        Q%p(2) = x_temp * Q%h
-        Q%p(2) = 0.0_GRID_SR
         
-        Q%h = Q%h + b
-        
+        Q%p = [0.0_GRID_SR, 0.0_GRID_SR]
+
+        if(NORM2(x)<8.0_GRID_SR) then
+           flatten = 1/6.28 * exp(-0.1_GRID_SR*(x(1)**2+x(2)**2)) * 8.0_GRID_SR *curve_height + height_offset
+           Q%h = sin(x(1)*pi) * cos(x(2)*pi) * flatten
+        else
+           Q%h=height_offset
+        end if
     end function
 
 END MODULE SWE_Scenario_smooth_wave

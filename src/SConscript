@@ -43,6 +43,7 @@ f90_sources = [
 "SWE/SWE_adapt.f90",
 "SWE/SWE_patch.f90",
 "SWE/SWE_patch_solvers.f90",
+"SWE/SWE_fv_solver.f90",
 "SWE/yateto_interface.f90",
 "SWE/SWE_dg_predictor.f90",
 "SWE/SWE_Riemann_solver_wrapper.f90",

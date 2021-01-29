@@ -1062,8 +1062,8 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
                ! if land is flooded, init water height to dry tolerance and
                ! velocity to zero
                where (data%H < data%B + cfg%dry_tolerance .and. dQ_H > 0.0_GRID_SR)
-                  !                  data%H  = data%B + cfg%dry_tolerance
-                   data%HU = 0.0_GRID_SR
+!                  data%H  = data%B + cfg%dry_tolerance
+                  data%HU = 0.0_GRID_SR
                   data%HV = 0.0_GRID_SR
                end where
 
@@ -1091,7 +1091,7 @@ subroutine fv_patch_solver(traversal, section, element, update1, update2, update
 
                ! if the water level falls below the dry tolerance, set water level to 0 and velocity to 0          
                 where (data%H < data%B + cfg%dry_tolerance)
- !                  data%H = data%B 
+!                   data%H = data%B 
                    data%HU = 0.0_GRID_SR
                    data%HV = 0.0_GRID_SR
                 end where

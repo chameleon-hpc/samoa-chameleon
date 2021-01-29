@@ -31,7 +31,7 @@ class VolumeUpdateGenerator():
 
         def volume_generator(i):
             return U["lq"] <= db_t.n_s_k_t_J_inv[i]["ljd"] * db_m.t_a["J"]   * F["jJdq"] +\
-                                           db_m.J[i]["mq"]  * db_m.n_t_a["J"] * S["lJm"]
+                                           db_m.J[i]["mq"] * db_m.n_t_a["J"] * S["lJm"]
         
         g.addFamily('volume', simpleParameterSpace(8),volume_generator)
             
@@ -78,7 +78,7 @@ class PredictorGenerator():
         dtdx  = Tensor("dtdx",())
         
         # results
-        P     = Tensor('P', (SWE_DG_DOFS, SWE_DG_ORDER, 3))
+        P     = Tensor('P', (SWE_DG_DOFS, 3))
         
         # input
         F     = Tensor('F' , (SWE_DG_DOFS, SWE_DG_ORDER+1, 2, 3) )
@@ -94,7 +94,6 @@ class PredictorGenerator():
 #                    dict_t[n] = True
             
             return dict_t[name] if name in dict_t else False
-
 #        transpose=lambda x: False
         
         db_m = parseJSONMatrixFile('{}/matrices_{}.json'.format(self.matrixDir,self.order),
@@ -103,10 +102,17 @@ class PredictorGenerator():
                                    clones, alignStride=(lambda name: True), transpose=transpose)
 
         def predictor_generator(i):
+            if(SWE_DG_ORDER == 1):
+                return P["lq"] <= dtdx[""] *\
+             (db_m.t_k_t_11_inv_t_m_1["J"] * db_m.J[i]["mq"]                  * S ["lJm"]   +\
+              db_m.t_k_t_11_inv_t_m_1["J"] * db_t.s_m_inv_s_k_J_inv[i]["lbj"] * F ["jJbq"]) +\
+              Q0["lq"]
+
             return P["lLq"] <= dtdx[""] *\
                 ( db_m.t_k_t_11_inv_t_m_1["JL"] * db_m.J[i]["mq"]                  * S ["lJm"]   +\
                   db_m.t_k_t_11_inv_t_m_1["JL"] * db_t.s_m_inv_s_k_J_inv[i]["lbj"] * F ["jJbq"]) +\
-                  db_m.n_t_k_t_11_inv_x_t_k_t_10["L"] * Q0["lq"]    
+                  db_m.n_t_k_t_11_inv_x_t_k_t_10["L"] * Q0["lq"]
+
 
         g.addFamily('predictor', simpleParameterSpace(8),predictor_generator)
 

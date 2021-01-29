@@ -78,7 +78,11 @@ class PredictorGenerator():
         dtdx  = Tensor("dtdx",())
         
         # results
-        P     = Tensor('P', (SWE_DG_DOFS, 3))
+        if(SWE_DG_ORDER == 1):
+            P     = Tensor('P', (SWE_DG_DOFS, 3))
+        else:
+            P     = Tensor('P', (SWE_DG_DOFS, SWE_DG_ORDER, 3))
+            
         
         # input
         F     = Tensor('F' , (SWE_DG_DOFS, SWE_DG_ORDER+1, 2, 3) )

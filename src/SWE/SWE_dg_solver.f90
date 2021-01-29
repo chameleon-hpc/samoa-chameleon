@@ -350,28 +350,44 @@ type(num_cell_update), intent(out)		    :: update
 type(num_cell_update)	                	    :: update_bnd
 real(kind=GRID_SR)                                  :: normal(2)
 real(kind=GRID_SR)                                  :: length_flux
-integer                                             :: i
+integer                                             :: i,j
+real(kind=GRID_SR), dimension(_DMP_NUM_OBSERVABLES)             :: observables
+real(kind=GRID_SR)                                  :: h_psi,hu_psi,hv_psi
 
 normal=(edge%transform_data%normal)/NORM2(edge%transform_data%normal)
 update%troubled=rep%troubled
 rep_bnd%troubled = rep%troubled
-! update%minObservables = rep%minObservables
-! update%maxObservables = rep%maxObservables
-
 if(isDG(rep%troubled)) then
    update_bnd = update
    rep_bnd%QP(:,1) = rep%QP(:,1)
    rep_bnd%QP(:,4) = rep%QP(:,4)
 #  if defined(_BOUNDARY)
-      if(get_edge_boundary_align(normal)) then
+   if(get_edge_boundary_align(normal)) then
+      rep_bnd%FP(:,:,:) = 0.0_GRID_SR
+      rep_bnd%QP(:,1:3) = 0.0_GRID_SR
+      rep_bnd%QP(:,4) = rep%QP(:,4)
+      h_psi  = 0.0_GRID_SR
+      hu_psi = 0.0_GRID_SR
+      hv_psi = 0.0_GRID_SR   
          ! Time-dependent condition, generate virtual wave from data or function
          do i=1, _SWE_DG_ORDER+1
-            call get_edge_boundary_Q(grid%r_time, rep_bnd%QP(i,1), &
-               rep_bnd%QP(i,2), rep_bnd%QP(i,3), rep_bnd%QP(i,4), .true.)
-         end do
+            do j = 1, _SWE_DG_ORDER+1
+               call get_edge_boundary_Q(&
+               grid%r_time + (gll_nodes(j) * grid%r_dt),&
+               h_psi, &
+               hu_psi, &
+               hv_psi, &
+               rep_bnd%QP(i,4), .true.)
+               
+               rep_bnd%QP(i,1) = rep_bnd%QP(i,1) + h_psi *gll_weights(j)
+               rep_bnd%QP(i,2) = rep_bnd%QP(i,2) + hu_psi*gll_weights(j)
+               rep_bnd%QP(i,3) = rep_bnd%QP(i,3) + hv_psi*gll_weights(j)
+               
+               rep_bnd%FP(1,i,:)=rep_bnd%FP(1,i,:)+flux_1_b((/ h_psi,hu_psi,hv_psi /))*gll_weights(j)
+               rep_bnd%FP(2,i,:)=rep_bnd%FP(2,i,:)+flux_2_b((/ h_psi,hu_psi,hv_psi /))*gll_weights(j)
 
-         rep_bnd%FP(1, :, :) = flux_1(rep_bnd%QP(:, 1:3))
-         rep_bnd%FP(2, :, :) = flux_2(rep_bnd%QP(:, 1:3))
+            end do
+         end do
       else
 #  endif
          ! Generate mirrored wave to reflect out incoming wave
@@ -414,13 +430,22 @@ if(get_edge_boundary_align(normal)) then
 else
 #  endif
    ! Generate mirrored wave to reflect out incoming wave
-   update%H=rep%H
-   update%B=rep%B
-   do i=1, _SWE_PATCH_ORDER
+   do i=1, _SWE_PATCH_ORDER    
       length_flux = dot_product([ rep%HU(i), rep%HV(i) ], normal)
-      update%HU(i)=rep%HU(i) - 2.0_GRID_SR*length_flux*normal(1)
-      update%HV(i)=rep%HV(i) - 2.0_GRID_SR*length_flux*normal(2)
+      update%H(_SWE_PATCH_ORDER + 1 - i)=rep%H(i)
+      update%B(_SWE_PATCH_ORDER + 1 - i)=rep%B(i)
+      update%HU(_SWE_PATCH_ORDER + 1 - i)=rep%HU(i) - 2.0_GRID_SR*length_flux*normal(1)
+      update%HV(_SWE_PATCH_ORDER + 1 - i)=rep%HV(i) - 2.0_GRID_SR*length_flux*normal(2)
    end do
+   !compute new extrema
+   do i = 1,_SWE_PATCH_ORDER
+      call getObservables(update%H(i),update%HU(i),update%HV(i),update%B(i),observables)
+      do j = 1,_DMP_NUM_OBSERVABLES
+         update%minObservables(j) = min(update%minObservables(j),observables(j))
+         update%maxObservables(j) = max(update%maxObservables(j),observables(j))
+      end do
+   end do
+
 #  if defined(_BOUNDARY)
 end if
 #  endif
@@ -446,7 +471,7 @@ end subroutine bnd_skeleton_scalar_op_dg
 
    subroutine get_edge_boundary_Q(t, H, HU, HV, B, isDG)
       real(GRID_SR), intent(in)                 :: t
-      real(GRID_SR), intent(inout)              :: H, HU, HV
+      real(GRID_SR), intent(out)              :: H, HU, HV
       real(GRID_SR), intent(in)                 :: B
       logical, intent(in)                       :: isDG
 
@@ -599,7 +624,12 @@ if(.not.isDry(data%troubled)) then
       end do
    else
       do i=1,_SWE_PATCH_ORDER_SQUARE
-         section%r_dt_new = min(section%r_dt_new, get_next_time_step_size(data%h(i)-data%b(i),data%hu(i),data%hv(i),dx,cfg%dry_tolerance))
+         dt = get_next_time_step_size(data%h(i)-data%b(i),data%hu(i),data%hv(i),dx,cfg%dry_tolerance)
+         if(isCoast(data%troubled)) then
+            !limit by courant condition on coast
+            dt = max( dt , section%r_dt * cfg%courant_number)
+         end if
+         section%r_dt_new = min(section%r_dt_new, dt)
       end do
    endif
 else
@@ -609,24 +639,34 @@ endif
 #if defined(_CELL_METRICS)
 if(.not.isDry(data%troubled)) then
    do i=1,_SWE_DG_DOFS
-      dt = get_next_time_step_size(data%Q(i)%h,data%Q(i)%p(1),data%Q(i)%p(2),dx,cfg%dry_tolerance)
-      if (dt == huge(1.0_GRID_SR) .or. dt == huge(0.0_GRID_SR)) then
-         dt = -1.0_GRID_SR
+      if(data%Q(i)%h > cfg%dry_tolerance) then
+         dt = get_next_time_step_size(data%Q(i)%h,data%Q(i)%p(1),data%Q(i)%p(2),dx,cfg%dry_tolerance)
+      else
+         dt = section%r_dt / cfg%courant_number
       end if
-      data%dt(i)    = dt * cfg%courant_number * 1000 * 1000
+      data%dt(i)    = dt * cfg%courant_number
    end do
    
    do i=1,_SWE_PATCH_ORDER_SQUARE
-      dt = get_next_time_step_size(data%h(i)-data%b(i),data%hu(i),data%hv(i),dx,cfg%dry_tolerance)
-      
-      if (dt == huge(1.0_GRID_SR) .or. dt == huge(0.0_GRID_SR)) then
-         dt = -1.0_GRID_SR
+      if(data%h(i)-data%b(i) > cfg%dry_tolerance) then
+         dt = get_next_time_step_size(data%h(i)-data%b(i),data%hu(i),data%hv(i),dx,cfg%dry_tolerance)
+         if(isCoast(data%troubled)) then
+            !limit by courant condition on coast
+            dt = max( dt , section%r_dt * cfg%courant_number)
+         end if
+      else
+         dt = section%r_dt / cfg%courant_number
       end if
-      data%dt_fv(i) =  dt * cfg%courant_number * 1000 * 1000
+
+      
+      ! if (dt == huge(1.0_GRID_SR) .or. dt == huge(0.0_GRID_SR)) then
+      !    dt = 0.0_GRID_SR
+      ! end if
+      data%dt_fv(i) =  dt * cfg%courant_number
    end do
 else
-   data%dt(:)    = -1.0_GRID_SR
-   data%dt_fv(:) = -1.0_GRID_SR
+   data%dt(:)    = 0.0_GRID_SR
+   data%dt_fv(:) = 0.0_GRID_SR
 endif
 #endif  
 !------------------------------------------------------------------!

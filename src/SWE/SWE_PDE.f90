@@ -131,6 +131,35 @@ contains
     end do
   end function flux_2
 
+    function flux_1_b(q)
+    real(kind=GRID_SR), intent(in) :: q(3)
+    real(kind=GRID_SR)             :: flux_1_b(3)
+    real(kind=GRID_SR)             :: u, v
+  
+    u = q(2)/q(1)
+    v = q(3)/q(1)
+    
+    flux_1_b(1) = q(2)
+    flux_1_b(2) = u*q(2) + 0.5_GRID_SR * g * q(1)**2
+    flux_1_b(3) = u*q(3)
+
+  end function flux_1_b
+
+  function flux_2_b(q)
+    real(kind=GRID_SR), intent(in) :: q(3)
+    real(kind=GRID_SR)             :: flux_2_b(3)
+    real(kind=GRID_SR)             :: u, v
+    
+    u = q(2)/q(1)
+    v = q(3)/q(1)
+    
+    flux_2_b(1) = q(3)
+    flux_2_b(2) = v*q(2)
+    flux_2_b(3) = v*q(3) + 0.5_GRID_SR * g * q(1)**2
+
+  end function flux_2_b
+
+
 
 end module SWE_PDE
 

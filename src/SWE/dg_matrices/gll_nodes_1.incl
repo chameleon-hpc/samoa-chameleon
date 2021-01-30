@@ -1,0 +1,2 @@
+real(kind=GRID_SR),Parameter :: gll_nodes(2) = (/ &
+0.0_GRID_SR ,1.0_GRID_SR   /)

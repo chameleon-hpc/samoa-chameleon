@@ -70,6 +70,10 @@ MODULE SWE_dg_matrices
 #include "dg_matrices/coarsen1_SWE_DG_ORDER_TAG.incl"
 #include "dg_matrices/coarsen2_SWE_DG_ORDER_TAG.incl"
 
+!gll nodes
+#include "dg_matrices/gll_nodes_SWE_DG_ORDER_TAG.incl"
+#include "dg_matrices/gll_weights_SWE_DG_ORDER_TAG.incl"
+
 #include "dg_matrices/jacobian.incl"
 #include "dg_matrices/jacobian_inv.incl"
 

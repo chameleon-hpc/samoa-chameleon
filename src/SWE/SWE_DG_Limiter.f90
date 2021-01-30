@@ -71,13 +71,7 @@ contains
     !----If any neighbour is troubled use FV scheme ---!
     if(isDG(data%troubled)) then
        if(neighbourTroubled(update1,update2,update3)) then
-          if(.not.data%troubled .eq. NEIGHBOUR_WAS_TROUBLED)then
-             ! call apply_phi_cons(data%Q(:)%h,data%Q(:)%p(1),data%Q(:)%p(2),&
-             !                     data%H(:),data%HU(:),data%HV(:))             
-             ! call apply_phi(data%Q(:)%b    ,data%b)
-             ! data%h = data%h + data%b
-          end if
-          data%troubled = NEIGHBOUR_TROUBLED
+           data%troubled = NEIGHBOUR_TROUBLED
        end if
     end if
     !--------------------------------------------------!
@@ -105,22 +99,10 @@ contains
     end if
     
     if(isWetDryInterface(data%Q%H))then
-       if(isDG(data%troubled))then
-          ! call apply_phi_cons(data%Q(:)%h,data%Q(:)%p(1),data%Q(:)%p(2),&
-          !                     data%H(:),data%HU(:),data%HV(:))
-          ! call apply_phi(data%Q(:)%b,data%b(:))
-          ! data%h = data%h + data%b
-       end if
        data%troubled = WET_DRY_INTERFACE
     end if
     
     if(checkIfCellIsDry(data%Q%H)) then
-       if(isDG(data%troubled))then
-          ! call apply_phi_cons(data%Q(:)%h,data%Q(:)%p(1),data%Q(:)%p(2),&
-          !                     data%H(:),data%HU(:),data%HV(:))
-          ! call apply_phi(data%Q(:)%b,data%b(:))
-          ! data%h = data%h + data%b
-       end if
        data%troubled = DRY
     end if
     
@@ -256,7 +238,8 @@ contains
     logical :: plotFV
     
     !plotFV = isCoast(troubled) .or. (troubled .eq. -NEIGHBOUR_TROUBLED)
-    plotFV = isCoast(troubled)
+    !plotFV = isCoast(troubled)
+    plotFV = isFV(troubled)
   end function plotFV
 
   subroutine node_first_touch(node)

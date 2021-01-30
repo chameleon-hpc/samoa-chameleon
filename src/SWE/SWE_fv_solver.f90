@@ -11,14 +11,15 @@ MODULE SWE_FV_solver
   public fv_patch_solver
   
 contains
-subroutine fv_patch_solver(element, update1, update2, update3, dt)
+subroutine fv_patch_solver(element, update1, update2, update3, dt, maxWaveSpeed)
             type(t_element_base) , intent(inout)	:: element
             type(num_cell_update), intent(inout)  :: update1, update2, update3
             real(kind = GRID_SR),intent(in)       :: dt
+            real(kind = GRID_SR),intent(inout)    :: maxWaveSpeed
             
             integer                               :: i, j, ind, index_bnd
             type(num_cell_update)                 :: tmp !> ghost cells in correct order 
-            real(kind = GRID_SR)                  :: volume, edge_lengths(3), maxWaveSpeed, dQ_max_norm, dt_div_volume, maxWaveSpeedLocal
+            real(kind = GRID_SR)                  :: volume, edge_lengths(3), dQ_max_norm, dt_div_volume, maxWaveSpeedLocal
 
 
             real(kind = GRID_SR), DIMENSION(_SWE_PATCH_ORDER_SQUARE)                :: dQ_H, dQ_HU, dQ_HV !> deltaQ, used to compute cell updates

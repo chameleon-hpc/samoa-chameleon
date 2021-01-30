@@ -518,7 +518,7 @@ type(t_update),  DIMENSION((_SWE_DG_ORDER+1)**2)		:: flux1, flux2, flux3,flux2_t
 type(t_state), dimension((_SWE_DG_ORDER+1)**2)             :: edge_l, edge_m,edge_r
 real(kind= GRID_SR) :: dt,dx,delta(3),max_neighbour(3),min_neighbour(3),data_max_val(3),data_min_val(3)
 integer :: indx,indx_mir,k,i,j
-real (kind=GRID_SR) :: max_wave_speed, wave_speed=0,dQ_norm,b_min,b_max
+real (kind=GRID_SR) :: max_wave_speed, wave_speed=0,dQ_norm,b_min,b_max,maxWaveSpeedFV
 real (kind=GRID_SR) :: refinement_threshold = 10.25_GRID_SR/_SWE_DG_ORDER
 real (kind = GRID_SR), dimension (_SWE_PATCH_ORDER_SQUARE) :: H_old, HU_old, HV_old, B_old
 real (kind = GRID_SR), dimension (_SWE_PATCH_ORDER_SQUARE) :: H, HU, HV
@@ -608,7 +608,7 @@ end if
 
 if(isFV(data%troubled)) then
    !-----Call FV patch solver----!    
-   call fv_patch_solver(element, update1, update2, update3, section%r_dt)
+   call fv_patch_solver(element, update1, update2, update3, section%r_dt, maxWaveSpeedFV)
 end if
 !------ Update cell status------!
 call updateCellStatus(data)
@@ -623,14 +623,12 @@ if(.not.isDry(data%troubled)) then
          section%r_dt_new = min(section%r_dt_new, get_next_time_step_size(data%Q(i)%h,data%Q(i)%p(1),data%Q(i)%p(2),dx,cfg%dry_tolerance))
       end do
    else
-      do i=1,_SWE_PATCH_ORDER_SQUARE
-         dt = get_next_time_step_size(data%h(i)-data%b(i),data%hu(i),data%hv(i),dx,cfg%dry_tolerance)
-         if(isCoast(data%troubled)) then
-            !limit by courant condition on coast
-            dt = max( dt , section%r_dt * cfg%courant_number)
-         end if
-         section%r_dt_new = min(section%r_dt_new, dt)
-      end do
+      dt = dx  / (maxWaveSpeedFV * (_SWE_DG_ORDER*2.0_GRID_SR+2.0_GRID_SR))
+      ! if(isCoast(data%troubled)) then
+      !    !limit by courant condition on coast
+      !    dt = max( dt , section%r_dt * cfg%courant_number)
+      ! end if
+      section%r_dt_new = min(section%r_dt_new, dt)
    endif
 else
    section%r_dt_new = min(section%r_dt_new,1000.0_GRID_SR)
@@ -646,24 +644,8 @@ if(.not.isDry(data%troubled)) then
       end if
       data%dt(i)    = dt * cfg%courant_number
    end do
-   
-   do i=1,_SWE_PATCH_ORDER_SQUARE
-      if(data%h(i)-data%b(i) > cfg%dry_tolerance) then
-         dt = get_next_time_step_size(data%h(i)-data%b(i),data%hu(i),data%hv(i),dx,cfg%dry_tolerance)
-         if(isCoast(data%troubled)) then
-            !limit by courant condition on coast
-            dt = max( dt , section%r_dt * cfg%courant_number)
-         end if
-      else
-         dt = section%r_dt / cfg%courant_number
-      end if
-
-      
-      ! if (dt == huge(1.0_GRID_SR) .or. dt == huge(0.0_GRID_SR)) then
-      !    dt = 0.0_GRID_SR
-      ! end if
-      data%dt_fv(i) =  dt * cfg%courant_number
-   end do
+   dt = dx  / (maxWaveSpeedFV * (_SWE_DG_ORDER*2.0_GRID_SR+2.0_GRID_SR))
+   data%dt_fv(:) =  dt * cfg%courant_number
 else
    data%dt(:)    = 0.0_GRID_SR
    data%dt_fv(:) = 0.0_GRID_SR

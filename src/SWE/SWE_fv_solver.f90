@@ -301,6 +301,10 @@ subroutine fv_patch_solver(element, update1, update2, update3, dt, maxWaveSpeed)
           integer :: j,ind
           real(kind=GRID_SR) :: maxWaveSpeedLocal
           real(kind=GRID_SR),DIMENSION(_SWE_PATCH_SOLVER_CHUNK_SIZE) :: normals_x, normals_y
+#if !defined(_OPT_KERNELS)          
+          type(t_state), dimension(_SWE_PATCH_SOLVER_CHUNK_SIZE)      :: edges_a, edges_b
+          type(t_update)                                              :: update_a, update_b
+#endif          
 
           upd_hL = 0.0_GRID_SR
           upd_hR = 0.0_GRID_SR

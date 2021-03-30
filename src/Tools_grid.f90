@@ -381,8 +381,8 @@ module Section_info_list
    quality = sum(grid_info%i_boundary_edges) / real(size_MPI, SR) * (sqrt(2.0_SR) / 3.0_SR + 2.0_SR/3.0_SR)
    !Divide by ideal circumference of a square partition
    quality = quality * 0.25_SR / sqrt(real(grid_info%i_cells, SR) / (2.0_SR * real(size_MPI, SR)))
-   nodes = grid_info%i_nodes + grid_info%i_boundary_nodes(1) + grid_info%i_boundary_nodes(2)
-   edges = grid_info%i_crossed_edges + grid_info%i_color_edges + grid_info%i_boundary_edges(1) + grid_info%i_boundary_edges(2)
+   nodes = grid_info%i_nodes + grid_info%i_boundary_nodes(RED) + grid_info%i_boundary_nodes(GREEN)
+   edges = grid_info%i_crossed_edges + grid_info%i_color_edges + grid_info%i_boundary_edges(RED) +  grid_info%i_boundary_edges(GREEN)
 
    _log_write(0, "(A)")			"cells; edges; nodes"
    _log_write(0, '(I14,";",I14,";",I14)')	grid_info%i_cells, edges, nodes

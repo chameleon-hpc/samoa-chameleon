@@ -294,13 +294,14 @@ if env['asagi']:
   env['LINKFLAGS'] += ' -L'+os.path.abspath(env['asagi_dir']) + '/lib'
   #print ('asagi dir', env['asagi_dir'])
   #env.AppendUnique(LIBPATH = env['asagi_dir'] + '/lib')
+  env['LINKFLAGS'] += ' -L'+os.path.abspath('/usr/lib64')
   
   if env['machine'] == 'mic':
     env.Append(LIBS = ['asagi_mic'])
   if env['mpi'] == 'nompi':
     env.Append(LIBS = ['asagi_nompi'])
   else:
-    env.Append(LIBS = ['asagi', 'numa'])
+    env.Append(LIBS = ['asagi']) #,'numa'])
 
 
 #set compilation flags and preprocessor macros for the Chameleon library

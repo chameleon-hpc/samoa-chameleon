@@ -13,7 +13,7 @@ MODULE SWE_DG_Limiter
   !States for Troubled cells!
   !*************************!
   public DG,TROUBLED,NEIGHBOUR_TROUBLED,NEIGHBOUR_WAS_TROUBLED,COAST,DRY
-  public node_fist_touch, node_merge
+  public node_first_touch, node_merge
 
   enum,bind( C )
      enumerator :: NEIGHBOUR_WAS_TROUBLED = -2 ,&

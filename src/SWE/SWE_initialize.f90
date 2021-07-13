@@ -552,7 +552,7 @@ MODULE SWE_Initialize_Dofs
        end if
     end do
 
-    Q%H = Q%H -get_bathymetry_at_patch(section, element, section%r_time) + Q%B
+    !Q%H = Q%H -get_bathymetry_at_patch(section, element, section%r_time) + Q%B
     
     !estimate initial time step
     where (Q%h - Q%b > 0.0_GRID_SR)

@@ -20,6 +20,9 @@ PROGRAM samoa
 #ifdef CHAMELEON_CALL
     ierr = chameleon_init()
     ierr = chameleon_determine_base_addresses(c_null_ptr)
+    !$omp parallel
+    ierr = chameleon_thread_init()
+    !$omp end parallel
 #endif
 
     !read config from program arguments and print it out

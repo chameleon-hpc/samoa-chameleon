@@ -268,9 +268,8 @@ if env['trace_itac']:
   env['LINKFLAGS'] += ' -I' + os.environ['ITAC_INCLUDE'] + ' -trace'
 
 if env['trace_extrae']:
-  env['F90FLAGS'] += ' -I/work/jk869269/repos/pop/wp7-samoa/scripts/claix -I' + os.environ['EXTRAE_HOME'] + '/include -D_TRACE_EXTRAE'
+  env['F90FLAGS'] += ' -I' + os.environ['EXTRAE_ADD_INCLUDE'] + ' -I' + os.environ['EXTRAE_HOME'] + '/include -D_TRACE_EXTRAE'
   env['LINKFLAGS'] += ' -L' + os.environ['EXTRAE_HOME'] + '/lib -lompitrace -lpapi'
-  # TODO: avoid hardcoding
 
 #set compilation flags and preprocessor macros for the Chameleon library
 if env['chameleon'] == '1':

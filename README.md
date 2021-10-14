@@ -1,109 +1,56 @@
-[![Logo](https://raw.githubusercontent.com/meistero/Samoa/master/logo_small.png)]( https://raw.githubusercontent.com/meistero/Samoa/master/logo.png)
+# Sam(oa)²
 
-sam(oa)² 
-=======
+* TODO: Intro
+* TODO: Link to original Readme File
+* Requirement: Sam(oa)² uses the scons build system
+* As these experiments have been executed on the CLAIX supercomputer at RWTH Aachen University, the scripts might contain cluster specific commands. Currently, the default environment uses an Intel compiler and Intel MPI
 
-Space-Filling Curves and Adaptive Meshes for Oceanic And Other Applications. <br>
-Github repository: [https://github.com/meistero/Samoa](https://github.com/meistero/Samoa)
+This repository contains the source code and scripts to build and run the following 2 versions:
 
-## Contents
+* A **work-sharing** version where in the main time stepping loop every thread in a process has a separate range of sections (work packages) assigned to process. This version might exhibit load imbalances between threads. Although that work distribution is comparable to a static schedule in an OpenMP work-sharing construct, the structure of the program does now easily allow to apply a dynamic schedule without severe code modifications.
+* A **tasking** version that uses an over-decomposition approach with OpenMP tasks for the different work packages and allows a better work distribution between threads as idle threads might steal tasks from OpenMP task queues to mitigate the load imbalance.
 
-1. Prerequisites
-2. Installation
- 1. Local systems
- 2. SuperMUC
- 3. Linux Cluster and MAC Cluster
-3. Compilation
-4. Execution
+## 1. Build
 
-## Prerequisites
+* In order to build the versions execute the following:
 
-The following prerequisites are necessary in order to install and run sam(oa)²:
-* [git](http://git-scm.com/)
-* [scons](http://www.scons.org/)
-* gfortran 4.7 or higher OR Intel Fortran Compiler 13.0 or higher
-* (Optional) [ASAGI](https://github.com/tum-i5/ASAGI) v0.5.0 or higher for external geodata
-* (Optional) Netcdf data files for ASAGI: For porous media flow, download the SPE10 data files from [SPE10](http://www.spe.org/web/csp/datasets/set02.htm#download). A script is included in the data directory that converts them to netcdf files. For the tsunami scenario the netcdf files can be generated from our [Tsunami repository](https://github.com/TUM-I5/tsunami)
+```bash
+# change to the scripts directoy
+cd scripts/claix
 
-## Installation
+# specify the paths to the Sam(oa)² and ASAGI main directory
+export SAMOA_DIR=/path/to/samoa
+export ASAGI_DIR=/path/to/ASAGI
 
-### Local Systems
+# compile the work-sharing version
+COMPILE_WS=1 ./samoa_build_intel.sh
 
-Create a directory (named samoa_dir here) and execute the following steps:
+# compile the tasking version
+COMPILE_TASKING=1 ./samoa_build_intel.sh
+```
 
-    cd <samoa_dir>
-    git clone https://github.com/meistero/samoa .
+## 2. Run
 
-This will download the source files for samoa into samoa_dir. 
+* In order to run the versions execute the following
 
-### SuperMUC
+```bash
+# change to the scripts directoy
+cd scripts/claix
 
-Create a directory on the SuperMUC (named samoa_dir here). SuperMUC restricts access to outside sources and thus does not allow connections to https servers. However, there are
-two methods to clone sam(oa)² from github on the SuperMUC:
-* By accessing the SuperMUC file system as a remote directory. git can then be executed locally:
+# specify the paths to the Sam(oa)² and ASAGI main directory
+export SAMOA_DIR=/path/to/samoa
+export OUTPUT_DIR=/path/to/temp/output
 
-        nohup sshfs <login>@supermuc.lrz.de:<samoa_dir> <local_dir>
-        cd <local_dir>
-        git clone https://github.com/meistero/samoa .
+# run the work-sharing version
+OMP_NUM_THREADS=11 NUM_RANKS=2 RUN_WS=1 ./samoa_run_intel.sh
 
-* By login with remote port forwarding. In this case an alternative URL must be used to clone the git repository:
+# run the tasking version
+OMP_NUM_THREADS=11 NUM_RANKS=2 RUN_TASKING=1 ./samoa_run_intel.sh
 
+# NOTE: it is also possible to execute the runs using a batch system like SLURM
+OMP_NUM_THREADS=11 NUM_RANKS=2 RUN_WS=1 RUN_TASKING=1 \
+  sbatch --export=OUTPUT_DIR,SAMOA_DIR,RUN_WS,RUN_TASKING,OMP_NUM_THREADS,NUM_RANKS \
+  samoa_run_intel.sh
+```
 
-        ssh -X <login>@supermuc.lrz.de -R <port>:github.com:9418
-        cd <samoa_dir>
-        git clone git://localhost:<port>/meistero/Samoa .
-
-This will download the source files for samoa into samoa_dir. 
-Additionally, in order to compile and run ASAGI and sam(oa)² on the SuperMUC, we must add the netcdf library to the CMAKE prefix path and load the following modules:
-
-    module unload gcc
-    module load git scons gcc/4.7 cmake/4.1 netcdf
-    export CMAKE_PREFIX_PATH=$NETCDF_BASE
-
-At this point, you should be able to compile ASAGI and sam(oa)².
-
-### Linux Cluster and MAC Cluster
-
-Create a directory (named samoa_dir here) and execute the following steps:
-
-    cd <samoa_dir>
-    git clone https://github.com/meistero/samoa .
-
-This will download the source files for samoa into samoa_dir.
-The following modules should be loaded before compiling ASAGI and sam(oa)² on the Linux and MAC clusters
-
-    module unload gcc python
-    module load git cmake scons netcdf gcc/4.7
-    module load gnuplot
-
-sam(oa)² supports both multithreaded and single-threaded MPI. Both ASAGI and sam(oa)² must link to the same respective libraries, thus it is necessary to compile ASAGI twice:
-once without MT support and once with MT support. Rename the single-threaded library to "libasagi_nomt.so" and the multi-threaded library to "libasagi.so".
-
-At this point, you should be able to compile ASAGI and sam(oa)².
-
-## Compilation
-
-In order to view all the compilation options sam(oa)² provides, you can execute the following command now:
-
-    scons --help
-
-Typical settings are:
-
-    scons asagi_dir=<asagi_dir> compiler=gnu scenario=darcy -j<threads>
-    scons asagi_dir=<asagi_dir> compiler=intel target=debug scenario=swe -j<threads>
-
-If you wish to simulate simple scenarios that do not require data files you can also disable asagi with the flag
-
-    scons asagi=No ...
-
-Executables will be created in the directory samoa_dir/bin and should be run from samoa_dir.
-
-## Execution
-
-For execution parameters refer to the online help by calling the executable with '-h' or '--help'.
-
-## Build Status
-
-[![Build Status](https://travis-ci.org/meistero/Samoa.svg)](https://travis-ci.org/meistero/Samoa)
-
-
+* Results of the run will be piped to log files

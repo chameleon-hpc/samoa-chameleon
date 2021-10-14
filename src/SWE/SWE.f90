@@ -237,6 +237,7 @@
 			type(t_grid_info)           	                            :: grid_info, grid_info_max
 			integer (kind = GRID_SI)                                    :: i_initial_step, i_time_step
 			integer  (kind = GRID_SI)                                   :: i_stats_phase
+            integer                                                     :: i_error
 
 			!init parameters
 			r_time_next_output = 0.0_GRID_SR

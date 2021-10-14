@@ -199,11 +199,11 @@ subroutine create(traversal)
 #if defined(_TRACE_EXTRAE)
     event_end = 0
     event_traverse_pre = 10
-    event_compute_tasks_pre = 11
-    event_copy_boundary_data = 12
-    event_compute_tasks_inner = 13
-    event_collect_boundary = 14
-    event_traverse_post = 15
+    event_traverse_post = 11
+    event_collect_boundary = 12
+    event_compute_tasks_pre = 13
+    event_copy_boundary_data = 14
+    event_compute_tasks_inner = 15    
 #endif
 
 #    if defined(_GT_NODE_MPI_TYPE)

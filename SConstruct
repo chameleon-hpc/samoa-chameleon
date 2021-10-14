@@ -75,6 +75,9 @@ vars.AddVariables(
   EnumVariable( 'target', 'build target, sets debug flag and optimization level', 'release',
                 allowed_values=('debug', 'profile', 'release')
               ),
+  BoolVariable( 'trace_itac', 'tracing with ITAC', False),
+
+  BoolVariable( 'trace_extrae', 'tracing with Extrae', False),
 
   BoolVariable( 'assertions', 'enable run-time assertions', False),
 
@@ -179,8 +182,8 @@ elif env['mpi'] == 'openmpi':
   env['LINK'] = 'OMPI_FC=' + fc + ' mpif90.openmpi'
   env['F90FLAGS'] += ' -D_MPI'
 elif env['mpi'] == 'intel':
-  env['F90'] = 'I_MPI_F90=' + fc + ' mpif90.intel'
-  env['LINK'] = 'I_MPI_F90=' + fc + ' mpif90.intel'
+  env['F90'] = 'I_MPI_F90=' + fc + ' mpiifort'
+  env['LINK'] = 'I_MPI_F90=' + fc + ' mpiifort'
   env['F90FLAGS'] += ' -D_MPI'
 elif env['mpi'] == 'nompi':
   env['F90'] = fc
@@ -259,6 +262,15 @@ if env['ipm']:
   env['LINKFLAGS'] += ' -Wl,--rpath,' + os.path.abspath(env['ipm_dir']) + '/lib'
   env.AppendUnique(LIBPATH = env['ipm_dir'] + '/lib')
   env.Append(LIBS = ['ipmf','ipm'])
+
+if env['trace_itac']:
+  env['F90FLAGS'] += ' -I' + os.environ['ITAC_INCLUDE'] + ' -trace -D_TRACE_ITAC'
+  env['LINKFLAGS'] += ' -I' + os.environ['ITAC_INCLUDE'] + ' -trace'
+
+if env['trace_extrae']:
+  env['F90FLAGS'] += ' -I/work/jk869269/repos/pop/wp7-samoa/scripts/claix -I' + os.environ['EXTRAE_HOME'] + '/include -D_TRACE_EXTRAE'
+  env['LINKFLAGS'] += ' -L' + os.environ['EXTRAE_HOME'] + '/lib -lompitrace -lpapi'
+  # TODO: avoid hardcoding
 
 #set compilation flags and preprocessor macros for the Chameleon library
 if env['chameleon'] == '1':

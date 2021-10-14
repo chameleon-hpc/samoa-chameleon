@@ -53,6 +53,11 @@
             procedure, pass :: destroy => swe_destroy
         end type
 
+#if defined(_TRACE_ITAC)
+#       include "VT.inc"
+        integer event_adaptive_traversal
+#endif
+
 		contains
 
 		!> Creates all required runtime objects for the scenario
@@ -103,6 +108,10 @@
             call swe%ascii_output%create()
             call swe%euler%create()
             call swe%adaption%create()
+
+#if defined(_TRACE_ITAC)
+	        call VTfuncdef( 'swe_adaptive_traversal', VT_NOCLASS, event_adaptive_traversal, i_error); assert_eq(i_error, 0)
+#endif
 		end subroutine
 
 		subroutine load_scenario(grid)
@@ -444,11 +453,23 @@
                 if (cfg%i_adapt_time_steps > 0 .and. mod(i_time_step, cfg%i_adapt_time_steps) == 0) then
                     !refine grid
 #if defined(_IPM)
-	 	    call mpi_pcontrol( 1,"adaption_traversal"//char(0))	
+	 	            call mpi_pcontrol( 1,"adaption_traversal"//char(0))	
+#endif
+#ifdef _TRACE_ITAC
+                    call vtbegin(event_adaptive_traversal, i_error); assert_eq(i_error, 0)
+#endif
+#ifdef _TRACE_EXTRAE
+                    call extrae_event(1000, 16_8)
 #endif
                     call swe%adaption%traverse(grid)
+#ifdef _TRACE_ITAC
+                    call vtend(event_adaptive_traversal, i_error); assert_eq(i_error, 0)
+#endif
+#ifdef _TRACE_EXTRAE
+                    call extrae_event(1000, 0_8)
+#endif
 #if defined(_IPM)
-	 	    call mpi_pcontrol( -1,"adaption_traversal"//char(0))	
+	 	            call mpi_pcontrol( -1,"adaption_traversal"//char(0))	
 #endif
                 end if
 

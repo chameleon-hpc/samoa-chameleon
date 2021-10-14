@@ -109,6 +109,31 @@ type, extends(t_traversal) :: _GT
     generic, public :: assignment(=) => assign_gt
 end type
 
+#ifdef _TRACE_ITAC
+
+#   define STRINGIFY(x) #x
+#   define TOSTRING(x) STRINGIFY(x)
+
+#   include "VT.inc"
+
+    integer event_traverse_pre 
+    integer event_compute_tasks_pre 
+    integer event_copy_boundary_data
+    integer event_compute_tasks_inner
+    integer event_collect_boundary
+    integer event_traverse_post
+#endif
+
+#ifdef _TRACE_EXTRAE
+    INTEGER*8 event_end
+    INTEGER*8 event_traverse_pre
+    INTEGER*8 event_compute_tasks_pre
+    INTEGER*8 event_copy_boundary_data
+    INTEGER*8 event_compute_tasks_inner
+    INTEGER*8 event_collect_boundary
+    INTEGER*8 event_traverse_post
+#endif
+
 contains
 
 subroutine t_traversal_assign(t1, t2)
@@ -160,6 +185,26 @@ end subroutine
 subroutine create(traversal)
     class(_GT)      :: traversal
 	integer         :: i_error
+
+#if defined(_TRACE_ITAC)
+	call VTfuncdef( TOSTRING(_GT_NAME)//'_traverse_pre', VT_NOCLASS, event_traverse_pre, i_error); assert_eq(i_error, 0)
+	call VTfuncdef( TOSTRING(_GT_NAME)//'_traverse_post', VT_NOCLASS, event_traverse_post, i_error); assert_eq(i_error, 0)
+	call VTfuncdef( TOSTRING(_GT_NAME)//'_traverse_collect', VT_NOCLASS, event_collect_boundary, i_error); assert_eq(i_error, 0)
+
+	call VTfuncdef( TOSTRING(_GT_NAME)//'_traverse_compute_pre', VT_NOCLASS, event_compute_tasks_pre, i_error); assert_eq(i_error, 0)
+    call VTfuncdef( TOSTRING(_GT_NAME)//'_traverse_copy_boundary', VT_NOCLASS, event_copy_boundary_data, i_error); assert_eq(i_error, 0)
+    call VTfuncdef( TOSTRING(_GT_NAME)//'_traverse_compute_inner', VT_NOCLASS, event_compute_tasks_inner, i_error); assert_eq(i_error, 0)
+#endif
+
+#if defined(_TRACE_EXTRAE)
+    event_end = 0
+    event_traverse_pre = 10
+    event_compute_tasks_pre = 11
+    event_copy_boundary_data = 12
+    event_compute_tasks_inner = 13
+    event_collect_boundary = 14
+    event_traverse_post = 15
+#endif
 
 #    if defined(_GT_NODE_MPI_TYPE)
         call create_node_mpi_type(traversal%mpi_node_type)
@@ -276,6 +321,13 @@ subroutine traverse(traversal, grid)
 
 	type(t_statistics)                                  :: thread_stats
 
+#ifdef _TRACE_ITAC
+    call vtbegin(event_traverse_pre, i_error); assert_eq(i_error, 0)
+#endif
+#ifdef _TRACE_EXTRAE
+    call extrae_event(1000, event_traverse_pre)
+#endif
+
 #ifdef _GT_USE_CHAMELEON
        type(t_section_metadata), dimension(:), allocatable,target    :: section_metadata
        type(map_entry), dimension(:,:), allocatable, target :: map_entries
@@ -349,12 +401,26 @@ subroutine traverse(traversal, grid)
         end do
 #   endif
 
+#ifdef _TRACE_ITAC
+    call vtend(event_traverse_pre, i_error); assert_eq(i_error, 0)
+#endif
+#ifdef _TRACE_EXTRAE
+    call extrae_event(1000, event_end)
+#endif
+
     !$omp barrier
 
     do i_section = i_first_local_section, i_last_local_section
 #       if defined(_OPENMP_TASKS)
             !$omp task default(shared) firstprivate(i_section) mergeable
 #       endif
+
+#ifdef _TRACE_ITAC
+        call vtbegin(event_compute_tasks_pre, i_error); assert_eq(i_error, 0)
+#endif
+#ifdef _TRACE_EXTRAE
+        call extrae_event(1000, event_compute_tasks_pre)
+#endif
 
         call traversal%sections(i_section)%stats%start_time(pre_compute_time)
         call pre_traversal_wrapper(traversal%sections(i_section), grid%sections%elements_alloc(i_section))
@@ -374,6 +440,13 @@ subroutine traverse(traversal, grid)
 #       endif
         call traversal%sections(i_section)%stats%stop_time(sync_time)
 
+#ifdef _TRACE_ITAC
+        call vtend(event_compute_tasks_pre, i_error); assert_eq(i_error, 0)
+#endif
+#ifdef _TRACE_EXTRAE
+        call extrae_event(1000, event_end)
+#endif
+
 #       if defined(_OPENMP_TASKS)
             !$omp end task
 #       endif
@@ -383,12 +456,26 @@ subroutine traverse(traversal, grid)
         !$omp taskwait
 #   endif
 
+#ifdef _TRACE_ITAC
+    call vtbegin(event_copy_boundary_data, i_error); assert_eq(i_error, 0)
+#endif
+#ifdef _TRACE_EXTRAE
+    call extrae_event(1000, event_copy_boundary_data)
+#endif
+
     call thread_stats%start_time(sync_time)
     call duplicate_boundary_data(grid, edge_write_wrapper_op, node_write_wrapper_op)
 
     !wait until all boundary data has been copied
     !$omp barrier
     call thread_stats%stop_time(sync_time)
+
+#ifdef _TRACE_ITAC
+    call vtend(event_copy_boundary_data, i_error); assert_eq(i_error, 0)
+#endif
+#ifdef _TRACE_EXTRAE
+    call extrae_event(1000, event_end)
+#endif
 
 #if defined _GT_USE_CHAMELEON
     allocate(section_metadata(i_first_local_section:i_last_local_section))
@@ -513,7 +600,7 @@ subroutine traverse(traversal, grid)
     !call thread_stats%stop_time(inner_compute_time)
 #else
 #   if defined(_OPENMP_TASKS)
-        !$omp taskwait
+    !$omp taskwait
 #   endif
 #endif
     deallocate(map_entries)
@@ -546,6 +633,13 @@ subroutine traverse(traversal, grid)
             !$omp task default(shared) firstprivate(i_section) mergeable
 #       endif
 
+#ifdef _TRACE_ITAC
+        call vtbegin(event_compute_tasks_inner, i_error); assert_eq(i_error, 0)
+#endif
+#ifdef _TRACE_EXTRAE
+        call extrae_event(1000, event_compute_tasks_inner)
+#endif
+
         call traversal%sections(i_section)%stats%start_time(inner_compute_time)
         call traverse_section_wrapper(traversal%threads(i_thread), traversal%sections(i_section), grid%threads%elements(i_thread), grid%sections%elements_alloc(i_section))
         call traversal%sections(i_section)%stats%stop_time(inner_compute_time)
@@ -564,8 +658,15 @@ subroutine traverse(traversal, grid)
 #       endif
         call traversal%sections(i_section)%stats%stop_time(sync_time)
 
+#ifdef _TRACE_ITAC
+        call vtend(event_compute_tasks_inner, i_error); assert_eq(i_error, 0)
+#endif
+#ifdef _TRACE_EXTRAE
+        call extrae_event(1000, event_end)
+#endif
+
 #       if defined(_OPENMP_TASKS)
-            !$omp end task
+        !$omp end task
 #       endif
     end do
     call thread_stats%start_time(sync_time)
@@ -577,6 +678,13 @@ subroutine traverse(traversal, grid)
     !wait until all computation is done
     !$omp barrier
     call thread_stats%stop_time(sync_time)
+#endif
+
+#ifdef _TRACE_ITAC
+    call vtbegin(event_collect_boundary, i_error); assert_eq(i_error, 0)
+#endif
+#ifdef _TRACE_EXTRAE
+    call extrae_event(1000, event_collect_boundary)
 #endif
 
     !sync and call post traversal operator
@@ -600,8 +708,21 @@ subroutine traverse(traversal, grid)
 
     call grid%reverse()
 
+#ifdef _TRACE_ITAC
+    call vtend(event_collect_boundary, i_error); assert_eq(i_error, 0)
+#endif
+#ifdef _TRACE_EXTRAE
+    call extrae_event(1000, event_end)
+#endif
     !$omp barrier
     call thread_stats%stop_time(sync_time)
+
+#ifdef _TRACE_ITAC
+    call vtbegin(event_traverse_post, i_error); assert_eq(i_error, 0)
+#endif
+#ifdef _TRACE_EXTRAE
+    call extrae_event(1000, event_traverse_post)
+#endif
 
     call thread_stats%start_time(barrier_time)
 
@@ -640,6 +761,13 @@ subroutine traverse(traversal, grid)
 
     traversal%threads(i_thread)%stats = traversal%threads(i_thread)%stats + thread_stats
     grid%threads%elements(i_thread)%stats = grid%threads%elements(i_thread)%stats + thread_stats
+
+#ifdef _TRACE_ITAC
+    call vtend(event_traverse_post, i_error); assert_eq(i_error, 0)
+#endif
+#ifdef _TRACE_EXTRAE
+    call extrae_event(1000, event_end)
+#endif
 end subroutine
 
 #if defined(_GT_USE_CHAMELEON)
@@ -680,7 +808,7 @@ subroutine traverse_section_wrapper_chameleon( section_traversal,&
 
     type(t_cell_stream_data), pointer              :: cells_ptr(:)
     type(t_crossed_edge_stream_data), pointer      :: crossed_edges_in_ptr(:)
-    type(t_crossed_edge_stream_data), pointer     :: crossed_edges_out_ptr(:)
+    type(t_crossed_edge_stream_data), pointer      :: crossed_edges_out_ptr(:)
     type(t_color_edge_stream_data), pointer        :: color_edges_in_ptr(:)
     type(t_color_edge_stream_data), pointer        :: color_edges_out_ptr(:)
     type(t_node_stream_data), pointer              :: nodes_in_ptr(:)
@@ -689,6 +817,14 @@ subroutine traverse_section_wrapper_chameleon( section_traversal,&
     type(t_node_data), pointer :: boundary_nodes_red_ptr(:), boundary_nodes_green_ptr(:)    
 
     logical                                        :: forward
+    integer                                        :: i_error
+
+#ifdef _TRACE_ITAC
+    call vtbegin(event_compute_tasks_inner, i_error); assert_eq(i_error, 0)
+#endif
+#ifdef _TRACE_EXTRAE
+    call extrae_event(1000, event_compute_tasks_inner)
+#endif
 
     forward = section_metadata%forward
 
@@ -789,6 +925,13 @@ subroutine traverse_section_wrapper_chameleon( section_traversal,&
    
     section_traversal = section_traversal_local
     global_data = section_local%t_global_data
+
+#ifdef _TRACE_ITAC
+    call vtend(event_compute_tasks_inner, i_error); assert_eq(i_error, 0)
+#endif
+#ifdef _TRACE_EXTRAE
+    call extrae_event(1000, event_end)
+#endif
 
 end subroutine
 #endif

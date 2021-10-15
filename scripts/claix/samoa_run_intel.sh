@@ -16,6 +16,7 @@ export ENABLE_TRACING_EXTRAE=${ENABLE_TRACING_EXTRAE:-0}
 export ENABLE_PROFILING=${ENABLE_PROFILING:-0}
 export RUN_WS=${RUN_WS:-0}
 export RUN_TASKING=${RUN_TASKING:-0}
+export RUN_CHAMELEON=${RUN_CHAMELEON:-0}
 export SWE_SCENARIO=${SWE_SCENARIO:-"oscillating_lake"}
 # export SWE_SCENARIO=${SWE_SCENARIO:-"radial_dam_break"}
 export NUM_RANKS=${NUM_RANKS:-2}
@@ -28,6 +29,7 @@ echo "ENABLE_TRACING_ITAC: ${ENABLE_TRACING_ITAC}"
 echo "ENABLE_TRACING_EXTRAE: ${ENABLE_TRACING_EXTRAE}"
 echo "RUN_WS: ${RUN_WS}"
 echo "RUN_TASKING: ${RUN_TASKING}"
+echo "RUN_CHAMELEON: ${RUN_CHAMELEON}"
 echo "SWE_SCENARIO: ${SWE_SCENARIO}"
 echo "NUM_RANKS: ${NUM_RANKS}"
 echo "OMP_NUM_THREADS: ${OMP_NUM_THREADS}"
@@ -46,6 +48,11 @@ if [ "${ENABLE_TRACING_EXTRAE}" = "1" ]; then
 fi
 if [[ "${ENABLE_PROFILING}" == "1" ]]; then
     module load intelvtune
+fi
+if [[ "${RUN_CHAMELEON}" == "1" ]]; then
+    # Append linux env vars with Chameleon include and lib folder (here: realized using an environment module)
+    source ~/.zshrc
+    module load chameleon
 fi
 
 # create temporary output directory
@@ -81,7 +88,7 @@ export OUTPUT_PARAMS=""
 # final parameters
 export SAMOA_PARAMS="-output_dir ${OUTPUT_DIR} -dmin ${DMIN} -dmax ${DMAX} -sections ${NUM_SECTIONS} ${SIM_LIMIT} ${OUTPUT_PARAMS} ${LB_FREQ}"
 
-# ========== application runs: oscillating lake (worksharing) ==========
+# ========== application runs: oscillating lake (work-sharing) ==========
 if [[ "${RUN_WS}" == "1" ]]; then
     if [[ "${ENABLE_TRACING_ITAC}" == "1" ]]; then
         mkdir -p ${CUR_DIR}/trace_osc_ws
@@ -116,6 +123,26 @@ if [[ "${RUN_TASKING}" == "1" ]]; then
         export CMD_VTUNE_PREFIX="amplxe-cl –collect hotspots –r ${CUR_DIR}/profile_osc_tasking_${OMP_NUM_THREADS}t -trace-mpi -- "
     fi
     ${CUR_MPI_CMD} ${CMD_VTUNE_PREFIX} ${CMD_EXTRAE_PREFIX} ${SAMOA_DIR}/bin/samoa_swe_${SWE_SCENARIO}_intel_noasagi ${SAMOA_PARAMS} &> ${CUR_DIR}/log_samoa_run_osc_tasks.log
+    if [[ "${ENABLE_TRACING_EXTRAE}" == "1" ]]; then
+        mpi2prv -f TRACE.mpits -v -paraver
+    fi
+fi
+
+# ========== application runs: oscillating lake (chameleon) ==========
+if [[ "${RUN_CHAMELEON}" == "1" ]]; then
+    if [[ "${ENABLE_TRACING_ITAC}" == "1" ]]; then
+        mkdir -p ${CUR_DIR}/trace_osc_chameleon
+        export VT_LOGFILE_PREFIX=${CUR_DIR}/trace_osc_chameleon
+    fi
+    if [[ "${ENABLE_TRACING_EXTRAE}" == "1" ]]; then
+        TMP_EXTRAE="${CUR_DIR}/trace_extrae_osc_chameleon"
+        mkdir -p ${TMP_EXTRAE}
+        cd ${TMP_EXTRAE}
+    fi
+    if [[ "${ENABLE_PROFILING}" == "1" ]]; then
+        export CMD_VTUNE_PREFIX="amplxe-cl –collect hotspots –r ${CUR_DIR}/profile_osc_chameleon_${OMP_NUM_THREADS}t -trace-mpi -- "
+    fi
+    ${CUR_MPI_CMD} ${CMD_VTUNE_PREFIX} ${CMD_EXTRAE_PREFIX} ${SAMOA_DIR}/bin/samoa_swe_${SWE_SCENARIO}_intel_noasagi_chameleon ${SAMOA_PARAMS} &> ${CUR_DIR}/log_samoa_run_osc_chameleon.log
     if [[ "${ENABLE_TRACING_EXTRAE}" == "1" ]]; then
         mpi2prv -f TRACE.mpits -v -paraver
     fi

@@ -5,8 +5,8 @@
 #SBATCH --ntasks-per-node=4
 #SBATCH --cpus-per-task=12
 #SBATCH --exclusive
-#SBATCH --job-name=samoa-osc
-#SBATCH --output=samoa-osc.%J.txt
+#SBATCH --job-name=samoa-job
+#SBATCH --output=samoa-job.%J.txt
 
 # parameters that can be set from outside
 export OUTPUT_DIR=${OUTPUT_DIR:-"/path/to/samoa/dir"}
@@ -23,7 +23,7 @@ export RUN_PACKING=${RUN_PACKING:-0}
 export SWE_SCENARIO=${SWE_SCENARIO:-"oscillating_lake"}
 # export SWE_SCENARIO=${SWE_SCENARIO:-"radial_dam_break"}
 export NUM_RANKS=${NUM_RANKS:-2}
-export OMP_NUM_THREADS=${OMP_NUM_THREADS:-11}
+export OMP_NUM_THREADS_VAR=${OMP_NUM_THREADS_VAR:-11}
 
 echo ">>> Running with the following config:"
 echo "OUTPUT_DIR: ${OUTPUT_DIR}"
@@ -39,7 +39,7 @@ echo "RUN_CHAMELEON: ${RUN_CHAMELEON}"
 echo "RUN_PACKING: ${RUN_PACKING}"
 echo "SWE_SCENARIO: ${SWE_SCENARIO}"
 echo "NUM_RANKS: ${NUM_RANKS}"
-echo "OMP_NUM_THREADS: ${OMP_NUM_THREADS}"
+echo "OMP_NUM_THREADS_VAR: ${OMP_NUM_THREADS_VAR}"
 
 ulimit -c unlimited
 
@@ -72,6 +72,7 @@ mkdir -p ${OUTPUT_DIR}
 # ========== execution settings ==========
 export OMP_PLACES=cores
 export OMP_PROC_BIND=close
+export OMP_NUM_THREADS=${OMP_NUM_THREADS_VAR}
 
 # choose depending on batch or local environment
 if [ -z "${SLURM_JOBID}" ]

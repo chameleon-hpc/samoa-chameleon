@@ -60,21 +60,21 @@ export SAMOA_DIR=/path/to/samoa
 export ASAGI_DATA_DIR=/path/to/asagi/dir
 
 # run the work-sharing version
-OMP_NUM_THREADS=11 NUM_RANKS=2 RUN_WS=1 ./samoa_run_intel.sh
+OMP_NUM_THREADS_VAR=11 NUM_RANKS=2 RUN_WS=1 ./samoa_run_intel.sh
 
 # run the tasking version
-OMP_NUM_THREADS=11 NUM_RANKS=2 RUN_TASKING=1 ./samoa_run_intel.sh
+OMP_NUM_THREADS_VAR=11 NUM_RANKS=2 RUN_TASKING=1 ./samoa_run_intel.sh
 
 # run the Chameleon version
 # Append linux env vars with Chameleon include and lib folder (here: realized using an environment module)
 module load chameleon
-OMP_NUM_THREADS=11 NUM_RANKS=2 RUN_CHAMELEON=1 ./samoa_run_intel.sh
+OMP_NUM_THREADS_VAR=11 NUM_RANKS=2 RUN_CHAMELEON=1 ./samoa_run_intel.sh
 
 # run the packing version
-OMP_NUM_THREADS=11 NUM_RANKS=2 RUN_PACKING=1 ./samoa_run_intel.sh
+OMP_NUM_THREADS_VAR=11 NUM_RANKS=2 RUN_PACKING=1 ./samoa_run_intel.sh
 
 # NOTE: it is also possible to execute the runs using a batch system like SLURM
-OMP_NUM_THREADS=11 NUM_RANKS=2 RUN_WS=1 RUN_TASKING=1 RUN_CHAMELEON=1 RUN_PACKING=1 \
+OMP_NUM_THREADS_VAR=11 NUM_RANKS=2 RUN_WS=1 RUN_TASKING=1 RUN_CHAMELEON=1 RUN_PACKING=1 \
   sbatch --export=OUTPUT_DIR,SAMOA_DIR,ASAGI_DATA_DIR,RUN_WS,RUN_TASKING,RUN_CHAMELEON,RUN_PACKING,OMP_NUM_THREADS,NUM_RANKS \
   samoa_run_intel.sh
 ```

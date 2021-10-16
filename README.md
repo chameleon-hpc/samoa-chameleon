@@ -7,7 +7,6 @@ This repository contains the source code and scripts to build and run the follow
 * A **work-sharing** version where in the main time stepping loop every thread in a process has a separate range of sections (work packages) assigned to process. This version might exhibit load imbalances between threads. Although that work distribution is comparable to a static schedule in an OpenMP work-sharing construct, the structure of the program does now easily allow to apply a dynamic schedule without severe code modifications.
 * A **tasking** version that uses an over-decomposition approach with OpenMP tasks for the different work packages and allows a better work distribution between threads as idle threads might steal tasks from OpenMP task queues to mitigate the load imbalance.
 * A **tasking** version that uses **Chameleon** to additionally apply task-based load balancing also between MPI ranks. Note that tasks in Chameleon are similar but not equal to OpenMP tasks.
-* A OpenMP **tasking** version that performs the same transformations that are necessary to run the Chameleon version. This version is denoted as **packing** and used to have a fair comparison between tasking and Chameleon.
 
 ## 0. Requirements
 
@@ -38,12 +37,6 @@ COMPILE_TASKING=1 ./samoa_build_intel.sh
 module load chameleon
 export CHAMELEON_DIR=/path/to/Chameleon/install/dir
 COMPILE_CHAMELEON=1 ./samoa_build_intel.sh
-
-# compile the packing version
-# Append linux env vars with Chameleon include and lib folder (here: realized using an environment module)
-module load chameleon
-export CHAMELEON_DIR=/path/to/Chameleon/install/dir
-COMPILE_PACKING=1 ./samoa_build_intel.sh
 ```
 
 ## 2. Run
@@ -70,12 +63,9 @@ OMP_NUM_THREADS_VAR=11 NUM_RANKS=2 RUN_TASKING=1 ./samoa_run_intel.sh
 module load chameleon
 OMP_NUM_THREADS_VAR=11 NUM_RANKS=2 RUN_CHAMELEON=1 ./samoa_run_intel.sh
 
-# run the packing version
-OMP_NUM_THREADS_VAR=11 NUM_RANKS=2 RUN_PACKING=1 ./samoa_run_intel.sh
-
 # NOTE: it is also possible to execute the runs using a batch system like SLURM
-OMP_NUM_THREADS_VAR=11 NUM_RANKS=2 RUN_WS=1 RUN_TASKING=1 RUN_CHAMELEON=1 RUN_PACKING=1 \
-  sbatch --export=OUTPUT_DIR,SAMOA_DIR,ASAGI_DATA_DIR,RUN_WS,RUN_TASKING,RUN_CHAMELEON,RUN_PACKING,OMP_NUM_THREADS,NUM_RANKS \
+OMP_NUM_THREADS_VAR=11 NUM_RANKS=2 RUN_WS=1 RUN_TASKING=1 RUN_CHAMELEON=1 \
+  sbatch --export=OUTPUT_DIR,SAMOA_DIR,ASAGI_DATA_DIR,RUN_WS,RUN_TASKING,RUN_CHAMELEON,OMP_NUM_THREADS_VAR,NUM_RANKS \
   samoa_run_intel.sh
 ```
 

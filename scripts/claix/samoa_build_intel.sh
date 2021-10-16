@@ -15,7 +15,6 @@ export COMPILE_TASKING=${COMPILE_TASKING:-0}
 export COMPILE_CHAMELEON=${COMPILE_CHAMELEON:-0}
 export COMPILE_PACKING=${COMPILE_PACKING:-0}
 
-
 echo ">>> Building with the following config:"
 echo "CHAMELEON_DIR: ${CHAMELEON_DIR}"
 echo "SAMOA_DIR: ${SAMOA_DIR}"

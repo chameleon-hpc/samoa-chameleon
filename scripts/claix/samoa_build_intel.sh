@@ -13,7 +13,6 @@ export ENABLE_TRACING_EXTRAE=${ENABLE_TRACING_EXTRAE:-0}
 export COMPILE_WS=${COMPILE_WS:-0}
 export COMPILE_TASKING=${COMPILE_TASKING:-0}
 export COMPILE_CHAMELEON=${COMPILE_CHAMELEON:-0}
-export COMPILE_PACKING=${COMPILE_PACKING:-0}
 
 echo ">>> Building with the following config:"
 echo "CHAMELEON_DIR: ${CHAMELEON_DIR}"
@@ -27,7 +26,6 @@ echo "ENABLE_TRACING_EXTRAE: ${ENABLE_TRACING_EXTRAE}"
 echo "COMPILE_WS: ${COMPILE_WS}"
 echo "COMPILE_TASKING: ${COMPILE_TASKING}"
 echo "COMPILE_CHAMELEON: ${COMPILE_CHAMELEON}"
-echo "COMPILE_PACKING: ${COMPILE_PACKING}"
 
 # remember current working directory
 CUR_DIR=$(pwd)
@@ -61,13 +59,6 @@ if [ "${COMPILE_WS}" = "1" ]; then
 fi
 if [ "${COMPILE_TASKING}" = "1" ]; then
     scons target=release openmp=tasks \
-        asagi=${USE_ASAGI} asagi_dir=${ASAGI_DIR} \
-        trace_extrae=${ENABLE_TRACING_EXTRAE} trace_itac=${ENABLE_TRACING_ITAC} \
-        scenario=swe swe_patch_order=${SAMOA_PATCH_ORDER} swe_scenario=${SWE_SCENARIO} \
-        data_refinement=sample flux_solver=aug_riemann assertions=on compiler=intel mpi=intel -j8
-fi
-if [ "${COMPILE_PACKING}" = "1" ]; then
-    scons target=release chameleon=2 chameleon_dir=${CHAMELEON_DIR} \
         asagi=${USE_ASAGI} asagi_dir=${ASAGI_DIR} \
         trace_extrae=${ENABLE_TRACING_EXTRAE} trace_itac=${ENABLE_TRACING_ITAC} \
         scenario=swe swe_patch_order=${SAMOA_PATCH_ORDER} swe_scenario=${SWE_SCENARIO} \

@@ -1,12 +1,10 @@
 #!/usr/local_rwth/bin/zsh
 #SBATCH --time=01:00:00
 #SBATCH --partition=c18m
-#SBATCH --nodes=1
-#SBATCH --ntasks-per-node=4
-#SBATCH --cpus-per-task=12
 #SBATCH --exclusive
 #SBATCH --job-name=samoa-job
-#SBATCH --output=samoa-job.%J.txt
+#SBATCH --output=samoa-job.%J.out
+#SBATCH --error=samoa-job.%J.err
 
 # parameters that can be set from outside
 export OUTPUT_DIR=${OUTPUT_DIR:-"/path/to/samoa/dir"}

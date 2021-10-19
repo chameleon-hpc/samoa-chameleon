@@ -321,22 +321,22 @@ subroutine traverse(traversal, grid)
 
 	type(t_statistics)                                  :: thread_stats
 
+#ifdef _GT_USE_CHAMELEON
+    type(t_section_metadata), dimension(:), allocatable,target    :: section_metadata
+    type(map_entry), dimension(:,:), allocatable, target :: map_entries
+    
+    !procedure(traverse_section_wrapper_chameleon), pointer:: funPointer => traverse_section_wrapper_chameleon
+
+    type(c_ptr) :: anno_ptr, task_c_ptr
+    integer :: result_val
+#endif 
+
 #ifdef _TRACE_ITAC
     call vtbegin(event_traverse_pre, i_error); assert_eq(i_error, 0)
 #endif
 #ifdef _TRACE_EXTRAE
     call extrae_event(1000, event_traverse_pre)
 #endif
-
-#ifdef _GT_USE_CHAMELEON
-       type(t_section_metadata), dimension(:), allocatable,target    :: section_metadata
-       type(map_entry), dimension(:,:), allocatable, target :: map_entries
-       
-       !procedure(traverse_section_wrapper_chameleon), pointer:: funPointer => traverse_section_wrapper_chameleon
-
-       type(c_ptr) :: anno_ptr, task_c_ptr
-       integer :: result_val
-#endif 
 
     if (.not. associated(traversal%sections) .or. size(traversal%sections) .ne. grid%sections%get_size()) then
         !$omp barrier

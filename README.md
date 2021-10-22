@@ -1,6 +1,6 @@
 # Sam(oa)²
 
-Sam(oa)² stands for *Space-Filling Curves and Adaptive Meshes for Oceanic And Other Applications*. Sam(oa)² is a PDF framework that can e.g., simulate wave propagations for tsunamis using adaptive meshes and space filling curves. For further information please refer to the original [README](README_samoa.md).
+Sam(oa)² stands for *Space-Filling Curves and Adaptive Meshes for Oceanic And Other Applications* and has been developed at TU Munich. Sam(oa)² is a PDE framework that can e.g., simulate wave propagations for tsunamis using adaptive meshes and space filling curves. For further information please refer to the original [README](README_samoa.md).
 
 This repository contains the source code and scripts to build and run the following versions:
 

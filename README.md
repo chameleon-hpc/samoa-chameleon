@@ -27,6 +27,9 @@ cd scripts/claix
 export SAMOA_DIR=/path/to/samoa
 export ASAGI_DIR=/path/to/ASAGI
 
+# make sure the script is executable
+chmod u+x ./samoa_build_intel.sh
+
 # compile the work-sharing version
 COMPILE_WS=1 ./samoa_build_intel.sh
 
@@ -53,6 +56,9 @@ export SAMOA_DIR=/path/to/samoa
 export ASAGI_DATA_DIR=/path/to/asagi/dir
 # specify the path to a dummy output folder
 export OUTPUT_DIR=/path/to/temp/output/folder # in this configuration not used but still required by program
+
+# make sure the script is executable
+chmod u+x ./samoa_run_intel.sh
 
 # run the work-sharing version
 OMP_NUM_THREADS_VAR=11 NUM_RANKS=4 RUN_WS=1 ./samoa_run_intel.sh

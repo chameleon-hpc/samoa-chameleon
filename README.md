@@ -1,6 +1,6 @@
 # Sam(oa)²
 
-Sam(oa)² stands for *Space-Filling Curves and Adaptive Meshes for Oceanic And Other Applications* and has been developed at TU Munich. Sam(oa)² is a PDE framework that can e.g., simulate wave propagations for tsunamis using adaptive meshes and space filling curves. For further information please refer to the original [README](README_samoa.md).
+Sam(oa)² stands for *Space-Filling Curves and Adaptive Meshes for Oceanic And Other Applications* and has been developed at TU Munich. Sam(oa)² is a PDE framework that can for example simulate wave propagations for tsunamis using adaptive meshes and space filling curves. For further information please refer to the original [README](README_samoa.md).
 
 This repository contains the source code and scripts to build and run the following versions:
 
@@ -13,7 +13,14 @@ This repository contains the source code and scripts to build and run the follow
 * Sam(oa)² requires the scons build system (see Prerequisites in the original README)
 * In order to build the Chameleon version it is required to build Chameleon (https://github.com/chameleon-hpc/chameleon)
 * As these experiments have been executed on the CLAIX supercomputer at RWTH Aachen University, the scripts might contain cluster specific commands/flags. Please feel free to adapt the scripts to your needs. Currently, the default environment uses an Intel compiler and Intel MPI
-* The simulations have been carried out using a dataset from the Tohoku tsunami in 2011 that can be downloaded here: TODO
+* The simulations have been carried out using a dataset from the Tohoku tsunami in 2011. To download the data execute the following:
+
+```bash
+# download bathymetric data
+wget https://gitlab.pop-coe.eu/kernels/samoa/-/wikis/tohoku_data/bath.nc
+# download displacement data
+wget https://gitlab.pop-coe.eu/kernels/samoa/-/wikis/tohoku_data/displ.nc
+```
 
 ## 1. Build
 
